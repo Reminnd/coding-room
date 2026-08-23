@@ -85,6 +85,14 @@ Fix Task 还必须提供原 Review ID、已确认 finding、已确认解决方�
 - 注释解释必要的原因、约束或非显然行为，不复述代码。
 - 不自行改变需求、非目标、架构、协议或验收标准来迁就实现。
 
+### 5.1 协议与生命周期实现
+
+- application service method 接收 `run_id`、`review_id`、`task_id`、`question_id` 等 entity reference 时，除 `(from_state, to_state, actor)` 外，还必须校验该 entity 的 room、lineage、status、cross-entity membership 及其是否能触发当前 transition。状态表校验不能代替这些 lifecycle invariant。
+- 优先用现有 Room state、entity status、reference 和 Event sequence 判断当前 entity。在 Fix Task 未明确授权 schema 变化时，不新增 `active_*` pointer、同步逻辑或 migration；若现有权威事实确实无法唯一表达正确行为，返回 `needs_decision`，由 Codex 与用户决定架构变化。
+- 当前 Task 新增并对 application service 调用方开放的方法属于当前受支持路径。不能因为完整 orchestration 计划在后续 Increment，就让该路径接受 stale Run、stale Review、不存在于目标 Review 的 finding 或其他已可到达的非法关联；若 Task Contract 明确不实现该行为，就不要新增对应入口或宣称完整流程已经受支持。
+- runtime schema 必须执行权威协议的语义约束。例如协议要求 UTC ISO 8601 timestamp 时，非空 string 校验不等价。不得用实现注记把收窄或放宽后的行为写成符合协议；存在会改变行为的歧义时返回 `needs_decision`。
+- 优先在现有 service/repository boundary 增加最小 status、reference 或 membership guard。不得为这些局部 invariant 引入通用 lifecycle framework、兼容层、Feature Flag、额外 dependency 或面向未来并发的防御结构。
+
 ## 6. 测试与验证
 
 - 在运行检查前明确：它检测什么具体失败，以及失败后会改变什么实现或判断；没有答案就不运行。
@@ -99,6 +107,13 @@ Fix Task 还必须提供原 Review ID、已确认 finding、已确认解决方�
 - 区分本次变更导致的失败与可证明的既有失败；二者都如实报告，只修复任务范围内的问题。
 - 输入和代码未变化时，不重复运行已经证明同一事实的昂贵检查。
 
+### 6.1 回归测试与独立 Oracle
+
+- 修复 Review finding 前，先把已验证的支持路径写成会失败的回归测试，再实现修复。生命周期问题应直接覆盖 stale Run、stale Review、错误 status 和非法 cross-entity reference，而不只增加 happy-path 断言。
+- 测试期望必须来自协议、Task Contract 或测试内独立声明的 literal fixture。不得从被测实现导入 transition table、allowed-value constant 或同源 helper 来生成 Oracle；否则实现和期望可同时出错而测试仍通过。
+- exhaustive matrix 只有在合法集合独立于实现声明时才提供证据。测试名称、Coding Result 的覆盖描述和实际 assertion 必须一致；声称验证的每个反向场景都要真正执行。
+- 全部测试通过只证明已执行断言成立，不证明遗漏的 lifecycle 或 reference invariant 正确。自检时必须把每项 acceptance criterion 映射到具体 assertion，发现缺口就补充聚焦测试，不用增加测试框架或通用验证基础设施。
+
 ## 7. 文档职责
 
 - 随代码同步更新受影响文档，保证文档描述与实际行为一致。
@@ -106,6 +121,7 @@ Fix Task 还必须提供原 Review ID、已确认 finding、已确认解决方�
 - 对 `PROJECT_RULES.md`、架构、技术路线或 ADR 的修改只是候选变更，必须在 Coding Result 中单列并交由 Codex Review。
 - 不得首次创建 `PROJECT_RULES.md`，不得自行接受 ADR，不得把未确认的实现偏差写成既定规则。
 - 规则变化不得静默覆盖历史原则；按共享文档规定追加状态、日期、原因、替代关系和相关 ADR。
+- `DEVELOPMENT_LOG.md` 必须记录实际阶段和验证事实，不把 `CODING`、`REVIEW_REQUIRED` 等互斥状态混写。小型日志更正随对应实现或 Fix 一并提交；实现与协议不一致时记录为 deviation 或 unresolved，不写成“实现注记”来消除差异。
 
 ## 8. Git 与工作区
 
@@ -115,6 +131,9 @@ Fix Task 还必须提供原 Review ID、已确认 finding、已确认解决方�
 - 不回滚、覆盖或重新格式化不属于本任务的用户变更。
 - 不把 Room 的瞬时运行状态加入版本控制，除非 `PROJECT_RULES.md` 明确规定其为版本化协议制品。
 - 交付前检查 staged、unstaged 和 untracked 状态；报告实际 changed files，不依赖记忆推断。
+- Claude Code 不执行角色契约或 Increment 的自动 commit。对 `AGENTS.md`、`CLAUDE.md` 的提交授权只允许 Codex 提交这两份文件，不授权 Claude stage 或提交实现文件。
+- Increment 代码、测试、配置和实现文档在 Coding、Fix 与 Review 期间保持未提交。Claude Code 返回 Coding Result 后停止；只有 Codex 复审通过、用户明确接受 Increment 并另行授权 Codex 后，才由 Codex 提交已 Review 的 task-owned files。
+- 不把文档提交授权、测试通过或 `completed` 状态解释成实现 commit 权限；不预先 stage 文件，不使用 `git add .` 为后续 Codex commit 做准备。
 
 ## 9. Fix Task 规则
 

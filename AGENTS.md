@@ -305,6 +305,17 @@ Review 输出顺序：
 
 Review 后必须进入 `REVIEW_DISCUSSION`；只有用户确认解决方案后才能生成 Fix Task。
 
+### 12.1 从 Finding 到最小解决方案
+
+- 把“finding 是否成立”和“应采用什么修复”作为两个独立判断。可到达的错误只证明某个 invariant 被破坏，不自动证明需要新增 column、pointer、repository abstraction 或架构层。
+- 验证 finding 时优先构造项目支持路径上的最小复现，并明确该检查会否证什么行为、失败后改变哪项 Review 结论。测试全绿仍需检查测试是否遗漏 lifecycle、entity reference 或 cross-entity membership，以及测试 Oracle 是否独立于被测实现。
+- 提出方案前先写清被破坏的 invariant、它的当前所有者和应执行校验的既有边界。解决顺序是：复用现有权威事实；在最窄 application boundary 增加校验；增加直接回归测试；只有前三者不能正确表达已批准行为时才讨论 schema 或架构变化。
+- 对“当前 entity”之类的事实，先判断能否由 Room state、entity status、reference 和按 Room 排序的 Event 唯一且稳定地推导。只有无法可靠推导，或推导成本会实质改变当前行为时，才建议持久化新的 active pointer；不得仅因字段更直观或未来可能并发就增加状态。
+- 方案形成后必须再做一次过度防御审查：每个新增状态、抽象、分支和验证都必须追溯到已证实 finding 或已批准 acceptance criterion。删除为假设性并发、未来消费者、旧格式兼容、迁移框架、Feature Flag、通用 active-entity framework 或上一层 guard 服务的设计。
+- Increment 边界按受支持行为判断，不按文件名或未来计划免责。当前增量若已暴露并声称支持某个 public path，就必须满足该路径当前可到达的 invariant；否则应保持该入口未实现且不得用测试或文档宣称已支持。后续增量仍负责其尚未暴露的 orchestration 和外部 gate。
+- 小型文档事实错误应随对应代码 Fix 同步更正，不单独扩大 Fix Task。实现注记不能改变协议含义；真实协议偏差必须作为 finding 或待决事项处理。
+- 向用户提出解决方案时，应明确推荐的最小方向、它修复的每个 finding、拒绝的过度方案及理由、Fix scope/non-goals 和直接验证方式。若最小正确方案仍改变已批准架构、持久化语义或产品行为，则列出真实取舍并等待用户决定。
+
 ## 13. 测试与验证规范
 
 - 在运行任何检查前，明确它会检测什么具体失败，以及失败后会改变什么决定；无法回答则不运行。
@@ -346,6 +357,23 @@ Review 后必须进入 `REVIEW_DISCUSSION`；只有用户确认解决方案后�
 - Commit 应小而完整，对应一个已 Review 的可验收增量。
 - Commit Message 使用项目约定；项目尚未规定时，Codex只生成简洁、祈使语气、能说明目的的建议消息。
 - 不提交 `.agent-room/` 中的瞬时运行状态，除非 `PROJECT_RULES.md` 明确将某类协议制品列为版本化资产。
+- Git 提交自动化必须由用户针对明确 scope 触发；Review 通过、测试通过、进入 `ACCEPTED` 或一次既往授权都不构成后续 commit 的默认授权。执行前必须确认目标 worktree 位于预期 branch；detached HEAD 时停止，不创建悬空 commit，也不自行切换 branch。
+
+### 16.1 角色契约文档提交
+
+当用户明确授权“仅提交 `AGENTS.md` 和 `CLAUDE.md`”时，Codex 按以下边界自动完成：
+
+- 核对两份文件的完整 Diff、当前 branch 及 staged/unstaged/untracked 状态；发现目标文件外的 staged change 时先隔离或停止，不覆盖用户状态。
+- 只把 `AGENTS.md`、`CLAUDE.md` 作为 commit pathspec；禁止使用 `git add .`、`git add -A` 或其他会吸收 Increment 实现的 broad staging command。
+- 使用用户指定的 message；未指定时推荐 `docs: codify review and coding lessons`。
+- commit 成功后报告 commit hash、实际 committed files 和剩余 worktree 状态。该授权不覆盖业务代码、测试、配置、`DEVELOPMENT_LOG.md`、Fix Task 或其他文档。
+
+### 16.2 Increment 实现提交
+
+- Increment 实现及其 Fix 在 `CODING`、`REVIEW_REQUIRED`、`REVIEW_DISCUSSION` 期间保持未提交，供 Codex 审查同一 baseline 下的完整 Diff。
+- 只有在 Fix 已完成、Codex 复审无阻塞 finding、用户明确接受该 Increment，并再次明确授权提交该 Increment 后，Codex 才执行实现 commit。对角色契约文档的授权不得复用于此步骤。
+- 提交前核对最终 Review、验证证据和 task-owned files；只提交该 Increment 已 Review 的代码、测试、必要配置及实现文档，不夹带角色契约或下一 Increment 的文件。
+- commit 成功后报告 commit hash、实际 committed files、验证摘要和剩余 worktree 状态；未获 push 授权时停止在本地 commit。
 
 ## 17. ADR 规范
 
