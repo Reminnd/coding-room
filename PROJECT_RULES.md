@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：PLAN_READY / Increment 1 Approved
+> 当前阶段：ACCEPTED / Increment 1
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -210,6 +210,9 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
 | [docs/MVP_PLAN.md](./docs/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
 | [docs/INCREMENT_1_TASK_CONTRACT.md](./docs/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
+| [docs/INCREMENT_1_FIX_TASK_1.md](./docs/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
+| [docs/INCREMENT_1_FIX_TASK_2.md](./docs/INCREMENT_1_FIX_TASK_2.md) | Increment 1 Review 2 已确认的最小 Fix Task | Codex | Increment 1 Fix 2 Coding 与再次 Review | Accepted |
+| [docs/INCREMENT_1_FIX_TASK_3.md](./docs/INCREMENT_1_FIX_TASK_3.md) | Increment 1 Review 3 已确认的最小 Fix Task | Codex | Increment 1 Fix 3 Coding 与再次 Review | Accepted |
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -232,4 +235,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认，共享文档基线已建立。用户已批准 [Increment 1 Task Contract](./docs/INCREMENT_1_TASK_CONTRACT.md) 和 Room MCP 建成前的 bootstrap 路径，因此项目协作阶段进入 `PLAN_READY`；目标 Room runtime 尚未实现，其 runtime state 仍不适用。Increment 1 Coding 只能在 Git repository 已初始化、`HEAD` 可解析且 worktree clean 后启动。
+架构已于 2026-08-23 经用户确认，共享文档基线已建立。Increment 1 Implementation、Fix 1、Fix 2 与 Fix 3 已完成；Codex 对 Fix 3 的完整 task-owned Diff 复审无 finding，聚焦 regression、typecheck 与 46 项全量测试全部通过。用户已明确接受 Increment 1 并授权本地提交，因此项目协作阶段进入 `ACCEPTED`；目标 Room runtime 尚未实现，其 runtime state 仍不适用。下一步按 [MVP Plan](./docs/MVP_PLAN.md) 进入 Increment 2 的方案与 Task Contract 确认，不因本次接受自动派发 Coding。
