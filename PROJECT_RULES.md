@@ -202,6 +202,10 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [PROJECT_RULES.md](./PROJECT_RULES.md) | 共享规范入口与当前有效规则 | Codex | 每个非简单项目任务 | Current |
 | [AGENTS.md](./AGENTS.md) | Codex 专属角色与流程契约 | 用户/Codex | Codex 会话入口 | Protected |
 | [CLAUDE.md](./CLAUDE.md) | Claude Code 专属执行契约 | 用户/Codex Review | 每次 Claude Coding | Protected |
+| [docs/agent-guides/README.md](./docs/agent-guides/README.md) | Agent 细分指南路由与权威关系 | Codex | 角色入口路由或指南维护 | Current |
+| [docs/agent-guides/CODEX_REVIEW_AND_PLANNING.md](./docs/agent-guides/CODEX_REVIEW_AND_PLANNING.md) | Codex 架构、规划、Review 与解决方案方法 | Codex | 需求、架构、规划、Task、Review 或 Fix 方案 | Current |
+| [docs/agent-guides/CLAUDE_CODING_AND_FIX.md](./docs/agent-guides/CLAUDE_CODING_AND_FIX.md) | Claude Code Coding、Fix 与回归测试方法 | Codex/Claude 候选 | 每个 Implementation Task 或 Fix Task | Current |
+| [docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md](./docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md) | Git 权限、baseline、并行 worktree 与 integration | Codex/Claude | Git、并行或 integration 任务 | Current |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
 | [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
 | [docs/MVP_PLAN.md](./docs/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
@@ -224,6 +228,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 变更规则时必须记录日期、原因、替代内容和相关 ADR。
 - 旧规则必须明确标记为 `Superseded` 或 `Deprecated`，避免新旧规则同时表现为有效。
 - Claude Code 对共享规则、架构和 ADR 的修改只是候选 Diff，必须由 Codex Review，并在重大变化时由用户确认。
+- 2026-08-24：用户要求把 Fix 2/3 的可复用经验按 Codex 与 Claude Code 职责拆分，并采用入口路由 + 细分指南的渐进式读取结构。`AGENTS.md`/`CLAUDE.md` 保留角色硬边界和强制索引，详细 Review/规划、Coding/Fix、Git/并行方法迁移到 `docs/agent-guides/`；同时清除两份入口中的未解析 merge marker。该变更整理角色执行知识，不改变产品架构或 Room protocol，因此不新增 ADR。
 
 ## 14. 当前阶段
 
