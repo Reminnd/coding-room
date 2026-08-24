@@ -79,9 +79,9 @@
 - 新文档 MUST 放入本目录、登记在本索引和 `PROJECT_RULES.md` Documentation Map，并通过相对链接与 merge marker 检查。
 - Deprecated 文档必须明确替代文档和停止生效日期，不得与 Current/Accepted 文档并列为有效。
 
-## 4. 当前未决行动
+## 4. 当前状态与未决行动
 
 - 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
-- Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；接受状态文档已提交到 clean `main` `320c730497b02ce7ae91e1dadc906fffe2a10a9f`。
+- Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，随后通过 Integration commit 集成。
 - Integration Coding 已在 `codex/inc3-integration`、baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 完成；Review `review-increment-003-integration-codex-001` 的四项 finding 与最小方案已获用户确认。
-- [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 已提交到 `codex/inc3-integration`，项目阶段为 `ACCEPTED`；尚未进入 `main`，本次授权不包含 push、merge 或清理。
+- [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，项目阶段为 `ACCEPTED`；main integration 状态文档同步已获单独提交授权，push 与 branch/worktree 清理仍未授权。

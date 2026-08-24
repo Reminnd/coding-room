@@ -3,7 +3,7 @@
 > 状态：Current  
 > 版本：0.2-design  
 > 批准日期：2026-08-23  
-> 说明：0.2-design 变更（`CODING` 覆盖 process startup 与 MCP init、Runner terminal evidence 持久化、progress Event、`git_evidence_failed`/`artifact_write_failed`）已通过 Codex Review 2、获用户接受并提交到 Integration branch；进入 `main` 后成为 Current implementation。
+> 说明：0.2-design 变更（`CODING` 覆盖 process startup 与 MCP init、Runner terminal evidence 持久化、progress Event、`git_evidence_failed`/`artifact_write_failed`）已通过 Codex Review 2、获用户接受，并由 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 集成到 `main`，现为 Current implementation。
 
 本文档定义 MVP 的协作 entity、state transition、MCP command、Runner result handling 和 failure semantics。除非明确指定字段类型，否则不绑定实现语言。
 

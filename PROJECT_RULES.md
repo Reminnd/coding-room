@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 3 Claude Runner；已提交到 Integration branch，尚未进入 `main`
+> 当前阶段：ACCEPTED / Increment 3 Claude Runner；已 fast-forward 集成到 `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -270,4 +270,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 3 Scope Scaffold 已集成，Increment 3A/3B 已分别接受并形成 commits `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。当前 `main` 为 `e3eb438bc7aeb6734d897cc4a222eb6b5eb8d983`；Integration worktree 位于 branch `codex/inc3-integration`，lineage baseline 为 `63059189e97f7419238f5a3678513d4ca5e50f0d`，包含两个 exact accepted leaf commits。Integration Review 1 的四项 finding 已按 [Integration Fix Task 1](./docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 修复；Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已于 2026-08-24 明确接受并授权提交已 Review scope。Increment 3 Claude Runner、Fix、项目文档与 experience recovery 已形成 Integration branch commit；当前阶段为 `ACCEPTED`。该授权不包含 push、merge 或 branch/worktree 清理，Runner 尚未进入 `main` Current capability。
+架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 3 Scope Scaffold 已集成，Increment 3A/3B 已分别接受并形成 commits `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。Integration worktree 的 lineage baseline 为 `63059189e97f7419238f5a3678513d4ca5e50f0d`，包含两个 exact accepted leaf commits；Integration Review 1 的四项 finding 已按 [Integration Fix Task 1](./docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 修复，Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受。Increment 3 Claude Runner、Fix、项目文档与 experience recovery 已形成 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`，并于 2026-08-24 经用户明确授权以 `git merge --ff-only` 集成到 `main`；Runner 现为 `main` Current TypeScript capability。用户已另行授权提交本次 main integration 状态文档同步；当前未授权 push 或 branch/worktree 清理。

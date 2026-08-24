@@ -11,10 +11,10 @@
 
 | 项目 | 当前事实 |
 |---|---|
-| main baseline | 当前 `main` tree 已包含 accepted Scope Scaffold |
+| Runner integration commit | `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`；已进入 `main` |
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
-| Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受并提交到 Integration branch；尚未进入 `main` |
-| Runtime readiness | Protocol/Room domain、只读 Git Observer 已在 `main`；central Runner 为 Integration branch accepted implementation |
+| Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受；commit 已 fast-forward 集成到 `main` |
+| Runtime readiness | Protocol/Room domain、只读 Git Observer 与 central Runner TypeScript API 已在 `main` |
 | Service readiness | Room server、MCP、Status CLI 均未实现，当前不可启动；Runner 是 TypeScript API，非可启动 service |
 | 可执行验证 | `npm run typecheck`、`npm test` |
 
@@ -35,7 +35,7 @@ tests / future application entry
         │      ├──> RoomRepository ──> caller-provided SQLite DatabaseSync
         │      └──> state-machine
         │
-        ├──> src/runner (Integration branch accepted implementation)
+        ├──> src/runner (Current implementation)
         │      ClaudeRunner ──> RoomService · Git Observer · claude-process · claude-stream
         │
         └──> src/git/Git Observer ──> git-process ──> local Git CLI
@@ -49,7 +49,7 @@ Room MCP · Status CLI · runtime service entry
 | `src/protocol/` | Implemented | runtime schema、entity type、error code |
 | `src/room/` | Implemented | SQLite domain repository、state transition、application service |
 | `src/git/` | Implemented | clean baseline 与 completion Git evidence；只读 Git command |
-| `src/runner/` | Accepted implementation（Integration branch） | `claude-runner.ts` central orchestration 组合 `claude-process.ts` 与 `claude-stream.ts`；不在 `main` |
+| `src/runner/` | Implemented | `claude-runner.ts` central orchestration 组合 `claude-process.ts` 与 `claude-stream.ts`；位于 `main` |
 | `src/mcp/` | Not implemented | Increment 4 后续能力 |
 | `src/cli/` | Not implemented | Increment 4 后续能力 |
 | `.agent-room/artifacts/` | Bootstrap/runtime artifact location | Git ignored；保存 Claude stdout/status 等本地证据 |
@@ -91,9 +91,9 @@ Room MCP · Status CLI · runtime service entry
 
 Git Observer 只执行 `rev-parse`、`diff` 与 `ls-files`；不会 stage、commit、checkout、reset、clean、merge、rebase 或 push。
 
-### 3.4 Accepted Runner API（Integration branch；尚未进入 `main`）
+### 3.4 Runner API
 
-`src/runner/` 交付 central Runner orchestration，当前仅在 Integration branch 为 candidate，未进入 `main`：
+`src/runner/` 已在 `main` 交付 central Runner orchestration：
 
 | Export | 行为 |
 |---|---|
@@ -164,9 +164,9 @@ npm test
 
 所有 protocol error code 见 [ROOM_PROTOCOL.md 第 14 节](./ROOM_PROTOCOL.md#14-错误码)。
 
-## 8. Accepted Candidate Impact
+## 8. Increment 3 Integration 状态
 
-当前 `main` `e3eb438bc7aeb6734d897cc4a222eb6b5eb8d983` 仍没有 Runner runtime/interface。Integration branch `codex/inc3-integration` 以 lineage baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 组合两个 leaf；Review 1 的四项 finding 已由 Fix 1 闭环，Review 2 为 `approved`，用户已接受并提交。merge 到 `main` 并更新 operational baseline 前，不得写成 `main` current capability。
+当前 `main` `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已包含 Runner TypeScript API。Integration branch `codex/inc3-integration` 以 lineage baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 组合两个 leaf；Review 1 的四项 finding 已由 Fix 1 闭环，Review 2 为 `approved`，用户已接受并授权 fast-forward 集成。Room MCP、Status CLI 与 runtime service entry 仍未实现，不能由 Runner library 已进入 `main` 推导其可启动。
 
 ## 9. Review 后维护记录
 
@@ -179,6 +179,6 @@ npm test
 | `review-increment-003a-codex-002` | `approved` / 用户已接受 | typed stdin failure 与 single-settlement regression 已闭环；leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
 | `review-increment-003b-codex-002` | `approved` / 用户已接受 | frozen required Room tool authority 与 direct regression 已闭环；leaf commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
 | `review-increment-003-integration-codex-001` | `changes_requested` / finding 与 solution 已确认 | stale Task 可进入 Coding、required-tool failure 丢失 session、central failure evidence 不完整、协议/架构 startup-init 语义冲突 | Fix Coding 已完成并验证；保持 Runner candidate，等待二次 Review 与用户接受 |
-| `review-increment-003-integration-codex-002` | `approved` / 用户已接受 | 四项 finding 均闭环；无新增 runtime command，Runner 仍仅为 Integration branch TypeScript API | 已提交到 Integration branch；等待独立 main integration 授权 |
+| `review-increment-003-integration-codex-002` | `approved` / 用户已接受 | 四项 finding 均闭环；无新增 runtime command，Runner 为 TypeScript API | commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main` |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

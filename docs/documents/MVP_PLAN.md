@@ -4,7 +4,7 @@
 > 架构批准日期：2026-08-23  
 > Increment 3 Scope Scaffold：Accepted / source commit `eb3637b` / integrated into current `main` tree  
 > Increment 3 Integration：Review 1 `changes_requested`  
-> Increment 3 Integration Fix 1：Review 2 `approved` / 用户已接受 / Integration branch 已提交
+> Increment 3 Integration Fix 1：Review 2 `approved` / 用户已接受 / `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
 
 ## 1. 目标
 
@@ -210,4 +210,4 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成并集成；Increment 3A/3B 已完成 Coding、Review、Fix、用户接受与独立提交，commits 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c` 和 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。[Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 已获用户确认，具体化 central Runner、`CODING` startup/init lifecycle、terminal evidence、Git/artifact failure 与 fake-process matrix。
 
-Integration Coding 已完成，但 Review `review-increment-003-integration-codex-001` 对 current Task guard、failure partial session evidence、central public-path matrix 与 lifecycle 文档一致性提出四项 finding，Decision 为 `changes_requested`。用户已确认最小方案，[Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 为 Accepted。Fix Coding 已按四项 confirmed finding 完成并验证（current Task authority 复用最新 `task_submitted` Event、`required_tool_missing` 保留 observed session、central `runClaude` 直接覆盖全部 transport/stream failure path、协议/架构统一为 `CODING → RUN_FAILED` startup/init 语义）。Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受并授权提交已 Review scope，Increment 3 已形成 Integration branch commit、阶段为 `ACCEPTED`。Fix 不新增 state/schema/dependency，也不扩展 Increment 4/5 boundary；Runner 进入 `main` 前仍不提升为 Current implementation。
+Integration Coding 已完成，但 Review `review-increment-003-integration-codex-001` 对 current Task guard、failure partial session evidence、central public-path matrix 与 lifecycle 文档一致性提出四项 finding，Decision 为 `changes_requested`。用户已确认最小方案，[Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 为 Accepted。Fix Coding 已按四项 confirmed finding 完成并验证（current Task authority 复用最新 `task_submitted` Event、`required_tool_missing` 保留 observed session、central `runClaude` 直接覆盖全部 transport/stream failure path、协议/架构统一为 `CODING → RUN_FAILED` startup/init 语义）。Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，阶段为 `ACCEPTED`，Runner 现为 Current TypeScript capability。Fix 不新增 state/schema/dependency，也不扩展 Increment 4/5 boundary；下一产品增量为 Increment 4 Room MCP，尚未形成或批准 Task Contract。

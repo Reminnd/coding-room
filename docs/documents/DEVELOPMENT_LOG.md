@@ -3,15 +3,22 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：ACCEPTED / Increment 3 Claude Runner；已提交到 Integration branch，尚未进入 `main`
+- 项目阶段：ACCEPTED / Increment 3 Claude Runner；已集成到 `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
 - Implementation Task：`increment-003-claude-runner-integration` 为 Accepted；Review 1 `changes_requested`
 - Fix Task：`increment-003-claude-runner-integration-fix-001` 为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`；Fix Coding、Codex Review 2 与用户接受均已完成
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；Integration branch accepted implementation）
-- Git repository：Integration worktree 在 branch `codex/inc3-integration`，lineage baseline 为 `63059189e97f7419238f5a3678513d4ca5e50f0d`；两个 accepted leaf、Integration/Fix、项目文档与 experience recovery 已形成 Integration branch commit。当前未进入 `main`，未获 push、merge 或清理授权
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）
+- Git repository：clean integration commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已由 `e3eb438bc7aeb6734d897cc4a222eb6b5eb8d983` fast-forward 集成到 `main`；用户已另行授权将本次 operational-state 文档同步作为 docs-only successor commit 提交。未获 push 或 branch/worktree 清理授权
 
 ## 已完成
+
+### 2026-08-24 — Increment 3 fast-forward 集成到 main
+
+- 用户明确授权执行 `git merge --ff-only e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`，且明确排除 push、branch/worktree 清理与后续文档 commit。
+- 合并前核对当前 branch 为 clean `main`、`HEAD=e3eb438bc7aeb6734d897cc4a222eb6b5eb8d983`、目标 commit 存在，且当前 `HEAD` 是目标 commit 的 ancestor；随后 fast-forward 成功，`main` 前进到 `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`。
+- 该操作未生成 merge commit，未改写历史，未 push，也未清理任何 branch/worktree。Runner 代码、测试、Fix Contract、Review 后项目文档与 experience recovery 现已进入 `main`。
+- Documentation impact audit：`documentation: updated`。合并 commit 中保留的“尚未进入 main”状态已失效；用户随后明确授权将本次 main integration 状态同步作为单独 docs-only commit 提交。文档不预写其自身 commit hash，exact current `HEAD` 以 Git 为准。
 
 ### 2026-08-24 — Increment 3 用户接受与经验回收
 
@@ -412,8 +419,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无 unresolved finding。Increment 3 已获用户接受并提交到 Integration branch；当前未获 push、merge 或 branch/worktree 清理授权。
+无 unresolved finding。Increment 3 已获用户接受并集成到 `main`；main integration 状态文档同步已获单独提交授权。未获 push 或 branch/worktree 清理授权。
 
 ## 下一步
 
-下一步由用户决定是否把 accepted Integration commit 集成到 `main`；merge、push 与 branch/worktree 清理必须分别明确授权。当前停止，不执行任何额外 Git 写操作。
+下一产品规划入口为 Increment 4 Room MCP；尚未形成或批准 Task Contract。push 与 branch/worktree 清理仍须分别明确授权。
