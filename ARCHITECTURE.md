@@ -272,9 +272,31 @@ runtime/
 - Claude Channels；
 - 基于 Codex App Server 的 custom client；
 - VS Code Extension；
-- 多个并行 Claude worker；
+- Room runtime 内的多个并行 Claude worker；
 - Room 管理多个 worktree；
 - remote Room access；
 - 第三方 Agent adapter。
 
 每项延后能力都需要新的用户确认计划；如果改变长期边界，还需要新的 ADR。
+
+## 14. 开发期并行协作边界
+
+开发本项目时可以由 Codex 在 Room 产品之外协调多个 Claude Code process，但这只是 repository development workflow，不是当前 Room runtime 的模块或状态：
+
+```text
+串行建立最小骨架与稳定接口
+→ Codex 生成无交叉写入的独立 Implementation Task Contract
+→ Claude A / branch A / worktree A
+  Claude B / branch B / worktree B
+→ 每个模块 Task 独立 Review、接受和提交
+→ Integration Task 在独立 worktree 组装 accepted commits
+→ 跨模块验证与 Integration Review
+```
+
+架构约束：
+
+- 每个 worker 的代码状态仍由其 Git worktree 唯一拥有；不同 worker 不共享可变目录，也不建立文件锁或 Room 内代码镜像。
+- 并行只适用于接口已经确定、文件所有权可分离、能够独立测试且 dependency DAG 中互不等待的 leaf module。
+- 公共 protocol、SQLite schema、package metadata、lockfile、central entry point 和跨模块 wiring 是 integration boundary；默认串行修改，不分配给多个 worker。
+- Codex 拥有 task decomposition、接口冻结、Review 和 integration plan；Claude Code 只拥有其模块 Task 的 Coding；用户保留 branch/worktree、提交、集成和最终接受权限。branch、worktree 和 baseline 作为 Git dispatch metadata 记录，不扩展当前 Room Task schema。
+- 首轮试点不实现 scheduler、自动 merge、冲突解决、generic Agent adapter 或 Room parallel-run state。是否将这些能力产品化仍按第 13 节重新评估。

@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 1
+> 当前阶段：PLAN_READY / Increment 2
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -178,6 +178,16 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 未经用户明确授权，Codex、Claude Code 和 Runner 都不得执行上述操作。
 - `.agent-room/` 默认是未版本化运行目录；只有本文件将某类制品明确列为版本化资产时才可提交。
 
+### 9.1 开发期多 Claude Code 并行试点
+
+- 本节只规范本项目的开发执行方式，不表示 Agent Room MVP 已支持一个 Room 多个并行 Run，也不授权 Room 管理 branch 或 worktree。
+- Increment 1 与 Increment 2 保持串行；Increment 2 被 Review、接受并提交后，才可选择两个接口已稳定的独立 leaf module 进行首轮并行试点。
+- 并行前由 Codex 完成最小项目骨架、公共协议、模块接口和 dependency direction，并由用户确认任务拆分及创建 branch/worktree 所需的 Git 权限。不得以并行为由先建通用 Agent framework 或空 placeholder。
+- 每个 Claude Code 使用从同一已确认 `baseline_head` 创建的独立 branch 和独立 worktree，只执行自己的标准 Implementation Task Contract；禁止两个 Agent 修改同一 worktree。
+- 模块 Task 必须能独立验证，并通过现有 Contract 字段明确依赖、接口、逻辑 scope 和禁止触及的共享边界。branch、worktree 与 baseline 属于 Git dispatch metadata，不增加 Room protocol field。公共 Schema、central configuration、package lockfile、公共入口和未稳定接口先串行完成，或留给后续 Integration Task。
+- 每个模块 Task 分别经过 Coding Result、Codex Review、用户接受和独立提交。所有 module commit 被接受后，再由独立 Integration Task 组装并运行跨模块验证；merge、cherry-pick、commit 和 branch/worktree 操作仍分别需要用户明确授权。
+- 并行试点失败时保留各 worktree 和证据，回到串行 integration；不得通过共享目录抢写、自动冲突覆盖或放宽测试维持并行。
+
 ## 10. 测试与验证
 
 - 每次检查必须对应具体可检测失败及会改变的决定。
@@ -189,11 +199,12 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 ## 11. 开发原则
 
 - 以一个可独立验收的端到端增量为开发单位。
-- 实现最小正确闭环，不增加未请求的抽象、兼容层、Feature Flag 或并行路径。
+- 产品代码实现最小正确闭环，不增加未请求的抽象、兼容层、Feature Flag 或 runtime 并行路径；开发执行并行仅适用第 9.1 节。
 - 优先复用现有依赖；新增依赖前必须核查标准库、当前依赖和官方能力。
 - 不顺手重构、格式化或清理无关代码。
 - 重大架构、协议、持久化或状态所有权变化必须由用户确认并更新 ADR。
-- 项目文档默认使用简体中文；代码、标识符、命令、Schema 字段和技术专名保持 English。
+- 代码必须包含解释模块职责、关键 invariant、非显然分支、取舍和失败语义所需的注释；注释默认使用简体中文，不逐行复述代码。
+- 项目文档与代码注释默认使用简体中文；代码、标识符、命令、Schema 字段和技术专名保持 English。
 
 ## 12. 文档地图
 
@@ -213,6 +224,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/INCREMENT_1_FIX_TASK_1.md](./docs/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
 | [docs/INCREMENT_1_FIX_TASK_2.md](./docs/INCREMENT_1_FIX_TASK_2.md) | Increment 1 Review 2 已确认的最小 Fix Task | Codex | Increment 1 Fix 2 Coding 与再次 Review | Accepted |
 | [docs/INCREMENT_1_FIX_TASK_3.md](./docs/INCREMENT_1_FIX_TASK_3.md) | Increment 1 Review 3 已确认的最小 Fix Task | Codex | Increment 1 Fix 3 Coding 与再次 Review | Accepted |
+| [docs/INCREMENT_2_TASK_CONTRACT.md](./docs/INCREMENT_2_TASK_CONTRACT.md) | Increment 2 已批准 Implementation Task Contract | Codex | Increment 2 Coding、Review 与 Fix 规划 | Accepted |
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -231,8 +243,10 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 变更规则时必须记录日期、原因、替代内容和相关 ADR。
 - 旧规则必须明确标记为 `Superseded` 或 `Deprecated`，避免新旧规则同时表现为有效。
 - Claude Code 对共享规则、架构和 ADR 的修改只是候选 Diff，必须由 Codex Review，并在重大变化时由用户确认。
+- 2026-08-23：用户确认在 Increment 2 被接受后，以两个独立 leaf module 试点“独立 branch/worktree + 独立 Implementation Task + 串行 integration”的开发期并行方式。该规则不替代 MVP 的单 Room/单 Run 产品边界，因此本次不新增 ADR；若未来把并行 worker 或 worktree management 纳入产品 runtime，必须另行 Architecture Review、用户确认和 ADR。
+- 2026-08-23：用户明确代码必须包含必要注释，代码注释默认使用简体中文，代码、标识符、命令、Schema 字段和技术专名保持 English；该规则只澄清编码与 Review 标准，不改变架构，因此不新增 ADR。
 - 2026-08-24：用户要求把 Fix 2/3 的可复用经验按 Codex 与 Claude Code 职责拆分，并采用入口路由 + 细分指南的渐进式读取结构。`AGENTS.md`/`CLAUDE.md` 保留角色硬边界和强制索引，详细 Review/规划、Coding/Fix、Git/并行方法迁移到 `docs/agent-guides/`；同时清除两份入口中的未解析 merge marker。该变更整理角色执行知识，不改变产品架构或 Room protocol，因此不新增 ADR。
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认，共享文档基线已建立。Increment 1 Implementation、Fix 1、Fix 2 与 Fix 3 已完成；Codex 对 Fix 3 的完整 task-owned Diff 复审无 finding，聚焦 regression、typecheck 与 46 项全量测试全部通过。用户已明确接受 Increment 1 并授权本地提交，因此项目协作阶段进入 `ACCEPTED`；目标 Room runtime 尚未实现，其 runtime state 仍不适用。下一步按 [MVP Plan](./docs/MVP_PLAN.md) 进入 Increment 2 的方案与 Task Contract 确认，不因本次接受自动派发 Coding。
+架构已于 2026-08-23 经用户确认，共享文档基线已建立。Increment 1 Implementation、Fix 1、Fix 2 与 Fix 3 已完成、通过 Review、获用户接受并提交。用户已于 2026-08-24 批准 [Increment 2 Task Contract](./docs/INCREMENT_2_TASK_CONTRACT.md)，项目协作阶段进入 `PLAN_READY / Increment 2`；目标 Room runtime 尚未实现，其 runtime state 仍不适用。派发前必须先把已批准 Contract 与现有协作文档形成独立 clean documentation baseline，并记录实际 `baseline_head`；未获 commit 授权前不提交，未满足 clean-worktree gate 前不派发 Coding。

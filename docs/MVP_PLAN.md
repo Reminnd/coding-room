@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 架构批准日期：2026-08-23  
-> Increment 1 Task Contract：Approved / 未派发
+> Increment 2 Task Contract：Approved / 未派发
 
 ## 1. 目标
 
@@ -32,6 +32,16 @@
 - Remote 或 multi-user deployment。
 - 通用 Agent adapter framework。
 - 自动 commit 或 push。
+
+### 3.1 开发执行策略
+
+MVP 的产品增量仍按依赖顺序串行接受；开发期并行只是交付手段，不改变一个 Room 只有一个 active Run 的验收边界。
+
+- Increment 1 与 Increment 2 串行完成、Review、接受并提交，以先稳定 protocol/state core 和 Git baseline/evidence。
+- Increment 2 被接受后，Codex 可以选择两个互不依赖的 leaf module 作为首轮并行试点。试点前先串行确定公共 interface、fixture、错误语义和最小 integration seam。
+- 可并行模块必须具有独立输入输出、独立验证和不交叉的写入范围；需要共同修改 protocol、schema、package metadata、lockfile 或 central wiring 的工作不并行。
+- 每个并行模块使用标准独立 Implementation Task Contract、branch 和 worktree，分别 Review 和接受。branch/worktree 信息作为 Git dispatch metadata，不扩展 Room protocol；最终由独立 Integration Task 组合 accepted commits 并执行跨模块测试。
+- 本策略不要求 MVP 实现 parallel scheduler、Room-managed worktree 或 automatic merge，不把开发期协调状态写入 Room runtime schema。
 
 ## 4. 增量顺序
 
@@ -196,4 +206,4 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 ## 6. 当前下一步
 
-Increment 1 — Protocol and State Core 的 Task Contract 已获用户批准。建立 clean Git documentation baseline 后，按已批准 bootstrap 路径派发 Claude Code；完成后进入 Codex Review，不自动提交实现代码。
+Increment 1 — Protocol and State Core 已完成、通过 Review、获用户接受并提交。Increment 2 — Git Preconditions and Evidence 的 Task Contract 已于 2026-08-24 获用户批准；建立包含该 Accepted Contract 的 clean Git documentation baseline、记录实际 `baseline_head` 后，按已批准 bootstrap 路径派发 Claude Code。完成后进入 Codex Review，不自动提交实现代码。

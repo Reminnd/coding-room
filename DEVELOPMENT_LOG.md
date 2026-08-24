@@ -3,14 +3,21 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：ACCEPTED / Increment 1
+- 项目阶段：PLAN_READY / Increment 2
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-001-protocol-state-core` 已实现；Fix 1、Fix 2 与 Fix 3 已完成
+- Implementation Task：`increment-002-git-preconditions-evidence` 已获用户批准，尚未派发
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）
 - Git repository：用户已接受 Increment 1 并授权本地提交；未授权 push
 
 ## 已完成
+
+### 2026-08-24 — Increment 2 Task Contract 批准
+
+- 用户明确批准 [Increment 2 Task Contract](./docs/INCREMENT_2_TASK_CONTRACT.md)，阶段进入 `PLAN_READY / Increment 2`。
+- 已确认最小方案：独立 `src/git` Git Observer 使用 Node.js `child_process.execFile` 直接调用 Git CLI 只读命令；以完整 `HEAD` commit object ID 作为 baseline，并以 NUL-delimited output 收集 root-relative staged、unstaged、untracked path evidence。
+- 本增量不接入 Runner、MCP 或 Room state，不修改 SQLite/schema/protocol error set，不增加 dependency，不生成 patch、hash、mirror 或 Git mutation path。
+- 派发前仍需把 Accepted Contract 与现有协作文档形成 clean documentation baseline，并重新记录实际 `baseline_head`；当前批准不包含 commit、push 或 Claude Coding 派发授权。
 
 ### 2026-08-24 — Increment 1 Fix 3 Review 与接受
 
@@ -163,8 +170,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品或架构阻塞。Increment 1 已通过 Codex Review 并获用户接受。
+无产品或架构阻塞。Increment 2 已获用户批准；当前仅受 clean documentation baseline 与 Git commit 权限门禁约束。
 
 ## 下一步
 
-按 [MVP_PLAN.md](./docs/MVP_PLAN.md) 进入 Increment 2（Git Preconditions 与 Evidence）的方案与 Task Contract 确认；未获用户确认前不派发 Coding，未获 push 授权前不推送本地提交。
+经用户授权后提交已批准的 Increment 2 Contract 与现有协作文档，形成 clean documentation baseline；随后重新记录 `baseline_head`，按 bootstrap 路径派发 `increment-002-git-preconditions-evidence`。未获 commit 授权前不提交，未获 push 授权前不推送。
