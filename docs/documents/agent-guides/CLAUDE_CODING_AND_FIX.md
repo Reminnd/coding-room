@@ -159,3 +159,15 @@ Node.js 异步 `execFile` 的 callback 为 `(error, stdout, stderr)`；stderr �
 ### 10.2 Frozen capability 使用单一 module-owned definition
 
 Contract 冻结 exact capability name 时，定义一个 module-owned `as const` value，并让 input literal type、runtime lookup 与 success evidence 都引用它。caller 传入字段可以保留接口 shape，但不能成为第二 authority。negative regression 应绕过 compile-time literal constraint 注入普通 built-in 或其它替代值，证明 runtime 仍按 frozen value 校验并拒绝缺失 capability；不要增加 registry、alias 或 compatibility layer。
+
+## 11. Integration Failure Evidence 与 Central Regression
+
+### 11.1 在最窄可靠性边界保存 partial evidence
+
+同一 event 同时携带 lifecycle identity 与 capability evidence 时，按依赖顺序处理：先校验 identity 是否 non-empty、是否匹配 expected value；通过后立即保存最小 observed evidence；再执行 required capability 等下游校验。下游校验失败时继续返回原 failure reason，并携带已可靠 evidence；identity 本身 missing、empty 或 mismatch 时保持 evidence 为 `null`。不得用 partial evidence 构造 partial success，也不得因为 operation 失败而清空已经可靠成立的事实。
+
+### 11.2 Central mapping 必须通过 central public path 验证
+
+leaf test 只负责 process/stream outcome；orchestrator test 负责 outcome 到 protocol error、terminal evidence 与 Room transition 的组合语义。Contract 点名的 asynchronous child error、stdin failure、signal、init、session、terminal 与 CodingResult failure 必须直接调用 central public operation，并断言：测试侧 literal error code、`Room=RUN_FAILED`、`Run=failed`、恰好一次 `run_failed`、零次 `run_completed`，以及场景要求的 session/exit/Git/artifact evidence。
+
+可以参数化 fake process 与 stream lines 来减少重复 setup，但不得从 product classifier、failure-reason set 或 transition table生成期望；否则 implementation 与 Oracle 会同源。

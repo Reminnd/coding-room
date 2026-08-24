@@ -16,6 +16,8 @@ export const protocolErrorCodeSchema = z.enum([
   'room_mcp_unavailable',
   'claude_exit_failed',
   'coding_result_invalid',
+  'git_evidence_failed',
+  'artifact_write_failed',
 ]);
 export type ProtocolErrorCode = z.infer<typeof protocolErrorCodeSchema>;
 

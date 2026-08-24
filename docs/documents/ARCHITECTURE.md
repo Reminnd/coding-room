@@ -88,6 +88,8 @@ Repository layer 负责 entity 创建和状态转换的 atomic transaction，不
 
 Runner 不决定需求、架构或 Review finding。
 
+> Accepted implementation（Increment 3 Integration branch；尚未进入 `main`）：central Runner 由 `claude-runner.ts` 组合两个 accepted leaf —— `claude-process.ts`（process transport）与 `claude-stream.ts`（stream interpreter）—— 并调用 `RoomService`/Git Observer/artifact。terminal transition 通过 `RoomService.completeRun`/`failRun` 的 `RunTerminalEvidence` 在同一 SQLite transaction 内持久化 `claude_session_id`、`process_exit_code`、`git_evidence` 与 `artifact_refs`；非终态 stdout line 经 `appendRunProgress` 追加 `run_progress` Event 而不改变状态。failure mapping 由 Runner 单一 settle：`claude_start_failed` > `claude_exit_failed` > `room_mcp_unavailable` > `coding_result_invalid` > `git_evidence_failed` > `artifact_write_failed`。`CODING` 从 `startRun`/`resumeRun` atomic claim 开始，覆盖 process startup 与 MCP initialization。
+
 ### 3.5 Git Observer
 
 使用 Git CLI 进行只读仓库检查：
@@ -238,7 +240,7 @@ Database 只保存 artifact reference。Git Diff 保持为实时 Git 状态，�
 | 目标不是 Git repository | 以 `git_repository_missing` 拒绝 Implementation Task |
 | 初始 worktree 非 clean | 以 `worktree_not_clean` 拒绝新 Implementation Task |
 | Claude CLI 无法启动 | 记录 failed Run；进入 `RUN_FAILED` |
-| Room MCP 未在 Claude 中加载 | 不开始 Coding；记录 Runner failure |
+| Room MCP 未在 Claude 中加载 | 进入 CODING 后校验 MCP init 失败；记录 failed Run 并以 `RUN_FAILED` 结束 |
 | Claude 请求决策 | 保存 Question；进入 `NEEDS_DECISION` |
 | Claude 非零退出 | 保留 worktree 与 log；进入 `RUN_FAILED` |
 | final result 缺失或无效 | 保留证据；进入 `RUN_FAILED` |

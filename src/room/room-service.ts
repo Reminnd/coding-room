@@ -19,6 +19,17 @@ import {
 import { RoomRepository, type RoomRecord } from './repository.ts';
 import { resolveTransition } from './state-machine.ts';
 
+// Runner 在 terminal transition 时必须随 result/failure 一并持久化的完成证据：session、
+// process exit、Git evidence 与 artifact refs 都在同一 RoomService transaction 内提交，
+// 避免 succeeded/failed Run 缺少已观察到的 process/Git/artifact evidence。git_evidence 的
+// shape 与 Run.git_evidence 一致，但不 import schema.ts 的未导出 zod schema。
+export interface RunTerminalEvidence {
+  claude_session_id: string | null;
+  process_exit_code: number | null;
+  git_evidence: { staged: string[]; unstaged: string[]; untracked: string[] };
+  artifact_refs: string[];
+}
+
 // application service 是唯一拥有 rooms.state 修改权限的模块。每个公开方法都在单个
 // SQLite transaction 内完成 entity write、state change 与 Event append，失败即回滚。
 export class RoomService {
@@ -110,6 +121,7 @@ export class RoomService {
       if (!inserted.created) {
         return { room: this.requireRoom(run.room_id), run: this.requireRun(run.run_id), created: false };
       }
+      this.assertCurrentTask(run);
       this.applyTransition(run.room_id, 'CODING', 'runner');
       this.repo.appendEvent({
         room_id: run.room_id,
@@ -132,6 +144,7 @@ export class RoomService {
       if (!inserted.created) {
         return { room: this.requireRoom(run.room_id), run: this.requireRun(run.run_id), created: false };
       }
+      this.assertCurrentTask(run);
       this.applyTransition(run.room_id, 'CODING', 'runner');
       this.repo.appendEvent({
         room_id: run.room_id,
@@ -146,7 +159,11 @@ export class RoomService {
     });
   }
 
-  completeRun(runId: string, resultInput: unknown): { room: RoomRecord; run: Run } {
+  completeRun(
+    runId: string,
+    resultInput: unknown,
+    evidence: RunTerminalEvidence,
+  ): { room: RoomRecord; run: Run } {
     return this.tx(() => {
       const run = this.requireRun(runId);
       this.assertRunRunning(run);
@@ -163,7 +180,18 @@ export class RoomService {
           `coding result task_id ${result.task_id} does not match run task ${run.task_id}`,
         );
       }
-      const updated: Run = { ...run, status: 'succeeded', result, completed_at: this.now() };
+      // terminal evidence 与 succeeded status 在同一 transaction 提交，保证 succeeded Run
+      // 始终携带已观察的 session/exit/Git/artifact evidence。
+      const updated: Run = {
+        ...run,
+        status: 'succeeded',
+        result,
+        claude_session_id: evidence.claude_session_id,
+        process_exit_code: evidence.process_exit_code,
+        git_evidence: evidence.git_evidence,
+        artifact_refs: evidence.artifact_refs,
+        completed_at: this.now(),
+      };
       this.repo.updateRun(updated);
       this.applyTransition(run.room_id, 'REVIEW_REQUIRED', 'runner');
       this.repo.appendEvent({
@@ -179,11 +207,26 @@ export class RoomService {
     });
   }
 
-  failRun(runId: string, failure: { code: string; message: string }): { room: RoomRecord; run: Run } {
+  failRun(
+    runId: string,
+    failure: { code: string; message: string },
+    evidence: RunTerminalEvidence,
+  ): { room: RoomRecord; run: Run } {
     return this.tx(() => {
       const run = this.requireRun(runId);
       this.assertRunRunning(run);
-      const updated: Run = { ...run, status: 'failed', failure, completed_at: this.now() };
+      // 即使 Run 失败也持久化已成功观察到的 evidence，避免 failed Run 丢失已观察的
+      // process/Git/artifact 事实；evidence 与 failure 在同一 transaction 提交。
+      const updated: Run = {
+        ...run,
+        status: 'failed',
+        failure,
+        claude_session_id: evidence.claude_session_id,
+        process_exit_code: evidence.process_exit_code,
+        git_evidence: evidence.git_evidence,
+        artifact_refs: evidence.artifact_refs,
+        completed_at: this.now(),
+      };
       this.repo.updateRun(updated);
       this.applyTransition(run.room_id, 'RUN_FAILED', 'runner');
       this.repo.appendEvent({
@@ -196,6 +239,29 @@ export class RoomService {
         created_at: this.now(),
       });
       return { room: this.requireRoom(run.room_id), run: updated };
+    });
+  }
+
+  // Runner 实时把非终态 progress evidence 追加为 entity_type=run 的非终态 Event。progress
+  // 不是状态权威来源：不改变 Room/Run state，也不产生 transition。只接受 current running
+  // Run，stale/non-running Run 以 validation_failed 拒绝且不新增 Event。
+  appendRunProgress(
+    runId: string,
+    progress: { type: string | null; subtype: string | null; outcome: string | null },
+  ): void {
+    this.tx(() => {
+      const run = this.requireRun(runId);
+      this.assertRunRunning(run);
+      const label = [progress.type, progress.subtype].filter((p): p is string => p !== null).join(':') || 'unknown';
+      this.repo.appendEvent({
+        room_id: run.room_id,
+        type: 'run_progress',
+        actor: 'runner',
+        entity_type: 'run',
+        entity_id: runId,
+        summary: `run ${runId} progress ${label}`,
+        created_at: this.now(),
+      });
     });
   }
 
@@ -456,6 +522,18 @@ export class RoomService {
     }
   }
 
+  // current Task authority 复用每个 Room sequence 最大的 task_submitted Event；该 Event 与
+  // submitTask transition 在同一 transaction 内，sequence 提供稳定顺序。guard 只在 newly
+  // inserted Run 上执行，避免破坏同 ID/同 content 的 retry 与同 ID/异 content 的 conflict。
+  private assertCurrentTask(run: Run): void {
+    if (run.task_id !== this.currentTaskId(run.room_id)) {
+      throw new ProtocolError(
+        'validation_failed',
+        `run ${run.run_id} references task ${run.task_id} which is not the current task`,
+      );
+    }
+  }
+
   private normalizeRunForCoding(run: Run): Run {
     if (run.status !== 'starting' && run.status !== 'running') {
       throw new ProtocolError('validation_failed', `run ${run.run_id} status ${run.status} cannot enter CODING`);
@@ -471,6 +549,10 @@ export class RoomService {
 
   private currentReviewId(roomId: string): string | null {
     return this.repo.latestEventEntityId(roomId, 'review_submitted');
+  }
+
+  private currentTaskId(roomId: string): string | null {
+    return this.repo.latestEventEntityId(roomId, 'task_submitted');
   }
 
   private currentRunId(roomId: string): string | null {

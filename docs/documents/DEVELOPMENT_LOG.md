@@ -3,14 +3,62 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：PLAN_READY / Increment 3 Integration Task；Contract 已接受，由用户在完成 Git gate 后人工派发
+- 项目阶段：ACCEPTED / Increment 3 Claude Runner；已提交到 Integration branch，尚未进入 `main`
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：Increment 3A/3B 已接受并分别形成 leaf commit；`increment-003-claude-runner-integration` 为 Accepted、`confirmed_by_user=true`
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：clean `main` 为 `320c730497b02ce7ae91e1dadc906fffe2a10a9f`；leaf branch refs 分别指向 3A `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 3B `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，两者均非 main ancestor；当前未创建 Integration worktree，未授权组合、push 或清理
+- Implementation Task：`increment-003-claude-runner-integration` 为 Accepted；Review 1 `changes_requested`
+- Fix Task：`increment-003-claude-runner-integration-fix-001` 为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`；Fix Coding、Codex Review 2 与用户接受均已完成
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；Integration branch accepted implementation）
+- Git repository：Integration worktree 在 branch `codex/inc3-integration`，lineage baseline 为 `63059189e97f7419238f5a3678513d4ca5e50f0d`；两个 accepted leaf、Integration/Fix、项目文档与 experience recovery 已形成 Integration branch commit。当前未进入 `main`，未获 push、merge 或清理授权
 
 ## 已完成
+
+### 2026-08-24 — Increment 3 用户接受与经验回收
+
+- 用户明确接受 `review-increment-003-integration-codex-002` 与 Increment 3 Claude Runner，项目阶段进入 `ACCEPTED`；没有 unresolved finding。
+- 接受先完成产品/Review 门禁；用户随后另行授权提交当前已 Review 的 Integration/Fix 代码、测试和项目文档。提交已在 `codex/inc3-integration` 完成，授权不包含 push、merge、branch/worktree 清理或历史改写，当前尚未进入 `main`。
+- Experience recovery 使用原四项 finding、Accepted Fix Task、实际完整 Diff、direct regression 与 Review 2 证据。已有 current entity 与 guard/idempotency 规则已覆盖，不重复扩写；新增两项可复用规则：failure classification 与可靠 partial lifecycle evidence 分开判断，以及 central orchestrator 必须直接证明 leaf outcome 到 protocol mapping、durable evidence 与唯一 terminal transition。
+- Codex 经验写入 [Codex Review 与规划指南](./agent-guides/CODEX_REVIEW_AND_PLANNING.md) 第 12 节；Claude 实现与 regression 经验写入 [Claude Coding 与 Fix 指南](./agent-guides/CLAUDE_CODING_AND_FIX.md) 第 11 节。该回收不新增 Room state、Event、protocol field、runtime hook 或 ADR。
+
+### 2026-08-24 — Increment 3 Integration Fix 1 Review 2
+
+- Codex 以 `63059189e97f7419238f5a3678513d4ca5e50f0d` 为 lineage baseline，确认其同时包含 exact leaf commits `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，并审查完整 staged、unstaged、untracked task-owned Diff；当前 0 staged，Runner 仍为未提交 candidate。
+- 四项 confirmed finding 均闭环：new Run 的 current Task guard 位于 Run retry/conflict 判定之后并保持 rollback；`required_tool_missing` 保留通过 expected-session 约束的 observed session；central `runClaude` failure matrix 直接断言唯一 mapping 与 single terminal transition；`ROOM_PROTOCOL.md`/`ARCHITECTURE.md` 统一为进入 `CODING` 后执行 startup/init、失败经 `CODING → RUN_FAILED`。
+- 独立验证：`npm run typecheck` 通过；聚焦测试 96/96 通过；Scope 1/1 通过；`npm test` 139/139 通过。未运行真实 Claude smoke。
+- Review ID：`review-increment-003-integration-codex-002`；Findings：无；Decision：`approved`。阶段进入 `REVIEW_DISCUSSION`，等待用户明确接受；Review 通过不自动授权 commit、push 或清理。
+- Documentation impact audit：`documentation: updated`。修正 `PROJECT_RULES.md`、文档中心、Architecture/Protocol candidate 标记、MVP/Development/Operations 状态与并行计划中的历史 lifecycle 描述；未把 candidate 提升为 main Current capability。
+
+### 2026-08-24 — Increment 3 Integration Fix 1 Coding 完成（candidate）
+
+按 [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 修复 `review-increment-003-integration-codex-001` 的四项 confirmed finding：
+
+- `inc3-integration-r1-current-task-guard`：`RoomService.startRun/resumeRun` 在同一 transaction 内复用该 Room 最新 `task_submitted` Event（`latestEventEntityId(roomId, 'task_submitted')`）作为 current Task authority；guard 位于 insertRun 幂等/conflict 判断之后，只对 newly inserted Run 执行，stale Task 以 `validation_failed` 回滚且不产生 partial write。
+- `inc3-integration-r1-partial-session-evidence`：`ClaudeStreamInterpreter.acceptInit` 在 non-empty session 通过 expectedSessionId 约束后、required tool 校验前保存 `observedSessionId`；`required_tool_missing` failure 携带该 sessionId，`failRun` 原子持久化到 `Run.claude_session_id`；空 session 仍先失败为 `init_error` 且不伪造 session。
+- `inc3-integration-r1-central-failure-matrix`：`tests/claude-runner.test.ts` 经 central `runClaude` 直接覆盖 asynchronous child error、stdin EPIPE 后 late close(0)、signal exit、四类 init failure（missing/invalid/duplicate/required_tool_missing）、malformed JSON、terminal session mismatch、missing/duplicate/error terminal、invalid/mismatched/non-completed CodingResult；每个 case 断言唯一 failure mapping、恰好一次 `run_failed`、零次 `run_completed`。
+- `inc3-integration-r1-lifecycle-documentation`：`ROOM_PROTOCOL.md` transition table 与 `ARCHITECTURE.md` failure table 修正为 `CODING` 先于 process startup/MCP init，startup/init failure 经既有 `CODING → RUN_FAILED` 结束。
+
+changed files：`src/room/room-service.ts`、`src/runner/claude-stream.ts`、`tests/room-service.test.ts`、`tests/claude-stream.test.ts`、`tests/claude-runner.test.ts`、`docs/documents/ROOM_PROTOCOL.md`、`docs/documents/ARCHITECTURE.md`、`docs/documents/DEVELOPMENT_LOG.md`、`docs/documents/MVP_PLAN.md`、`docs/documents/OPERATIONS.md`。未修改 accepted leaf（`claude-process.ts`/`claude-process.test.ts`/`claude-process-fake.ts`）、Git Observer、repository schema、state-machine transition table、package metadata、lockfile、tsconfig 或 dependency。未 commit、未 stage、未运行真实 Claude smoke。
+
+### 2026-08-24 — Increment 3 Integration Review 1、方案确认与 Fix Task
+
+- Codex 读取 baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 以来完整 staged/unstaged/untracked task-owned Diff，核对 Accepted Contract、Coding Result、源码、测试、候选文档与 Git 状态；Diff 为 13 个 modified、2 个 untracked、0 staged，全部位于 Integration scope。
+- Review `review-increment-003-integration-codex-001` 确认四项 finding：`inc3-integration-r1-current-task-guard`（`FIX_PLAN_READY` 可启动旧 Task）、`inc3-integration-r1-partial-session-evidence`（`required_tool_missing` 丢失已观察 session）、`inc3-integration-r1-central-failure-matrix`（central public-path evidence 不完整）、`inc3-integration-r1-lifecycle-documentation`（协议/架构仍保留相反的 MCP-init 前置语义）。Decision：`changes_requested`。
+- 定向复现证明：当前 Room 在 `FIX_PLAN_READY` 可创建 `task_id=task-1` 的旧 Run 并进入 `CODING`；含合法 `session_id=sess-observed` 但缺少 Room tool 的 init 返回 `required_tool_missing` 且 `sessionId=null`。
+- Codex 独立验证 `npm run typecheck` 与 `npm test`（118/118）全部通过；现有 assertions 正确，但不能否定未覆盖 public path。文档检查 221 个 relative links 全部有效，无 merge marker 或越界 Markdown。
+- 用户明确确认四项 finding 与最小方案。已创建 [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md)，阶段进入 `FIX_PLAN_READY`；确认不自动授权 Coding 派发、真实 Claude smoke 或 Git 写操作。
+- Documentation impact audit：`documentation: updated`。同步 Accepted Fix Task、Review、当前阶段、文档中心、计划与运维状态；冲突的 `ROOM_PROTOCOL`/`ARCHITECTURE` candidate 语义由 Fix Coding 按 confirmed solution 修正，Runner 未提升为 main Current capability。
+
+### 2026-08-24 — Increment 3 Integration Coding 完成（candidate）
+
+按 [Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 在 `codex/inc3-integration` worktree（baseline_head `63059189e97f7419238f5a3678513d4ca5e50f0d`）交付 central Runner orchestration：
+
+- `src/runner/claude-runner.ts`（新增）：单一 central operation `runClaude`，组合两个 accepted leaf（`claude-process.ts` + `claude-stream.ts`）与 `RoomService`/Git Observer/artifact。读取 persisted `confirmed_by_user=true` TaskContract、`establishCleanBaseline` 前置 gate、HEAD 与 expected baseline 一致校验、start/resume mode 校验（start 要求 `resumeSessionId=null`，resume 要求 non-empty exact id、绝不 `--continue`）、完整 Contract 经 stdin 送达、消费 stream、追加 progress Event、写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`、收集 completion Git evidence，并以 `RunTerminalEvidence` 单一 settle 为 `completeRun`（`REVIEW_REQUIRED`）或 `failRun`（`RUN_FAILED`）。
+- `src/protocol/errors.ts`：新增 `git_evidence_failed` 与 `artifact_write_failed`。
+- `src/runner/claude-stream.ts`：`acceptLine` 对非终态 line 返回 `ClaudeProgressEvidence`；failure outcome 携带 nullable `sessionId` 与累积 `progress`。不改变 init/tool/terminal/CodingResult authority。
+- `src/room/room-service.ts`：新增 `RunTerminalEvidence` 接口与 `appendRunProgress`（`run_progress` 非终态 Event，不改变状态）；`completeRun`/`failRun` 在同一 transaction 持久化 terminal evidence（`claude_session_id`、`process_exit_code`、`git_evidence`、`artifact_refs`）。
+- failure mapping 优先级（单一 terminal settlement）：`claude_start_failed` > `claude_exit_failed` > `room_mcp_unavailable` > `coding_result_invalid` > `git_evidence_failed` > `artifact_write_failed`。
+- 测试：`tests/claude-runner.test.ts`（新增，fake-process + temp-repo fixture 覆盖 start/resume、process/stream/Git/artifact evidence、全部六类 failure mapping 与单一 terminal transition）；`tests/claude-stream.test.ts`、`tests/room-service.test.ts` 新增 progress/evidence regression；`tests/scope.test.ts` 允许 `claude-runner.ts`。
+- 未 commit、未 stage、未运行真实 Claude/付费 smoke；Git evidence 在 artifact 写入前收集，Runner 自写 artifact 不污染 evidence。
 
 ### 2026-08-24 — Increment 3 Integration Task Contract 批准
 
@@ -277,6 +325,20 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 验证
 
+### 2026-08-24 — Increment 3 Integration
+
+- `npm run typecheck`（`tsc --noEmit`）：无错误。
+- `node --test "tests/claude-runner.test.ts" "tests/room-service.test.ts" "tests/claude-stream.test.ts"`：聚焦 76 个测试全部通过，覆盖 start/resume lifecycle、process/stream/Git/artifact evidence、六类 failure mapping、单一 terminal transition 与 Room atomic evidence 持久化。
+- `node --test "tests/scope.test.ts"`：1 项通过，确认 central runner exact file allowance 与 MCP/CLI/额外 module 禁止边界。
+- `npm test`（`node --test`）：118 个测试全部通过，无回归。
+
+### 2026-08-24 — Increment 3 Integration Fix 1
+
+- `npm run typecheck`（`tsc --noEmit`）：无错误。
+- `node --test "tests/room-service.test.ts" "tests/claude-stream.test.ts" "tests/claude-runner.test.ts"`：聚焦 96 个测试全部通过，新增 stale current Task guard（start/resume/rollback/retry）、required-tool partial session evidence 与 central failure matrix（async error/EPIPE/signal/init/malformed/session/terminal/CodingResult）regression。
+- `node --test "tests/scope.test.ts"`：1 项通过，central runner exact file allowance 边界不变。
+- `npm test`（`node --test`）：139 个测试全部通过，无回归。
+
 ### 2026-08-23 — Increment 1
 
 - `npm ci`：从 package-lock.json 重建 dependency tree，5 packages、0 vulnerabilities。
@@ -350,8 +412,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无既有 Review finding 阻塞。Contract 已确认；当前门禁是完成 documentation baseline、Integration branch/worktree、exact leaf commit 组合、clean-worktree 检查与实际 `baseline_head` 记录。
+无 unresolved finding。Increment 3 已获用户接受并提交到 Integration branch；当前未获 push、merge 或 branch/worktree 清理授权。
 
 ## 下一步
 
-用户完成人工 Git gate后，在 Integration worktree 中使用 [Accepted Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 全文派发 Claude Coding；不得用摘要替代 Contract。Codex 当前未获 Git 写操作或 Coding 派发授权。
+下一步由用户决定是否把 accepted Integration commit 集成到 `main`；merge、push 与 branch/worktree 清理必须分别明确授权。当前停止，不执行任何额外 Git 写操作。

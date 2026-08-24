@@ -73,6 +73,10 @@ MVP 不采用。用户明确要求 Codex App 作为交互界面，不需要另�
 - Claude Channels 进入稳定状态，并解决已确认 workflow need；
 - 经测量，process-per-Run startup cost 对受支持工作流造成实质影响。
 
+## 2026-08-24 澄清（Accepted implementation，不重写原决策）
+
+用户于 2026-08-24 确认，`CODING` 覆盖 Runner atomic claim 之后的 process startup 与 MCP initialization：`startRun`/`resumeRun` 先创建 running Run 并进入 `CODING`，随后 Runner 才启动 Claude process 并校验 MCP init；startup/init failure 继续通过既有 `CODING → RUN_FAILED` 结束，不新增 Room state 或 transition。本澄清只具体化原「Runner 拥有 startup、output parsing、exit classification、Git evidence 与 terminal state transition」决策，不改变 Codex pull、process-per-Run、Task-lineage session 或 Runner-owned terminal state 的 accepted 边界。
+
 ## 相关文档
 
 - [PROJECT_RULES.md](../../../PROJECT_RULES.md)

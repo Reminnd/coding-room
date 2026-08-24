@@ -40,6 +40,12 @@ export interface ClaudeStreamFailure {
   ok: false;
   reason: ClaudeStreamFailureReason;
   message: string;
+  // 失败时携带已可靠观察到的 sessionId（non-empty 且通过 expectedSessionId 约束即视为
+  // 可靠，不要求 init 完整通过）与截至失败前已累积的 progress evidence，供 Runner 在
+  // terminal evidence 中持久化，而不是丢失已观察事实。sessionId 在未观察到可靠值时
+  // 为 null。
+  sessionId: string | null;
+  progress: ClaudeProgressEvidence[];
 }
 
 // 非终态 progress evidence 的最小 metadata，供 Integration 追加 Event/artifact；不保存
@@ -90,6 +96,7 @@ export class ClaudeStreamInterpreter {
   private outcome: ClaudeStreamOutcome | null = null;
   private init: InitEvidence | null = null;
   private terminal: TerminalEvidence | null = null;
+  private observedSessionId: string | null = null;
   private readonly progress: ClaudeProgressEvidence[] = [];
 
   constructor(input: ClaudeStreamInterpreterInput) {
@@ -99,20 +106,24 @@ export class ClaudeStreamInterpreter {
 
   // 逐行消费 stdout。空 line 忽略；任一非空 malformed JSON line 立即失败，不静默跳过。
   // 一旦产出 outcome（失败或已 finish），后续 line 不再改变结果。
-  acceptLine(line: string): void {
-    if (this.outcome !== null) return;
-    if (line === '') return;
+  //
+  // 返回值是 integration seam：非终态 progress line 返回该条 ClaudeProgressEvidence，供
+  // Runner 实时追加 run progress Event；init、result、空 line、malformed line 与已终态后
+  // 都返回 null。init/result 不是 progress，因此不会被误记为 progress evidence。
+  acceptLine(line: string): ClaudeProgressEvidence | null {
+    if (this.outcome !== null) return null;
+    if (line === '') return null;
 
     let event: unknown;
     try {
       event = JSON.parse(line);
     } catch {
       this.fail('malformed_json_line', 'non-empty stdout line is not valid JSON');
-      return;
+      return null;
     }
     if (typeof event !== 'object' || event === null || Array.isArray(event)) {
       this.fail('malformed_json_line', 'stdout line must be a JSON object event');
-      return;
+      return null;
     }
 
     const record = event as Record<string, unknown>;
@@ -121,17 +132,21 @@ export class ClaudeStreamInterpreter {
 
     if (type === 'system' && subtype === 'init') {
       this.acceptInit(record);
-    } else if (type === 'result') {
-      this.acceptTerminal(record);
-    } else {
-      // assistant message、StructuredOutput tool_use/tool_result、hook、thinking_tokens
-      // 与未知 progress event 都只是非终态 progress evidence。
-      this.progress.push({
-        type: typeof type === 'string' ? type : null,
-        subtype: typeof subtype === 'string' ? subtype : null,
-        outcome: typeof record.outcome === 'string' ? record.outcome : null,
-      });
+      return null;
     }
+    if (type === 'result') {
+      this.acceptTerminal(record);
+      return null;
+    }
+    // assistant message、StructuredOutput tool_use/tool_result、hook、thinking_tokens
+    // 与未知 progress event 都只是非终态 progress evidence。
+    const progress: ClaudeProgressEvidence = {
+      type: typeof type === 'string' ? type : null,
+      subtype: typeof subtype === 'string' ? subtype : null,
+      outcome: typeof record.outcome === 'string' ? record.outcome : null,
+    };
+    this.progress.push(progress);
+    return progress;
   }
 
   // 结束流，返回唯一 outcome。缺失检查与跨 event 的 session 一致性、structured_output
@@ -192,15 +207,19 @@ export class ClaudeStreamInterpreter {
       this.fail('init_error', 'init event has no non-empty session_id');
       return;
     }
+    if (this.expectedSessionId !== null && sessionId !== this.expectedSessionId) {
+      this.fail('session_mismatch', 'init session_id does not match expectedSessionId');
+      return;
+    }
+    // non-empty session_id 已通过 expected-session 约束，视为可靠观察到的最小 session
+    // evidence；即使随后 required Room tool 缺失导致 init 失败，也保留该 session 供
+    // Runner 在 terminal evidence 中持久化，而不是丢失已观察事实。
+    this.observedSessionId = sessionId;
     // required tool presence 只看 init.tools 是否包含 frozen REQUIRED_ROOM_TOOL_NAME，
     // 不依据 mcp_servers 非空。
     const toolsRaw = record.tools;
     if (!Array.isArray(toolsRaw) || !toolsRaw.includes(REQUIRED_ROOM_TOOL_NAME)) {
       this.fail('required_tool_missing', `init tools do not include required tool ${REQUIRED_ROOM_TOOL_NAME}`);
-      return;
-    }
-    if (this.expectedSessionId !== null && sessionId !== this.expectedSessionId) {
-      this.fail('session_mismatch', 'init session_id does not match expectedSessionId');
       return;
     }
     this.init = {
@@ -242,7 +261,15 @@ export class ClaudeStreamInterpreter {
   }
 
   private fail(reason: ClaudeStreamFailureReason, message: string): ClaudeStreamFailure {
-    const failure: ClaudeStreamFailure = { ok: false, reason, message };
+    const failure: ClaudeStreamFailure = {
+      ok: false,
+      reason,
+      message,
+      // init 完整建立前也优先回退到 observedSessionId（non-empty 且通过 expected-session
+      // 约束），使 required_tool_missing 等 init 内失败不丢失已观察 session。
+      sessionId: this.init?.sessionId ?? this.observedSessionId,
+      progress: [...this.progress],
+    };
     this.outcome = failure;
     return failure;
   }

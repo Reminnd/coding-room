@@ -243,3 +243,21 @@ Increment 2 中 `execFile` 的 stderr 来自 callback 第三个参数，但类�
 ### 11.2 冻结 capability 不能由普通 caller value 重新定义
 
 Contract 已冻结 exact tool、actor、schema discriminator 或其它 authority 时，Review 应沿 TypeScript input、runtime lookup 与 success evidence 三处检查其来源。三者必须由同一 module-owned frozen definition 驱动；普通 caller value 只能满足已冻结 literal，不能改变实际校验对象。negative regression 应注入一个看似可用但无权替代的值（例如 built-in tool），直接证明系统仍拒绝缺失的 frozen capability。
+
+## 12. Increment 3 Integration Fix 经验：Partial Evidence 与 Central Mapping
+
+### 12.1 Failure classification 与可靠 evidence 分开判断
+
+下游 capability、schema 或 terminal 校验失败，不自动否定此前已经可靠观察到的 lifecycle evidence。Review 必须为每个 evidence field 找到最窄可靠性边界：例如 session ID 只有在 non-empty 且通过 expected-session 约束后才可保存；随后 required capability 缺失仍保持 failure，但不能把该 session 丢为 `null`。反之，missing、empty 或 identity mismatch 的值不得为了“保留 evidence”而持久化。
+
+检查顺序应回答两个独立问题：本次 operation 是否成功；失败前有哪些事实已经可靠成立。二者必须同时反映在 terminal failure 与 durable evidence 中，不能用 partial evidence 把 failure 变成 success，也不能用 failure 抹掉可靠事实。
+
+### 12.2 Leaf tests 不能替代 central orchestrator mapping
+
+process transport 与 stream interpreter 的聚焦测试只证明各 leaf 产生的原始 outcome。central Runner 还拥有 failure precedence、protocol error mapping、Room/Run terminal state、evidence persistence 与 single settlement，因此每个 Contract 点名的 transport/stream failure class 都必须直接经过 central public operation。
+
+Central regression 至少同时断言测试侧 literal error code、`Room=RUN_FAILED`、`Run=failed`、恰好一次 `run_failed`、零次 `run_completed`，并按场景核对 session/exit/Git/artifact evidence。参数化 fixture 可以复用 setup，但 mapping Oracle 不得从 classifier、transition table 或 leaf implementation 导入。
+
+### 12.3 Lifecycle 文档必须反映真实执行顺序
+
+Review Runner lifecycle 时，transition table、Architecture failure table 与代码顺序必须描述同一链路。例如 atomic claim 先进入 `CODING`，随后执行 process startup/MCP init，失败再走 `CODING → RUN_FAILED`；不能在一处把 MCP init 写成进入 `CODING` 的前置条件，另一处又让 init failure 从 `CODING` 结束。若现有已批准 state/transition 能表达真实顺序，优先修正文档和实现次序，不为文字冲突新增中间 state。

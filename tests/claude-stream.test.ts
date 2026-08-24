@@ -162,6 +162,20 @@ test('init tools missing the required room tool fails with required_tool_missing
   expectFailure(outcome, 'required_tool_missing');
 });
 
+test('required_tool_missing preserves the observed session id as failure evidence', () => {
+  // 合法 non-empty session 已通过 expected-session 约束，required tool 缺失时仍保留该 session。
+  const outcome = interpret([makeInit({ tools: ['Read', 'Edit', 'Write'] })]);
+  const failure = expectFailure(outcome, 'required_tool_missing');
+  assert.equal(failure.sessionId, SESSION_ID);
+});
+
+test('required_tool_missing with an empty session id does not fabricate session evidence', () => {
+  // 空 session 先于 required tool 校验失败为 init_error，不伪造可靠 session。
+  const outcome = interpret([makeInit({ session_id: '', tools: ['Read', 'Edit', 'Write'] })]);
+  const failure = expectFailure(outcome, 'init_error');
+  assert.equal(failure.sessionId, null);
+});
+
 test('built-in tools alone cannot satisfy the frozen Room tool authority', () => {
   const outcome = interpret([
     makeInit({ tools: ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash'] }),
@@ -287,4 +301,37 @@ test('after finish, a second init or terminal does not change the returned outco
   interpreter.acceptLine(makeInit());
   interpreter.acceptLine(makeResult());
   assert.strictEqual(interpreter.finish(), outcome, 'finish must return the unchanged outcome');
+});
+
+test('acceptLine returns progress evidence for non-terminal lines and null otherwise', () => {
+  const interpreter = new ClaudeStreamInterpreter({
+    expectedTaskId: TASK_ID,
+    requiredToolName: REQUIRED_TOOL,
+    expectedSessionId: null,
+  });
+  assert.equal(interpreter.acceptLine(makeInit()), null, 'init is not progress');
+  assert.equal(interpreter.acceptLine(''), null, 'empty line is not progress');
+  const progress = interpreter.acceptLine(line({ type: 'assistant', subtype: 'text', outcome: 'ok' }));
+  assert.deepEqual(progress, { type: 'assistant', subtype: 'text', outcome: 'ok' });
+  assert.equal(interpreter.acceptLine(makeResult()), null, 'result is not progress');
+});
+
+test('failure carries the observed session id and accumulated progress evidence', () => {
+  const interpreter = new ClaudeStreamInterpreter({
+    expectedTaskId: TASK_ID,
+    requiredToolName: REQUIRED_TOOL,
+    expectedSessionId: null,
+  });
+  interpreter.acceptLine(makeInit());
+  interpreter.acceptLine(line({ type: 'system', subtype: 'hook_started' }));
+  interpreter.acceptLine('not json'); // malformed line ends the stream
+  const failure = expectFailure(interpreter.finish(), 'malformed_json_line');
+  assert.equal(failure.sessionId, SESSION_ID);
+  assert.deepEqual(failure.progress, [{ type: 'system', subtype: 'hook_started', outcome: null }]);
+});
+
+test('failure before a validated init carries null session id and empty progress', () => {
+  const failure = expectFailure(interpret(['not json']), 'malformed_json_line');
+  assert.equal(failure.sessionId, null);
+  assert.deepEqual(failure.progress, []);
 });

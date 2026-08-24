@@ -59,6 +59,7 @@
 | [Increment 3A Fix 1](./INCREMENT_3A_FIX_TASK_1.md) | Accepted | stdin prompt delivery failure propagation |
 | [Increment 3B Fix 1](./INCREMENT_3B_FIX_TASK_1.md) | Accepted | frozen required Room tool authority |
 | [Increment 3 Integration](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) | Accepted | 组合 accepted leaf、Room/Git/artifact 与 terminal transition 的 central Runner |
+| [Increment 3 Integration Fix 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) | Accepted | 修复 current Task guard、partial session evidence、central failure matrix 与 lifecycle 文档冲突 |
 
 ### 2.4 Agent 执行指南
 
@@ -82,4 +83,5 @@
 
 - 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
 - Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；接受状态文档已提交到 clean `main` `320c730497b02ce7ae91e1dadc906fffe2a10a9f`。
-- [Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 已获用户确认，当前为 `PLAN_READY`；用户将在 documentation baseline、Integration worktree、exact leaf commit 组合、clean worktree 与实际 `baseline_head` 记录完成后人工派发。本次确认不授权 Codex 执行这些 Git 写操作或 Coding 派发。
+- Integration Coding 已在 `codex/inc3-integration`、baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 完成；Review `review-increment-003-integration-codex-001` 的四项 finding 与最小方案已获用户确认。
+- [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 已提交到 `codex/inc3-integration`，项目阶段为 `ACCEPTED`；尚未进入 `main`，本次授权不包含 push、merge 或清理。

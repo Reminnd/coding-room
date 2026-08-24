@@ -7,7 +7,7 @@
 > Planning baseline：`7345950fac08343cf3eb18cce2ac06c909ca4293`
 > Leaf Contract 状态：Increment 3A/3B Accepted / 2026-08-24
 > Leaf Review/Fix 状态：Fix Review 2 均 `approved`；用户已接受并分别形成 leaf commit，尚未集成
-> Integration 状态：Contract Accepted / `PLAN_READY`；用户人工 Git gate 与派发尚未完成
+> Integration 状态：Fix Review 2 `approved`；用户已接受并提交到 Integration branch，尚未进入 `main`
 > Dispatch baseline：`97c47fed770fea675834538e2ca4550d37fdc548`
 
 ## 1. 结论
@@ -25,7 +25,7 @@ Increment 3 可以拆出两个写入不交叉、无需互相等待、可独立�
 
 ### 2.1 `CODING` 是否包含 startup 与 MCP initialization
 
-当前协议存在不可同时满足的 lifecycle 约束：
+规划时的 `0.1-design` 协议曾存在不可同时满足的 lifecycle 约束；Increment 3 Integration 已按用户确认方案修正，Review 2 为 `approved`、用户已接受并提交到 Integration branch：
 
 - `PLAN_READY → CODING` 的前置条件包含“Claude MCP 已初始化”。
 - `CODING → RUN_FAILED` 又负责 process startup 与 initialization failure。
@@ -245,7 +245,7 @@ Integration 是 Increment 3 的唯一 end-to-end owner。两个 leaf module 通�
 |---|---|---|
 | Leaf A | `codex/inc3-claude-process` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-process` | 已接受；commit `86c77a7c68b953343d67da3857859b0dd6d6c09c`；worktree clean；未集成 |
 | Leaf B | `codex/inc3-claude-stream` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-stream` | 已接受；commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；worktree clean；未集成 |
-| Integration | `codex/inc3-integration` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-integration` | Contract 已接受；worktree 未创建、leaf commits 未组合，由用户完成 Git gate 后人工派发 |
+| Integration | `codex/inc3-integration` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-integration` | baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 已组合两个 leaf；Fix Review 2 `approved`、用户已接受并提交；尚未进入 `main` |
 
 Fix 派发与后续 Git 门禁：
 

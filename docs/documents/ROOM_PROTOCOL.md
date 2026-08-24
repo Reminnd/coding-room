@@ -1,8 +1,9 @@
 # Agent Room 协议
 
 > 状态：Current  
-> 版本：0.1-design  
-> 批准日期：2026-08-23
+> 版本：0.2-design  
+> 批准日期：2026-08-23  
+> 说明：0.2-design 变更（`CODING` 覆盖 process startup 与 MCP init、Runner terminal evidence 持久化、progress Event、`git_evidence_failed`/`artifact_write_failed`）已通过 Codex Review 2、获用户接受并提交到 Integration branch；进入 `main` 后成为 Current implementation。
 
 本文档定义 MVP 的协作 entity、state transition、MCP command、Runner result handling 和 failure semantics。除非明确指定字段类型，否则不绑定实现语言。
 
@@ -55,7 +56,7 @@ Room 只保存已提交的协作决定。用户与 Codex 的自由讨论保留�
 | `DISCUSSION` | `ARCHITECTURE_REVIEW` | codex | Architecture Review artifact 已准备 |
 | `ARCHITECTURE_REVIEW` | `WAITING_FOR_USER_CONFIRMATION` | codex | Architecture Review 已完成 |
 | `WAITING_FOR_USER_CONFIRMATION` | `PLAN_READY` | codex | 用户已明确确认；有效 Implementation Task 已存在 |
-| `PLAN_READY` | `CODING` | runner | Git 前置条件通过；Run 已创建；Claude MCP 已初始化 |
+| `PLAN_READY` | `CODING` | runner | Git 前置条件通过；Run 已创建（process startup 与 MCP init 在进入 CODING 后发生） |
 | `CODING` | `NEEDS_DECISION` | claude/runner | open Question 已保存；当前 Run 停止 |
 | `NEEDS_DECISION` | `CODING` | codex/runner | 用户答案不改变已批准 contract；resume Run 已创建 |
 | `NEEDS_DECISION` | `WAITING_FOR_USER_CONFIRMATION` | codex | 答案改变 requirement、architecture 或 scope |
@@ -373,12 +374,14 @@ Codex Review 读取实时 repository。已保存 Git evidence 用于导航和检
 - `room_mcp_unavailable`
 - `claude_exit_failed`
 - `coding_result_invalid`
+- `git_evidence_failed`
+- `artifact_write_failed`
 
 除非 transition table 明确定义 failure transition，否则 error 必须保持当前 durable state 不变。
 
 ## 15. 版本管理
 
-协议版本 `0.1-design` 处于 implementation 前阶段，但为当前有效版本。任何 incompatible field、transition 或 failure-semantic 变更都必须同时完成：
+协议版本 `0.2-design` 由 Increment 3 Integration 具体化：`CODING` 从 `startRun`/`resumeRun` 的 atomic claim 开始并覆盖 process startup 与 MCP initialization；terminal transition 在同一 transaction 内持久化 session/process/Git/artifact evidence；progress 以非终态 Event 追加而不改变状态。任何 incompatible field、transition 或 failure-semantic 变更都必须同时完成：
 
 1. 用户确认 architecture decision；
 2. 更新 protocol version；

@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 测试侧 literal 声明已冻结的 Scope boundary，避免与未来 leaf implementation 同源。
 const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner']);
-const allowedRunnerFiles = new Set(['claude-process.ts', 'claude-stream.ts']);
+const allowedRunnerFiles = new Set(['claude-process.ts', 'claude-stream.ts', 'claude-runner.ts']);
 
 test('Increment 3 allows only the two frozen runner leaf files and keeps MCP, CLI, extra modules and dependency drift rejected', () => {
   for (const name of ['mcp', 'cli']) {

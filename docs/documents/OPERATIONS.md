@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-24
-> Last maintained review：`review-increment-003a-codex-002` / `review-increment-003b-codex-002`
+> Last maintained review：`review-increment-003-integration-codex-002`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -13,9 +13,9 @@
 |---|---|
 | main baseline | 当前 `main` tree 已包含 accepted Scope Scaffold |
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
-| Integration 状态 | Scaffold 已集成；Leaf A/B 已接受并分别形成 commit；Integration Contract 已接受，处于人工 Git gate，尚未派发 |
-| Runtime readiness | 仅 Protocol/Room domain 与只读 Git Observer 已实现 |
-| Service readiness | Room server、Runner、MCP、Status CLI 均未实现，当前不可启动 |
+| Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受并提交到 Integration branch；尚未进入 `main` |
+| Runtime readiness | Protocol/Room domain、只读 Git Observer 已在 `main`；central Runner 为 Integration branch accepted implementation |
+| Service readiness | Room server、MCP、Status CLI 均未实现，当前不可启动；Runner 是 TypeScript API，非可启动 service |
 | 可执行验证 | `npm run typecheck`、`npm test` |
 
 不要执行或编写 `npm start`、Room daemon、MCP endpoint、Status CLI 或 production SQLite 路径；当前 repository 没有这些入口。
@@ -35,10 +35,13 @@ tests / future application entry
         │      ├──> RoomRepository ──> caller-provided SQLite DatabaseSync
         │      └──> state-machine
         │
+        ├──> src/runner (Integration branch accepted implementation)
+        │      ClaudeRunner ──> RoomService · Git Observer · claude-process · claude-stream
+        │
         └──> src/git/Git Observer ──> git-process ──> local Git CLI
 
 planned, not implemented:
-Runner · Room MCP · Status CLI · runtime service entry
+Room MCP · Status CLI · runtime service entry
 ```
 
 | 路径 | 状态 | 运维责任 |
@@ -46,7 +49,7 @@ Runner · Room MCP · Status CLI · runtime service entry
 | `src/protocol/` | Implemented | runtime schema、entity type、error code |
 | `src/room/` | Implemented | SQLite domain repository、state transition、application service |
 | `src/git/` | Implemented | clean baseline 与 completion Git evidence；只读 Git command |
-| `src/runner/` | Not implemented on `main` | Increment 3 后续能力 |
+| `src/runner/` | Accepted implementation（Integration branch） | `claude-runner.ts` central orchestration 组合 `claude-process.ts` 与 `claude-stream.ts`；不在 `main` |
 | `src/mcp/` | Not implemented | Increment 4 后续能力 |
 | `src/cli/` | Not implemented | Increment 4 后续能力 |
 | `.agent-room/artifacts/` | Bootstrap/runtime artifact location | Git ignored；保存 Claude stdout/status 等本地证据 |
@@ -87,6 +90,18 @@ Runner · Room MCP · Status CLI · runtime service entry
 | `GitCommandError` | 保留 command、args、cwd、exit code 与 stderr；process failure 不降级为空 evidence |
 
 Git Observer 只执行 `rev-parse`、`diff` 与 `ls-files`；不会 stage、commit、checkout、reset、clean、merge、rebase 或 push。
+
+### 3.4 Accepted Runner API（Integration branch；尚未进入 `main`）
+
+`src/runner/` 交付 central Runner orchestration，当前仅在 Integration branch 为 candidate，未进入 `main`：
+
+| Export | 行为 |
+|---|---|
+| `runClaude(input)` | 单一 central operation：读取 persisted `confirmed_by_user=true` TaskContract、clean baseline gate、start/resume claim、启动 Claude process、消费 stream、追加 progress Event、写入 artifact、收集 completion Git evidence，并以 `RunTerminalEvidence` 原子 settle 为 `completeRun`（`REVIEW_REQUIRED`）或 `failRun`（`RUN_FAILED`） |
+| `RunTerminalEvidence`（`room-service.ts`） | `claude_session_id`、`process_exit_code`、`git_evidence`、`artifact_refs`；terminal transition 同一 transaction 持久化 |
+| failure mapping | `claude_start_failed` > `claude_exit_failed` > `room_mcp_unavailable` > `coding_result_invalid` > `git_evidence_failed` > `artifact_write_failed`；单一 terminal settlement |
+
+artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`，`artifact_refs` 使用 repository-root-relative path。没有 service/MCP/CLI 启动命令；真实 Claude smoke 需经用户明确授权，coding 只使用 fake-process fixture。
 
 ## 4. Planned 外部接口
 
@@ -149,9 +164,9 @@ npm test
 
 所有 protocol error code 见 [ROOM_PROTOCOL.md 第 14 节](./ROOM_PROTOCOL.md#14-错误码)。
 
-## 8. Pending Review Impact
+## 8. Accepted Candidate Impact
 
-当前 `main` `320c730497b02ce7ae91e1dadc906fffe2a10a9f` 仍没有 Runner runtime/interface。两个 accepted leaf branch refs 分别指向 3A `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 3B `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，均未进入 main ancestry；原 leaf worktree 当前已不在 `git worktree list`。Integration Contract 已接受，但 documentation baseline、Integration worktree、leaf commit 组合与实际 `baseline_head` 尚未完成，Coding 尚未派发，因此不得写成 current operational capability。
+当前 `main` `e3eb438bc7aeb6734d897cc4a222eb6b5eb8d983` 仍没有 Runner runtime/interface。Integration branch `codex/inc3-integration` 以 lineage baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 组合两个 leaf；Review 1 的四项 finding 已由 Fix 1 闭环，Review 2 为 `approved`，用户已接受并提交。merge 到 `main` 并更新 operational baseline 前，不得写成 `main` current capability。
 
 ## 9. Review 后维护记录
 
@@ -163,5 +178,7 @@ npm test
 | `review-increment-003b-codex-001` | `changes_requested` / solution 已确认 | required Room tool authority 可被 caller string 替代；candidate 尚不可用 | Fix 已完成；见 Review 2 |
 | `review-increment-003a-codex-002` | `approved` / 用户已接受 | typed stdin failure 与 single-settlement regression 已闭环；leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
 | `review-increment-003b-codex-002` | `approved` / 用户已接受 | frozen required Room tool authority 与 direct regression 已闭环；leaf commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
+| `review-increment-003-integration-codex-001` | `changes_requested` / finding 与 solution 已确认 | stale Task 可进入 Coding、required-tool failure 丢失 session、central failure evidence 不完整、协议/架构 startup-init 语义冲突 | Fix Coding 已完成并验证；保持 Runner candidate，等待二次 Review 与用户接受 |
+| `review-increment-003-integration-codex-002` | `approved` / 用户已接受 | 四项 finding 均闭环；无新增 runtime command，Runner 仍仅为 Integration branch TypeScript API | 已提交到 Integration branch；等待独立 main integration 授权 |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

@@ -5,6 +5,7 @@ import type {
   Run,
   TaskContract,
 } from '../src/protocol/schema.ts';
+import type { RunTerminalEvidence } from '../src/room/room-service.ts';
 
 const T = '2026-08-23T00:00:00.000Z';
 
@@ -59,6 +60,16 @@ export function makeRun(overrides: Partial<Run> = {}): Run {
     git_evidence: { staged: [], unstaged: [], untracked: [] },
     artifact_refs: [],
     failure: null,
+    ...overrides,
+  };
+}
+
+export function makeTerminalEvidence(overrides: Partial<RunTerminalEvidence> = {}): RunTerminalEvidence {
+  return {
+    claude_session_id: null,
+    process_exit_code: 0,
+    git_evidence: { staged: [], unstaged: [], untracked: [] },
+    artifact_refs: [],
     ...overrides,
   };
 }
