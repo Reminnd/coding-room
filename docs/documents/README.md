@@ -54,8 +54,8 @@
 | [Increment 3 Parallel Pilot](./INCREMENT_3_PARALLEL_PILOT_PLAN.md) | Current | 两个 leaf module 与串行 integration 计划 |
 | [Increment 3 Scope Scaffold](./INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md) | Accepted | 共享 Scope regression 前置任务 |
 | [Increment 3 Scope Scaffold Fix 1](./INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md) | Accepted | 拒绝 allowed-name directory 的 Scope regression 修复 |
-| [Increment 3A](./INCREMENT_3A_TASK_CONTRACT.md) | Draft | Claude Process Transport leaf |
-| [Increment 3B](./INCREMENT_3B_TASK_CONTRACT.md) | Draft | Claude Stream Interpreter leaf |
+| [Increment 3A](./INCREMENT_3A_TASK_CONTRACT.md) | Accepted | Claude Process Transport leaf |
+| [Increment 3B](./INCREMENT_3B_TASK_CONTRACT.md) | Accepted | Claude Stream Interpreter leaf |
 
 ### 2.4 Agent 执行指南
 
@@ -77,5 +77,5 @@
 
 ## 4. 当前未决行动
 
-- 评审并确认 Increment 3A/3B 的最终 Task Contract；确认前继续保持 Draft。
-- 用户确认后记录当前 `main` HEAD 为共同 `baseline_head`，再分别获取 branch/worktree 创建与并行派发权限。
+- 记录本 Accepted Contract documentation baseline commit 的实际 `main` HEAD，作为两个 leaf 的共同 `baseline_head`。
+- 分别获取 branch/worktree 创建与并行 Claude Coding 派发权限；当前批准不包含这些 Git 或外部执行动作。

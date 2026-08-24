@@ -1,13 +1,15 @@
 # Increment 3A Task Contract — Claude Process Transport
 
-> 状态：Draft / Not Accepted
+> 状态：Accepted
 > 日期：2026-08-24
+> 用户确认日期：2026-08-24
 > Parent goal：Increment 3 — Claude Runner
 > Parallel role：Leaf A
 > Bootstrap transport：`claude -p`
-> 派发状态：禁止派发
+> Baseline 状态：由本 Accepted Contract documentation baseline commit 建立；派发前以当前 `main` HEAD 记录实际 `baseline_head`
+> 派发状态：未派发；等待 branch/worktree 与并行派发授权
 
-本 Contract 是并行试点的 Leaf A 草案。`confirmed_by_user=false` 表示它尚不满足 Room Task schema 的派发门禁；用户最终批准后才可改为 `true` 和 `Accepted`。
+用户已明确批准本 Contract；`confirmed_by_user=true` 使其满足 Task confirmation gate。Contract approval 本身只确认本文定义的目标、范围、约束和验收；用户随后单独授权本 documentation baseline commit，但仍未授权 branch/worktree 创建、Claude Coding 派发、实现提交或 push。
 
 ```yaml
 task_id: increment-003a-claude-process-transport
@@ -71,7 +73,7 @@ scope:
 
 constraints:
   - 派发前必须完成、Review、接受并提交串行 Scope Scaffold，使 tests/scope.test.ts 允许本 leaf 的冻结文件且继续拒绝 central Runner/MCP/CLI 与 dependency drift。
-  - 使用从同一已确认 planning baseline 创建的独立 branch codex/inc3-claude-process 与独立 worktree；branch/worktree metadata 不写入 Room Task schema。
+  - 使用从同一 Accepted Contract documentation baseline 创建的独立 branch codex/inc3-claude-process 与独立 worktree；实际 baseline_head 在该文档提交完成后按 Git HEAD 记录，branch/worktree metadata 不写入 Room Task schema。
   - 只修改本 Contract scope；不得读取 Leaf B 未接受修改作为依赖，不得写入 main 或其他 worker worktree。
   - 不增加 dependency；Node.js 24 与现有 Zod 4 足够。若正确实现需要 package/lockfile/shared config 变化，返回 needs_decision。
   - 不修改 tests/scope.test.ts、src/protocol、src/room、src/git、PROJECT_RULES.md、ARCHITECTURE.md、ROOM_PROTOCOL.md、MVP_PLAN.md 或 DEVELOPMENT_LOG.md。
@@ -108,18 +110,18 @@ question_policy: >
   shared scope、protocol、Room lifecycle、Git ownership 或其他 worker 文件，停止受影响工作并返回
   needs_decision。Bootstrap 阶段不得自行创建 branch、修改 Contract 或扩大 scope。
 
-confirmed_by_user: false
+confirmed_by_user: true
 created_by: codex
 created_at: 2026-08-24T04:41:00Z
 ```
 
 ## 派发前置条件
 
-1. 用户 Review 本 Draft 并明确批准；随后把状态改为 `Accepted`、`confirmed_by_user=true`。
-2. 串行 Scope Scaffold 已 Review、接受并提交，main worktree clean。
-3. 含本 Accepted Contract 的 planning baseline 已提交。
-4. 用户明确授权创建 Leaf A branch/worktree，并记录实际 `baseline_head`、branch、worktree 与 task owner。
-5. 通过已批准 bootstrap transport 向 Leaf A Claude Code 注入本文件全文；摘要不能替代 Contract。
+1. 已满足：用户于 2026-08-24 明确批准本 Contract；状态为 `Accepted`，`confirmed_by_user=true`。
+2. 已满足：串行 Scope Scaffold 已 Review、接受、提交并集成到 `main`；确认前 clean parent 为 `b35f7a2284c90285e897789aa2ac9e26e596c4ac`。
+3. 已满足：本 Accepted Contract 及同步状态文档由本 documentation baseline commit 纳入 `main`；其实际 commit hash 是两个 leaf 的共同 `baseline_head`。
+4. 待授权：创建 Leaf A branch/worktree，并记录共同 `baseline_head`、branch、worktree 与 task owner。
+5. 待授权：通过已批准 bootstrap transport 向 Leaf A Claude Code 注入本文件全文；摘要不能替代 Contract。
 
 ## 参考文档
 

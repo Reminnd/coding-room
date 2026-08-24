@@ -5,6 +5,8 @@
 > 用户确认日期：2026-08-24
 > Parent goal：Increment 3 — Claude Runner
 > Planning baseline：`7345950fac08343cf3eb18cce2ac06c909ca4293`
+> Leaf Contract 状态：Increment 3A/3B Accepted / 2026-08-24
+> Dispatch baseline：本 Accepted Contract documentation baseline commit 的实际 `main` HEAD；派发前记录该 hash
 
 ## 1. 结论
 
@@ -233,7 +235,7 @@ Integration 是 Increment 3 的唯一 end-to-end owner。两个 leaf module 通�
 
 ## 8. Git dispatch 方案
 
-计划中的 branch/worktree 尚未创建。用户确认并分别授权后，使用同一 planning baseline：
+计划中的 branch/worktree 尚未创建。用户已确认两份 Leaf Contract 并授权本 documentation baseline commit；用户另行授权后，两个 leaf 使用本 commit 形成的同一实际 `main` HEAD：
 
 | Task | Branch | Proposed worktree |
 |---|---|---|
@@ -266,16 +268,14 @@ npm test
 
 ## 10. 用户确认与授权边界
 
-批准本计划只确认 module decomposition 与推荐 lifecycle 语义，不自动授权以下动作：
+用户于 2026-08-24 进一步确认 Increment 3A/3B 两份完整 Task Contract，该确认只把它们从 Draft 提升为 Accepted，不自动授权以下动作：
 
 1. 发起额外有费用的真实 Claude CLI smoke。
-2. 把 Draft 转成两个 Accepted Task Contract。
-3. 创建 branch/worktree。
-4. 派发两个 Claude Coding Task。
-5. commit、组合 module commits、Integration dispatch、push 或清理 worktree。
+2. 创建 branch/worktree。
+3. 派发两个 Claude Coding Task。
+4. 实现 commit、组合 module commits、Integration dispatch、push 或清理 worktree。
 
 后续仍需用户分别确认：
 
-- 串行 Scaffold Task Contract、派发、Review、接受与提交；
-- 两个 Leaf Task Contract 的最终 Accepted 版本；
-- branch/worktree 创建与并行派发权限。
+- branch/worktree 创建与并行派发权限；
+- 各 leaf Review 后的 module commit、后续 integration 组合与清理。

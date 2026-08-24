@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：WAITING_FOR_USER_CONFIRMATION / Increment 3A/3B Task Contracts
+> 当前阶段：PLAN_READY / Increment 3A + Increment 3B；dispatch authorization pending
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -236,8 +236,8 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_3_PARALLEL_PILOT_PLAN.md](./docs/documents/INCREMENT_3_PARALLEL_PILOT_PLAN.md) | Increment 3 两个 leaf module 并行试点与串行 Integration 计划 | Codex | Increment 3 Scaffold、Leaf 与 Integration 规划 | Current |
 | [docs/documents/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md](./docs/documents/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md) | 并行派发前共享 Scope regression 串行前置任务 | Codex | Scope Scaffold Coding 与 Review | Accepted |
 | [docs/documents/INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md](./docs/documents/INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md) | Scope Scaffold Review 1 已确认的最小 Fix Task | Codex | Scope Scaffold Fix Coding 与再次 Review | Accepted |
-| [docs/documents/INCREMENT_3A_TASK_CONTRACT.md](./docs/documents/INCREMENT_3A_TASK_CONTRACT.md) | Claude Process Transport leaf Task Contract 草案 | Codex | Leaf A 规划与用户确认 | Draft |
-| [docs/documents/INCREMENT_3B_TASK_CONTRACT.md](./docs/documents/INCREMENT_3B_TASK_CONTRACT.md) | Claude Stream Interpreter leaf Task Contract 草案 | Codex | Leaf B 规划与用户确认 | Draft |
+| [docs/documents/INCREMENT_3A_TASK_CONTRACT.md](./docs/documents/INCREMENT_3A_TASK_CONTRACT.md) | Claude Process Transport leaf Implementation Task Contract | Codex | Leaf A Coding、Review 与 Integration 规划 | Accepted |
+| [docs/documents/INCREMENT_3B_TASK_CONTRACT.md](./docs/documents/INCREMENT_3B_TASK_CONTRACT.md) | Claude Stream Interpreter leaf Implementation Task Contract | Codex | Leaf B Coding、Review 与 Integration 规划 | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -266,4 +266,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 2 commit 为 `7345950fac08343cf3eb18cce2ac06c909ca4293`。Increment 3 Scope Scaffold 已完成两轮 Review、获用户接受，并以 source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 集成到当前 `main` tree；其 Fix Contract 已按当前文档目录规则归位。当前阶段为 `WAITING_FOR_USER_CONFIRMATION / Increment 3A/3B Task Contracts`；目标 Room runtime 尚未实现，runtime state 不适用。Leaf A/B Contract 仍为 Draft，必须经用户明确确认并记录当前 `main` HEAD 为共同 `baseline_head` 后才能创建独立 branch/worktree 并派发。
+架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 2 commit 为 `7345950fac08343cf3eb18cce2ac06c909ca4293`。Increment 3 Scope Scaffold 已完成两轮 Review、获用户接受，并以 source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 集成到当前 `main` tree；其 Fix Contract 已按当前文档目录规则归位。用户于 2026-08-24 明确批准 Increment 3A/3B 两份完整 Task Contract，并授权本 documentation baseline commit，当前阶段为 `PLAN_READY / Increment 3A + Increment 3B`；目标 Room runtime 尚未实现，runtime state 不适用。本 commit 的实际 `main` HEAD 是两个 leaf 的共同 `baseline_head`，派发前必须记录该 hash，并分别取得 branch/worktree 创建与并行派发权限。

@@ -3,14 +3,21 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：WAITING_FOR_USER_CONFIRMATION / Increment 3A/3B Task Contracts
+- 项目阶段：PLAN_READY / Increment 3A + Increment 3B；dispatch authorization pending
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-003-scope-scaffold` 已完成、Review、Fix、接受并集成到 `main`；Increment 3A/3B Leaf Contract 仍为 Draft
+- Implementation Task：`increment-003-scope-scaffold` 已完成并集成；Increment 3A/3B Leaf Contract 已 Accepted，尚未派发
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：当前 `main` tree 已纳入 accepted Scaffold source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 的内容；source branch/worktree 保留；未授权 push 或清理
+- Git repository：确认前 clean parent 为 `b35f7a2284c90285e897789aa2ac9e26e596c4ac`；Accepted Contract 与状态文档由本 documentation baseline commit 纳入 `main`，其实际 HEAD 是两个 leaf 的共同 `baseline_head`；未授权 branch/worktree、派发、push 或清理
 
 ## 已完成
+
+### 2026-08-24 — Increment 3A/3B Task Contract 批准
+
+- 用户明确批准 [Increment 3A Claude Process Transport](./INCREMENT_3A_TASK_CONTRACT.md) 与 [Increment 3B Claude Stream Interpreter](./INCREMENT_3B_TASK_CONTRACT.md) 两份完整 Task Contract；两者状态改为 `Accepted`，`confirmed_by_user=true`。
+- 批准不改变已确认 module boundary：Leaf A 只拥有 process transport 与 line framing，Leaf B 只拥有 stream interpretation；公共 protocol、Room lifecycle、central Runner、Git wiring、package metadata 与 documentation 继续由后续 Integration Task 独占。
+- 确认前 clean parent 为 `b35f7a2284c90285e897789aa2ac9e26e596c4ac`。由于 Accepted Contract 本身必须先进入 Git，最终共同 `baseline_head` 不预写为 parent hash，而在 documentation baseline commit 完成后按实际 `main` HEAD 记录。
+- 用户随后单独授权本 Accepted Contract documentation baseline commit；仍未授权 branch/worktree 创建、Claude Coding 派发、真实付费 smoke、实现提交、push 或清理。当前阶段为 `PLAN_READY / Increment 3A + Increment 3B`。
 
 ### 2026-08-24 — Increment 3 Scope Scaffold 集成到 main
 
@@ -287,8 +294,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品或架构阻塞。当前 `main` worktree 包含未提交的经验回收与运维角色文档 Diff；accepted Scaffold commit 尚未集成，因此还不能把两个 leaf 从共同 Scaffold baseline 派发。
+无产品或架构阻塞。当前仅存在流程门禁：branch/worktree 创建与并行 Claude Coding 派发尚未获授权。
 
 ## 下一步
 
-Codex Review 当前经验回收与运维角色文档的组合 Diff；用户确认并分别授权 documentation commit 与 Scaffold integration 后恢复 clean `main`，再把 Leaf A/B Contract 转为 Accepted、记录共同 baseline 并创建两个独立 branch/worktree。本阶段不实现 Runner，不 push。
+记录本 documentation baseline commit 的实际 `main` HEAD 为两个 leaf 的共同 `baseline_head`，再分别取得 branch/worktree 创建与并行 Claude Coding 派发权限；本阶段不由 Codex 实现 Runner，不 push。

@@ -13,7 +13,7 @@
 |---|---|
 | main baseline | 当前 `main` tree 已包含 accepted Scope Scaffold |
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
-| Integration 状态 | Scaffold 已 Review、接受、提交并集成到 `main`；Leaf A/B Contract 仍为 Draft |
+| Integration 状态 | Scaffold 已集成；Leaf A/B Contract 已 Accepted，本 documentation baseline commit 建立共同 baseline；dispatch authorization pending |
 | Runtime readiness | 仅 Protocol/Room domain 与只读 Git Observer 已实现 |
 | Service readiness | Room server、Runner、MCP、Status CLI 均未实现，当前不可启动 |
 | 可执行验证 | `npm run typecheck`、`npm test` |
@@ -99,7 +99,7 @@ Git Observer 只执行 `rev-parse`、`diff` 与 `ls-files`；不会 stage、comm
 - `room_accept_review`
 - `room_ask_question`
 
-Runner process contract、MCP initialization、Claude session resume 与 terminal Run mapping 仍属于 Increment 3/4 后续实现。Draft Contract 或 bootstrap `claude -p` 不等于已部署 Room interface。
+Runner process contract、MCP initialization、Claude session resume 与 terminal Run mapping 仍属于 Increment 3/4 后续实现。Accepted Contract 或 bootstrap `claude -p` 不等于已部署 Room interface。
 
 ## 5. 人工操作命令
 
@@ -151,7 +151,7 @@ npm test
 
 ## 8. Pending Review Impact
 
-当前无尚未接受的 runtime/interface/architecture candidate。Scope Scaffold 已进入 `main`；Increment 3A/3B Contract 仍为 Draft，用户确认并记录共同 `baseline_head` 前不得创建 leaf branch/worktree 或派发。
+当前无尚未接受的 runtime/interface/architecture candidate。Increment 3A/3B Contract 已 Accepted；本 documentation baseline commit 的实际 `main` HEAD 是共同 `baseline_head`。记录该 hash 并取得用户单独授权前，不得创建 leaf branch/worktree 或派发。
 
 ## 9. Review 后维护记录
 
