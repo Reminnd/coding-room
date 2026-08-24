@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：PLAN_READY / Increment 2
+> 当前阶段：ACCEPTED / Increment 2
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -225,6 +225,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/INCREMENT_1_FIX_TASK_2.md](./docs/INCREMENT_1_FIX_TASK_2.md) | Increment 1 Review 2 已确认的最小 Fix Task | Codex | Increment 1 Fix 2 Coding 与再次 Review | Accepted |
 | [docs/INCREMENT_1_FIX_TASK_3.md](./docs/INCREMENT_1_FIX_TASK_3.md) | Increment 1 Review 3 已确认的最小 Fix Task | Codex | Increment 1 Fix 3 Coding 与再次 Review | Accepted |
 | [docs/INCREMENT_2_TASK_CONTRACT.md](./docs/INCREMENT_2_TASK_CONTRACT.md) | Increment 2 已批准 Implementation Task Contract | Codex | Increment 2 Coding、Review 与 Fix 规划 | Accepted |
+| [docs/INCREMENT_2_FIX_TASK_1.md](./docs/INCREMENT_2_FIX_TASK_1.md) | Increment 2 Review 1 已确认的最小 Fix Task | Codex | Increment 2 Fix Coding 与再次 Review | Accepted |
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -249,4 +250,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认，共享文档基线已建立。Increment 1 Implementation、Fix 1、Fix 2 与 Fix 3 已完成、通过 Review、获用户接受并提交。用户已于 2026-08-24 批准 [Increment 2 Task Contract](./docs/INCREMENT_2_TASK_CONTRACT.md)，项目协作阶段进入 `PLAN_READY / Increment 2`；目标 Room runtime 尚未实现，其 runtime state 仍不适用。派发前必须先把已批准 Contract 与现有协作文档形成独立 clean documentation baseline，并记录实际 `baseline_head`；未获 commit 授权前不提交，未满足 clean-worktree gate 前不派发 Coding。
+架构已于 2026-08-23 经用户确认，共享文档基线已建立。Increment 1 Implementation、Fix 1、Fix 2 与 Fix 3 已完成、通过 Review、获用户接受并提交。Increment 2 Implementation 与 [Fix Task 1](./docs/INCREMENT_2_FIX_TASK_1.md) 已完成；Codex 二次 Review 确认原 Review 的 1 项 High 与 2 项 Low finding 均按用户批准方案闭环，聚焦 11 项、typecheck 与全量 57 项测试通过，Review Decision 为 `approved`。用户已于 2026-08-24 明确接受 Increment 2，并授权提交本次已 Review 的 task-owned 文件，项目协作阶段进入 `ACCEPTED / Increment 2`；Fix lineage 保留原始 `baseline_head` `6e7e5eb8869b2947d7738f1f23b6eb7fdde64742`。目标 Room runtime 尚未实现，其 runtime state 仍不适用；本次授权不包含 push、branch/worktree 操作或历史改写。

@@ -2,7 +2,7 @@
   "name": "agent-room",
   "version": "0.1.0",
   "private": true,
-  "description": "Local Agent Room — MVP Increment 1: Protocol and State Core",
+  "description": "Local Agent Room — single-user MVP",
   "type": "module",
   "engines": {
     "node": ">=24.15.0 <25"

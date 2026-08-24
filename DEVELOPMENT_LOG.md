@@ -3,14 +3,62 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：PLAN_READY / Increment 2
+- 项目阶段：ACCEPTED / Increment 2
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-002-git-preconditions-evidence` 已获用户批准，尚未派发
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）
-- Git repository：用户已接受 Increment 1 并授权本地提交；未授权 push
+- Implementation Task：`increment-002-git-preconditions-evidence` 与 Fix 1（`increment-002-fix-001-git-failure-semantics`）已实现、Codex 二次 Review approved，并获用户明确接受
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
+- Git repository：用户已接受 Increment 2，并授权提交本次已 Review 的 task-owned 文件；未授权 push
 
 ## 已完成
+
+### 2026-08-24 — Increment 2 接受与提交授权
+
+- 用户明确接受 Increment 2，并授权将本次已 Review 的 task-owned 代码、测试、必要配置、Fix Contract 与实现状态文档提交到当前 `main`。
+- 授权 scope 为 `src/git/git-process.ts`、`src/git/git-observer.ts`、`tests/git-observer.test.ts`、`tests/scope.test.ts`、`package.json`、`docs/INCREMENT_2_FIX_TASK_1.md`、`PROJECT_RULES.md` 与 `DEVELOPMENT_LOG.md`。
+- 本次授权不包含 push、branch/worktree 操作、merge/rebase、历史改写或下一 Increment 文件。
+
+### 2026-08-24 — Increment 2 Review 2
+
+- Codex 读取原始 `baseline_head` `6e7e5eb8869b2947d7738f1f23b6eb7fdde64742` 以来的完整 task-owned staged/unstaged/untracked Diff，并核对 Fix Coding Result、Accepted Contract、Git 状态、源码、测试与实现文档；未发现新的 finding。
+- `inc2-r1-evidence-exit-128` 已闭环：process boundary 对任何非零退出抛出 `GitCommandError`，repository/HEAD 的 exit 128 仅在对应 semantic boundary 映射为 ProtocolError，两个 public evidence operation 的 corrupt-index regression 直接证明观察失败不会返回 clean/empty evidence。
+- `inc2-r1-git-error-stderr` 已闭环：`execFile` callback 第三个参数的 stderr 被保留到 `GitCommandError`；测试同时断言 command、args、cwd、exitCode 与非空 stderr。
+- `inc2-r1-temp-fixture-cleanup` 已闭环：non-existent target 测试在 `finally` 删除实际创建的 parent fixture。
+- Codex 独立运行 `node --test "tests/git-observer.test.ts"`（11/11）、`npm run typecheck` 与 `npm test`（57/57），全部通过；scope/dependency baseline、只读 Git command set、Increment 1 的 46 项测试均无回归。
+- Review Decision：`approved`。阶段进入 `REVIEW_DISCUSSION / Increment 2`，等待用户明确接受；未获接受与 commit 授权前不提交。
+
+### 2026-08-24 — Increment 2 Fix 1: Git Failure Semantics
+
+按 [Increment 2 Fix Task 1](./docs/INCREMENT_2_FIX_TASK_1.md) 修复 `review-increment-002-codex-001` 的 3 项 confirmed findings：
+
+- `inc2-r1-evidence-exit-128`：`runGit` 不再把 exit 128 分类为 `missing`，而是对任何非零退出或进程启动失败以 `GitCommandError` 携带 command、args、cwd、exitCode 与 stderr 向上抛出；`resolveWorktreeRoot`/`resolveBaselineHead` 在各自 semantic boundary 捕获 `GitCommandError` 且 `exitCode === 128` 时映射为 `git_repository_missing`/`git_head_missing`，其余失败继续向上抛。`collectEvidence` 不再捕获或降级任何 diff/ls-files 失败，因此 `establishCleanBaseline`/`collectCompletionEvidence` 在 evidence command fatal failure 时都拒绝，不再返回 clean/empty evidence。
+- `inc2-r1-git-error-stderr`：`runGit` 从异步 `execFile` callback 第三个参数读取 stderr（Buffer/string）并传入 `GitCommandError`，不再从 error object 假设 `.stderr` 属性存在。
+- `inc2-r1-temp-fixture-cleanup`：non-existent target 测试显式保留 `makeFixture` 返回的 parent path，并在 `finally` 中删除，成功与 assertion failure 都不遗留 temporary directory。
+
+changed files：`src/git/git-process.ts`、`src/git/git-observer.ts`、`tests/git-observer.test.ts`、`DEVELOPMENT_LOG.md`。保持只读命令集（rev-parse/diff/ls-files）与 `GitEvidence`/`CleanBaseline`/两个 public operation 的 external shape 不变，未新增 dependency、protocol error、状态或 mutation command。
+
+### 2026-08-24 — Increment 2 Review 1 与 Fix 1 确认
+
+- Codex 审查完整 task-owned Diff，`npm run typecheck` 通过，`npm test` 55 项全部通过；正常 repository、HEAD、clean/dirty worktree、三类 path evidence、scope 与 dependency baseline 实现正确。
+- Review `review-increment-002-codex-001` 通过损坏 temporary repository index 的 fault injection 复现：evidence command exit 128 被 `runGit` 分类为 `missing`，随后 null stdout 被解释为空 array，使 `establishCleanBaseline` 在观察失败时错误返回 clean baseline。
+- Review 同时确认异步 `execFile` 的 stderr 来自 callback 第三个参数，当前 `GitCommandError.stderr` 实际为空；non-existent target 测试只删除不存在的 child，稳定遗留 `makeFixture` 创建的 parent temporary directory。
+- 用户确认三项 finding 与最小方向：process boundary 对非零退出抛出携带完整 context/stderr 的 `GitCommandError`，仅由 repository/HEAD semantic boundary 映射预期 ProtocolError；两个 public evidence operation 直接覆盖 fatal failure；测试删除实际创建的 parent fixture。
+- 已创建 [Increment 2 Fix Task 1](./docs/INCREMENT_2_FIX_TASK_1.md)，Fix lineage 保留原始 `baseline_head` `6e7e5eb8869b2947d7738f1f23b6eb7fdde64742`，阶段进入 `FIX_PLAN_READY`。
+
+### 2026-08-24 — Increment 2: Git Preconditions and Evidence
+
+按 [Increment 2 Task Contract](./docs/INCREMENT_2_TASK_CONTRACT.md) 在独立 `src/git` infrastructure module 实现只读 Git Observer：
+
+- `src/git/git-process.ts`：唯一 Git 调用入口，`node:child_process.execFile('git', [command, ...args])` 直接传 argument array（无 shell）、`encoding: 'buffer'` 保留 NUL 分隔输出；exit 128 分类为 `missing`，其余 process 失败以 `GitCommandError` 携带 command context（command、args、cwd、exit code、stderr）抛出。
+- `src/git/git-observer.ts`：`GitEvidence`（staged/unstaged/untracked 去重、稳定排序的 root-relative path）与 `establishCleanBaseline` / `collectCompletionEvidence` 两个 operation。
+- `establishCleanBaseline`：目标非目录/非 worktree/裸仓库 → `git_repository_missing`；`rev-parse --verify --end-of-options HEAD^{commit}` 无法解析 → `git_head_missing`；三类 evidence 任一非空 → `worktree_not_clean`；全空返回 repository root、完整 `baselineHead` 与 empty evidence。
+- `collectCompletionEvidence`：不要求 worktree clean，从解析出的 owning worktree root 执行，覆盖整个 worktree 并返回 root-relative path。
+- 三类 evidence 用 NUL-delimited output：staged `git diff --cached --name-only -z`、unstaged `git diff --name-only -z`、untracked `git ls-files --others --exclude-standard --full-name -z`；不解析 human-readable status。
+- product code 只含 `rev-parse`/`diff`/`ls-files` 只读命令；fixture 的 `init/config/add/commit` 写操作只存在于测试代码。
+- `package.json` description 改为项目级描述（`Local Agent Room — single-user MVP`），不改 dependency/script baseline。
+- `tests/scope.test.ts` 改为拒绝 `src/runner`、`src/mcp`、`src/cli` 并允许 `src/git`，同时证明 dependency baseline 未漂移。
+
+Git command boundary：`runGit` 是唯一 process 边界，所有 command 从解析出的 repository root 执行；`resolveWorktreeRoot` 先用 `fs.statSync` 区分“路径不存在”与“git 不可用”，再按 git exit 128 分类为非 worktree，其余失败带 command context 向上抛出。
 
 ### 2026-08-24 — Increment 2 Task Contract 批准
 
@@ -157,6 +205,28 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
   - 新增跨后续 Run 的 Review 幂等重试 regression（同 ID/同 content 返回既有 review、同 ID/异 content → `id_conflict`、新 review_id 引用旧 run-1 仍被拒、引用当前 run-2 成功）。
   - 原有 45 项测试继续通过，无回归。
 
+### 2026-08-24 — Increment 2
+
+- `npm run typecheck`（`tsc --noEmit`）：无错误。
+- `node --test "tests/git-observer.test.ts"`：9 个测试全部通过。
+  - 非 repository 与不存在路径 → `git_repository_missing`；无 commit worktree → `git_head_missing`（HEAD 校验先于 clean gate）。
+  - clean repo 返回与独立 `git rev-parse HEAD` 相同的 `baselineHead`、正确 repository root 与三个 empty array。
+  - staged-only、unstaged-only、untracked-only 分别 → `worktree_not_clean`。
+  - 组合 fixture 精确证明 staged / unstaged / 同 path 双分类 / 带空格 untracked 归入正确 set，ignored path 不归入 untracked。
+  - 子目录调用仍观察整个 worktree 并返回 root-relative path；repository root 解析为 owning root。
+  - merge-conflict fixture 证明 `git diff --name-only` 对同一 path 重复输出时 observer 正确去重；clean 与 dirty fixture 调用前后 HEAD 与 `git status --porcelain` 不变，证明只读。
+  - 源码静态断言只发出 `rev-parse`/`diff`/`ls-files` 只读命令，且不含 mutation subcommand 字符串。
+- `npm test`（`node --test`）：55 个测试全部通过（含 `scope.test.ts`）；原有 46 项 Increment 1 测试无回归。
+
+### 2026-08-24 — Increment 2 Fix 1
+
+- `npm run typecheck`（`tsc --noEmit`）：无错误。
+- `node --test "tests/git-observer.test.ts"`：11 个测试全部通过。
+  - 新增两个 public-path fatal-failure regression：损坏 index 的临时仓库调用 `establishCleanBaseline` 与 `collectCompletionEvidence` 均以 `GitCommandError` 拒绝，且保留 command `diff`、args `['--cached','--name-only','-z']`、repository-root cwd、`exitCode=128` 与非空 stderr。
+  - non-existent target 测试在 `finally` 中删除 `makeFixture` 返回的 parent directory，不再遗留临时目录。
+  - 原有 9 项 Git Observer 测试（正常 repository、missing repository/HEAD、dirty gate、path classification、stable sort、dedup、subdirectory、ignored path、只读 invariant 与 mutation-command boundary）全部继续通过。
+- `npm test`（`node --test`）：57 个测试全部通过（含 `scope.test.ts`）；原有 46 项 Increment 1 测试无回归。
+
 ### 2026-08-23 — 文档基线
 
 - 枚举全部九个 Markdown 文档；
@@ -170,8 +240,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品或架构阻塞。Increment 2 已获用户批准；当前仅受 clean documentation baseline 与 Git commit 权限门禁约束。
+无产品或架构阻塞。Increment 2 已通过 Codex 二次 Review并获用户明确接受，阶段为 `ACCEPTED`；用户已授权提交本次已 Review 的 task-owned 文件，未授权 push。
 
 ## 下一步
 
-经用户授权后提交已批准的 Increment 2 Contract 与现有协作文档，形成 clean documentation baseline；随后重新记录 `baseline_head`，按 bootstrap 路径派发 `increment-002-git-preconditions-evidence`。未获 commit 授权前不提交，未获 push 授权前不推送。
+Codex 使用显式 pathspec 提交本次已 Review 的 8 个 task-owned 文件；提交后报告 commit hash、实际文件、验证摘要和剩余 worktree。未获 push 授权前不推送。Increment 3 或开发期并行试点需另行规划与用户确认。
