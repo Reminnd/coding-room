@@ -5,7 +5,7 @@
 > 状态：Protected  
 > 角色：Coding、测试与实现相关候选文档入口
 
-本文件只保留 Claude Code 必须在入口上下文中持有的执行边界、门禁和文档路由。详细 Coding/Fix 方法按任务触发读取 `docs/agent-guides/`。
+本文件只保留 Claude Code 必须在入口上下文中持有的执行边界、门禁和文档路由。详细 Coding/Fix 方法按任务触发读取 `docs/documents/agent-guides/`。
 
 ## 1. 指令与角色边界
 
@@ -24,11 +24,11 @@
 | 触发条件 | 必读文档 | 用途 |
 |---|---|---|
 | 每次 Coding | `PROJECT_RULES.md`、其“会话必读”文档和 Accepted Contract | 当前规则、状态与完整任务 |
-| 每个 Implementation Task 或 Fix Task | `docs/agent-guides/CLAUDE_CODING_AND_FIX.md` | 实现、guard/idempotency 顺序、测试与 Fix 2/3 经验 |
-| branch、worktree、并行模块、integration 或任何 Git 写操作 | `docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | 当前角色权限与工作区边界 |
-| 协议、Runner、MCP 或 Room 状态实现 | `docs/ROOM_PROTOCOL.md` | entity、transition、actor 与失败语义 |
+| 每个 Implementation Task 或 Fix Task | `docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md` | 实现、guard/idempotency 顺序、测试与 Fix 2/3 经验 |
+| branch、worktree、并行模块、integration 或任何 Git 写操作 | `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | 当前角色权限与工作区边界 |
+| 协议、Runner、MCP 或 Room 状态实现 | `docs/documents/ROOM_PROTOCOL.md` | entity、transition、actor 与失败语义 |
 
-`docs/agent-guides/README.md` 是指南目录。细分指南不得覆盖本文件、Contract 或 `PROJECT_RULES.md`；冲突时停止并报告。
+`docs/documents/agent-guides/README.md` 是指南目录。细分指南不得覆盖本文件、Contract 或 `PROJECT_RULES.md`；冲突时停止并报告。
 
 ## 3. 启动与 Task 门禁
 
@@ -62,7 +62,7 @@
 7. **自检完整 Diff**：核对 staged/unstaged/untracked，清理仅由本次变更产生的孤儿内容。
 8. **返回 Coding Result**：以实际 Git 与命令证据为准，不能用“已完成”替代。
 
-Implementation/Fix 的具体方法、Fix 2/3 案例和测试矩阵见 `docs/agent-guides/CLAUDE_CODING_AND_FIX.md`，该文档对每个 Coding Task 必读。
+Implementation/Fix 的具体方法、Fix 2/3 案例和测试矩阵见 `docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md`，该文档对每个 Coding Task 必读。
 
 ## 5. Coding 硬约束
 
@@ -88,8 +88,8 @@ Implementation/Fix 的具体方法、Fix 2/3 案例和测试矩阵见 `docs/agen
 ## 7. 文档与 Coding Result
 
 - 随代码同步更新受影响文档，保证描述与行为一致。
-- 可以更新 `DEVELOPMENT_LOG.md`、接口细节、命令和测试事实；对共享规则、架构或 ADR 的修改只是候选 Diff，必须单列交由 Codex Review。
-- `DEVELOPMENT_LOG.md` 必须记录实际阶段和验证事实；实现与协议不一致时写入 deviation/unresolved，不得用注记宣称一致。
+- 只有 Accepted Contract 的 `documentation_updates` 明确列出时，才可更新 `docs/documents/` 下候选文档；对共享规则、架构或 ADR 的修改必须单列交由 Codex Review。
+- `docs/documents/DEVELOPMENT_LOG.md` 必须记录实际阶段和验证事实；实现与协议不一致时写入 deviation/unresolved，不得用注记宣称一致。
 
 每次实现结束必须返回：
 
@@ -127,11 +127,11 @@ questions:
 - 未经用户针对当前明确 scope 的授权，不执行 commit、push、merge、rebase、reset、checkout、clean、stage、branch 或 worktree 操作。
 - 不回滚、覆盖或格式化非 task-owned 变更；交付前报告实际 changed files。
 - 角色文档提交授权、测试通过、`completed` 或既往授权都不构成实现提交权限。
-- 并行模块只在分配的 worktree 工作，不读取其他 worker 未接受的修改，不修改共享 integration boundary；详细规则见 `docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md`。
+- 并行模块只在分配的 worktree 工作，不读取其他 worker 未接受的修改，不修改共享 integration boundary；详细规则见 `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md`。
 
 ## 9. 本文件维护
 
 - 本文件是受保护的 Claude Code 入口，只在用户明确要求修改角色、流程或本文件时更新。
-- 细节优先写入 `docs/agent-guides/` 并在第 2 节按触发条件索引；不得把本文件重新扩展为全部实现手册。
+- 细节优先写入 `docs/documents/agent-guides/` 并在第 2 节按触发条件索引；不得把本文件重新扩展为全部实现手册。
 - 修改时检查 `PROJECT_RULES.md`、Codex/Claude 职责、Room 协议和细分指南的一致性。
 - 本文件及其索引文档不得包含未解析 merge marker。

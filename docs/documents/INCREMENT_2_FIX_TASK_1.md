@@ -127,7 +127,7 @@ created_at: 2026-08-24T04:00:14Z
 
 - [Increment 2 Task Contract](./INCREMENT_2_TASK_CONTRACT.md)
 - [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md)
-- [PROJECT_RULES.md](../PROJECT_RULES.md)
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [PROJECT_RULES.md](../../PROJECT_RULES.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [Codex Review 与规划指南](./agent-guides/CODEX_REVIEW_AND_PLANNING.md)
 - [Claude Coding 指南](./agent-guides/CLAUDE_CODING_AND_FIX.md)

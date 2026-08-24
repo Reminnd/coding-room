@@ -115,9 +115,9 @@ created_at: 2026-08-23T14:02:08Z
 
 ## 参考文档
 
-- [PROJECT_RULES.md](../PROJECT_RULES.md)
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [PROJECT_RULES.md](../../PROJECT_RULES.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md)
 - [MVP_PLAN.md](./MVP_PLAN.md)
-- [ADR-0001](../ADR/0001-local-room-and-state-ownership.md)
-- [ADR-0002](../ADR/0002-agent-integration-lifecycle.md)
+- [ADR-0001](./ADR/0001-local-room-and-state-ownership.md)
+- [ADR-0002](./ADR/0002-agent-integration-lifecycle.md)

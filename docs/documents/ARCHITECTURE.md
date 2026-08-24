@@ -264,7 +264,7 @@ runtime/
 
 ## 12. 接口索引
 
-权威 tool contract、entity field、state transition 和 result schema 定义在 [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md)。
+权威 tool contract、entity field、state transition 和 result schema 定义在 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md)。
 
 ## 13. 延后能力
 

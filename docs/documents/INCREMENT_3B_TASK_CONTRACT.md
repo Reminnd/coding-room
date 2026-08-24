@@ -126,10 +126,10 @@ created_at: 2026-08-24T04:41:00Z
 
 - [并行试点计划](./INCREMENT_3_PARALLEL_PILOT_PLAN.md)
 - [Accepted Scope Scaffold Contract](./INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)
-- [PROJECT_RULES.md](../PROJECT_RULES.md)
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [PROJECT_RULES.md](../../PROJECT_RULES.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md)
 - [MVP_PLAN.md](./MVP_PLAN.md)
-- [ADR-0002](../ADR/0002-agent-integration-lifecycle.md)
+- [ADR-0002](./ADR/0002-agent-integration-lifecycle.md)
 - [Claude Coding 指南](./agent-guides/CLAUDE_CODING_AND_FIX.md)
 - [Git 与并行工作流指南](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)

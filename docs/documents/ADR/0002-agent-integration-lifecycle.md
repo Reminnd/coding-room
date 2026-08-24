@@ -75,6 +75,6 @@ MVP 不采用。用户明确要求 Codex App 作为交互界面，不需要另�
 
 ## 相关文档
 
-- [PROJECT_RULES.md](../PROJECT_RULES.md)
+- [PROJECT_RULES.md](../../../PROJECT_RULES.md)
 - [ARCHITECTURE.md](../ARCHITECTURE.md)
-- [docs/ROOM_PROTOCOL.md](../docs/ROOM_PROTOCOL.md)
+- [ROOM_PROTOCOL.md](../ROOM_PROTOCOL.md)

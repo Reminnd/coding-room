@@ -123,7 +123,26 @@ Fix 2 后，同内容旧 Review retry 被 current Run guard 误拒。最小修�
 - 测试名和 Coding Result 只描述实际执行的 method 与 assertion。
 - 测试全绿后逐项映射 acceptance criteria，补的是证据缺口，不是额外 framework。
 
-## 8. 注释、文档与交付
+## 8. Git Observer 与 process failure 经验
+
+### 8.1 Failure 不能降级为空 evidence
+
+调用外部 process 收集事实时，只有 command 成功后的空 output 才能表示 empty evidence。任何非零退出、启动失败、buffer failure 或解析前置失败都必须沿调用链传播，不得通过 `null`、`[]`、默认值或 catch fallback 解释为 clean/success。
+
+process helper 只拥有 command execution fact。repository、HEAD、worktree 等 domain error 由知道 operation intent 的 caller 映射；不要把某个 exit code 在底层全局绑定为 `missing`，因为同一 exit code 在 evidence command 中可能表示真实 fatal failure。
+
+### 8.2 按 runtime API 读取 error context
+
+Node.js 异步 `execFile` 的 callback 为 `(error, stdout, stderr)`；stderr 来自第三个参数，不应假设普通 `error` object 含 `.stderr`。实现 process error 时直接保留 command、args、cwd、数字 exit code 与 callback stderr，并用聚焦失败测试证明这些字段实际可观察。类型断言和 typecheck 不能代替 runtime API 证据。
+
+### 8.3 外部依赖 failure regression
+
+- 使用真实且最小的 failure fixture；Git evidence 可使用“合法 HEAD + 损坏 index”，使 repository/HEAD probe 成功而 evidence command 失败。
+- Contract 暴露多个 public operation 时逐一直接调用，不能用共享 helper 的一个测试代替。
+- 断言 operation 拒绝且没有返回 clean/empty result；核对稳定的 error type/context，不匹配平台相关完整英文文本。
+- fixture helper 必须保留实际创建资源的 owner path，并在 `finally` 删除 owner；不要只删除本来就不存在的 child path。
+
+## 9. 注释、文档与交付
 
 - 注释解释关键 invariant、非显然顺序及为什么 transaction 能保证 rollback；不逐行复述。
 - `DEVELOPMENT_LOG.md` 记录实际 changed files、行为、测试数、命令结果、偏差和 `REVIEW_REQUIRED` 阶段。

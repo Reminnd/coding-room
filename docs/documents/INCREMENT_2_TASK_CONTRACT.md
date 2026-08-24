@@ -125,11 +125,11 @@ created_at: 2026-08-24T03:13:30Z
 
 ## 参考文档
 
-- [PROJECT_RULES.md](../PROJECT_RULES.md)
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [PROJECT_RULES.md](../../PROJECT_RULES.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md)
 - [MVP_PLAN.md](./MVP_PLAN.md)
-- [ADR-0001](../ADR/0001-local-room-and-state-ownership.md)
+- [ADR-0001](./ADR/0001-local-room-and-state-ownership.md)
 - [Codex Review 与规划指南](./agent-guides/CODEX_REVIEW_AND_PLANNING.md)
 - [Claude Coding 指南](./agent-guides/CLAUDE_CODING_AND_FIX.md)
 - [Git 与并行工作流指南](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)

@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：PLAN_READY / Increment 3 Scope Scaffold
+> 当前阶段：ACCEPTED / Increment 3 Scope Scaffold；main integration pending
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -71,6 +71,7 @@
 ### 4.2 Codex
 
 - 负责需求分析、架构、规划、共享文档和 Review。
+- 作为全项目文档编写者及维护者，调用 `backend-doc-authoring` skill 编写、补全、迁移、Review 并维护 `docs/documents/` 下所有项目文档。
 - 只有在用户确认后才能提交 Implementation Task 或 Fix Task。
 - 可以读取代码、Git 状态和 Diff，并运行与 Review 结论直接相关的只读检查或测试。
 - 不编写业务代码、测试或实现配置，不代替 Claude Code 完成 Coding Task。
@@ -115,7 +116,7 @@
 - 一个新的 Implementation Task 创建新的 Claude session；其 Fix Task 链复用该 session。
 - Codex App 使用显式拉取模型；用户触发 Codex 检查 Room 更新。
 
-详细结构见 [ARCHITECTURE.md](./ARCHITECTURE.md)，协议见 [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md)。
+详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
 ## 7. 工作流与门禁
 
@@ -142,7 +143,7 @@ DISCUSSION
 - 没有用户确认解决方案，不得提交 Fix Task。
 - 没有用户接受，不得进入 ACCEPTED。
 
-具体合法转换、actor 和失败语义见 [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md)。
+具体合法转换、actor 和失败语义见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。
 
 ### 7.1 Room MCP 建成前的 Bootstrap 路径
 
@@ -150,7 +151,7 @@ DISCUSSION
 
 - 在 Increment 4 的 Room MCP 被 Review 并接受前，Codex 可以使用本机 `claude -p`，把完整且已由用户批准的 Task Contract 直接交给 Claude Code CLI。
 - Bootstrap Task 必须包含稳定 `task_id`、`confirmed_by_user=true` 和本文件要求的完整契约字段；CLI prompt 摘要不能替代 Task Contract。
-- Claude Code 的 stdout final result 暂时代替尚未可用的 Room Coding Result transport，但仍必须满足 [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md) 的 Coding Result shape。
+- Claude Code 的 stdout final result 暂时代替尚未可用的 Room Coding Result transport，但仍必须满足 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) 的 Coding Result shape。
 - Claude 需要产品、架构、范围、依赖或权限决定时，必须返回 `needs_decision` 并结束当前 process；Codex 与用户确认后才能启动新的 process。
 - Git baseline、clean-worktree gate、Codex Review、Review discussion、Fix approval 和最终接受门禁保持不变。
 - Bootstrap 路径只改变 Task/Result 的临时 transport，不改变目标产品架构，不形成第二套持久化 Room state。
@@ -158,7 +159,7 @@ DISCUSSION
 
 ## 8. Task 与交付契约
 
-Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.md](./AGENTS.md)、[CLAUDE.md](./CLAUDE.md) 和 [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md) 的共同约束为准。
+Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.md](./AGENTS.md)、[CLAUDE.md](./CLAUDE.md) 和 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) 的共同约束为准。
 
 核心规则：
 
@@ -203,6 +204,9 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 优先复用现有依赖；新增依赖前必须核查标准库、当前依赖和官方能力。
 - 不顺手重构、格式化或清理无关代码。
 - 重大架构、协议、持久化或状态所有权变化必须由用户确认并更新 ADR。
+- 编写或维护任何项目文档前，Codex 必须读取 `backend-doc-authoring` skill 及对应 references，并按 `docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 执行；所有人类可查看文档必须位于 `docs/documents/`，根目录只保留三个 agent/tooling 控制入口。
+- 每次 Review 后，Codex 必须审计需求、接口、架构、结构、状态、命令、运维与开发事实：有变化时更新对应权威文档，无变化时在 Review 验证摘要明确 `documentation: no_change`；未接受 candidate 不得写成 Current。该门禁不增加 Room state 或 runtime hook。
+- 每个 Fix Task 经 Codex 二次 Review 通过并获用户明确接受后，Codex 在派发下一 Implementation/Fix Task 前完成一次证据化经验回收，按角色写入 `docs/documents/agent-guides/`；已有规则已覆盖或没有新增经验时如实记录，不制造规则。该文档门禁不增加 Room state、Event 或 protocol field。
 - 代码必须包含解释模块职责、关键 invariant、非显然分支、取舍和失败语义所需的注释；注释默认使用简体中文，不逐行复述代码。
 - 项目文档与代码注释默认使用简体中文；代码、标识符、命令、Schema 字段和技术专名保持 English。
 
@@ -213,34 +217,37 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [PROJECT_RULES.md](./PROJECT_RULES.md) | 共享规范入口与当前有效规则 | Codex | 每个非简单项目任务 | Current |
 | [AGENTS.md](./AGENTS.md) | Codex 专属角色与流程契约 | 用户/Codex | Codex 会话入口 | Protected |
 | [CLAUDE.md](./CLAUDE.md) | Claude Code 专属执行契约 | 用户/Codex Review | 每次 Claude Coding | Protected |
-| [docs/agent-guides/README.md](./docs/agent-guides/README.md) | Agent 细分指南路由与权威关系 | Codex | 角色入口路由或指南维护 | Current |
-| [docs/agent-guides/CODEX_REVIEW_AND_PLANNING.md](./docs/agent-guides/CODEX_REVIEW_AND_PLANNING.md) | Codex 架构、规划、Review 与解决方案方法 | Codex | 需求、架构、规划、Task、Review 或 Fix 方案 | Current |
-| [docs/agent-guides/CLAUDE_CODING_AND_FIX.md](./docs/agent-guides/CLAUDE_CODING_AND_FIX.md) | Claude Code Coding、Fix 与回归测试方法 | Codex/Claude 候选 | 每个 Implementation Task 或 Fix Task | Current |
-| [docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md](./docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md) | Git 权限、baseline、并行 worktree 与 integration | Codex/Claude | Git、并行或 integration 任务 | Current |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
-| [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
-| [docs/MVP_PLAN.md](./docs/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
-| [docs/INCREMENT_1_TASK_CONTRACT.md](./docs/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
-| [docs/INCREMENT_1_FIX_TASK_1.md](./docs/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
-| [docs/INCREMENT_1_FIX_TASK_2.md](./docs/INCREMENT_1_FIX_TASK_2.md) | Increment 1 Review 2 已确认的最小 Fix Task | Codex | Increment 1 Fix 2 Coding 与再次 Review | Accepted |
-| [docs/INCREMENT_1_FIX_TASK_3.md](./docs/INCREMENT_1_FIX_TASK_3.md) | Increment 1 Review 3 已确认的最小 Fix Task | Codex | Increment 1 Fix 3 Coding 与再次 Review | Accepted |
-| [docs/INCREMENT_2_TASK_CONTRACT.md](./docs/INCREMENT_2_TASK_CONTRACT.md) | Increment 2 已批准 Implementation Task Contract | Codex | Increment 2 Coding、Review 与 Fix 规划 | Accepted |
-| [docs/INCREMENT_2_FIX_TASK_1.md](./docs/INCREMENT_2_FIX_TASK_1.md) | Increment 2 Review 1 已确认的最小 Fix Task | Codex | Increment 2 Fix Coding 与再次 Review | Accepted |
-| [docs/INCREMENT_3_PARALLEL_PILOT_PLAN.md](./docs/INCREMENT_3_PARALLEL_PILOT_PLAN.md) | Increment 3 两个 leaf module 并行试点与串行 Integration 计划 | Codex | Increment 3 Scaffold、Leaf 与 Integration 规划 | Current |
-| [docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md](./docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md) | 并行派发前共享 Scope regression 串行前置任务 | Codex | Scope Scaffold Coding 与 Review | Accepted |
-| [docs/INCREMENT_3A_TASK_CONTRACT.md](./docs/INCREMENT_3A_TASK_CONTRACT.md) | Claude Process Transport leaf Task Contract 草案 | Codex | Leaf A 规划与用户确认 | Draft |
-| [docs/INCREMENT_3B_TASK_CONTRACT.md](./docs/INCREMENT_3B_TASK_CONTRACT.md) | Claude Stream Interpreter leaf Task Contract 草案 | Codex | Leaf B 规划与用户确认 | Draft |
-| [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
-| [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
-| [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
+| [docs/documents/README.md](./docs/documents/README.md) | 人工查看的项目文档总入口、用途与依赖关系 | Codex | 查看或维护任意项目文档 | Current |
+| [docs/documents/agent-guides/README.md](./docs/documents/agent-guides/README.md) | Agent 细分指南路由与权威关系 | Codex | 角色入口路由或指南维护 | Current |
+| [docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md](./docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) | `backend-doc-authoring` 驱动的全项目文档编写与维护方法 | Codex | 任意文档工作；每次 Review 后 | Current |
+| [docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md](./docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md) | Codex 架构、规划、Review、解决方案与 Fix 经验回收方法 | Codex | 需求、架构、规划、Task、Review、Fix 方案或 Fix 验收后 | Current |
+| [docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md](./docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md) | Claude Code Coding、Fix、process failure 与回归测试方法 | Codex/Claude 候选 | 每个 Implementation Task 或 Fix Task | Current |
+| [docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md](./docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md) | Git 权限、baseline、并行 worktree 与 integration | Codex/Claude | Git、并行或 integration 任务 | Current |
+| [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
+| [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
+| [docs/documents/MVP_PLAN.md](./docs/documents/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
+| [docs/documents/OPERATIONS.md](./docs/documents/OPERATIONS.md) | 人工运维接口、架构/结构、命令、状态/制品与恢复视图 | Codex | 人工运维；每次 Review 后维护 | Current |
+| [docs/documents/INCREMENT_1_TASK_CONTRACT.md](./docs/documents/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
+| [docs/documents/INCREMENT_1_FIX_TASK_1.md](./docs/documents/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_1_FIX_TASK_2.md](./docs/documents/INCREMENT_1_FIX_TASK_2.md) | Increment 1 Review 2 已确认的最小 Fix Task | Codex | Increment 1 Fix 2 Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_1_FIX_TASK_3.md](./docs/documents/INCREMENT_1_FIX_TASK_3.md) | Increment 1 Review 3 已确认的最小 Fix Task | Codex | Increment 1 Fix 3 Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_2_TASK_CONTRACT.md](./docs/documents/INCREMENT_2_TASK_CONTRACT.md) | Increment 2 已批准 Implementation Task Contract | Codex | Increment 2 Coding、Review 与 Fix 规划 | Accepted |
+| [docs/documents/INCREMENT_2_FIX_TASK_1.md](./docs/documents/INCREMENT_2_FIX_TASK_1.md) | Increment 2 Review 1 已确认的最小 Fix Task | Codex | Increment 2 Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_3_PARALLEL_PILOT_PLAN.md](./docs/documents/INCREMENT_3_PARALLEL_PILOT_PLAN.md) | Increment 3 两个 leaf module 并行试点与串行 Integration 计划 | Codex | Increment 3 Scaffold、Leaf 与 Integration 规划 | Current |
+| [docs/documents/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md](./docs/documents/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md) | 并行派发前共享 Scope regression 串行前置任务 | Codex | Scope Scaffold Coding 与 Review | Accepted |
+| [docs/documents/INCREMENT_3A_TASK_CONTRACT.md](./docs/documents/INCREMENT_3A_TASK_CONTRACT.md) | Claude Process Transport leaf Task Contract 草案 | Codex | Leaf A 规划与用户确认 | Draft |
+| [docs/documents/INCREMENT_3B_TASK_CONTRACT.md](./docs/documents/INCREMENT_3B_TASK_CONTRACT.md) | Claude Stream Interpreter leaf Task Contract 草案 | Codex | Leaf B 规划与用户确认 | Draft |
+| [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
+| [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
+| [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
 
 “会话必读”文档为：
 
 1. `PROJECT_RULES.md`
-2. `ARCHITECTURE.md`
-3. `DEVELOPMENT_LOG.md`
+2. `docs/documents/ARCHITECTURE.md`
+3. `docs/documents/DEVELOPMENT_LOG.md`
 
-当前任务涉及协议、Runner、MCP、状态或 Git 基线时，还必须读取 `docs/ROOM_PROTOCOL.md`。生成 Task Contract 时必须读取 `docs/MVP_PLAN.md`。
+当前任务涉及协议、Runner、MCP、状态或 Git 基线时，还必须读取 `docs/documents/ROOM_PROTOCOL.md`。生成 Task Contract 时必须读取 `docs/documents/MVP_PLAN.md`。任何项目文档工作还必须调用 `backend-doc-authoring` skill 并读取 `docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md`。
 
 ## 13. 规则变更
 
@@ -250,9 +257,12 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - Claude Code 对共享规则、架构和 ADR 的修改只是候选 Diff，必须由 Codex Review，并在重大变化时由用户确认。
 - 2026-08-23：用户确认在 Increment 2 被接受后，以两个独立 leaf module 试点“独立 branch/worktree + 独立 Implementation Task + 串行 integration”的开发期并行方式。该规则不替代 MVP 的单 Room/单 Run 产品边界，因此本次不新增 ADR；若未来把并行 worker 或 worktree management 纳入产品 runtime，必须另行 Architecture Review、用户确认和 ADR。
 - 2026-08-23：用户明确代码必须包含必要注释，代码注释默认使用简体中文，代码、标识符、命令、Schema 字段和技术专名保持 English；该规则只澄清编码与 Review 标准，不改变架构，因此不新增 ADR。
-- 2026-08-24：用户要求把 Fix 2/3 的可复用经验按 Codex 与 Claude Code 职责拆分，并采用入口路由 + 细分指南的渐进式读取结构。`AGENTS.md`/`CLAUDE.md` 保留角色硬边界和强制索引，详细 Review/规划、Coding/Fix、Git/并行方法迁移到 `docs/agent-guides/`；同时清除两份入口中的未解析 merge marker。该变更整理角色执行知识，不改变产品架构或 Room protocol，因此不新增 ADR。
+- 2026-08-24：用户要求把 Fix 2/3 的可复用经验按 Codex 与 Claude Code 职责拆分，并采用入口路由 + 细分指南的渐进式读取结构。`AGENTS.md`/`CLAUDE.md` 保留角色硬边界和强制索引，详细 Review/规划、Coding/Fix、Git/并行方法当前位于 `docs/documents/agent-guides/`；同时清除两份入口中的未解析 merge marker。该变更整理角色执行知识，不改变产品架构或 Room protocol，因此不新增 ADR。
 - 2026-08-24：用户确认 Increment 3 并行试点拆分为 `Claude Process Transport` 与 `Claude Stream Interpreter` 两个独立 leaf module，先串行更新共享 Scope regression，再分别 Review、接受、提交并通过独立 Integration Task 组装。用户同时确认 `CODING` 覆盖 Runner claim 后的 process startup 与 MCP initialization，既有 startup/init failure 继续走 `CODING → RUN_FAILED`，不增加 Room state 或 transition；protocol version、ADR 与实现同步留给 Increment 3 Integration Task。
+- 2026-08-24：用户要求总结 Increment 2 Fix 1 的可复用经验，并把“每个 Fix Task 验收后自动执行经验回收”固化为 Codex 文档工作流门禁。经验按 Codex Review 与 Claude Coding 职责写入细分指南；自动化只覆盖 Trigger、路由和一致性检查，不增加 Room state、protocol field、runtime hook 或 ADR。
+- Superseded 2026-08-24：Codex 的“运维文档编写者及维护者”窄角色已由下一条全项目文档角色替代；Review 后运维维护要求继续包含在新角色中。
+- 2026-08-24：用户明确要求 Codex 调用 `backend-doc-authoring` skill 编写和维护所有项目文档，并把人类可查看文档统一迁入 `docs/documents/`。根目录只保留 `AGENTS.md`、`CLAUDE.md`、`PROJECT_RULES.md` 三个 agent/tooling 控制入口；新增文档总索引和全项目文档维护指南，不保留旧路径副本。该变更只调整文档角色、目录和工作流，不改变产品 architecture、Room protocol 或 runtime，因此不新增 ADR。
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 2 commit 为 `7345950fac08343cf3eb18cce2ac06c909ca4293`。用户已确认 [Increment 3 并行试点计划](./docs/INCREMENT_3_PARALLEL_PILOT_PLAN.md) 与 startup/init lifecycle 修正，并批准串行 [Scope Scaffold Task Contract](./docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)。当前阶段为 `PLAN_READY / Increment 3 Scope Scaffold`；目标 Room runtime 尚未实现，runtime state 不适用。Leaf A/B Contract 仍为 Draft；用户已授权提交当前 7 个 planning/state 文档并随后通过 bootstrap transport 派发 Scope Scaffold，未授权 branch/worktree、实现提交、push 或历史改写。
+架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 2 commit 为 `7345950fac08343cf3eb18cce2ac06c909ca4293`。Increment 3 Scope Scaffold 已完成两轮 Review、获用户接受并在 `codex/increment-003-scope-scaffold` 提交为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，但尚未集成到 `main`。当前阶段为 `ACCEPTED / Increment 3 Scope Scaffold；main integration pending`；目标 Room runtime 尚未实现，runtime state 不适用。Leaf A/B Contract 仍为 Draft，必须在 Scaffold 成为共同 main baseline 后才能转为 Accepted 并派发。

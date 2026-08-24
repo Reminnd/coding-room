@@ -36,7 +36,7 @@ Increment 3 可以拆出两个写入不交叉、无需互相等待、可独立�
 - startup、MCP initialization、non-zero exit 与 invalid result 分别映射既有 `claude_start_failed`、`room_mcp_unavailable`、`claude_exit_failed`、`coding_result_invalid`，并通过既有 `CODING → RUN_FAILED` 结束。
 - 不增加 `STARTING` Room state、`PLAN_READY → RUN_FAILED` transition、schema pointer 或 migration。
 
-用户已确认该最小修正。应在串行 Integration Task 中同步 `docs/ROOM_PROTOCOL.md`、`ARCHITECTURE.md`、相关测试与 protocol version；两个 leaf module 不修改这些共享文件。
+用户已确认该最小修正。应在串行 Integration Task 中同步 `docs/documents/ROOM_PROTOCOL.md`、`docs/documents/ARCHITECTURE.md`、相关测试与 protocol version；两个 leaf module 不修改这些共享文件。
 
 ### 2.2 本机真实 CLI fixture
 

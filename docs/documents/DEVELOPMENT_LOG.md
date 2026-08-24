@@ -3,14 +3,45 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：PLAN_READY / Increment 3 Scope Scaffold
+- 项目阶段：ACCEPTED / Increment 3 Scope Scaffold；main integration pending
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-003-scope-scaffold` 已获用户批准、尚未派发；Increment 3A/3B Leaf Contract 仍为 Draft
+- Implementation Task：`increment-003-scope-scaffold` 已完成、Review、Fix、接受并在独立 branch 提交；Increment 3A/3B Leaf Contract 仍为 Draft
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：Increment 2 已提交为 `7345950fac08343cf3eb18cce2ac06c909ca4293`；用户已授权提交当前 7 个 Increment 3 planning/state 文档并随后派发 Scope Scaffold，未授权 branch/worktree、实现提交或 push
+- Git repository：`main` HEAD 为 `1416de2429e2124192442e8b6e7db3645db805c6`；accepted Scaffold branch commit 为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，尚未获授权集成到 `main`；未授权 push
 
 ## 已完成
+
+### 2026-08-24 — Codex 全项目文档角色、Skill 门禁与文档集中迁移
+
+- 用户明确将 Codex 的“运维文档编写者及维护者”扩展为全项目文档编写者及维护者；Codex 编写、补全、迁移、Review 或维护任何项目文档时 MUST 调用 `backend-doc-authoring` skill，并在每次 Review 后执行 documentation impact audit。
+- 全部人类可查看项目文档已集中迁入 `docs/documents/`，新增 [项目文档中心](./README.md) 统一列出用途、状态、Owner 与依赖；根目录仅保留 `AGENTS.md`、`CLAUDE.md`、`PROJECT_RULES.md` 三个 agent/tooling 控制入口，旧路径不保留副本。
+- 原运维专用指南由 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 替代；运维手册继续作为全项目文档集中的人工操作与故障处置权威视图。
+- 已同步角色入口、Claude candidate 文档边界、Documentation Map、细分指南路由和 Review Verification Summary 字段 `documentation: updated | no_change | blocked`。
+- 该变更只调整文档角色、目录和维护工作流，不修改 business code、test、implementation config、Room state、Event、protocol 或 runtime，因此不新增 ADR。
+
+### 2026-08-24 — Codex 运维文档角色与 Review 后维护门禁（Superseded）
+
+- 用户明确为 Codex 增加“运维文档编写者及维护者”角色，要求每次 Review 后维护人工可查看的接口、架构与结构说明。
+- 新建 `docs/documents/OPERATIONS.md`，按 accepted/current 与 candidate/integration 状态分离，记录当前 public application API、Git Observer、组件结构、可用命令、状态/制品位置和故障边界；明确 Runner、MCP、CLI 与 service entry 尚未实现，不发明启动命令。
+- 当时新建的运维专用指南现已由 `docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 替代；Review 后运维影响审计继续由全项目文档门禁覆盖。
+- 该角色是 Codex 文档工作流，不修改 Room state、Event、protocol、runtime、业务代码或测试，因此不新增 ADR。
+
+### 2026-08-24 — Increment 3 Scope Scaffold Review、Fix、接受与独立提交
+
+- Scope Scaffold 在 `codex/increment-003-scope-scaffold` 从 baseline `1416de2429e2124192442e8b6e7db3645db805c6` 执行；Implementation 只修改 `tests/scope.test.ts`。
+- Review 1 复现 allowed filename 对应 directory 被错误接受；用户确认最小 `Dirent.isFile()` 与 literal filename 联合校验方案，并通过恢复原 Claude session 完成 Fix。
+- Review 2 无 finding；Codex 独立 8-scenario matrix、`npm run typecheck` 与 `npm test`（57/57）全部通过。用户明确接受并授权提交。
+- branch commit 为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，实际 files 为 `tests/scope.test.ts` 与 `docs/INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md`；未 push，尚未集成到 `main`。
+- 运维影响：Scope regression 与开发 branch baseline 变化，不新增 runtime interface、service command、Runner、MCP 或 CLI；已在 `docs/documents/OPERATIONS.md` 标明 accepted branch 与 main integration pending。
+
+### 2026-08-24 — Increment 2 Fix 1 经验回收与流程自动化
+
+- 按用户要求从 `review-increment-002-codex-001`、Accepted Fix Task、实际 Diff、两个 public-path corrupt-index regression 与二次 Review 提炼可复用经验，而不是复制单次历史描述。
+- Codex Review 经验写入 `CODEX_REVIEW_AND_PLANNING.md`：observer 必须区分 success-empty、success-nonempty 与 failure；process exit fact 和 domain error mapping 属于不同 boundary；外部依赖 failure injection 必须直达每个 public operation；typecheck 不能证明 runtime callback context 来源正确。
+- Claude Coding 经验写入 `CLAUDE_CODING_AND_FIX.md`：process failure 不得降级为 empty evidence；异步 `execFile` 从 callback 第三个参数读取 stderr；用“合法 HEAD + 损坏 index”构造最小 Git failure fixture；fixture cleanup 删除实际 owner path。
+- `AGENTS.md`、`PROJECT_RULES.md` 与指南路由新增硬 Trigger：每个 Fix Task 二次 Review approved 且获用户明确接受后，Codex 在派发下一 Implementation/Fix Task 前执行经验回收；已有规则已覆盖或无新增经验时如实记录，不制造规则。
+- 该自动化是 Codex 文档工作流，不修改 Room state、Event、protocol、Runner、业务代码或 Architecture，因此不新增 ADR；当前项目阶段保持 `PLAN_READY / Increment 3 Scope Scaffold`。
 
 ### 2026-08-24 — Increment 3 并行试点与 Scope Scaffold Contract 批准
 
@@ -18,7 +49,7 @@
 - 用户确认 `CODING` 覆盖 Runner claim 后的 process startup 与 MCP initialization；startup/init failure 继续通过既有 `CODING → RUN_FAILED` 结束，不新增 Room state 或 transition。正式 protocol version、ADR 与实现同步留给 Integration Task。
 - 经用户授权完成一次受限真实 Claude Code `2.1.241` smoke：禁用普通 tools、预算上限 `$0.25`，实际费用 `$0.06222`，exit code `0`，未修改项目文件；确认 `--verbose`、CLI JSON Schema normalization、hook/init/result/session 与 `structured_output` shape。
 - 发现现有 `tests/scope.test.ts` 明确拒绝 `src/runner`，会使两个 leaf branch 的 `npm test` 必然失败；共享 regression 不能由两个 worker 并行修改，因此增加串行 Scope Scaffold 前置任务。
-- 用户已批准 [Scope Scaffold Task Contract](./docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)，其唯一实现 scope 为 `tests/scope.test.ts`，不创建或实现 Runner；项目阶段进入 `PLAN_READY / Increment 3 Scope Scaffold`。
+- 用户已批准 [Scope Scaffold Task Contract](./INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)，其唯一实现 scope 为 `tests/scope.test.ts`，不创建或实现 Runner；项目阶段进入 `PLAN_READY / Increment 3 Scope Scaffold`。
 - 用户已授权当前 7 个 planning/state 文档的 documentation baseline commit 与随后的 Scope Scaffold bootstrap dispatch；未授权 branch/worktree、实现提交或 push，Leaf A/B Contract 保持 Draft。
 
 ### 2026-08-24 — Increment 2 接受与提交授权
@@ -38,7 +69,7 @@
 
 ### 2026-08-24 — Increment 2 Fix 1: Git Failure Semantics
 
-按 [Increment 2 Fix Task 1](./docs/INCREMENT_2_FIX_TASK_1.md) 修复 `review-increment-002-codex-001` 的 3 项 confirmed findings：
+按 [Increment 2 Fix Task 1](./INCREMENT_2_FIX_TASK_1.md) 修复 `review-increment-002-codex-001` 的 3 项 confirmed findings：
 
 - `inc2-r1-evidence-exit-128`：`runGit` 不再把 exit 128 分类为 `missing`，而是对任何非零退出或进程启动失败以 `GitCommandError` 携带 command、args、cwd、exitCode 与 stderr 向上抛出；`resolveWorktreeRoot`/`resolveBaselineHead` 在各自 semantic boundary 捕获 `GitCommandError` 且 `exitCode === 128` 时映射为 `git_repository_missing`/`git_head_missing`，其余失败继续向上抛。`collectEvidence` 不再捕获或降级任何 diff/ls-files 失败，因此 `establishCleanBaseline`/`collectCompletionEvidence` 在 evidence command fatal failure 时都拒绝，不再返回 clean/empty evidence。
 - `inc2-r1-git-error-stderr`：`runGit` 从异步 `execFile` callback 第三个参数读取 stderr（Buffer/string）并传入 `GitCommandError`，不再从 error object 假设 `.stderr` 属性存在。
@@ -52,11 +83,11 @@ changed files：`src/git/git-process.ts`、`src/git/git-observer.ts`、`tests/gi
 - Review `review-increment-002-codex-001` 通过损坏 temporary repository index 的 fault injection 复现：evidence command exit 128 被 `runGit` 分类为 `missing`，随后 null stdout 被解释为空 array，使 `establishCleanBaseline` 在观察失败时错误返回 clean baseline。
 - Review 同时确认异步 `execFile` 的 stderr 来自 callback 第三个参数，当前 `GitCommandError.stderr` 实际为空；non-existent target 测试只删除不存在的 child，稳定遗留 `makeFixture` 创建的 parent temporary directory。
 - 用户确认三项 finding 与最小方向：process boundary 对非零退出抛出携带完整 context/stderr 的 `GitCommandError`，仅由 repository/HEAD semantic boundary 映射预期 ProtocolError；两个 public evidence operation 直接覆盖 fatal failure；测试删除实际创建的 parent fixture。
-- 已创建 [Increment 2 Fix Task 1](./docs/INCREMENT_2_FIX_TASK_1.md)，Fix lineage 保留原始 `baseline_head` `6e7e5eb8869b2947d7738f1f23b6eb7fdde64742`，阶段进入 `FIX_PLAN_READY`。
+- 已创建 [Increment 2 Fix Task 1](./INCREMENT_2_FIX_TASK_1.md)，Fix lineage 保留原始 `baseline_head` `6e7e5eb8869b2947d7738f1f23b6eb7fdde64742`，阶段进入 `FIX_PLAN_READY`。
 
 ### 2026-08-24 — Increment 2: Git Preconditions and Evidence
 
-按 [Increment 2 Task Contract](./docs/INCREMENT_2_TASK_CONTRACT.md) 在独立 `src/git` infrastructure module 实现只读 Git Observer：
+按 [Increment 2 Task Contract](./INCREMENT_2_TASK_CONTRACT.md) 在独立 `src/git` infrastructure module 实现只读 Git Observer：
 
 - `src/git/git-process.ts`：唯一 Git 调用入口，`node:child_process.execFile('git', [command, ...args])` 直接传 argument array（无 shell）、`encoding: 'buffer'` 保留 NUL 分隔输出；exit 128 分类为 `missing`，其余 process 失败以 `GitCommandError` 携带 command context（command、args、cwd、exit code、stderr）抛出。
 - `src/git/git-observer.ts`：`GitEvidence`（staged/unstaged/untracked 去重、稳定排序的 root-relative path）与 `establishCleanBaseline` / `collectCompletionEvidence` 两个 operation。
@@ -71,7 +102,7 @@ Git command boundary：`runGit` 是唯一 process 边界，所有 command 从解
 
 ### 2026-08-24 — Increment 2 Task Contract 批准
 
-- 用户明确批准 [Increment 2 Task Contract](./docs/INCREMENT_2_TASK_CONTRACT.md)，阶段进入 `PLAN_READY / Increment 2`。
+- 用户明确批准 [Increment 2 Task Contract](./INCREMENT_2_TASK_CONTRACT.md)，阶段进入 `PLAN_READY / Increment 2`。
 - 已确认最小方案：独立 `src/git` Git Observer 使用 Node.js `child_process.execFile` 直接调用 Git CLI 只读命令；以完整 `HEAD` commit object ID 作为 baseline，并以 NUL-delimited output 收集 root-relative staged、unstaged、untracked path evidence。
 - 本增量不接入 Runner、MCP 或 Room state，不修改 SQLite/schema/protocol error set，不增加 dependency，不生成 patch、hash、mirror 或 Git mutation path。
 - 派发前仍需把 Accepted Contract 与现有协作文档形成 clean documentation baseline，并重新记录实际 `baseline_head`；当前批准不包含 commit、push 或 Claude Coding 派发授权。
@@ -85,7 +116,7 @@ Git command boundary：`runGit` 是唯一 process 边界，所有 command 从解
 ### 2026-08-24 — Fix 2/3 经验结构化与角色入口精简
 
 - 按项目职责将 Fix 2/3 经验拆分：Codex 侧覆盖 lifecycle Review、public-path 证据、current entity 权威事实、guard 与 idempotency 组合审查、最小解决方案和 Task Contract 场景；Claude Code 侧覆盖最小实现、transaction 内 guard/idempotency 顺序、直接 public-path regression、durable-state assertion 与独立 Oracle。
-- 新建 `docs/agent-guides/` 路由目录及 Codex、Claude Code、Git/并行三份细分指南；`AGENTS.md` 与 `CLAUDE.md` 通过明确 Trigger 强制索引，形成入口 + 按需完整读取的渐进式结构。
+- 新建的细分指南当前集中在 `docs/documents/agent-guides/`；`AGENTS.md` 与 `CLAUDE.md` 通过明确 Trigger 强制索引，形成入口 + 按需完整读取的渐进式结构。
 - 清除 `AGENTS.md` 与 `CLAUDE.md` 中未解析的 merge marker，保留冲突内容中的有效派发、并行、注释语言和 Git 权限规则，并将细节归入对应指南。
 - 同步 `PROJECT_RULES.md` Documentation Map 与规则变更记录；本次只修改角色/协作文档，不改变业务代码、测试、产品架构、Room protocol 或当前 `REVIEW_REQUIRED` 阶段。
 - 文档结构验证：`AGENTS.md` 为 9,848 bytes / 163 行，`CLAUDE.md` 为 8,875 bytes / 137 行；两者均显著低于 32 KiB 入口预算。八份相关入口/指南无 merge marker，全部 relative Markdown link 可解析。
@@ -95,11 +126,11 @@ Git command boundary：`runGit` 是唯一 process 边界，所有 command 从解
 - Codex 再次 Review 确认 Fix 2 的 typecheck 与 45 项测试通过，stale succeeded Run guard 与 `resumeRun` public-path regression 已正确落地。
 - 受支持的两轮 Run/Fix 最小复现同时证明：`review-1` 已成功持久化、`run-2` 完成后，同 ID/同 content 重试 `review-1` 会因 current Run guard 位于 `insertReview` 幂等判断之前而返回 `validation_failed`，违反 Increment 1 已批准的 entity create idempotency contract。
 - 用户确认最小方案：先复用 `insertReview` 区分既有同内容 Review、ID 冲突与新 Review，只对新 Review 执行 current Run guard；新 stale Review 继续由同一 transaction rollback。不新增 schema、pointer、migration 或通用 abstraction。
-- 已创建 [Increment 1 Fix Task 3](./docs/INCREMENT_1_FIX_TASK_3.md)，阶段进入 `FIX_PLAN_READY`。
+- 已创建 [Increment 1 Fix Task 3](./INCREMENT_1_FIX_TASK_3.md)，阶段进入 `FIX_PLAN_READY`。
 
 ### 2026-08-24 — Increment 1 Fix 3: Submit-Review Idempotency Order
 
-按 [Increment 1 Fix Task 3](./docs/INCREMENT_1_FIX_TASK_3.md) 修复 `review-increment-001-codex-003` 的 1 项 confirmed finding：
+按 [Increment 1 Fix Task 3](./INCREMENT_1_FIX_TASK_3.md) 修复 `review-increment-001-codex-003` 的 1 项 confirmed finding：
 
 - `inc1-r3-submit-review-idempotency`：将 `submitReview` 内 `insertReview` 的幂等判断移到 transaction 开头，先区分既有同内容 Review（直接返回 `created=false` 且不新增 Event）、同 ID/异 content（`id_conflict`）与新 Review；只有新 Review 才执行 task/room、succeeded、completed 与 current Run guard。新 stale Review 的 guard 失败仍由同一 transaction rollback，不留下 partial write。
 
@@ -107,7 +138,7 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ### 2026-08-24 — Increment 1 Fix 2: Submit-Review Current-Run Guard and resumeRun Coverage
 
-按 [Increment 1 Fix Task 2](./docs/INCREMENT_1_FIX_TASK_2.md) 修复 `review-increment-001-codex-002` 的 2 项 confirmed findings：
+按 [Increment 1 Fix Task 2](./INCREMENT_1_FIX_TASK_2.md) 修复 `review-increment-001-codex-002` 的 2 项 confirmed findings：
 
 - `inc1-r2-submit-review-current-run`：`submitReview` 在写入 Review 前校验 `review.run_id` 等于该 Room sequence 最大的 `run_completed` Event 指向的 Run（复用 `latestEventEntityId`），不新增 active_run_id 或其他持久化 pointer。
 - `inc1-r2-resume-run-test-coverage`：新增 NEEDS_DECISION 状态下直接调用 `resumeRun` 的 public-path regression，验证 terminal 与 `needs_decision` 初始 status 被拒绝且不产生 partial write；将原有测试重命名为仅描述 `startRun`，消除测试名与覆盖范围不符。
@@ -120,11 +151,11 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 - 受支持的两轮 Run/Fix 复现证明：run-2 完成后，旧的 succeeded run-1 仍可通过 `submitReview` 创建 current Review；`inc1-r1-active-entity` 尚未完全闭环。
 - Review 同时确认 `startRun/resumeRun` 非法 status 测试实际只调用 `startRun`；当前 `resumeRun` 实现因共享 validator 行为正确，但缺少 Task Contract 要求的直接 public-path 验收证据。
 - 用户确认最小方案：复用最近一次 `run_completed` Event 校验 `submitReview` 的 current Run，并补充 `resumeRun` 聚焦测试；不新增 pointer、schema、migration 或通用 active-entity abstraction。
-- 已创建 [Increment 1 Fix Task 2](./docs/INCREMENT_1_FIX_TASK_2.md)，阶段进入 `FIX_PLAN_READY`。
+- 已创建 [Increment 1 Fix Task 2](./INCREMENT_1_FIX_TASK_2.md)，阶段进入 `FIX_PLAN_READY`。
 
 ### 2026-08-23 — Increment 1: Protocol and State Core
 
-按 [Increment 1 Task Contract](./docs/INCREMENT_1_TASK_CONTRACT.md) 完成 MVP 第一个增量，实现可持久化、可恢复、atomic 执行或拒绝 state transition 的最小 domain core。
+按 [Increment 1 Task Contract](./INCREMENT_1_TASK_CONTRACT.md) 完成 MVP 第一个增量，实现可持久化、可恢复、atomic 执行或拒绝 state transition 的最小 domain core。
 
 实现内容：
 
@@ -137,7 +168,7 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ### 2026-08-23 — Increment 1 Fix 1: Stale Entity and Protocol Validation Guards
 
-按 [Increment 1 Fix Task 1](./docs/INCREMENT_1_FIX_TASK_1.md) 修复 `review-increment-001-codex-001` 的 4 项 confirmed findings，阻止 stale entity 推进 Room state 并补齐协议校验：
+按 [Increment 1 Fix Task 1](./INCREMENT_1_FIX_TASK_1.md) 修复 `review-increment-001-codex-001` 的 4 项 confirmed findings，阻止 stale entity 推进 Room state 并补齐协议校验：
 
 - `inc1-r1-active-entity`：用现有 Room state、Run status 与 per-Room Event sequence 判定当前 Run/Review，不新增 active_* pointer column。`startRun`/`resumeRun` 拒绝 terminal 或 `needs_decision` Run；`completeRun`/`failRun`/`askQuestion` 只接受 `running` Run；`acceptReview` 与 Fix Task 只引用最近一次 `review_submitted` Event 指向的 Review。
 - `inc1-r1-fix-finding-membership`：`validateFixReferences` 校验每个 `confirmed_findings.finding_id` 都存在于 referenced current Review.findings。
@@ -159,10 +190,10 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 已创建文档：
 
-- [PROJECT_RULES.md](./PROJECT_RULES.md)
+- [PROJECT_RULES.md](../../PROJECT_RULES.md)
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [docs/ROOM_PROTOCOL.md](./docs/ROOM_PROTOCOL.md)
-- [docs/MVP_PLAN.md](./docs/MVP_PLAN.md)
+- [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md)
+- [MVP_PLAN.md](./MVP_PLAN.md)
 - [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md)
 - [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md)
 
@@ -249,8 +280,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品或架构阻塞。Scope Scaffold Contract、documentation baseline commit 与 bootstrap Coding dispatch 均已获用户授权，等待按顺序执行。
+无产品或架构阻塞。当前 `main` worktree 包含未提交的经验回收与运维角色文档 Diff；accepted Scaffold commit 尚未集成，因此还不能把两个 leaf 从共同 Scaffold baseline 派发。
 
 ## 下一步
 
-Codex 使用显式 7-file pathspec 提交当前 Increment 3 planning/state 文档，记录实际 `baseline_head`，随后通过 bootstrap transport 派发已批准的 Scope Scaffold Task。本阶段不创建 leaf branch/worktree，也不实现 Runner；Claude 完成后进入 Codex Review，不自动提交实现。
+Codex Review 当前经验回收与运维角色文档的组合 Diff；用户确认并分别授权 documentation commit 与 Scaffold integration 后恢复 clean `main`，再把 Leaf A/B Contract 转为 Accepted、记录共同 baseline 并创建两个独立 branch/worktree。本阶段不实现 Runner，不 push。

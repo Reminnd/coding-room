@@ -1,9 +1,9 @@
 # Codex 项目协作规范
 
 > 状态：Protected  
-> 角色：Codex 方案、架构、规划、共享文档与 Review 入口
+> 角色：Codex 方案、架构、规划、Review 与项目文档编写维护入口
 
-本文件只保留 Codex 必须在入口上下文中持有的角色边界、阶段门禁和文档路由。详细方法按任务触发读取 `docs/agent-guides/`，不得仅凭本文件摘要执行非平凡任务。
+本文件只保留 Codex 必须在入口上下文中持有的角色边界、阶段门禁和文档路由。详细方法按任务触发读取 `docs/documents/agent-guides/`，不得仅凭本文件摘要执行非平凡任务。
 
 ## 1. 权威来源与指令边界
 
@@ -17,15 +17,16 @@
 
 ## 2. 强制文档路由
 
-`docs/agent-guides/README.md` 是细分指南目录。命中触发条件时，Codex 必须读取对应文档全文：
+`docs/documents/agent-guides/README.md` 是细分指南目录。命中触发条件时，Codex 必须读取对应文档全文：
 
 | 触发条件 | 必读文档 | 用途 |
 |---|---|---|
 | 每个非简单项目任务 | `PROJECT_RULES.md` 及其“会话必读”文档 | 当前规则、架构与开发状态 |
-| 需求分析、架构、规划、Task Contract、Review、Fix 方案 | `docs/agent-guides/CODEX_REVIEW_AND_PLANNING.md` | 证据链、lifecycle Review、最小方案与 Fix 2/3 经验 |
-| branch、worktree、并行模块、integration、commit 或 baseline | `docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | Git 权限、dispatch metadata 与 dependency DAG |
-| 协议、Runner、MCP 或 Room 状态任务 | `docs/ROOM_PROTOCOL.md` | entity、transition、actor 与失败语义 |
-| 生成或调整 Increment 计划 | `docs/MVP_PLAN.md` | 增量依赖、验收与非目标 |
+| 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、`docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 与 `docs/documents/README.md` | 全项目文档编写、单一权威、目录与 Review 后维护门禁 |
+| 需求分析、架构、规划、Task Contract、Review、Fix 方案或 Fix 验收后经验回收 | `docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md` | 证据链、lifecycle Review、最小方案与可复用经验回收 |
+| branch、worktree、并行模块、integration、commit 或 baseline | `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | Git 权限、dispatch metadata 与 dependency DAG |
+| 协议、Runner、MCP 或 Room 状态任务 | `docs/documents/ROOM_PROTOCOL.md` | entity、transition、actor 与失败语义 |
+| 生成或调整 Increment 计划 | `docs/documents/MVP_PLAN.md` | 增量依赖、验收与非目标 |
 
 路由文档不得覆盖本文件或 `PROJECT_RULES.md`；发现冲突时按第 1 节处理。
 
@@ -44,6 +45,7 @@ Codex 可以：
 - 读取仓库、Git 状态与历史、Diff、测试结果和 Room 状态。
 - 研究现有依赖和权威资料，提出需求、架构、规划与失败边界。
 - 创建和维护共享规范、计划、架构、技术、ADR、开发状态、Task Contract、Review 与 Fix Task。
+- 作为全项目文档编写者及维护者，调用 `backend-doc-authoring` skill 编写、补全、迁移、Review 并维护 `docs/documents/` 下全部项目文档。
 - 为 Review 运行能改变结论的只读检查、构建或测试。
 - 审查 Claude Code 的代码、测试、配置和候选文档 Diff。
 
@@ -118,7 +120,7 @@ Fix Task 还必须包含原 Review ID、confirmed finding、用户确认的 solu
 
 ## 6. Review、架构与解决方案的入口规则
 
-执行 Review 或形成 Fix 方案前必须读取 `docs/agent-guides/CODEX_REVIEW_AND_PLANNING.md`。入口层保留以下硬约束：
+执行 Review 或形成 Fix 方案前必须读取 `docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md`。入口层保留以下硬约束：
 
 - Review 输入必须包含原始目标、Accepted Contract、正确 baseline、完整 staged/unstaged/untracked task-owned Diff、相关规则和 Claude Coding Result。
 - 先审需求、架构、状态所有权、lifecycle 和数据流，再审局部代码形式。
@@ -137,15 +139,17 @@ Review 输出顺序固定为：
 3. Review Decision：`approved`、`changes_requested` 或 `needs_discussion`。
 4. 验证摘要。
 
-每个 finding 必须包含严重性、精确位置、可达触发路径、证据、影响、规则关系和最小方向。Review 后进入 `REVIEW_DISCUSSION`；用户确认前不得生成 Fix Task。
+每个 finding 必须包含严重性、精确位置、可达触发路径、证据、影响、规则关系和最小方向。Review 后进入 `REVIEW_DISCUSSION`；用户确认前不得生成 Fix Task。每次 Review 结束后还必须调用 `backend-doc-authoring` skill 完成 documentation impact audit，并在验证摘要报告 `documentation: updated | no_change | blocked`。
 
 ## 7. 文档、Git 与交付边界
 
-- Codex 首次创建并主要维护 `PROJECT_RULES.md`、规划、架构、技术与 ADR；`DEVELOPMENT_LOG.md` 只记录事实和进度。
+- Codex 首次创建并主要维护 `PROJECT_RULES.md` 与 `docs/documents/` 下规划、架构、技术、ADR、开发状态和运维文档；`docs/documents/DEVELOPMENT_LOG.md` 只记录事实和进度。
 - 重大规则或架构变化必须由用户确认；旧规则应标记 `Superseded` 或 `Deprecated`，不得新旧并列为有效。
 - Review 必须同时检查代码、测试、配置和候选文档描述的是同一行为。
+- Codex 是全部项目文档的最终维护者。所有人类可查看文档必须位于 `docs/documents/`；根目录仅保留 `AGENTS.md`、`CLAUDE.md`、`PROJECT_RULES.md` 三个控制入口，不保留旧路径副本。
+- 每个 Fix Task 经 Codex 复审通过并获用户明确接受后，Codex 必须在派发下一 Implementation/Fix Task 前按 `docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md` 完成经验回收：以 finding、批准方案、实际 Diff 与 regression 为证据，把可复用规则写入对应角色指南；没有新增经验时如实记录，不得制造规则。该步骤是文档工作流门禁，不增加 Room protocol state。
 - 默认只运行 Git 只读命令。所有 Git 写操作必须有针对明确 scope 的当前授权。
-- 角色文档提交、Increment 实现提交、branch/worktree、module commit 和 integration 是相互独立的权限；详细规则见 `docs/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md`。
+- 角色文档提交、Increment 实现提交、branch/worktree、module commit 和 integration 是相互独立的权限；详细规则见 `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md`。
 - 未获提交授权时只建议简洁、祈使语气的 Commit Message，不执行提交。
 
 ## 8. 沟通与输出
@@ -158,6 +162,6 @@ Review 输出顺序固定为：
 ## 9. 本文件维护
 
 - 本文件是受保护的 Codex 入口，只在用户明确要求修改角色、流程或本文件时更新。
-- 细节优先写入 `docs/agent-guides/`，并在第 2 节按触发条件索引；不得让本文件重新膨胀为全部方法手册。
+- 细节优先写入 `docs/documents/agent-guides/`，并在第 2 节按触发条件索引；不得让本文件重新膨胀为全部方法手册。
 - 修改时必须检查 `PROJECT_RULES.md`、`CLAUDE.md`、Room 协议和细分指南的一致性。
 - 本文件及其索引文档不得包含未解析 merge marker。

@@ -57,7 +57,7 @@
 
 ## 相关文档
 
-- [PROJECT_RULES.md](../PROJECT_RULES.md)
+- [PROJECT_RULES.md](../../../PROJECT_RULES.md)
 - [ARCHITECTURE.md](../ARCHITECTURE.md)
-- [docs/ROOM_PROTOCOL.md](../docs/ROOM_PROTOCOL.md)
-- [docs/MVP_PLAN.md](../docs/MVP_PLAN.md)
+- [ROOM_PROTOCOL.md](../ROOM_PROTOCOL.md)
+- [MVP_PLAN.md](../MVP_PLAN.md)
