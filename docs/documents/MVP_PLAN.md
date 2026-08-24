@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 架构批准日期：2026-08-23  
-> Increment 3 Scope Scaffold：Accepted / branch commit `eb3637b` / main integration pending
+> Increment 3 Scope Scaffold：Accepted / source commit `eb3637b` / integrated into current `main` tree
 
 ## 1. 目标
 
@@ -206,4 +206,4 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 ## 6. 当前下一步
 
-Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成 Implementation、Fix、两轮 Codex Review与用户接受，并在独立 branch 提交为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`；该 commit 尚未集成到 `main`。下一步先在获得独立 Git 授权后把 accepted Scaffold commit 集成并形成 clean common baseline，再把 Leaf A/B Contract 转为 Accepted、记录共同 `baseline_head` 并创建两个独立 branch/worktree；不得让 leaf 从尚未包含 Scaffold 的 main baseline 派发。
+Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成 Implementation、Fix、两轮 Codex Review 与用户接受，其 source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 已集成到当前 `main` tree，clean common baseline 前置条件已满足。下一步是评审并由用户明确确认 Increment 3A/3B 的最终 Task Contract；确认后记录当时的 `main` HEAD 为共同 `baseline_head`，再分别获取 branch/worktree 创建与并行派发权限。

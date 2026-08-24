@@ -11,9 +11,9 @@
 
 | 项目 | 当前事实 |
 |---|---|
-| main baseline | `1416de2429e2124192442e8b6e7db3645db805c6` |
-| Accepted Scaffold commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，位于 `codex/increment-003-scope-scaffold` |
-| Integration 状态 | Scaffold 已 Review、接受并提交，但尚未集成到 `main` |
+| main baseline | 当前 `main` tree 已包含 accepted Scope Scaffold |
+| Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
+| Integration 状态 | Scaffold 已 Review、接受、提交并集成到 `main`；Leaf A/B Contract 仍为 Draft |
 | Runtime readiness | 仅 Protocol/Room domain 与只读 Git Observer 已实现 |
 | Service readiness | Room server、Runner、MCP、Status CLI 均未实现，当前不可启动 |
 | 可执行验证 | `npm run typecheck`、`npm test` |
@@ -151,13 +151,13 @@ npm test
 
 ## 8. Pending Review Impact
 
-当前无尚未接受的 runtime/interface/architecture candidate。Scaffold commit 尚待集成到 `main`，因此两个 leaf module 仍不得把它当作 main baseline。
+当前无尚未接受的 runtime/interface/architecture candidate。Scope Scaffold 已进入 `main`；Increment 3A/3B Contract 仍为 Draft，用户确认并记录共同 `baseline_head` 前不得创建 leaf branch/worktree 或派发。
 
 ## 9. Review 后维护记录
 
 | Review ID | Decision / acceptance | 运维影响 | 处理 |
 |---|---|---|---|
 | `review-increment-003-scope-scaffold-codex-001` | `changes_requested` | 仅 Scope regression 错误接受 allowed-name directory；无 runtime interface 或 architecture 变化 | 保持 current operational view；finding 交由 Fix Task |
-| `review-increment-003-scope-scaffold-codex-002` | `approved` / 用户已接受 | Scope regression 正确冻结两个 leaf filename；仍未实现 Runner/MCP/CLI | 建立本手册；记录 accepted branch commit 与 main integration pending |
+| `review-increment-003-scope-scaffold-codex-002` | `approved` / 用户已接受 | Scope regression 正确冻结两个 leaf filename；仍未实现 Runner/MCP/CLI | Scaffold 已集成到 `main`；Fix Contract 已归位到项目文档中心 |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

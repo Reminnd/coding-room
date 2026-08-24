@@ -3,14 +3,21 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：ACCEPTED / Increment 3 Scope Scaffold；main integration pending
+- 项目阶段：WAITING_FOR_USER_CONFIRMATION / Increment 3A/3B Task Contracts
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-003-scope-scaffold` 已完成、Review、Fix、接受并在独立 branch 提交；Increment 3A/3B Leaf Contract 仍为 Draft
+- Implementation Task：`increment-003-scope-scaffold` 已完成、Review、Fix、接受并集成到 `main`；Increment 3A/3B Leaf Contract 仍为 Draft
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：`main` HEAD 为 `1416de2429e2124192442e8b6e7db3645db805c6`；accepted Scaffold branch commit 为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，尚未获授权集成到 `main`；未授权 push
+- Git repository：当前 `main` tree 已纳入 accepted Scaffold source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 的内容；source branch/worktree 保留；未授权 push 或清理
 
 ## 已完成
+
+### 2026-08-24 — Increment 3 Scope Scaffold 集成到 main
+
+- 用户明确授权把 accepted Scaffold source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 集成并提交到 `main`；授权不包含 push 或 source branch/worktree 清理。
+- `main` 在共同 ancestor `1416de2429e2124192442e8b6e7db3645db805c6` 后已有文档集中迁移 commit `71bb2db803a8dc96bb1b172996ef5f8ad3b8e96f`，因此采用 `cherry-pick --no-commit` 组合 accepted tree，并在提交前把 Fix Contract 从旧 `docs/` 路径归位到 `docs/documents/`；测试实现保持 accepted source commit 内容。
+- 集成验证通过：聚焦 Scope test 1/1、`npm run typecheck`、`npm test` 57/57；文档目录、索引、相对链接、merge marker 与 staged scope 检查通过后才提交。
+- 集成不新增 Runner、MCP、CLI、runtime interface、Room state、protocol field 或 dependency；Architecture 与 ADR 无变化。当前进入 `WAITING_FOR_USER_CONFIRMATION / Increment 3A/3B Task Contracts`。
 
 ### 2026-08-24 — Codex 全项目文档角色、Skill 门禁与文档集中迁移
 
@@ -32,7 +39,7 @@
 - Scope Scaffold 在 `codex/increment-003-scope-scaffold` 从 baseline `1416de2429e2124192442e8b6e7db3645db805c6` 执行；Implementation 只修改 `tests/scope.test.ts`。
 - Review 1 复现 allowed filename 对应 directory 被错误接受；用户确认最小 `Dirent.isFile()` 与 literal filename 联合校验方案，并通过恢复原 Claude session 完成 Fix。
 - Review 2 无 finding；Codex 独立 8-scenario matrix、`npm run typecheck` 与 `npm test`（57/57）全部通过。用户明确接受并授权提交。
-- branch commit 为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，实际 files 为 `tests/scope.test.ts` 与 `docs/INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md`；未 push，尚未集成到 `main`。
+- branch commit 为 `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，提交时的实际 files 为 `tests/scope.test.ts` 与 `docs/INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md`；当时未 push、尚未集成到 `main`，后续集成事实见上方记录。
 - 运维影响：Scope regression 与开发 branch baseline 变化，不新增 runtime interface、service command、Runner、MCP 或 CLI；已在 `docs/documents/OPERATIONS.md` 标明 accepted branch 与 main integration pending。
 
 ### 2026-08-24 — Increment 2 Fix 1 经验回收与流程自动化

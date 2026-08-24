@@ -6,15 +6,35 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('Increment 2 does not implement Runner, MCP or CLI, and adds no npm dependency', () => {
-  for (const name of ['runner', 'mcp', 'cli']) {
+// 测试侧 literal 声明已冻结的 Scope boundary，避免与未来 leaf implementation 同源。
+const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner']);
+const allowedRunnerFiles = new Set(['claude-process.ts', 'claude-stream.ts']);
+
+test('Increment 3 allows only the two frozen runner leaf files and keeps MCP, CLI, extra modules and dependency drift rejected', () => {
+  for (const name of ['mcp', 'cli']) {
     assert.equal(
       existsSync(join(root, 'src', name)),
       false,
-      `src/${name} must not exist in Increment 2`,
+      `src/${name} must not exist before Increment 4`,
     );
   }
-  assert.deepEqual(readdirSync(join(root, 'src')).sort(), ['git', 'protocol', 'room']);
+
+  for (const name of readdirSync(join(root, 'src')).sort()) {
+    assert.ok(
+      allowedTopLevelModules.has(name),
+      `unapproved top-level module: src/${name}`,
+    );
+  }
+
+  const runnerDir = join(root, 'src', 'runner');
+  if (existsSync(runnerDir)) {
+    for (const entry of readdirSync(runnerDir, { withFileTypes: true })) {
+      assert.ok(
+        entry.isFile() && allowedRunnerFiles.has(entry.name),
+        `unapproved entry under src/runner: ${entry.name}`,
+      );
+    }
+  }
 
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
     dependencies: Record<string, string>;

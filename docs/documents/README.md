@@ -53,10 +53,9 @@
 | [Increment 2 Fix 1](./INCREMENT_2_FIX_TASK_1.md) | Accepted | Git failure semantics |
 | [Increment 3 Parallel Pilot](./INCREMENT_3_PARALLEL_PILOT_PLAN.md) | Current | 两个 leaf module 与串行 integration 计划 |
 | [Increment 3 Scope Scaffold](./INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md) | Accepted | 共享 Scope regression 前置任务 |
+| [Increment 3 Scope Scaffold Fix 1](./INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md) | Accepted | 拒绝 allowed-name directory 的 Scope regression 修复 |
 | [Increment 3A](./INCREMENT_3A_TASK_CONTRACT.md) | Draft | Claude Process Transport leaf |
 | [Increment 3B](./INCREMENT_3B_TASK_CONTRACT.md) | Draft | Claude Stream Interpreter leaf |
-
-Scope Scaffold Fix Task 1 当前只存在于尚未集成的 accepted branch commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9`；集成到 `main` 时 MUST 迁入本目录并登记，不能恢复旧 `docs/` 路径。
 
 ### 2.4 Agent 执行指南
 
@@ -78,5 +77,5 @@ Scope Scaffold Fix Task 1 当前只存在于尚未集成的 accepted branch comm
 
 ## 4. 当前未决行动
 
-- 将 accepted Scaffold commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 集成到 `main`，并按新目录规则迁入其 Fix Task 文档。
-- 在 clean common baseline 形成后，再将 Increment 3A/3B 从 Draft 转为 Accepted 并派发独立 worktree。
+- 评审并确认 Increment 3A/3B 的最终 Task Contract；确认前继续保持 Draft。
+- 用户确认后记录当前 `main` HEAD 为共同 `baseline_head`，再分别获取 branch/worktree 创建与并行派发权限。
