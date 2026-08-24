@@ -58,6 +58,7 @@
 | [Increment 3B](./INCREMENT_3B_TASK_CONTRACT.md) | Accepted | Claude Stream Interpreter leaf |
 | [Increment 3A Fix 1](./INCREMENT_3A_FIX_TASK_1.md) | Accepted | stdin prompt delivery failure propagation |
 | [Increment 3B Fix 1](./INCREMENT_3B_FIX_TASK_1.md) | Accepted | frozen required Room tool authority |
+| [Increment 3 Integration](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) | Accepted | 组合 accepted leaf、Room/Git/artifact 与 terminal transition 的 central Runner |
 
 ### 2.4 Agent 执行指南
 
@@ -80,4 +81,5 @@
 ## 4. 当前未决行动
 
 - 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
-- Increment 3A/3B Fix Review 2 均为 `approved`，用户已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；当前为 `DISCUSSION / Increment 3 Integration`。两个 commit 尚未集成，未授权 Integration worktree、组合提交、push 或清理。
+- Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；接受状态文档已提交到 clean `main` `320c730497b02ce7ae91e1dadc906fffe2a10a9f`。
+- [Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 已获用户确认，当前为 `PLAN_READY`；用户将在 documentation baseline、Integration worktree、exact leaf commit 组合、clean worktree 与实际 `baseline_head` 记录完成后人工派发。本次确认不授权 Codex 执行这些 Git 写操作或 Coding 派发。

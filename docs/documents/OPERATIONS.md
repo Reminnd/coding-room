@@ -13,7 +13,7 @@
 |---|---|
 | main baseline | 当前 `main` tree 已包含 accepted Scope Scaffold |
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
-| Integration 状态 | Scaffold 已集成；Leaf A/B 已接受并分别形成 commit；尚未创建或批准 Integration Task |
+| Integration 状态 | Scaffold 已集成；Leaf A/B 已接受并分别形成 commit；Integration Contract 已接受，处于人工 Git gate，尚未派发 |
 | Runtime readiness | 仅 Protocol/Room domain 与只读 Git Observer 已实现 |
 | Service readiness | Room server、Runner、MCP、Status CLI 均未实现，当前不可启动 |
 | 可执行验证 | `npm run typecheck`、`npm test` |
@@ -151,7 +151,7 @@ npm test
 
 ## 8. Pending Review Impact
 
-当前 `main` 仍没有 Runner runtime/interface。两个 leaf 从共同 `baseline_head` `97c47fed770fea675834538e2ca4550d37fdc548` 完成 Review、获用户接受并分别形成 commit：3A `86c77a7c68b953343d67da3857859b0dd6d6c09c`，3B `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；两个 leaf worktree 均 clean。commits 尚未通过独立 Integration Task 组合到 integration/main，因此仍不得写成 current operational capability。
+当前 `main` `320c730497b02ce7ae91e1dadc906fffe2a10a9f` 仍没有 Runner runtime/interface。两个 accepted leaf branch refs 分别指向 3A `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 3B `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，均未进入 main ancestry；原 leaf worktree 当前已不在 `git worktree list`。Integration Contract 已接受，但 documentation baseline、Integration worktree、leaf commit 组合与实际 `baseline_head` 尚未完成，Coding 尚未派发，因此不得写成 current operational capability。
 
 ## 9. Review 后维护记录
 

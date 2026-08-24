@@ -3,14 +3,29 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：DISCUSSION / Increment 3 Integration；Increment 3A/3B 已接受并分别提交，尚未集成
+- 项目阶段：PLAN_READY / Increment 3 Integration Task；Contract 已接受，由用户在完成 Git gate 后人工派发
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-003-scope-scaffold` 已完成并集成；Increment 3A/3B Fix 已完成二次 Review、获用户接受并分别形成 leaf commit
+- Implementation Task：Increment 3A/3B 已接受并分别形成 leaf commit；`increment-003-claude-runner-integration` 为 Accepted、`confirmed_by_user=true`
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：两个 leaf 的共同 `baseline_head` 为 `97c47fed770fea675834538e2ca4550d37fdc548`；3A commit 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c`，3B commit 为 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；两个 leaf worktree 均 clean，未集成，未授权 push 或清理
+- Git repository：clean `main` 为 `320c730497b02ce7ae91e1dadc906fffe2a10a9f`；leaf branch refs 分别指向 3A `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 3B `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，两者均非 main ancestor；当前未创建 Integration worktree，未授权组合、push 或清理
 
 ## 已完成
+
+### 2026-08-24 — Increment 3 Integration Task Contract 批准
+
+- 用户明确批准 [Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md)，其状态改为 `Accepted`、`confirmed_by_user=true`；项目阶段进入 `PLAN_READY`。
+- 用户决定暂时人工派发。派发必须在 clean Integration worktree 中进行，且该 worktree 必须包含本次 Accepted Contract、main documentation baseline 与两个 exact accepted leaf commits，并记录组合后的实际 `baseline_head`。
+- 本次确认不授权 Codex 提交当前文档、创建 branch/worktree、组合 leaf commits、执行 Claude Coding 派发、push 或清理；这些 Git/dispatch 动作仍未发生，Runner 也未提升为 Current capability。
+- Documentation impact audit：`documentation: updated`。同步 Contract 状态、阶段、索引、计划与运维边界；Architecture、Room Protocol、ADR 和 runtime implementation 事实未改变。
+
+### 2026-08-24 — Increment 3 Integration Draft Contract
+
+- 用户要求继续后，Codex 依据已确认 Parallel Pilot boundary、两个 accepted leaf commits、当前 RoomService/Git Observer public API 与 protocol lifecycle 形成 [Increment 3 Integration Draft](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md)。
+- Draft 的单一目标是交付 central Runner orchestration：clean baseline gate、完整 persisted Task prompt、start/resume claim、accepted process/stream leaf、progress Event、raw artifact、completion Git evidence、atomic terminal evidence 与单一 terminal transition。
+- Draft 将已确认的 `CODING` startup/init clarification 具体化为 `ROOM_PROTOCOL 0.2-design`，不新增 Room state；同时把实际 Integration gap 列为待确认 scope：RoomService terminal evidence boundary、Interpreter progress/partial failure evidence seam，以及 `git_evidence_failed` / `artifact_write_failed` 两个机器可处理 error。
+- Git 事实重新核对：上一轮 acceptance documents 已由 commit `320c730497b02ce7ae91e1dadc906fffe2a10a9f` 提交到 clean main；两个 leaf worktree 已移除，但 branch refs 与 accepted commits 仍存在且未进入 main ancestry。Integration baseline 必须在用户后续授权的 documentation commit、Integration worktree 创建与 exact leaf commit 组合后重新记录。
+- 本次只创建 Draft 并同步 planning/state 文档；未提交、未创建 branch/worktree、未组合 commits、未派发 Coding、未运行真实 Claude 或测试。
 
 ### 2026-08-24 — Increment 3A/3B 接受、Leaf Commit 与 Fix 经验回收
 
@@ -335,8 +350,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品、架构或 Review finding 阻塞。两个 leaf 已接受并提交；当前尚未创建或批准 Integration Task，也未授权组合 leaf commits、push 或清理。
+无既有 Review finding 阻塞。Contract 已确认；当前门禁是完成 documentation baseline、Integration branch/worktree、exact leaf commit 组合、clean-worktree 检查与实际 `baseline_head` 记录。
 
 ## 下一步
 
-Fix 经验回收门禁已完成。下一步由 Codex形成串行 Integration Task Contract 并请求用户确认；用户批准 Contract 及对应 Git/派发权限前，不创建 Integration worktree、不组合 leaf commits、不派发 Coding、不 push 或清理。
+用户完成人工 Git gate后，在 Integration worktree 中使用 [Accepted Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 全文派发 Claude Coding；不得用摘要替代 Contract。Codex 当前未获 Git 写操作或 Coding 派发授权。

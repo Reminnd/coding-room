@@ -7,6 +7,7 @@
 > Planning baseline：`7345950fac08343cf3eb18cce2ac06c909ca4293`
 > Leaf Contract 状态：Increment 3A/3B Accepted / 2026-08-24
 > Leaf Review/Fix 状态：Fix Review 2 均 `approved`；用户已接受并分别形成 leaf commit，尚未集成
+> Integration 状态：Contract Accepted / `PLAN_READY`；用户人工 Git gate 与派发尚未完成
 > Dispatch baseline：`97c47fed770fea675834538e2ca4550d37fdc548`
 
 ## 1. 结论
@@ -244,7 +245,7 @@ Integration 是 Increment 3 的唯一 end-to-end owner。两个 leaf module 通�
 |---|---|---|
 | Leaf A | `codex/inc3-claude-process` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-process` | 已接受；commit `86c77a7c68b953343d67da3857859b0dd6d6c09c`；worktree clean；未集成 |
 | Leaf B | `codex/inc3-claude-stream` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-stream` | 已接受；commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；worktree clean；未集成 |
-| Integration | `codex/inc3-integration` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-integration` | 未创建；等待 Integration Task Contract 确认与单独 Git/派发授权 |
+| Integration | `codex/inc3-integration` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-integration` | Contract 已接受；worktree 未创建、leaf commits 未组合，由用户完成 Git gate 后人工派发 |
 
 Fix 派发与后续 Git 门禁：
 
@@ -269,7 +270,7 @@ npm test
 
 ## 10. 用户确认与授权边界
 
-用户于 2026-08-24 已分别确认两份 Leaf Contract、documentation baseline commit、branch/worktree 创建、首轮并行 Coding 派发、Review 1 的两项 finding 与最小解决方案、两份 Fix Task Coding 派发、最终接受，以及两个 leaf 的已 Review task-owned commit。3A/3B commits 已完成；既有授权不自动覆盖：
+用户于 2026-08-24 已分别确认两份 Leaf Contract、documentation baseline commit、branch/worktree 创建、首轮并行 Coding 派发、Review 1 的两项 finding 与最小解决方案、两份 Fix Task Coding 派发、最终接受，以及两个 leaf 的已 Review task-owned commit。用户随后确认 Integration Contract，并决定在完成 Git gate 后人工派发。3A/3B commits 已完成；既有授权与本次 Contract 确认不自动覆盖：
 
 1. 创建 Integration branch/worktree、组合 module commits 或派发 Integration。
 2. integration commit、push、branch/worktree 清理或历史改写。
