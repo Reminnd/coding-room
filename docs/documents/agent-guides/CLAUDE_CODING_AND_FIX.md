@@ -149,3 +149,13 @@ Node.js 异步 `execFile` 的 callback 为 `(error, stdout, stderr)`；stderr �
 - 不修改 Contract 禁止触及的共享规范或架构文档；若必须改变，返回 `needs_decision`。
 - Coding Result 必须列出 task_id、状态、摘要、changed files、deviations、verification、tests、documentation changes、unresolved 和 questions。
 - 完成后停止在 `REVIEW_REQUIRED`；不 commit、不宣布 Review 通过或 Increment 被接受。
+
+## 10. Process settlement 与 Frozen Authority
+
+### 10.1 多个 terminal event 共享一次 settlement
+
+当 stdin `error`、child `error`、`close` 或其它 callback 都能完成同一个 Promise 时，使用一个最小 settlement guard 作为唯一 owner。第一个观察到的 terminal fact 决定 resolve/reject；所有后续 event 立即返回。回归测试必须直接调用 public operation，并至少覆盖“真实 failure 先发生、随后出现普通 success/close”这一顺序，断言 failure type、稳定 context 与结果都不被改写；不要为此创建通用 process state machine。
+
+### 10.2 Frozen capability 使用单一 module-owned definition
+
+Contract 冻结 exact capability name 时，定义一个 module-owned `as const` value，并让 input literal type、runtime lookup 与 success evidence 都引用它。caller 传入字段可以保留接口 shape，但不能成为第二 authority。negative regression 应绕过 compile-time literal constraint 注入普通 built-in 或其它替代值，证明 runtime 仍按 frozen value 校验并拒绝缺失 capability；不要增加 registry、alias 或 compatibility layer。

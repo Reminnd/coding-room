@@ -3,14 +3,55 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：PLAN_READY / Increment 3A + Increment 3B；dispatch authorization pending
+- 项目阶段：DISCUSSION / Increment 3 Integration；Increment 3A/3B 已接受并分别提交，尚未集成
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-003-scope-scaffold` 已完成并集成；Increment 3A/3B Leaf Contract 已 Accepted，尚未派发
+- Implementation Task：`increment-003-scope-scaffold` 已完成并集成；Increment 3A/3B Fix 已完成二次 Review、获用户接受并分别形成 leaf commit
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：确认前 clean parent 为 `b35f7a2284c90285e897789aa2ac9e26e596c4ac`；Accepted Contract 与状态文档由本 documentation baseline commit 纳入 `main`，其实际 HEAD 是两个 leaf 的共同 `baseline_head`；未授权 branch/worktree、派发、push 或清理
+- Git repository：两个 leaf 的共同 `baseline_head` 为 `97c47fed770fea675834538e2ca4550d37fdc548`；3A commit 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c`，3B commit 为 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；两个 leaf worktree 均 clean，未集成，未授权 push 或清理
 
 ## 已完成
+
+### 2026-08-24 — Increment 3A/3B 接受、Leaf Commit 与 Fix 经验回收
+
+- 用户明确接受 Increment 3A/3B Fix，并分别授权提交两个 leaf 的已 Review task-owned files；授权不包含 Integration、merge/cherry-pick、push、branch/worktree 清理或其它 Git 写操作。
+- 3A 在 `codex/inc3-claude-process` 提交为 `86c77a7c68b953343d67da3857859b0dd6d6c09c`（`feat(runner): add Claude process transport`），实际仅包含 `src/runner/claude-process.ts`、`tests/claude-process.test.ts` 与 `tests/runner-fixtures/claude-process-fake.ts`；提交后 worktree clean。
+- 3B 在 `codex/inc3-claude-stream` 提交为 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`（`feat(runner): add Claude stream interpreter`），实际仅包含 `src/runner/claude-stream.ts`、`tests/claude-stream.test.ts` 与两个已 Review JSONL fixture；提交后 worktree clean。
+- 提交前 staged diff 与 Review 2 path set 完全一致；实现输入自 Review 2 后未变化，因此未重复运行已经证明同一事实的 typecheck/测试，沿用 3A 聚焦 14/14、全量 71/71 与 3B 聚焦 24/24、全量 81/81 的独立验证证据。
+- Fix 经验回收新增两类可复用规则：多 event process Promise 必须让 stdin/error/close 共享 first-settlement ownership，并用“failure 后出现表面成功事件”的 public-path regression 证明失败不会被改写；冻结 capability authority 时，TypeScript input、runtime lookup 与 success evidence 必须来自同一 module-owned constant，negative regression 必须证明普通 caller value 或 built-in 不能替代它。规则分别写入 Codex Review 与 Claude Coding 指南。
+- Documentation impact audit：`documentation: updated`。仅同步用户接受、leaf commit、经验回收与 Integration 前置事实；Architecture、Room Protocol、ADR、dependency direction 和 `main` 的 current runtime capability 均未变化。
+
+### 2026-08-24 — Increment 3A/3B Fix Review 2
+
+- 自动 bootstrap result capture 失败后，用户人工恢复两个原 Claude session 并返回 Coding Result；两份结果均为 `completed`，无 deviation、unresolved 或 question。Codex 以用户返回结果作为导航，并以实时 Git、完整 task-owned Diff、源码、测试和独立命令作为 Review authority。
+- `review-increment-003a-codex-002`：`ClaudeProcessInputError` 独立保留 command、完整 args、cwd 与 cause；stdin `error`、child `error` 与 `close` 共用 single-settlement boundary。直接 `EPIPE → close(0, null)` regression 证明 stdin failure 不再被普通 exit outcome 改写。完整 Diff 仅含 `src/runner/claude-process.ts`、`tests/claude-process.test.ts` 与最小 fake-process fixture；无 finding，Decision：`approved`。
+- `review-increment-003b-codex-002`：`REQUIRED_ROOM_TOOL_NAME` 精确冻结为 `mcp__agent_room__room_ask_question`，同时拥有 literal input type、runtime init tools lookup 与 success evidence。built-in-only 与强制注入 `Read` 的两个 direct regression 均返回 `required_tool_missing`；JSONL fixture 未修改。完整 Diff 仅含本 leaf 原有四个 task-owned files；无 finding，Decision：`approved`。
+- Codex 独立验证：3A 聚焦测试 14/14、`npm run typecheck`、全量测试 71/71；3B 聚焦测试 24/24、`npm run typecheck`、全量测试 81/81，全部通过。两边保持原 `HEAD` `97c47fed770fea675834538e2ca4550d37fdc548`、正确 branch、无 staged file 或 scope drift。
+- Documentation impact audit：`documentation: updated`。仅同步 manual retry、Review 2、验证与当前阶段；Architecture、Room Protocol、ADR、dependency direction、public runtime capability 和 Integration boundary 均无变化，candidate 未提升为 Current。
+
+### 2026-08-24 — Increment 3A/3B Fix 并行派发与 Result Validation Failure
+
+- 用户明确授权并行派发两份 Accepted Fix Task。派发前核对共同 `baseline_head`、独立 branch/worktree、未 staged 状态、task-owned path set、原 Claude session 与本机 Claude Code `2.1.241`；两条 leaf 均通过。
+- 受 sandbox Git ownership gate 影响的首轮启动在 Claude process 前失败且未修改代码；随后使用宿主执行权限并行恢复 session `082e2b70-0e35-440d-a9a4-71f1515e2660` 与 `b386f58f-4005-490e-8ee1-292b33cb2ed9`，两路 process 均 exit `0`。
+- 两路 terminal stdout 行均无法通过 `JSON.parse`：3A 在 position 1892，3B 在 position 2041。artifact 中中文内容出现 mojibake，嵌套 `result` JSON 的 property quote escape 被吞掉；因此 stdout final result 不满足 bootstrap Coding Result transport，不能以 process exit 或模型自述替代。
+- 两个 worktree 继续停留在原 branch 与原 `HEAD`，无 staged file；candidate 与 `.agent-room/artifacts/` 全部保留。当前按 `coding_result_invalid` 进入 `RUN_FAILED`，未执行 Codex Review、stage、module commit、Integration、push 或清理。
+- 文档影响仅为 dispatch/result validation/current phase 事实；Architecture、Room Protocol、ADR、Accepted Fix scope 与 current runtime capability 不变。
+
+### 2026-08-24 — Increment 3A/3B Review 1 方案确认与 Fix Task
+
+- 用户明确确认 `review-increment-003a-codex-001` finding `inc3a-r1-stdin-write-failure` 及最小方案：stdin prompt delivery error 以独立 typed input/transport failure 向上拒绝，single-settlement guard 阻止后续 `close(0)` 改写失败，并增加 `EPIPE → close(0)` public-path regression。
+- 用户明确确认 `review-increment-003b-codex-001` finding `inc3b-r1-required-tool-freeze` 及最小方案：用 single frozen constant 与 literal input type 固定 `mcp__agent_room__room_ask_question`，init lookup 和 success evidence 不再受任意 caller string 控制，并增加 built-in 不能替代 Room tool 的 regression。
+- 已创建 [Increment 3A Fix Task 1](./INCREMENT_3A_FIX_TASK_1.md) 与 [Increment 3B Fix Task 1](./INCREMENT_3B_FIX_TASK_1.md)；两者均为 `review_fixes_only=true`、`confirmed_by_user=true`，保留原共同 baseline、独立 branch/worktree 与原 Claude session lineage。
+- 当前阶段进入 `FIX_PLAN_READY / Increment 3A + Increment 3B`。本次确认不授权 Fix Coding 派发、真实付费 smoke、stage、module commit、Integration、push 或清理。
+- 文档影响限于 Fix Contract、当前阶段、并行执行事实、文档索引与 candidate 运维视图；Architecture、Room Protocol、ADR、Accepted Implementation Contract 与 runtime capability 不变。
+
+### 2026-08-24 — Increment 3A/3B Leaf Review 1
+
+- Codex 分别收集两个 worktree 相对共同 `baseline_head` `97c47fed770fea675834538e2ca4550d37fdc548` 的完整 task-owned staged、unstaged 与 untracked Diff，并核对 Accepted Contract、Claude Coding Result、源码、测试、Git 状态和 module ownership；两边均只有 Contract scope 内的 untracked candidate files，无 staged/unstaged tracked change、commit 或 push。
+- Review `review-increment-003a-codex-001` finding `inc3a-r1-stdin-write-failure`：`src/runner/claude-process.ts` 静默吞掉 child stdin error。最小 fault injection 证明 prompt write 返回 `EPIPE` 后 child `close(0, null)` 会被报告为普通 exit outcome，无法区分“完整 Task Contract 未送达”与成功 process fact，违反 Accepted Contract 的完整 stdin delivery 与 process failure boundary。Review Decision：`changes_requested`。
+- Review `review-increment-003b-codex-001` finding `inc3b-r1-required-tool-freeze`：`ClaudeStreamInterpreterInput.requiredToolName` 接受任意 string，interpreter 直接以调用者值校验 init tools。最小复现移除 `mcp__agent_room__room_ask_question` 并传入 built-in `Read` 后仍返回 `ok: true`，违反 Accepted Contract 冻结 required Room tool authority 的要求。Review Decision：`changes_requested`。
+- Codex 独立验证 Increment 3A：`npm run typecheck`、聚焦测试 13/13、全量测试 70/70；Increment 3B：`npm run typecheck`、聚焦测试 22/22、全量测试 79/79。既有测试无回归，但未覆盖上述两个 authority/failure boundary。
+- 阶段进入 `REVIEW_DISCUSSION / Increment 3A + Increment 3B`。用户确认 finding 与最小方案前，不创建或派发 Fix Task；候选 leaf 不接受、不提交、不集成。Architecture、Room Protocol、Accepted Contract 和 Integration 计划不变，候选实现不提升为 Current capability。
 
 ### 2026-08-24 — Increment 3A/3B Task Contract 批准
 
@@ -294,8 +335,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品或架构阻塞。当前仅存在流程门禁：branch/worktree 创建与并行 Claude Coding 派发尚未获授权。
+无产品、架构或 Review finding 阻塞。两个 leaf 已接受并提交；当前尚未创建或批准 Integration Task，也未授权组合 leaf commits、push 或清理。
 
 ## 下一步
 
-记录本 documentation baseline commit 的实际 `main` HEAD 为两个 leaf 的共同 `baseline_head`，再分别取得 branch/worktree 创建与并行 Claude Coding 派发权限；本阶段不由 Codex 实现 Runner，不 push。
+Fix 经验回收门禁已完成。下一步由 Codex形成串行 Integration Task Contract 并请求用户确认；用户批准 Contract 及对应 Git/派发权限前，不创建 Integration worktree、不组合 leaf commits、不派发 Coding、不 push 或清理。

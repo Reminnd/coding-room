@@ -6,7 +6,8 @@
 > Parent goal：Increment 3 — Claude Runner
 > Planning baseline：`7345950fac08343cf3eb18cce2ac06c909ca4293`
 > Leaf Contract 状态：Increment 3A/3B Accepted / 2026-08-24
-> Dispatch baseline：本 Accepted Contract documentation baseline commit 的实际 `main` HEAD；派发前记录该 hash
+> Leaf Review/Fix 状态：Fix Review 2 均 `approved`；用户已接受并分别形成 leaf commit，尚未集成
+> Dispatch baseline：`97c47fed770fea675834538e2ca4550d37fdc548`
 
 ## 1. 结论
 
@@ -95,6 +96,8 @@ Increment 4 之前真实 Room MCP server 尚不存在，因此本轮用 fake-pro
 现有 `tests/scope.test.ts` 明确拒绝 `src/runner` 存在，因此两个 leaf module 派发前必须由串行 Scaffold Task 更新该共享 regression：只允许两个已冻结 leaf 文件，继续拒绝 central Runner、MCP、CLI 与 dependency drift。公共 protocol、Room lifecycle、package metadata、lockfile、central Runner、Git wiring 与 development documentation 不属于任一 leaf Task。
 
 串行前置 Contract：[Increment 3 Scope Scaffold Task Contract](./INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)。
+
+当前执行事实：两个 leaf 已从共同 baseline 创建独立 branch/worktree并完成 Coding。Review 1 分别发现 stdin prompt delivery failure 被降级为普通 close outcome，以及 required Room tool authority 可被 caller string 替代；用户确认最小方案后，[Leaf A Fix Task 1](./INCREMENT_3A_FIX_TASK_1.md) 与 [Leaf B Fix Task 1](./INCREMENT_3B_FIX_TASK_1.md) 已恢复原 session。自动 bootstrap capture 的 terminal JSONL 曾因 mojibake 与嵌套 JSON escape 丢失而无法解析；用户随后人工恢复两个 session 并返回完整 Coding Result。Codex Review 2 核对完整 task-owned Diff，并独立验证 3A 聚焦 14/14、全量 71/71，3B 聚焦 24/24、全量 81/81，未发现 finding。用户已接受两个 leaf/Fix；3A commit 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c`，3B commit 为 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，两个 worktree 均 clean，尚未集成。
 
 ## 4. Leaf A — Claude Process Transport
 
@@ -235,21 +238,19 @@ Integration 是 Increment 3 的唯一 end-to-end owner。两个 leaf module 通�
 
 ## 8. Git dispatch 方案
 
-计划中的 branch/worktree 尚未创建。用户已确认两份 Leaf Contract 并授权本 documentation baseline commit；用户另行授权后，两个 leaf 使用本 commit 形成的同一实际 `main` HEAD：
+两个 leaf branch/worktree 已按用户授权从共同 baseline `97c47fed770fea675834538e2ca4550d37fdc548` 创建并完成首轮 Coding：
 
-| Task | Branch | Proposed worktree |
+| Task | Branch | Worktree | 当前状态 |
 |---|---|---|
-| Leaf A | `codex/inc3-claude-process` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-process` |
-| Leaf B | `codex/inc3-claude-stream` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-stream` |
-| Integration | `codex/inc3-integration` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-integration` |
+| Leaf A | `codex/inc3-claude-process` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-process` | 已接受；commit `86c77a7c68b953343d67da3857859b0dd6d6c09c`；worktree clean；未集成 |
+| Leaf B | `codex/inc3-claude-stream` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-claude-stream` | 已接受；commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；worktree clean；未集成 |
+| Integration | `codex/inc3-integration` | `D:\agent\case\codex-claudecode-room-worktrees\inc3-integration` | 未创建；等待 Integration Task Contract 确认与单独 Git/派发授权 |
 
-派发前要求：
+Fix 派发与后续 Git 门禁：
 
-- main worktree clean；
-- 含 Accepted Task Contract 的 planning baseline 已提交；
-- 三个 branch 都不是 detached HEAD；
-- dispatch metadata 记录 baseline、branch、worktree 与 task owner；
-- branch/worktree 创建、module commit、组合 module commits、integration commit 与清理分别获取用户权限。
+- 两个 Fix 继续使用原 baseline、现有 branch/worktree 与原 Implementation session；不得创建新 lineage 或读取对方未接受 Diff。
+- 两份 Fix Contract 位于 main 文档权威源；bootstrap 派发必须注入对应全文，不用摘要替代。
+- 用户接受、module commit、组合 module commits、Integration branch/worktree、integration commit、push 与清理继续分别获取用户权限。
 
 ## 9. Verification 与决策
 
@@ -268,14 +269,7 @@ npm test
 
 ## 10. 用户确认与授权边界
 
-用户于 2026-08-24 进一步确认 Increment 3A/3B 两份完整 Task Contract，该确认只把它们从 Draft 提升为 Accepted，不自动授权以下动作：
+用户于 2026-08-24 已分别确认两份 Leaf Contract、documentation baseline commit、branch/worktree 创建、首轮并行 Coding 派发、Review 1 的两项 finding 与最小解决方案、两份 Fix Task Coding 派发、最终接受，以及两个 leaf 的已 Review task-owned commit。3A/3B commits 已完成；既有授权不自动覆盖：
 
-1. 发起额外有费用的真实 Claude CLI smoke。
-2. 创建 branch/worktree。
-3. 派发两个 Claude Coding Task。
-4. 实现 commit、组合 module commits、Integration dispatch、push 或清理 worktree。
-
-后续仍需用户分别确认：
-
-- branch/worktree 创建与并行派发权限；
-- 各 leaf Review 后的 module commit、后续 integration 组合与清理。
+1. 创建 Integration branch/worktree、组合 module commits 或派发 Integration。
+2. integration commit、push、branch/worktree 清理或历史改写。

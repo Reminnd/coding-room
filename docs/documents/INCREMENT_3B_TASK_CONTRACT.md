@@ -7,7 +7,7 @@
 > Parallel role：Leaf B
 > Bootstrap transport：`claude -p`
 > Baseline 状态：由本 Accepted Contract documentation baseline commit 建立；派发前以当前 `main` HEAD 记录实际 `baseline_head`
-> 派发状态：未派发；等待 branch/worktree 与并行派发授权
+> 派发状态：已完成；Fix Review 2 `approved`，用户已接受；leaf commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，尚未集成
 
 用户已明确批准本 Contract；`confirmed_by_user=true` 使其满足 Task confirmation gate。Contract approval 本身只确认本文定义的目标、范围、约束和验收；用户随后单独授权本 documentation baseline commit，但仍未授权 branch/worktree 创建、Claude Coding 派发、实现提交或 push。
 

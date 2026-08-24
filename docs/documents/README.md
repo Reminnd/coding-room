@@ -56,6 +56,8 @@
 | [Increment 3 Scope Scaffold Fix 1](./INCREMENT_3_SCOPE_SCAFFOLD_FIX_TASK_1.md) | Accepted | 拒绝 allowed-name directory 的 Scope regression 修复 |
 | [Increment 3A](./INCREMENT_3A_TASK_CONTRACT.md) | Accepted | Claude Process Transport leaf |
 | [Increment 3B](./INCREMENT_3B_TASK_CONTRACT.md) | Accepted | Claude Stream Interpreter leaf |
+| [Increment 3A Fix 1](./INCREMENT_3A_FIX_TASK_1.md) | Accepted | stdin prompt delivery failure propagation |
+| [Increment 3B Fix 1](./INCREMENT_3B_FIX_TASK_1.md) | Accepted | frozen required Room tool authority |
 
 ### 2.4 Agent 执行指南
 
@@ -77,5 +79,5 @@
 
 ## 4. 当前未决行动
 
-- 记录本 Accepted Contract documentation baseline commit 的实际 `main` HEAD，作为两个 leaf 的共同 `baseline_head`。
-- 分别获取 branch/worktree 创建与并行 Claude Coding 派发权限；当前批准不包含这些 Git 或外部执行动作。
+- 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
+- Increment 3A/3B Fix Review 2 均为 `approved`，用户已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；当前为 `DISCUSSION / Increment 3 Integration`。两个 commit 尚未集成，未授权 Integration worktree、组合提交、push 或清理。

@@ -206,4 +206,4 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 ## 6. 当前下一步
 
-Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成 Implementation、Fix、两轮 Codex Review 与用户接受，其 source commit `eb3637b642aaa88e1faab51a570c6fea688c3cf9` 已集成到当前 `main` tree。用户已明确批准 Increment 3A/3B 的最终 Task Contract，并授权本 documentation baseline commit；该 commit 的实际 `main` HEAD 是两个 leaf 的共同 `baseline_head`。下一步仍需记录该 hash，并分别取得 branch/worktree 创建与并行 Claude Coding 派发权限。
+Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成并集成；Increment 3A/3B 从共同 `baseline_head` `97c47fed770fea675834538e2ca4550d37fdc548` 建立独立 branch/worktree，完成 Coding、Review 1、Fix 与无 finding 的 Review 2。用户已接受两个 leaf/Fix 并分别授权 module commit：3A 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c`，3B 为 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；两个 worktree 均 clean，Fix 经验回收已完成，但 commits 尚未集成。下一步是形成并请求确认串行 Integration Task Contract；未获授权前不创建 Integration worktree、不组合 commits 或派发 Coding。

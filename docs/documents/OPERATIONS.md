@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-24
-> Last maintained review：`review-increment-003-scope-scaffold-codex-002`
+> Last maintained review：`review-increment-003a-codex-002` / `review-increment-003b-codex-002`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -13,7 +13,7 @@
 |---|---|
 | main baseline | 当前 `main` tree 已包含 accepted Scope Scaffold |
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
-| Integration 状态 | Scaffold 已集成；Leaf A/B Contract 已 Accepted，本 documentation baseline commit 建立共同 baseline；dispatch authorization pending |
+| Integration 状态 | Scaffold 已集成；Leaf A/B 已接受并分别形成 commit；尚未创建或批准 Integration Task |
 | Runtime readiness | 仅 Protocol/Room domain 与只读 Git Observer 已实现 |
 | Service readiness | Room server、Runner、MCP、Status CLI 均未实现，当前不可启动 |
 | 可执行验证 | `npm run typecheck`、`npm test` |
@@ -151,7 +151,7 @@ npm test
 
 ## 8. Pending Review Impact
 
-当前无尚未接受的 runtime/interface/architecture candidate。Increment 3A/3B Contract 已 Accepted；本 documentation baseline commit 的实际 `main` HEAD 是共同 `baseline_head`。记录该 hash 并取得用户单独授权前，不得创建 leaf branch/worktree 或派发。
+当前 `main` 仍没有 Runner runtime/interface。两个 leaf 从共同 `baseline_head` `97c47fed770fea675834538e2ca4550d37fdc548` 完成 Review、获用户接受并分别形成 commit：3A `86c77a7c68b953343d67da3857859b0dd6d6c09c`，3B `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`；两个 leaf worktree 均 clean。commits 尚未通过独立 Integration Task 组合到 integration/main，因此仍不得写成 current operational capability。
 
 ## 9. Review 后维护记录
 
@@ -159,5 +159,9 @@ npm test
 |---|---|---|---|
 | `review-increment-003-scope-scaffold-codex-001` | `changes_requested` | 仅 Scope regression 错误接受 allowed-name directory；无 runtime interface 或 architecture 变化 | 保持 current operational view；finding 交由 Fix Task |
 | `review-increment-003-scope-scaffold-codex-002` | `approved` / 用户已接受 | Scope regression 正确冻结两个 leaf filename；仍未实现 Runner/MCP/CLI | Scaffold 已集成到 `main`；Fix Contract 已归位到项目文档中心 |
+| `review-increment-003a-codex-001` | `changes_requested` / solution 已确认 | stdin prompt delivery failure 被降级为普通 close outcome；candidate 尚不可用 | Fix 已完成；见 Review 2 |
+| `review-increment-003b-codex-001` | `changes_requested` / solution 已确认 | required Room tool authority 可被 caller string 替代；candidate 尚不可用 | Fix 已完成；见 Review 2 |
+| `review-increment-003a-codex-002` | `approved` / 用户已接受 | typed stdin failure 与 single-settlement regression 已闭环；leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
+| `review-increment-003b-codex-002` | `approved` / 用户已接受 | frozen required Room tool authority 与 direct regression 已闭环；leaf commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

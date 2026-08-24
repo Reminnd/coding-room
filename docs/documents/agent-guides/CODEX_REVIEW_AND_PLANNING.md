@@ -233,3 +233,13 @@ Increment 2 中 `execFile` 的 stderr 来自 callback 第三个参数，但类�
 ### 10.3 自动化边界
 
 可自动化的是 Trigger、必读路由、证据来源和文档一致性检查；经验是否可复用、属于哪个角色以及如何表述仍由 Codex 基于证据判断。未来即使 Room runtime 建成，也不应为该文档动作新增状态或阻塞 `room_accept_review`；若用户以后要求 runtime 自动生成或持久化 retrospective，再单独进行 Architecture Review。
+
+## 11. Increment 3A/3B Fix 经验：并发终态与冻结 Authority
+
+### 11.1 多 event process boundary 必须审查 first settlement
+
+一个 Promise 同时由 stdin `error`、child `error`、`close` 或类似 event 竞争完成时，不能分别判断每个 handler 看起来是否正确。Review 必须确认这些 event 共享唯一 settlement owner，并构造项目支持路径上的直接顺序证据：先发生真实 failure，再发生表面 success event；最终结果仍必须保留最先成立的 failure 及其 context，后续 event 不得改写或触发第二次 settlement。
+
+### 11.2 冻结 capability 不能由普通 caller value 重新定义
+
+Contract 已冻结 exact tool、actor、schema discriminator 或其它 authority 时，Review 应沿 TypeScript input、runtime lookup 与 success evidence 三处检查其来源。三者必须由同一 module-owned frozen definition 驱动；普通 caller value 只能满足已冻结 literal，不能改变实际校验对象。negative regression 应注入一个看似可用但无权替代的值（例如 built-in tool），直接证明系统仍拒绝缺失的 frozen capability。
