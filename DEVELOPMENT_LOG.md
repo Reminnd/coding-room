@@ -3,14 +3,23 @@
 ## 当前状态
 
 - 日期：2026-08-24
-- 项目阶段：ACCEPTED / Increment 2
+- 项目阶段：PLAN_READY / Increment 3 Scope Scaffold
 - Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
 - Architecture：用户已批准
-- Implementation Task：`increment-002-git-preconditions-evidence` 与 Fix 1（`increment-002-fix-001-git-failure-semantics`）已实现、Codex 二次 Review approved，并获用户明确接受
+- Implementation Task：`increment-003-scope-scaffold` 已获用户批准、尚未派发；Increment 3A/3B Leaf Contract 仍为 Draft
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）
-- Git repository：用户已接受 Increment 2，并授权提交本次已 Review 的 task-owned 文件；未授权 push
+- Git repository：Increment 2 已提交为 `7345950fac08343cf3eb18cce2ac06c909ca4293`；用户已授权提交当前 7 个 Increment 3 planning/state 文档并随后派发 Scope Scaffold，未授权 branch/worktree、实现提交或 push
 
 ## 已完成
+
+### 2026-08-24 — Increment 3 并行试点与 Scope Scaffold Contract 批准
+
+- 用户确认 Increment 3 先试点两个独立 leaf module：`Claude Process Transport` 与 `Claude Stream Interpreter`；两者不交叉写入、独立 Review/接受/提交，随后由串行 Integration Task 组合。
+- 用户确认 `CODING` 覆盖 Runner claim 后的 process startup 与 MCP initialization；startup/init failure 继续通过既有 `CODING → RUN_FAILED` 结束，不新增 Room state 或 transition。正式 protocol version、ADR 与实现同步留给 Integration Task。
+- 经用户授权完成一次受限真实 Claude Code `2.1.241` smoke：禁用普通 tools、预算上限 `$0.25`，实际费用 `$0.06222`，exit code `0`，未修改项目文件；确认 `--verbose`、CLI JSON Schema normalization、hook/init/result/session 与 `structured_output` shape。
+- 发现现有 `tests/scope.test.ts` 明确拒绝 `src/runner`，会使两个 leaf branch 的 `npm test` 必然失败；共享 regression 不能由两个 worker 并行修改，因此增加串行 Scope Scaffold 前置任务。
+- 用户已批准 [Scope Scaffold Task Contract](./docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)，其唯一实现 scope 为 `tests/scope.test.ts`，不创建或实现 Runner；项目阶段进入 `PLAN_READY / Increment 3 Scope Scaffold`。
+- 用户已授权当前 7 个 planning/state 文档的 documentation baseline commit 与随后的 Scope Scaffold bootstrap dispatch；未授权 branch/worktree、实现提交或 push，Leaf A/B Contract 保持 Draft。
 
 ### 2026-08-24 — Increment 2 接受与提交授权
 
@@ -240,8 +249,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无产品或架构阻塞。Increment 2 已通过 Codex 二次 Review并获用户明确接受，阶段为 `ACCEPTED`；用户已授权提交本次已 Review 的 task-owned 文件，未授权 push。
+无产品或架构阻塞。Scope Scaffold Contract、documentation baseline commit 与 bootstrap Coding dispatch 均已获用户授权，等待按顺序执行。
 
 ## 下一步
 
-Codex 使用显式 pathspec 提交本次已 Review 的 8 个 task-owned 文件；提交后报告 commit hash、实际文件、验证摘要和剩余 worktree。未获 push 授权前不推送。Increment 3 或开发期并行试点需另行规划与用户确认。
+Codex 使用显式 7-file pathspec 提交当前 Increment 3 planning/state 文档，记录实际 `baseline_head`，随后通过 bootstrap transport 派发已批准的 Scope Scaffold Task。本阶段不创建 leaf branch/worktree，也不实现 Runner；Claude 完成后进入 Codex Review，不自动提交实现。

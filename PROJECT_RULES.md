@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 2
+> 当前阶段：PLAN_READY / Increment 3 Scope Scaffold
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -226,6 +226,10 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/INCREMENT_1_FIX_TASK_3.md](./docs/INCREMENT_1_FIX_TASK_3.md) | Increment 1 Review 3 已确认的最小 Fix Task | Codex | Increment 1 Fix 3 Coding 与再次 Review | Accepted |
 | [docs/INCREMENT_2_TASK_CONTRACT.md](./docs/INCREMENT_2_TASK_CONTRACT.md) | Increment 2 已批准 Implementation Task Contract | Codex | Increment 2 Coding、Review 与 Fix 规划 | Accepted |
 | [docs/INCREMENT_2_FIX_TASK_1.md](./docs/INCREMENT_2_FIX_TASK_1.md) | Increment 2 Review 1 已确认的最小 Fix Task | Codex | Increment 2 Fix Coding 与再次 Review | Accepted |
+| [docs/INCREMENT_3_PARALLEL_PILOT_PLAN.md](./docs/INCREMENT_3_PARALLEL_PILOT_PLAN.md) | Increment 3 两个 leaf module 并行试点与串行 Integration 计划 | Codex | Increment 3 Scaffold、Leaf 与 Integration 规划 | Current |
+| [docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md](./docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md) | 并行派发前共享 Scope regression 串行前置任务 | Codex | Scope Scaffold Coding 与 Review | Accepted |
+| [docs/INCREMENT_3A_TASK_CONTRACT.md](./docs/INCREMENT_3A_TASK_CONTRACT.md) | Claude Process Transport leaf Task Contract 草案 | Codex | Leaf A 规划与用户确认 | Draft |
+| [docs/INCREMENT_3B_TASK_CONTRACT.md](./docs/INCREMENT_3B_TASK_CONTRACT.md) | Claude Stream Interpreter leaf Task Contract 草案 | Codex | Leaf B 规划与用户确认 | Draft |
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [ADR/0001-local-room-and-state-ownership.md](./ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [ADR/0002-agent-integration-lifecycle.md](./ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -247,7 +251,8 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-08-23：用户确认在 Increment 2 被接受后，以两个独立 leaf module 试点“独立 branch/worktree + 独立 Implementation Task + 串行 integration”的开发期并行方式。该规则不替代 MVP 的单 Room/单 Run 产品边界，因此本次不新增 ADR；若未来把并行 worker 或 worktree management 纳入产品 runtime，必须另行 Architecture Review、用户确认和 ADR。
 - 2026-08-23：用户明确代码必须包含必要注释，代码注释默认使用简体中文，代码、标识符、命令、Schema 字段和技术专名保持 English；该规则只澄清编码与 Review 标准，不改变架构，因此不新增 ADR。
 - 2026-08-24：用户要求把 Fix 2/3 的可复用经验按 Codex 与 Claude Code 职责拆分，并采用入口路由 + 细分指南的渐进式读取结构。`AGENTS.md`/`CLAUDE.md` 保留角色硬边界和强制索引，详细 Review/规划、Coding/Fix、Git/并行方法迁移到 `docs/agent-guides/`；同时清除两份入口中的未解析 merge marker。该变更整理角色执行知识，不改变产品架构或 Room protocol，因此不新增 ADR。
+- 2026-08-24：用户确认 Increment 3 并行试点拆分为 `Claude Process Transport` 与 `Claude Stream Interpreter` 两个独立 leaf module，先串行更新共享 Scope regression，再分别 Review、接受、提交并通过独立 Integration Task 组装。用户同时确认 `CODING` 覆盖 Runner claim 后的 process startup 与 MCP initialization，既有 startup/init failure 继续走 `CODING → RUN_FAILED`，不增加 Room state 或 transition；protocol version、ADR 与实现同步留给 Increment 3 Integration Task。
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认，共享文档基线已建立。Increment 1 Implementation、Fix 1、Fix 2 与 Fix 3 已完成、通过 Review、获用户接受并提交。Increment 2 Implementation 与 [Fix Task 1](./docs/INCREMENT_2_FIX_TASK_1.md) 已完成；Codex 二次 Review 确认原 Review 的 1 项 High 与 2 项 Low finding 均按用户批准方案闭环，聚焦 11 项、typecheck 与全量 57 项测试通过，Review Decision 为 `approved`。用户已于 2026-08-24 明确接受 Increment 2，并授权提交本次已 Review 的 task-owned 文件，项目协作阶段进入 `ACCEPTED / Increment 2`；Fix lineage 保留原始 `baseline_head` `6e7e5eb8869b2947d7738f1f23b6eb7fdde64742`。目标 Room runtime 尚未实现，其 runtime state 仍不适用；本次授权不包含 push、branch/worktree 操作或历史改写。
+架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 2 commit 为 `7345950fac08343cf3eb18cce2ac06c909ca4293`。用户已确认 [Increment 3 并行试点计划](./docs/INCREMENT_3_PARALLEL_PILOT_PLAN.md) 与 startup/init lifecycle 修正，并批准串行 [Scope Scaffold Task Contract](./docs/INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)。当前阶段为 `PLAN_READY / Increment 3 Scope Scaffold`；目标 Room runtime 尚未实现，runtime state 不适用。Leaf A/B Contract 仍为 Draft；用户已授权提交当前 7 个 planning/state 文档并随后通过 bootstrap transport 派发 Scope Scaffold，未授权 branch/worktree、实现提交、push 或历史改写。

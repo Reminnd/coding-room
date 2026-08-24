@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 架构批准日期：2026-08-23  
-> Increment 2 Task Contract：Approved / 未派发
+> Increment 3 Scope Scaffold Task Contract：Accepted / 未派发
 
 ## 1. 目标
 
@@ -206,4 +206,4 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 ## 6. 当前下一步
 
-Increment 1 — Protocol and State Core 已完成、通过 Review、获用户接受并提交。Increment 2 — Git Preconditions and Evidence 的 Task Contract 已于 2026-08-24 获用户批准；建立包含该 Accepted Contract 的 clean Git documentation baseline、记录实际 `baseline_head` 后，按已批准 bootstrap 路径派发 Claude Code。完成后进入 Codex Review，不自动提交实现代码。
+Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。用户已确认 Increment 3 采用两个独立 leaf module 的 branch/worktree 并行试点，并批准串行 [Scope Scaffold Task Contract](./INCREMENT_3_SCOPE_SCAFFOLD_TASK_CONTRACT.md)。用户已授权先提交 planning plan、Accepted Scaffold Contract、两个 Leaf Draft 与当前状态文档，再记录实际 `baseline_head` 并通过 bootstrap transport 派发 Scope Scaffold。Scaffold Review、接受并提交后，两个 Leaf Contract 才能转为 Accepted 并创建独立 branch/worktree；不得提前派发。
