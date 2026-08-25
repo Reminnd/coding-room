@@ -323,9 +323,9 @@ options:
 
 行为：保存 Question，并通知 Runner 将当前 Run 结束为 `needs_decision`。
 
-### 11.7 Increment 4 已接受 transport/read-model 设计（尚未实现）
+### 11.7 Increment 4 Current transport/read-model
 
-[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，并冻结以下 interface；Coding 与 Review 完成前不改变 `0.2-design` Current implementation：
+[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认；Claude Coding 与 Fix Task 1–3 已完成，Codex Review `review-increment-004-codex-004` 为 `approved`，用户已明确接受并授权提交。以下 transport/read-model 已进入版本化 `main` 的 `0.2-design` Current implementation：
 
 - `/mcp/codex` 只注册 `room_get_state`、`room_submit_task`、`room_submit_review`、`room_answer_question`、`room_accept_review`；`/mcp/claude` 只注册 `room_ask_question`。
 - 两个 route 使用同一 SQLite Room authority，但每个 HTTP request 使用 stateless MCP server/transport；只接受 POST，GET/DELETE 返回 405。
@@ -334,7 +334,7 @@ options:
 - `waiting_actor` 固定映射：`DISCUSSION|ARCHITECTURE_REVIEW|RUN_FAILED|REVIEW_REQUIRED -> codex`；`WAITING_FOR_USER_CONFIRMATION|NEEDS_DECISION|REVIEW_DISCUSSION -> user`；`PLAN_READY|FIX_PLAN_READY -> runner`；`CODING -> claude`；`ACCEPTED -> null`。
 - `room_submit_task` 先处理 existing Task idempotent retry/`id_conflict`；仅首次 `implementation` submission 应用 clean Git gate，`fix` 不重新建立 baseline。
 
-上述内容是 Accepted implementation requirement，但尚未实现；现有六个 tool schema、Room transition、entity 与 error set 不变。
+现有六个 tool schema、Room transition、entity 与 error set 不变。Fix Task 1–3 已直接观察 success、`ProtocolError`、invalid input、non-ProtocolError internal failure、client abort、write-tool durable rollback、review/question retry/conflict，以及 `room_submit_review` stale succeeded Run / wrong-current 的 adapter error mapping 与完整 snapshot 不变性。Codex Review `review-increment-004-codex-004` 独立验证 typecheck、MCP 27/27 与全量 186/186 通过，Decision 为 `approved`，用户已接受并授权提交。该兼容 transport 具体化不改变 protocol version。
 
 ## 12. Runner 协议
 

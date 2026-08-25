@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：PLAN_READY / Increment 4 Room MCP 与 Status CLI Accepted Contract
+> 当前阶段：ACCEPTED / Increment 4 已进入版本化 `main` baseline
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -145,7 +145,9 @@ DISCUSSION
 
 具体合法转换、actor 和失败语义见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。
 
-### 7.1 Room MCP 建成前的 Bootstrap 路径
+### 7.1 Superseded — Room MCP 建成前的 Bootstrap 路径
+
+> 状态：Superseded（2026-08-25）。用户已明确接受并授权提交 Increment 4；后续 Task 不再使用 `claude -p` bootstrap transport，改用 Room MCP。
 
 用户于 2026-08-23 明确批准 Increment 1 Task Contract，并批准以下临时 bootstrap 路径：
 
@@ -155,7 +157,7 @@ DISCUSSION
 - Claude 需要产品、架构、范围、依赖或权限决定时，必须返回 `needs_decision` 并结束当前 process；Codex 与用户确认后才能启动新的 process。
 - Git baseline、clean-worktree gate、Codex Review、Review discussion、Fix approval 和最终接受门禁保持不变。
 - Bootstrap 路径只改变 Task/Result 的临时 transport，不改变目标产品架构，不形成第二套持久化 Room state。
-- Increment 4 被接受后，本节必须标记为 `Superseded`，后续 Task 改用 Room MCP。
+- 2026-08-25 用户接受 Increment 4 后，本路径已终止；后续 Task 改用经版本化集成的 Room MCP。
 
 ## 8. Task 与交付契约
 
@@ -243,6 +245,9 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_3_INTEGRATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) | 两个 accepted leaf 与 Room/Git/artifact 的串行 Claude Runner Integration Task Contract | Codex | Increment 3 Integration Coding 与 Review | Accepted |
 | [docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md](./docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md) | Integration Review 1 已确认的 current Task、partial session、central matrix 与 lifecycle 文档 Fix | Codex | Increment 3 Integration Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_4_TASK_CONTRACT.md](./docs/documents/INCREMENT_4_TASK_CONTRACT.md) | actor-scoped Room MCP、共享状态 snapshot 与 read-only Status CLI Implementation Task Contract | Codex | Increment 4 Coding 与 Review | Accepted |
+| [docs/documents/INCREMENT_4_FIX_TASK_1.md](./docs/documents/INCREMENT_4_FIX_TASK_1.md) | Increment 4 Review 1 五项 confirmed finding 的最小 Fix Task | Codex | Increment 4 Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_4_FIX_TASK_2.md](./docs/documents/INCREMENT_4_FIX_TASK_2.md) | Increment 4 Review 2 cleanup 与 durable-state direct evidence 最小 Fix Task | Codex | Increment 4 Fix 2 Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_4_FIX_TASK_3.md](./docs/documents/INCREMENT_4_FIX_TASK_3.md) | Increment 4 Review 3 stale submit-review MCP direct evidence 最小 Fix Task | Codex | Increment 4 Fix 3 Coding 与再次 Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -271,4 +276,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1–3 已完成、通过 Review、获用户接受并进入 `main`；Increment 3 Claude Runner commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。用户已于 2026-08-25 确认 [Increment 4 Room MCP 与 Status CLI Task Contract](./docs/documents/INCREMENT_4_TASK_CONTRACT.md)；当前为 `PLAN_READY`、`confirmed_by_user=true`。该确认不授权 commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理。
+架构已于 2026-08-23 经用户确认。Increment 1–3 已完成、通过 Review、获用户接受并进入 `main`；Increment 3 Claude Runner commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。Increment 4 Fix Task 3 已补齐 `room_submit_review` stale succeeded Run / wrong-current MCP public-path direct regression；Codex Review `review-increment-004-codex-004` 无 finding，Decision 为 `approved`，独立验证 `npm run typecheck`、MCP 27/27 与全量 186/186 通过。用户已于 2026-08-25 明确接受并授权提交完整 Increment 4 implementation scope；本次 atomic commit 将 Room MCP、Status CLI、shared snapshot、测试、依赖、Fix Contract 与最终文档状态一并纳入版本化 `main` baseline。bootstrap transport 已 `Superseded`；未授权 branch/worktree、真实 Claude smoke、push 或清理。

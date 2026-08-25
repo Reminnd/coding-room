@@ -10,12 +10,16 @@
   "packageManager": "npm@11.12.1",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"tests/**/*.test.ts\""
+    "test": "node --test \"tests/**/*.test.ts\"",
+    "room:serve": "node src/mcp/serve.ts",
+    "room:status": "node src/cli/status.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/express": "5.0.6",
     "@types/node": "24.13.3",
     "typescript": "7.0.2"
   }

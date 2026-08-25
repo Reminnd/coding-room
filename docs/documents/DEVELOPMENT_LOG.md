@@ -3,15 +3,144 @@
 ## 当前状态
 
 - 日期：2026-08-25
-- 项目阶段：PLAN_READY / Increment 4 Room MCP 与 Status CLI Accepted Contract
-- Room runtime state：不适用；Room MCP runtime 尚未实现，Increment 4 Review 与用户接受前继续使用已批准的受限 bootstrap transport
+- 项目阶段：ACCEPTED / Increment 4 已进入版本化 `main` baseline
+- Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：用户已批准
-- Implementation Task：`increment-004-room-mcp-status-cli` 为 Accepted、`confirmed_by_user=true`；尚未授权 Claude Coding 派发
-- Fix Task：`increment-003-claude-runner-integration-fix-001` 为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`；Fix Coding、Codex Review 2 与用户接受均已完成
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）
-- Git repository：Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成；main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。Increment 4 Accepted Contract 与同步状态文档仍为 unstaged changes；未获 commit、branch/worktree、Coding dispatch、真实 Claude smoke、push 或清理授权
+- Implementation Task：`increment-004-room-mcp-status-cli` 为 Accepted、`confirmed_by_user=true`；Claude Coding 已完成（candidate）；Review `review-increment-004-codex-001` 为 `changes_requested`
+- Fix Task：Fix 1/2/3 Coding 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受 Increment 4
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status；`main` Current implementation）
+- Git repository：Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成；main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。用户已授权把完整、已 Review 的 Increment 4 implementation scope 作为本次 atomic commit 纳入 `main`，具体 hash 以 Git history 为准；未授权 branch/worktree、真实 Claude smoke、push 或清理
 
 ## 已完成
+
+### 2026-08-25 — Increment 4 实现提交授权与版本化集成
+
+- 用户在明确的下一门禁中授权提交完整、已 Review 的 Increment 4 implementation scope；授权不包含 push、branch/worktree、真实 Claude smoke 或清理。
+- 本次 atomic commit 包含 Room MCP、Status CLI、shared Room snapshot、package dependency/script、scope 与集成测试、Fix Task 1–3、Project Rules 及最终 Current 文档状态；不包含 `AGENTS.md`、`CLAUDE.md` 或下一 Increment 文件。
+- Commit Message：`feat(mcp): add room coordination service and status CLI`。提交前 `main`、lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`、0 staged 与 exact task-owned path set 已核对；提交后 hash 与 clean-worktree 事实由 Git history/status 提供。
+- Review 4 的验证输入未变化：`npm run typecheck`、MCP 27/27 与全量 186/186 通过。此次只维护接受后的 Current 文档状态，不重复运行相同代码测试。
+- Documentation impact audit：`documentation: updated`。Room MCP、Status CLI 与 runtime command 随同已接受实现进入版本化 `main` baseline；bootstrap transport 保持 `Superseded`，protocol version 不变。
+
+### 2026-08-25 — Increment 4 用户接受与 Fix 经验回收
+
+- 用户明确接受 Increment 4；阶段从 `REVIEW_DISCUSSION` 进入 `ACCEPTED`。该确认只完成产品验收，不授权 commit、push、branch/worktree、真实 Claude smoke 或清理。
+- `PROJECT_RULES.md` 的受限 `claude -p` bootstrap transport 已标记为 `Superseded`；后续 Coding Task 不再使用该路径。Increment 4 实现 commit 前不派发下一 Coding Task。
+- 接受时实现仍位于当前 `main` working tree，`HEAD` 保持 lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`，0 staged；后续独立 commit 授权已完成，最终集成事实见上一节。
+- 经验回收基于 Review 3 finding、用户确认的 Fix 3 方案、Accepted Fix Contract、实际 test-only Diff、MCP direct regression、独立验证与最终接受。现有 `CODEX_REVIEW_AND_PLANNING.md` 已完整覆盖“Contract 点名 public path 必须直接测试”“跨 lifecycle entity 构造 stale/current 关系”“失败后核对 entity/Room/Event/cursor durable state”与“正确时不制造 source 修改”；无新增可复用经验，不重复扩写角色指南。
+- Documentation impact audit：`documentation: updated`。同步 Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；不改变 product architecture、protocol version、public contract 或实现文件。
+
+### 2026-08-25 — Increment 4 Fix Task 3 Review 4
+
+- Codex 以 lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31` 核对 Accepted Fix Task 3、Coding Result、当前 `main` staged/unstaged/untracked candidate、目标 regression、source mapping 与候选文档；`HEAD` 等于 baseline，0 staged，未执行 Git 写操作。
+- confirmed finding `inc4-r3-submit-review-stale-public-path` 已闭环：测试经真实 SDK Client 与 `/mcp/codex` 的 `room_submit_review`，以新 `review-stale` 引用旧 succeeded `run-1`，而 current completed Run 为 `run-2`；adapter 返回测试侧 literal `validation_failed`。
+- 失败后 `review-stale` 不存在，Room 保持 `REVIEW_REQUIRED`，public `room_get_state` snapshot 前后 `deepEqual`，current Task/Run/Review 保持 `task-2/run-2/review-1`，直接证明 Review rollback、Event list/count 与 cursor 不变。regression 直接通过，`src/mcp/tools.ts` 与其它 source 无需修改。
+- Review ID：`review-increment-004-codex-004`；Findings：无；Decision：`approved`。当前进入 `REVIEW_DISCUSSION`，等待用户明确接受；接受前不提交、不终止 bootstrap transport、不派发 Increment 5。
+- 独立验证：`npm run typecheck` 通过；`node --test "tests/room-mcp.test.ts"` 27/27；`npm test` 186/186。
+- Documentation impact audit：`documentation: updated`。同步 Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；只更新 candidate Review/阶段/验证事实，不改变 product architecture、protocol version、public contract 或 Current capability。
+
+### 2026-08-25 — Increment 4 Fix Task 3 Coding 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 4 Fix Task 3](./INCREMENT_4_FIX_TASK_3.md) 补齐 `review-increment-004-codex-003` 的单一 confirmed finding `inc4-r3-submit-review-stale-public-path`，保持原 Implementation lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31` 与现有未提交 candidate Diff，未执行任何 Git 写操作：
+
+- `tests/room-mcp.test.ts` 新增单一 MCP public-path regression：经 service 完成 task-1/run-1/review-1，再提交已确认 Fix Task task-2、完成 run-2，使 Room 回到 `REVIEW_REQUIRED` 且 run-2 成为 current completed Run；随后通过真实 `/mcp/codex` 的 `room_submit_review` 以从未持久化的新 review_id（`review-stale`）引用旧 succeeded run-1，命中 `submitReview` 的 wrong-current guard（`run.run_id !== currentRunId`）。
+- 断言：`room_submit_review` 返回 `validation_failed`（经 adapter 稳定 `{code,message}` tool error）；stale Review 未持久化（`getReview('review-stale') === null`）；Room 仍为 `REVIEW_REQUIRED`；调用前后经既有 `room_get_state` snapshot `deepEqual` 证明 Event list/count、cursor 与 durable state 完全不变；current Task/Run/Review 仍为 task-2/run-2/review-1。
+- **source 未改动**：该 regression 直接通过，证明现有 adapter 行为正确，未触发 Contract「只有 direct regression 失败并证明 src/mcp/tools.ts mapping defect 时才允许最小修复」；`src/mcp/tools.ts`、`src/mcp/http.ts`、RoomService 与其它 candidate boundary 均保持不变。
+
+验证：`npm run typecheck` 通过；聚焦 `tests/room-mcp.test.ts` 27/27 通过；`npm test` 186/186 通过。未 commit、未 stage、未执行 branch/worktree/push/清理，未运行真实 Claude smoke；candidate 进入 `REVIEW_REQUIRED`，未提升为 Current。
+
+Documentation impact audit：`documentation: updated`。本次仅新增本 candidate Coding 事实与 source-未改动结论，未修改 Project Rules/Architecture/Room Protocol/MVP Plan/Operations 或任何 source；净变更仅为 `tests/room-mcp.test.ts` 新增一条测试。
+
+### 2026-08-25 — Increment 4 Review 3 方案确认与 Fix Task 3
+
+- 用户明确确认 `review-increment-004-codex-003` finding `inc4-r3-submit-review-stale-public-path` 与最小方案：只在 `tests/room-mcp.test.ts` 经真实 `/mcp/codex` 构造两轮 Run/Fix lifecycle，以新 review_id 重放旧 succeeded run-1，并断言 `validation_failed`、Review rollback、Room/current Task/current Run/current Review、Event 与 cursor 不变。
+- 已创建 [Increment 4 Fix Task 3](./INCREMENT_4_FIX_TASK_3.md)，状态为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`，保留原 Implementation lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`、当前 `main` worktree 与完整 candidate Diff；阶段进入 `FIX_PLAN_READY`。
+- 预期现有 adapter 行为直接通过，默认不修改 source；只有 direct regression 失败并证明 `src/mcp/tools.ts` mapping defect 时才允许最小修复。`src/mcp/http.ts`、RoomService、protocol、dependency 与其它 candidate boundary 均为 non-goal。
+- 用户继续在原 Increment 4 Claude session 中人工派发。该确认不授权 Codex 调用 Claude，也不授权 stage、commit、branch/worktree、真实 Claude smoke、push 或清理。
+- Documentation impact audit：`documentation: updated`。同步 Accepted Fix Contract、Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；没有 product behavior 或 architecture decision 变化，candidate 保持 unavailable。
+
+### 2026-08-25 — Increment 4 Fix Task 2 Review 3
+
+- Codex 以原 lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31` 核对 Accepted Fix Task 2、Coding Result、当前 `main` 完整 staged/unstaged/untracked candidate Diff、源码、测试与候选文档；`HEAD` 等于 baseline，0 staged，未执行 Git 写操作。
+- `inc4-r2-cleanup-direct-evidence` 已闭环：actual `McpServer.close()`/`StreamableHTTPServerTransport.close()` observation 覆盖 success、`ProtocolError`、invalid input、non-ProtocolError internal failure 与 client abort；每个 request 无遗漏或 late duplicate close。direct regression 未证明 `closeOnce` source defect，因此 source 保持原 ownership 顺序是正确的。
+- `inc4-r2-public-path-durable-matrix` 的 Task failure、answer/accept/ask failure、review/question retry/conflict 与 stale accept evidence 已闭环；但 finding `inc4-r3-submit-review-stale-public-path` 仍成立：`tests/room-mcp.test.ts` 只以当前 `running` Run 触发 status guard，没有构造旧 succeeded Run 在新 completed Run 之后经 `room_submit_review` MCP route 重放的 wrong-current 场景，因而未直接证明该 guard 的 error、Review rollback、Room/current identity、Event 与 cursor 不变。
+- Review ID：`review-increment-004-codex-003`；Decision：`changes_requested`。当前进入 `REVIEW_DISCUSSION`；用户确认 finding 与最小方案前不创建或派发下一 Fix Task，不提交、不 stage、不执行 branch/worktree、真实 Claude smoke、push 或清理。
+- 独立验证：`npm run typecheck` 通过；`tests/room-mcp.test.ts` 26/26；相关 suite 69/69；`npm test` 185/185。全量 suite 中 stale succeeded Run 仅由 `RoomService` public path 覆盖，不能替代 MCP route/tool direct evidence。
+- Documentation impact audit：`documentation: updated`。同步 Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；candidate 继续 unavailable，未提升为 Current。
+
+### 2026-08-25 — Increment 4 Fix Task 2 Coding 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 4 Fix Task 2](./INCREMENT_4_FIX_TASK_2.md) 补齐 `review-increment-004-codex-002` 的两项 confirmed finding，保持原 Implementation lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31` 与现有未提交 candidate Diff，未执行任何 Git 写操作：
+
+- `inc4-r2-cleanup-direct-evidence`：`src/mcp/http.ts` 的 `RoomMcpHttpDeps` 增加测试 seam `observeRequestResource`（request-owned server/transport 创建后、connect 前同步回调一次，只服务本 Contract 的实际 close observation，不改变 public contract，runtime entry 不设置）。`tests/room-mcp.test.ts` 通过该 seam 包装实际实例的 `.close()`，直接计数 `transport.close()`/`server.close()` 调用，覆盖成功、`ProtocolError`、SDK invalid input、non-ProtocolError 内部失败（`node:sqlite` 关闭后 `.prepare()` 抛普通 `Error`）、client abort（在 `observeRequestResource` 触发后 `req.destroy()`）五种真实 MCP route 场景，并断言同一 request 无遗漏或 late duplicate close。
+- **关键偏差（source 未改动）**：经 direct regression 验证，当前 `closeOnce`（先 `transport.close()` 后 `server.close()`）**不存在重复或遗漏 close 缺陷**。SDK `WebStandardStreamableHTTPServerTransport.close()` 同步触发 `onclose` → `Protocol._onclose()` 将 `_transport` 置为 `undefined`，因此后续 `server.close()`（经 `Protocol.close()` 传递关闭 transport）是 no-op；old 与 new 两种顺序下 `transport.close()`/`server.close()` 实际调用均各为一次。据此 Contract「只有 direct regression 失败并证明 adapter defect 时才允许最小修改」未触发，`closeOnce` 保持 Fix Task 1 的原实现不变，未在 `src/mcp/http.ts` 之外作任何 source 修改。
+- `inc4-r2-public-path-durable-matrix`：`tests/room-mcp.test.ts` 新增 `snapshot()` 经 `room_get_state` 捕获 public Room snapshot（cursor/events/room state/current entity），对 `room_submit_task` missing repository/HEAD/dirty/invalid、`room_submit_review` 当前 non-succeeded Run rollback、`room_answer_question` 已回答、`room_accept_review` blocking、`room_ask_question` non-running rollback 全部补齐失败前后 `assert.deepEqual` 的 durable-state 不变断言；新增 `room_submit_review` 与 `room_ask_question` 的 same-ID/same-content retry（返回既有 entity、无新增 Event）与 same-ID/different-content conflict（`id_conflict`、durable state 不变）；新增 `room_accept_review` 经 fix-path 二次 review 构造 stale（非 current）拒绝。
+
+验证：`npm run typecheck` 通过；聚焦 `tests/room-mcp.test.ts` 26/26 通过；`npm test` 185/185 通过。未 commit、未 stage、未执行 branch/worktree/push/清理，未运行真实 Claude smoke；candidate 进入 `REVIEW_REQUIRED`，未提升为 Current。
+
+Documentation impact audit：`documentation: updated`。本次仅新增本 candidate Coding 事实与上述 source-未改动偏差，未修改 Project Rules/Architecture/Room Protocol/MVP Plan/Operations；`src/mcp/http.ts` 的净变更为新增 `observeRequestResource` seam，`closeOnce`、`onRequestCleanedUp`、JSON response 与全部 public tool/schema/error mapping 保持不变。
+
+### 2026-08-25 — Increment 4 Review 2 方案确认与 Fix Task 2
+
+- 用户明确确认 `review-increment-004-codex-002` 的两项 finding 与最小方案：直接构造 client abort/connection close 和 handler/internal failure 并观察实际 `McpServer.close()`/`StreamableHTTPServerTransport.close()` 的 request-owned cleanup；为全部 write tool 补齐 durable Event/cursor rollback，并覆盖 `room_submit_review`、`room_ask_question` 的 retry/conflict/idempotency public path。
+- 已创建 [Increment 4 Fix Task 2](./INCREMENT_4_FIX_TASK_2.md)，状态为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`，保留原 Implementation lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`、当前 `main` worktree 与完整 candidate Diff；阶段进入 `FIX_PLAN_READY`。
+- 用户选择在原 Increment 4 Claude session 中人工派发。该确认不授权 Codex 调用 Claude，也不授权 stage、commit、branch/worktree、真实 Claude smoke、push 或清理。
+- Documentation impact audit：`documentation: updated`。同步 Accepted Fix Contract、Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；没有产品行为或 architecture decision 变化，candidate 保持 unavailable，未提升为 Current。
+
+### 2026-08-25 — Increment 4 Fix Task 1 Review 2
+
+- Codex 以原 lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31` 核对 Accepted Implementation/Fix Contract、当前 `main` 完整 staged/unstaged/untracked candidate Diff、Coding Result、源码、测试与候选文档；未执行 Git 写操作。
+- `inc4-r1-typecheck`、JSON response、Status CLI read-only 与 runtime project startup gate 已由源码和独立命令闭环：`npm run typecheck` 通过，聚焦 34/34、全量 180/180 通过，exact dependency 未漂移。
+- Finding `inc4-r2-cleanup-direct-evidence`：`tests/room-mcp.test.ts` 的 cleanup regression 只覆盖正常 success、`ProtocolError` 与 invalid arguments；没有构造 Accepted Fix Task 要求的 client abort/connection close 或 handler/internal failure，且 `onRequestCleanedUp` 只计数 owner callback，删除实际 `transport.close()`/`server.close()` 后仍可通过，不能直接证明 request-owned resource close boundary。
+- Finding `inc4-r2-public-path-durable-matrix`：新增 MCP failure tests 多数只断言 error、entity 与 Room state，未同时断言 Event count/cursor rollback；除 `room_submit_task` 外，没有直接覆盖 create retry/conflict/idempotency public path。共享 `RoomService` tests 不能替代 adapter evidence。
+- Review ID：`review-increment-004-codex-002`；Decision：`changes_requested`。当前进入 `REVIEW_DISCUSSION`；用户确认最小方案前不创建或派发下一 Fix Task，不提交、不 stage、不执行 branch/worktree、真实 Claude smoke、push 或清理。
+- Documentation impact audit：`documentation: updated`。同步 Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；candidate 保持 unavailable，未提升为 Current。
+
+### 2026-08-25 — Increment 4 Review 1 方案确认与 Fix Task 1
+
+- 用户明确确认 `review-increment-004-codex-001` 的五项 finding 与最小方案：type-safe SDK result narrowing、JSON response 与 request-owned idempotent cleanup、SQLite read-only Status CLI、database open 前的 project directory startup gate，以及直接 MCP public-path failure/rollback/restart matrix。
+- 已创建 [Increment 4 Fix Task 1](./INCREMENT_4_FIX_TASK_1.md)，状态为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`，保留原 Implementation lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`、当前 `main` worktree 与完整 candidate Diff；阶段进入 `FIX_PLAN_READY`。
+- 原 Increment 4 Claude session ID 尚待从 bootstrap 证据恢复；本次确认不授权 Fix Coding 派发、真实 Claude 调用、stage、commit、branch/worktree、push 或清理。
+- Documentation impact audit：`documentation: updated`。同步 Accepted Fix Contract、Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；candidate 保持 unavailable，未提升为 Current。
+
+### 2026-08-25 — Increment 4 Fix Task 1 Coding 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 4 Fix Task 1](./INCREMENT_4_FIX_TASK_1.md) 修复 `review-increment-004-codex-001` 的五项 confirmed finding，保持原 Implementation lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31` 与现有未提交 candidate Diff，未执行任何 Git 写操作：
+
+- `inc4-r1-typecheck`：`tests/room-mcp.test.ts` 用最小 `resultText` type guard 收窄 SDK `callTool` union result 读取 content text；不含 any、ts-ignore、skipLibCheck 或放宽 SDK type。`npm run typecheck` 通过。
+- `inc4-r1-json-response-lifecycle`：`src/mcp/http.ts` 每个 request-owned `StreamableHTTPServerTransport` 显式 `enableJsonResponse: true`，单一 idempotent `closeOnce` owner 在正常完成、connection close/abort、异常路径只关闭一次；`RoomMcpHttpDeps` 增加测试 seam `onRequestCleanedUp`（不改变 public contract）。
+- `inc4-r1-status-read-only`：`src/cli/status.ts` 用 `new DatabaseSync(config.db, { readOnly: true })` 只读打开，`new RoomService(db)` 包 try/catch → non-zero；既存空 database 不再初始化 schema，missing path 不创建文件。
+- `inc4-r1-runtime-startup-validation`：`src/mcp/serve.ts` 在 `openDbOrExit` 前调用 `validateProjectOrExit`，missing/non-directory project 写 stderr、non-zero exit 且不创建 `--db` 文件、不输出 listening。
+- `inc4-r1-public-path-matrix`：`tests/room-mcp.test.ts` 新增 raw HTTP Content-Type（initialize/tools-list/tools-call 为 `application/json` 且不含 SSE）、可观察 cleanup 恰好一次、missing repo/HEAD、invalid schema、stale submit_review/answer_question/ask_question、blocking accept_review、file-backed restart persistence；`tests/status-cli.test.ts` 新增既存空/损坏 database 回归；新增 `tests/room-serve.test.ts` child-process startup/bind/config 回归。
+
+验证：`npm run typecheck` 通过；聚焦 `tests/room-mcp.test.ts`/`tests/status-cli.test.ts`/`tests/room-serve.test.ts` 34/34 通过；`npm test` 180/180 通过。未 commit、未 stage、未执行 branch/worktree/push/清理，未运行真实 Claude smoke。
+
+Documentation impact audit：`documentation: updated`。同步 Architecture/ROOM_PROTOCOL candidate transport 事实、MVP Plan 状态、Operations candidate 运维视图与开发状态；candidate 进入 `REVIEW_REQUIRED`，未提升为 Current。
+
+### 2026-08-25 — Increment 4 Review 1
+
+- Codex 以 `main` `6bb9979` 为 baseline，核对完整 staged/unstaged/untracked task-owned Diff、Accepted Contract、Coding Result、源码、测试与候选文档。实际变更为 8 个 modified、8 个 untracked、0 staged，均在 Contract scope；未执行 Git 写操作。
+- Review `review-increment-004-codex-001` 确认五项 finding：`inc4-r1-typecheck`（当前 `npm run typecheck` 在 `tests/room-mcp.test.ts:131/141` 失败）、`inc4-r1-json-response-lifecycle`（raw initialization 返回 `Content-Type: text/event-stream`，且成功路径在 `handleRequest` 返回后才注册 `close` cleanup）、`inc4-r1-status-read-only`（既存空 database 调用 `room:status` 后创建六张 Room tables）、`inc4-r1-runtime-startup-validation`（不存在的 project 仍输出 listening，并创建 database）、`inc4-r1-public-path-matrix`（Accepted Contract 点名的 missing repo/HEAD、invalid schema/current entity、blocking Review、rollback 与 restart 没有经各自 MCP public path 直接验证）。Decision：`changes_requested`。
+- 独立验证：`npm test` 162/162 通过；`npm ls --depth=0` 确认 exact direct dependency；两个 raw behavior probe 与一个 runtime startup probe 复现上述偏离。全绿 tests 没有覆盖 raw response mode、request resource cleanup、既存 invalid database 不变性或 invalid project startup。
+- 当前进入 `REVIEW_DISCUSSION`。用户确认 finding 与最小方案前，不创建或派发 Fix Task；不提交、不 stage、不执行 branch/worktree、真实 Claude smoke、push 或清理。
+- Documentation impact audit：`documentation: updated`。同步 Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与开发状态；candidate 保持 unavailable，未提升为 Current。
+
+### 2026-08-25 — Increment 4 Coding 完成（candidate）
+
+按 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 交付 loopback-only Room MCP service 与 read-only Status CLI：
+
+- `package.json`/`package-lock.json`：新增 `@modelcontextprotocol/sdk@1.30.0`（runtime）与 `@types/express@5.0.6`（dev），增加 `room:serve`/`room:status` script；保留现有 `zod@4.4.3`、Node/npm engine 与 TypeScript 配置。
+- `src/room/state-snapshot.ts`（新增）：MCP 与 CLI 共用的只读 Room state snapshot boundary —— 输入 `room_id` + nullable `after_sequence`，返回完整 Room、nullable current Task/Run/Review/open Question、`waiting_actor`、`cursor` 与 `sequence > after_sequence` 的升序 Event；current entity 以最新 `task_submitted`/`run_started|run_resumed`/`review_submitted`/`question_asked` Event reference 解析，waiting actor 用 Contract 固定映射。
+- `src/mcp/tools.ts`（新增）：`registerCodexTools`（五个 Codex tool）与 `registerClaudeTools`（仅 `room_ask_question`）；`room_submit_task` 在 existing Task lookup 之后、仅首次 `type=implementation` 时调用 `establishCleanBaseline(projectPath)` 并返回 `observed_baseline_head`，`type=fix` 不重新建立 baseline；ProtocolError 经 `runTool` 映射为稳定 `{code,message}` tool error，非 ProtocolError 保持 SDK internal/tool error。
+- `src/mcp/http.ts`（新增）：`createRoomMcpApp` 使用 `createMcpExpressApp({host:'127.0.0.1'})` 暴露 `/mcp/codex` 与 `/mcp/claude`，每个 request 独立 stateless server/transport（`sessionIdGenerator: undefined`），GET/DELETE 返回 405。
+- `src/mcp/serve.ts`（新增）：`room:serve` runtime entry，显式 `--db`/`--project`/`--port`，host 固定 `127.0.0.1`。
+- `src/cli/status.ts`（新增）：read-only Status CLI，显式 `--db`/`--room-id`，调用共享 snapshot，输出 deterministic pretty JSON；打开 SQLite 前确认 `--db` 已存在，missing path 不创建空 database。
+- `tests/room-state-snapshot.test.ts`、`tests/room-mcp.test.ts`、`tests/status-cli.test.ts`（新增）与 `tests/scope.test.ts`（改写）覆盖 snapshot authority/cursor/waiting actor、actor-scoped tool surface、HTTP transport/error mapping、new-only Git gate/idempotency order、CLI read-only parity 与 scope/dependency drift。
+
+Claude Coding Result 报告：`npm run typecheck` 通过；聚焦测试 `tests/room-state-snapshot.test.ts` `tests/room-mcp.test.ts` `tests/status-cli.test.ts` 23/23 通过；`npm test` 162/162 通过。Codex Review 独立复跑时 `npm run typecheck` 失败，故前述 typecheck 自述不是当前有效验收证据；未运行真实 Claude smoke。
+
+Claude Coding Result 报告无 deviation/unresolved；Codex Review 1 已确认五项 finding，Decision 为 `changes_requested`。未 commit、未 stage、未执行 branch/worktree/push/清理。
+
+Documentation impact audit：`documentation: updated`。同步 Architecture/ROOM_PROTOCOL candidate 标记、MVP Plan 状态、Operations candidate 运维视图与当前开发状态；未把 MCP/CLI、runtime command 或 bootstrap replacement 写成 Current。
 
 ### 2026-08-25 — Increment 4 Task Contract 用户确认
 
@@ -352,6 +481,33 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 验证
 
+### 2026-08-25 — Increment 4 Fix Task 3 Review 4
+
+- `npm run typecheck`：通过。
+- `node --test "tests/room-mcp.test.ts"`：27/27 通过，包含 stale succeeded Run / wrong-current `room_submit_review` MCP direct regression。
+- `npm test`：186/186 通过。
+
+### 2026-08-25 — Increment 4 Fix Task 2 Review 3
+
+- `npm run typecheck`：通过。
+- `node --test "tests/room-mcp.test.ts"`：26/26 通过。
+- `node --test "tests/room-state-snapshot.test.ts" "tests/room-service.test.ts" "tests/git-observer.test.ts" "tests/status-cli.test.ts" "tests/room-serve.test.ts" "tests/scope.test.ts"`：69/69 通过。
+- `npm test`：185/185 通过；MCP suite 未包含 stale succeeded Run / wrong-current `room_submit_review` direct regression，因此绿灯不闭合该验收项。
+
+### 2026-08-25 — Increment 4 Fix Review 2
+
+- `npm run typecheck`：通过。
+- `node --test "tests/room-mcp.test.ts" "tests/status-cli.test.ts" "tests/room-serve.test.ts"`：34/34 通过。
+- `npm test`：180/180 通过。
+- `npm ls --depth=0`：direct dependency 精确为 `@modelcontextprotocol/sdk@1.30.0`、`zod@4.4.3`、`@types/express@5.0.6`、`@types/node@24.13.3`、`typescript@7.0.2`。
+- 代码/测试审查：上述绿灯没有构造 cleanup abort/internal-failure，也没有完整断言 MCP failure 后 Event/cursor 与非 Task create retry/conflict，因此不满足 Accepted Fix Task 的 direct public-path evidence。
+
+### 2026-08-25 — Increment 4 Fix Task 1
+
+- `npm run typecheck`（`tsc --noEmit`）：无错误；`tests/room-mcp.test.ts` 的 SDK result boundary 经 `resultText` 类型收窄，不含 any/ts-ignore/skipLibCheck。
+- `node --test "tests/room-mcp.test.ts" "tests/status-cli.test.ts" "tests/room-serve.test.ts"`：34 个测试全部通过。新增 raw HTTP Content-Type（initialize/tools-list/tools-call 为 `application/json` 且不含 `text/event-stream`）、idempotent cleanup 恰好一次、missing repository/HEAD、invalid schema、stale submit_review/answer_question/ask_question、blocking accept_review、file-backed restart persistence；Status CLI 既存空/损坏 database 回归；room:serve invalid project/port/corrupt db/occupied port/valid listen 回归。
+- `npm test`（`node --test`）：180 个测试全部通过，无回归。
+
 ### 2026-08-24 — Increment 3 Integration
 
 - `npm run typecheck`（`tsc --noEmit`）：无错误。
@@ -439,8 +595,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无 unresolved finding。Increment 4 Contract 已接受；当前 Git/dispatch 门禁尚未完成。未获 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理授权。
+无未解决 Review finding。Increment 4 已获用户接受并进入版本化 `main` baseline；未获 branch/worktree、真实 Claude smoke、push 或清理授权。
 
 ## 下一步
 
-下一步需要分别获得 documentation baseline commit 与 Claude Coding dispatch 所需授权，并在派发前记录 clean target worktree、exact `baseline_head` 与 task owner。push 与 branch/worktree 清理仍须另行授权。
+下一步回到 Increment 5 planning gate；尚未生成或批准 Increment 5 Task Contract，也未授权 Coding。push 与 branch/worktree 清理仍须另行授权。

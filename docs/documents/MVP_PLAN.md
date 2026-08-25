@@ -5,6 +5,7 @@
 > Increment 3 Scope Scaffold：Accepted / source commit `eb3637b` / integrated into current `main` tree  
 > Increment 3 Integration：Review 1 `changes_requested`  
 > Increment 3 Integration Fix 1：Review 2 `approved` / 用户已接受 / `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
+> Increment 4：用户已接受 / `ACCEPTED` / 已进入版本化 `main` baseline
 
 ## 1. 目标
 
@@ -135,7 +136,7 @@ Verification 检测：
 - CLI 显示当前 waiting actor 与 active entity；
 - MCP 不暴露 file、Shell、Patch 或通用 Git tool。
 
-当前 Accepted implementation plan 见 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md)：同一 loopback process/SQLite authority 使用 `/mcp/codex` 与 `/mcp/claude` 两个 stateless Streamable HTTP route，通过 exact tool registration enforce actor；MCP 与 CLI 共享只读 Room state snapshot；首次 Implementation Task submission 连接既有 clean Git gate。该 Contract 已于 2026-08-25 获用户确认，但尚未 Coding，不是 Current runtime capability。
+当前 Accepted implementation 见 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md)：同一 loopback process/SQLite authority 使用 `/mcp/codex` 与 `/mcp/claude` 两个 stateless Streamable HTTP route，通过 exact tool registration enforce actor；MCP 与 CLI 共享只读 Room state snapshot；首次 Implementation Task submission 连接既有 clean Git gate。Fix Task 1–3 已闭环 request cleanup、durable-state/idempotency evidence 与 `room_submit_review` stale succeeded Run / wrong-current MCP direct regression；Review `review-increment-004-codex-004` 为 `approved`，用户已接受并授权提交。实现已进入版本化 `main` baseline，bootstrap transport 已终止。
 
 ### 增量 5 — Decision 与 Fix Resume
 
@@ -214,4 +215,4 @@ Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交
 
 Integration Coding 已完成，但 Review `review-increment-003-integration-codex-001` 对 current Task guard、failure partial session evidence、central public-path matrix 与 lifecycle 文档一致性提出四项 finding，Decision 为 `changes_requested`。用户已确认最小方案，[Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 为 Accepted。Fix Coding 已按四项 confirmed finding 完成并验证（current Task authority 复用最新 `task_submitted` Event、`required_tool_missing` 保留 observed session、central `runClaude` 直接覆盖全部 transport/stream failure path、协议/架构统一为 `CODING → RUN_FAILED` startup/init 语义）。Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，Runner 现为 Current TypeScript capability。
 
-[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，冻结 dual-route actor authority、shared Room snapshot、new-only Implementation clean Git gate、explicit loopback runtime parameters 与 exact MCP SDK dependency。当前阶段为 `PLAN_READY`、`confirmed_by_user=true`；该确认未授权 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理，Increment 5/7 boundary 不变。
+[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已冻结 dual-route actor authority、shared Room snapshot、new-only Implementation clean Git gate、explicit loopback runtime parameters 与 exact MCP SDK dependency。Fix Task 3 的 stale succeeded Run / wrong-current MCP direct regression 已通过，Review `review-increment-004-codex-004` 无 finding，`npm run typecheck`、MCP 27/27 与全量 186/186 通过。用户已接受并授权提交 Increment 4，implementation 已进入版本化 `main` baseline；下一步回到 Increment 5 planning gate，Increment 5/7 boundary 不变，尚未授权 Coding。

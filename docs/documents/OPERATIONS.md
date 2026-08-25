@@ -2,8 +2,8 @@
 
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
-> 最后维护日期：2026-08-24
-> Last maintained review：`review-increment-003-integration-codex-002`
+> 最后维护日期：2026-08-25
+> Last maintained review：`review-increment-004-codex-004`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -15,10 +15,10 @@
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
 | Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受；commit 已 fast-forward 集成到 `main` |
 | Runtime readiness | Protocol/Room domain、只读 Git Observer 与 central Runner TypeScript API 已在 `main` |
-| Service readiness | Room server、MCP、Status CLI 均未实现，当前不可启动；Increment 4 Contract 已接受但尚未 Coding，Runner 仍是 TypeScript API，非可启动 service |
-| 可执行验证 | `npm run typecheck`、`npm test` |
+| Service readiness | Room server、MCP、Status CLI 已获用户接受并进入版本化 `main` baseline；Runner 仍是 TypeScript API，不包含 daemon manager |
+| 可执行验证 | `npm run typecheck`、MCP 27/27 与全量 186/186 通过；stale succeeded Run / wrong-current MCP direct regression 已闭环 |
 
-不要执行或编写 `npm start`、Room daemon、MCP endpoint、Status CLI 或 production SQLite 路径；当前 repository 没有这些入口。
+`room:serve`/`room:status` script 已进入版本化 `main` baseline。它们要求 operator 显式提供本地 database/project/port 或 room ID；没有 `npm start`、Room daemon、implicit production SQLite path 或 service manager。
 
 ## 2. 架构与目录结构
 
@@ -40,8 +40,8 @@ tests / future application entry
         │
         └──> src/git/Git Observer ──> git-process ──> local Git CLI
 
-planned, not implemented:
-Room MCP · Status CLI · runtime service entry
+Current, ACCEPTED (versioned main baseline):
+Room MCP (src/mcp) · Status CLI (src/cli) · runtime service entry (room:serve)
 ```
 
 | 路径 | 状态 | 运维责任 |
@@ -50,8 +50,8 @@ Room MCP · Status CLI · runtime service entry
 | `src/room/` | Implemented | SQLite domain repository、state transition、application service |
 | `src/git/` | Implemented | clean baseline 与 completion Git evidence；只读 Git command |
 | `src/runner/` | Implemented | `claude-runner.ts` central orchestration 组合 `claude-process.ts` 与 `claude-stream.ts`；位于 `main` |
-| `src/mcp/` | Not implemented | Increment 4 后续能力 |
-| `src/cli/` | Not implemented | Increment 4 后续能力 |
+| `src/mcp/` | Current | actor-scoped MCP、JSON response、request cleanup、durable-state/idempotency 与 stale submit-review evidence 已闭环 |
+| `src/cli/` | Current | read-only Status CLI；SQLite read-only 打开，既存空 database 不被初始化 |
 | `.agent-room/artifacts/` | Bootstrap/runtime artifact location | Git ignored；保存 Claude stdout/status 等本地证据 |
 
 ## 3. 当前已实现接口
@@ -114,13 +114,27 @@ artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`�
 - `room_accept_review`
 - `room_ask_question`
 
-Runner process contract 与 terminal Run mapping 已由 Increment 3 实现；Room MCP transport、tool handlers、shared state snapshot、Status CLI 与 runtime entry 仍未实现。[Increment 4 Accepted Contract](./INCREMENT_4_TASK_CONTRACT.md) 或 bootstrap `claude -p` 不等于已部署 Room interface。
+Runner process contract 与 terminal Run mapping 已由 Increment 3 实现；Room MCP transport、tool handlers、shared state snapshot、Status CLI 与 runtime entry 已由 Increment 4 实现并进入版本化 `main` baseline。Fix Task 1–3 已完成，Review `review-increment-004-codex-004` 为 `approved`，用户已接受；bootstrap `claude -p` 已 `Superseded`。
 
-### 4.1 Increment 4 已接受运维接口（尚未实现，当前不可执行）
+### 4.1 Increment 4 Current 运维接口
 
-Accepted Contract 要求 runtime 固定监听 `127.0.0.1`，显式接收 `--db <path> --project <path> --port <1..65535>`，并暴露 `/mcp/codex` 与 `/mcp/claude`；read-only Status CLI 显式接收 `--db <path> --room-id <id>`，且 missing database path 必须失败而不能创建空 database。计划中的 package script 名为 `room:serve` 与 `room:status`。
+Runtime 固定监听 `127.0.0.1`，显式接收 `--db <path> --project <path> --port <1..65535>`，并暴露 `/mcp/codex` 与 `/mcp/claude`；read-only Status CLI 显式接收 `--db <path> --room-id <id>`，且 missing database path 失败而不创建空 database。package script 为 `room:serve` 与 `room:status`（`src/mcp/serve.ts`、`src/cli/status.ts`）。
 
-这些命令、route 与参数已经用户批准但尚未实现。operator 当前不得尝试运行；Review 与用户接受后才能把本节提升为可执行手册，并补充 exact startup、shutdown、health、status 与 failure evidence。
+启动命令：
+
+```text
+npm run room:serve -- --db <path> --project <path> --port <1..65535>
+```
+
+成功信号为 stdout 输出 `Room MCP listening on http://127.0.0.1:<port>`；startup 参数、project、database 或 bind 失败时 stderr 输出原因并 non-zero exit。停止当前前台 service 使用终端中断；重启时用相同显式参数重新执行命令，没有 background daemon manager。
+
+状态查询命令：
+
+```text
+npm run room:status -- --db <path> --room-id <id>
+```
+
+成功时 stdout 输出 deterministic pretty JSON 且 exit 0；invalid args、missing Room 或无法读取 database 时 stderr 输出原因并 non-zero exit。raw MCP response 为 `application/json`；`room:status` 只读且既存空 database 不创建 schema，`room:serve` 在 open database 前拒绝 invalid project。
 
 ## 5. 人工操作命令
 
@@ -143,10 +157,11 @@ npm test
 | 安装 lockfile dependency | `npm ci` | Available |
 | TypeScript 验证 | `npm run typecheck` | Available |
 | 完整 regression | `npm test` | Available |
-| 启动 Room service | 无 | Unavailable |
-| 停止/重启 Room service | 无 | Unavailable |
+| 启动 Room service | `npm run room:serve -- --db <path> --project <path> --port <1..65535>` | Available |
+| 停止/重启 Room service | 前台终端中断；使用相同显式参数重新启动 | Available（manual） |
 | 查询 runtime status/health | 无 | Unavailable |
-| 调用 MCP/CLI | 无 | Unavailable |
+| 查询 Room state snapshot | `npm run room:status -- --db <path> --room-id <id>` | Available |
+| 调用 MCP | service 启动后使用 `/mcp/codex` 或 `/mcp/claude` | Available |
 
 ## 6. 状态、存储与制品
 
@@ -165,14 +180,14 @@ npm test
 1. 先用 `git status --short --branch` 确认实际 branch、staged、unstaged 与 untracked scope。
 2. 运行 `npm run typecheck` 和聚焦/完整测试，区分类型偏移与行为回归。
 3. Git Observer 抛出 `ProtocolError` 时按 `git_repository_missing`、`git_head_missing`、`worktree_not_clean` 处理；`GitCommandError` 表示观察 command 本身失败，不能解释为 clean/empty。
-4. Claude bootstrap 失败时保留 `.agent-room/artifacts/` 与目标 worktree，不执行自动 reset/clean。
+4. 历史 bootstrap artifact 继续保留在 `.agent-room/artifacts/`；bootstrap transport 已 `Superseded`，不得为后续 Task 再启动。
 5. 当前没有 service restart、database backup/restore、health probe 或 Runner retry CLI；需要这些能力时必须先完成对应 Increment 和 Review。
 
 所有 protocol error code 见 [ROOM_PROTOCOL.md 第 14 节](./ROOM_PROTOCOL.md#14-错误码)。
 
 ## 8. Increment 3 Integration 状态
 
-当前 `main` `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已包含 Runner TypeScript API。Integration branch `codex/inc3-integration` 以 lineage baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 组合两个 leaf；Review 1 的四项 finding 已由 Fix 1 闭环，Review 2 为 `approved`，用户已接受并授权 fast-forward 集成。Room MCP、Status CLI 与 runtime service entry 仍未实现，不能由 Runner library 已进入 `main` 推导其可启动。
+Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtime service entry 均已进入版本化 `main` baseline。Room service 仍是 operator 显式启动的前台 local process，不包含 background scheduler、daemon manager 或自动 Runner wakeup。
 
 ## 9. Review 后维护记录
 
@@ -186,5 +201,9 @@ npm test
 | `review-increment-003b-codex-002` | `approved` / 用户已接受 | frozen required Room tool authority 与 direct regression 已闭环；leaf commit `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，尚未集成 | 保持 `main` current operational view；等待独立 Integration Task |
 | `review-increment-003-integration-codex-001` | `changes_requested` / finding 与 solution 已确认 | stale Task 可进入 Coding、required-tool failure 丢失 session、central failure evidence 不完整、协议/架构 startup-init 语义冲突 | Fix Coding 已完成并验证；保持 Runner candidate，等待二次 Review 与用户接受 |
 | `review-increment-003-integration-codex-002` | `approved` / 用户已接受 | 四项 finding 均闭环；无新增 runtime command，Runner 为 TypeScript API | commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main` |
+| `review-increment-004-codex-001` | `changes_requested` / finding 与 solution 已确认 | MCP response/resource lifecycle、Status CLI read-only、runtime startup gate 与 public-path regression 不符合 Contract；`typecheck` 失败 | [Fix Task 1](./INCREMENT_4_FIX_TASK_1.md) 已 Accepted 且 Fix Coding 已完成并验证；MCP/CLI/runtime 仍 unavailable，等待再次 Review 与用户接受 |
+| `review-increment-004-codex-002` | `changes_requested` / finding 与 solution 已确认 | JSON response、Status read-only、startup gate 与 typecheck 已闭环；cleanup abort/internal-failure 及 durable Event/cursor/idempotency public-path evidence 不完整 | [Fix Task 2](./INCREMENT_4_FIX_TASK_2.md) 已 Accepted；保持 MCP/CLI/runtime unavailable，等待用户人工派发 |
+| `review-increment-004-codex-003` | `changes_requested` / finding 与 solution 已确认 | actual cleanup 与多数 durable rollback/retry/conflict evidence 已闭环；`room_submit_review` stale succeeded Run / wrong-current MCP direct regression 缺失 | [Fix Task 3](./INCREMENT_4_FIX_TASK_3.md) 已 Accepted；保持 MCP/CLI/runtime unavailable，等待用户人工派发 |
+| `review-increment-004-codex-004` | `approved` / 用户已接受并授权提交 | stale succeeded Run / wrong-current MCP direct regression 已闭环；无 architecture/protocol version change | bootstrap 已 `Superseded`；Increment 4 进入版本化 `main` baseline |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

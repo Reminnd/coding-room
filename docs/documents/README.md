@@ -5,7 +5,7 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-08-24 |
+| 最后更新日期 | 2026-08-25 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
@@ -61,6 +61,9 @@
 | [Increment 3 Integration](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) | Accepted | 组合 accepted leaf、Room/Git/artifact 与 terminal transition 的 central Runner |
 | [Increment 3 Integration Fix 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) | Accepted | 修复 current Task guard、partial session evidence、central failure matrix 与 lifecycle 文档冲突 |
 | [Increment 4](./INCREMENT_4_TASK_CONTRACT.md) | Accepted | actor-scoped Room MCP、共享状态 snapshot 与 read-only Status CLI |
+| [Increment 4 Fix 1](./INCREMENT_4_FIX_TASK_1.md) | Accepted | 修复 JSON response/resource lifecycle、Status read-only、startup gate、typecheck 与 MCP public-path evidence |
+| [Increment 4 Fix 2](./INCREMENT_4_FIX_TASK_2.md) | Accepted | 补齐 actual request cleanup 与 MCP durable-state/idempotency public-path direct evidence |
+| [Increment 4 Fix 3](./INCREMENT_4_FIX_TASK_3.md) | Accepted | 补齐 stale succeeded Run / wrong-current submit-review MCP direct evidence |
 
 ### 2.4 Agent 执行指南
 
@@ -86,4 +89,4 @@
 - Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，随后通过 Integration commit 集成。
 - Integration Coding 已在 `codex/inc3-integration`、baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 完成；Review `review-increment-003-integration-codex-001` 的四项 finding 与最小方案已获用户确认。
 - [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。
-- [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，当前为 `PLAN_READY`、`confirmed_by_user=true`。该确认没有授权 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理。
+- Increment 4 Fix Task 3 已完成 Coding；Review `review-increment-004-codex-004` 无 finding，Decision 为 `approved`，MCP 27/27 与全量 186/186 通过。用户已明确接受并授权提交完整 Increment 4 implementation scope；本次 commit 将 Room MCP、Status CLI、shared snapshot、测试、依赖、Fix Contract 与最终文档状态纳入版本化 `main` baseline。bootstrap transport 已 `Superseded`，未授权 push 或清理。
