@@ -121,6 +121,17 @@ Runner 不决定需求、架构或 Review finding。
 
 CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不创建第二条状态转换路径。
 
+### 3.8 Increment 4 已接受设计（尚未实现）
+
+[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，并冻结以下接口具体化；这些是 Accepted implementation requirements，不是 Current runtime capability：
+
+- 同一 local process 与 SQLite authority 暴露 `/mcp/codex`、`/mcp/claude` 两个 stateless Streamable HTTP JSON-response route；前者只注册五个 Codex tool，后者只注册 `room_ask_question`，不信任 caller 自报 actor。
+- MCP `room_get_state` 与 Status CLI 共用一个只读 Room state snapshot application boundary；current entity 由最新相关 Event reference 决定，waiting actor 使用固定 Room-state mapping。
+- 首次 `type=implementation` 的 `room_submit_task` 在 existing-ID retry/conflict 判断后调用既有 Git Observer clean gate；Fix Task 不重新建立 baseline。
+- runtime 固定监听 `127.0.0.1` 并显式接收 database、project 与 port；MVP 不增加 remote auth、SSE、stateful MCP session、scheduler 或 daemon manager。
+
+这些设计保持 State Machine、SQLite、Git 与 Runner ownership 不变。Coding、Review 与用户接受完成前，不得据此宣称 MCP/CLI 可用。
+
 ## 4. 依赖方向
 
 ```text
@@ -157,8 +168,8 @@ Infrastructure module 不得调用 MCP handler 或 CLI presentation code。State
 2. Codex 形成 Architecture Review 或计划，并等待用户明确确认。
 3. Codex 使用已批准 Task Contract 调用 `room_submit_task`。
 4. Room 校验合法状态、Git repository 和 clean-worktree 前置条件。
-5. Room 保存 Task、`baseline_head` 和 `PLAN_READY`。
-6. Runner claim 该 Task，创建新的 Claude session，并把 Room 转为 `CODING`。
+5. Room 保存 Task 和 `PLAN_READY`；MCP submission 返回 clean-gate 观察到的 `baseline_head` 作为 dispatch evidence，但不把它添加到 Task schema。
+6. Runner 重新校验 clean HEAD 与 dispatch metadata，claim 该 Task、创建持久化 `baseline_head` 的 Run 和新的 Claude session，并把 Room 转为 `CODING`。
 7. Claude Code 编辑共享 worktree、运行规定检查并返回 Coding Result。
 8. Runner 校验 process completion 和 result shape，再收集实际 Git 状态。
 9. 成功时 Room 进入 `REVIEW_REQUIRED`；否则进入 `RUN_FAILED` 或 `NEEDS_DECISION`。
@@ -211,6 +222,8 @@ MVP Room Service 在 loopback address 上暴露 Streamable HTTP。Codex App 与 
 - 不需要 STDIO proxy 或重复的 in-memory server。
 
 Endpoint 只允许本地访问。Remote access、OAuth 和 multi-user authorization 不在 MVP 范围内。
+
+Increment 4 Accepted Contract 将“同一个 Room instance”具体化为同一 process/SQLite authority 下的两个 actor-scoped route；transport 本身 stateless，Room durable state 仍只在 SQLite。该设计尚未实现，不能当作可用 endpoint。
 
 ## 9. 持久化
 

@@ -2,16 +2,36 @@
 
 ## 当前状态
 
-- 日期：2026-08-24
-- 项目阶段：ACCEPTED / Increment 3 Claude Runner；已集成到 `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
-- Room runtime state：不适用；目标 Room runtime 尚未实现，Increment 1 通过已批准 bootstrap transport 完成
+- 日期：2026-08-25
+- 项目阶段：PLAN_READY / Increment 4 Room MCP 与 Status CLI Accepted Contract
+- Room runtime state：不适用；Room MCP runtime 尚未实现，Increment 4 Review 与用户接受前继续使用已批准的受限 bootstrap transport
 - Architecture：用户已批准
-- Implementation Task：`increment-003-claude-runner-integration` 为 Accepted；Review 1 `changes_requested`
+- Implementation Task：`increment-004-room-mcp-status-cli` 为 Accepted、`confirmed_by_user=true`；尚未授权 Claude Coding 派发
 - Fix Task：`increment-003-claude-runner-integration-fix-001` 为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`；Fix Coding、Codex Review 2 与用户接受均已完成
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）
-- Git repository：clean integration commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已由 `e3eb438bc7aeb6734d897cc4a222eb6b5eb8d983` fast-forward 集成到 `main`；用户已另行授权将本次 operational-state 文档同步作为 docs-only successor commit 提交。未获 push 或 branch/worktree 清理授权
+- Git repository：Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成；main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。Increment 4 Accepted Contract 与同步状态文档仍为 unstaged changes；未获 commit、branch/worktree、Coding dispatch、真实 Claude smoke、push 或清理授权
 
 ## 已完成
+
+### 2026-08-25 — Increment 4 Task Contract 用户确认
+
+- 用户明确确认 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 的完整内容；文档状态更新为 `Accepted`、`confirmed_by_user=true`，项目阶段进入 `PLAN_READY`。
+- 已确认的 Implementation boundary 包括 dual actor-scoped stateless routes、MCP/CLI shared Room snapshot、new-only Implementation clean Git gate、fixed loopback/explicit runtime parameters，以及 exact MCP SDK/type dependency。
+- 本次确认只批准完整 Implementation Task Contract，不自动授权 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理。
+- Documentation impact audit：`documentation: updated`。同步 Contract、Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations 与当前开发状态；明确区分 Accepted design 与尚未实现的 runtime capability。
+- 未运行测试：本次仅更新确认状态，业务代码与 runtime 输入未变化；重复测试不会改变 `PLAN_READY` 判断。
+
+### 2026-08-24 — Increment 4 Room MCP 与 Status CLI Draft
+
+- 用户要求“继续”后，Codex 从 clean `main` `2c2b880905eb7b39a0a84814dd7d5c3b0165a763` 核对 Current Architecture、Room Protocol、MVP、RoomService/Repository public API、Git Observer、Runner tool authority、Scope regression 与 package dependency baseline。
+- 已形成 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md)，单一目标是 actor-scoped loopback Room MCP 与 read-only Status CLI；`confirmed_by_user=false`，当前只等待用户评审。
+- Draft 冻结两个 stateless Streamable HTTP route：`/mcp/codex` 只注册五个 Codex tool，`/mcp/claude` 只注册 `room_ask_question`；actor authority 不依赖 caller string/header。
+- Draft 增加 MCP/CLI 共享的只读 Room state snapshot candidate，以 Event reference 解析 current Task/Run/Review/open Question、cursor 与 fixed waiting actor mapping；不新增 Room state、entity、table 或 migration。
+- Draft 把既有 Git clean gate 连接到首次 Implementation Task submission，并明确 existing-ID retry/conflict 先于 new-only gate、Fix Task 不重新建立 baseline，避免破坏既有 idempotency 与 retry semantics。
+- 核对现有 schema 后修正旧 Architecture 描述：`baseline_head` 属于 Run 而非 Task。MCP submission 只返回 clean-gate observation 作为 dispatch evidence，Runner start 仍独立重检并持久化到 Run；本 Draft 不修改 Task schema。
+- dependency capability 已核对：`@modelcontextprotocol/sdk@1.30.0`、`@types/express@5.0.6`、现有 `zod@4.4.3`；本机 Claude Code `2.1.241` 支持 HTTP MCP registration。未修改 package/lock 或业务代码。
+- Documentation impact audit：`documentation: updated`。同步 Draft Contract、Documentation Map/中心、Architecture/Protocol candidate、MVP、Operations 与当前开发状态；未把 MCP/CLI 或 proposed command 写成 Current。
+- 本次未运行测试：规划文档不改变 runtime，测试结果不会改变 Draft 设计判断。未执行 commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、push 或清理。
 
 ### 2026-08-24 — Increment 3 fast-forward 集成到 main
 
@@ -419,8 +439,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无 unresolved finding。Increment 3 已获用户接受并集成到 `main`；main integration 状态文档同步已获单独提交授权。未获 push 或 branch/worktree 清理授权。
+无 unresolved finding。Increment 4 Contract 已接受；当前 Git/dispatch 门禁尚未完成。未获 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理授权。
 
 ## 下一步
 
-下一产品规划入口为 Increment 4 Room MCP；尚未形成或批准 Task Contract。push 与 branch/worktree 清理仍须分别明确授权。
+下一步需要分别获得 documentation baseline commit 与 Claude Coding dispatch 所需授权，并在派发前记录 clean target worktree、exact `baseline_head` 与 task owner。push 与 branch/worktree 清理仍须另行授权。

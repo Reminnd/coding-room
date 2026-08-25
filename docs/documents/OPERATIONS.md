@@ -15,7 +15,7 @@
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
 | Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受；commit 已 fast-forward 集成到 `main` |
 | Runtime readiness | Protocol/Room domain、只读 Git Observer 与 central Runner TypeScript API 已在 `main` |
-| Service readiness | Room server、MCP、Status CLI 均未实现，当前不可启动；Runner 是 TypeScript API，非可启动 service |
+| Service readiness | Room server、MCP、Status CLI 均未实现，当前不可启动；Increment 4 Contract 已接受但尚未 Coding，Runner 仍是 TypeScript API，非可启动 service |
 | 可执行验证 | `npm run typecheck`、`npm test` |
 
 不要执行或编写 `npm start`、Room daemon、MCP endpoint、Status CLI 或 production SQLite 路径；当前 repository 没有这些入口。
@@ -114,7 +114,13 @@ artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`�
 - `room_accept_review`
 - `room_ask_question`
 
-Runner process contract、MCP initialization、Claude session resume 与 terminal Run mapping 仍属于 Increment 3/4 后续实现。Accepted Contract 或 bootstrap `claude -p` 不等于已部署 Room interface。
+Runner process contract 与 terminal Run mapping 已由 Increment 3 实现；Room MCP transport、tool handlers、shared state snapshot、Status CLI 与 runtime entry 仍未实现。[Increment 4 Accepted Contract](./INCREMENT_4_TASK_CONTRACT.md) 或 bootstrap `claude -p` 不等于已部署 Room interface。
+
+### 4.1 Increment 4 已接受运维接口（尚未实现，当前不可执行）
+
+Accepted Contract 要求 runtime 固定监听 `127.0.0.1`，显式接收 `--db <path> --project <path> --port <1..65535>`，并暴露 `/mcp/codex` 与 `/mcp/claude`；read-only Status CLI 显式接收 `--db <path> --room-id <id>`，且 missing database path 必须失败而不能创建空 database。计划中的 package script 名为 `room:serve` 与 `room:status`。
+
+这些命令、route 与参数已经用户批准但尚未实现。operator 当前不得尝试运行；Review 与用户接受后才能把本节提升为可执行手册，并补充 exact startup、shutdown、health、status 与 failure evidence。
 
 ## 5. 人工操作命令
 
@@ -148,7 +154,7 @@ npm test
 |---|---|---|
 | source、staged/unstaged/untracked | Git worktree | 实时 `git status`/Diff；不保存平行 patch authority |
 | Room entity/state | SQLite | Schema 已实现；由 caller 提供 `DatabaseSync`，尚无固定 production database path |
-| process/session lifecycle | Future Runner | 尚未实现 |
+| process/session lifecycle | Claude Runner / Run record | central Runner 已实现；没有 background scheduler 或 service lifecycle command |
 | bootstrap stdout/status | Local artifact | `.agent-room/artifacts/<task-or-run>/`，Git ignored |
 | 人工 Diff | VS Code | 直接打开目标 Git worktree |
 

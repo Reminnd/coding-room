@@ -60,6 +60,7 @@
 | [Increment 3B Fix 1](./INCREMENT_3B_FIX_TASK_1.md) | Accepted | frozen required Room tool authority |
 | [Increment 3 Integration](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) | Accepted | 组合 accepted leaf、Room/Git/artifact 与 terminal transition 的 central Runner |
 | [Increment 3 Integration Fix 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) | Accepted | 修复 current Task guard、partial session evidence、central failure matrix 与 lifecycle 文档冲突 |
+| [Increment 4](./INCREMENT_4_TASK_CONTRACT.md) | Accepted | actor-scoped Room MCP、共享状态 snapshot 与 read-only Status CLI |
 
 ### 2.4 Agent 执行指南
 
@@ -84,4 +85,5 @@
 - 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
 - Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，随后通过 Integration commit 集成。
 - Integration Coding 已在 `codex/inc3-integration`、baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 完成；Review `review-increment-003-integration-codex-001` 的四项 finding 与最小方案已获用户确认。
-- [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，项目阶段为 `ACCEPTED`；main integration 状态文档同步已获单独提交授权，push 与 branch/worktree 清理仍未授权。
+- [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。
+- [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，当前为 `PLAN_READY`、`confirmed_by_user=true`。该确认没有授权 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理。

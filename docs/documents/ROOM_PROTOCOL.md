@@ -267,6 +267,7 @@ after_sequence: integer | null
 - 校验必需的用户确认 marker；
 - 校验合法 state，以及 Fix Task 引用的 Review；
 - 对新 Implementation Task 应用 Git 前置条件；
+- 把 clean gate 观察到的 `baseline_head` 作为 tool result/dispatch evidence 返回；TaskContract 不增加该 field，Runner start 时独立重检并持久化到 Run；
 - atomic 地持久化 Task 和 transition。
 
 ### 11.3 `room_submit_review`
@@ -321,6 +322,19 @@ options:
 ```
 
 行为：保存 Question，并通知 Runner 将当前 Run 结束为 `needs_decision`。
+
+### 11.7 Increment 4 已接受 transport/read-model 设计（尚未实现）
+
+[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，并冻结以下 interface；Coding 与 Review 完成前不改变 `0.2-design` Current implementation：
+
+- `/mcp/codex` 只注册 `room_get_state`、`room_submit_task`、`room_submit_review`、`room_answer_question`、`room_accept_review`；`/mcp/claude` 只注册 `room_ask_question`。
+- 两个 route 使用同一 SQLite Room authority，但每个 HTTP request 使用 stateless MCP server/transport；只接受 POST，GET/DELETE 返回 405。
+- `room_get_state` 返回完整 Room、nullable current Task/Run/Review/open Question、`waiting_actor`、当前最大 Event `cursor` 与 `sequence > after_sequence` 的稳定升序 Event。
+- current Task/Run/Review 分别由最新 `task_submitted`、`run_started|run_resumed`、`review_submitted` Event reference 决定；Question 只在最新 `question_asked` 引用的 entity 仍为 `open` 时 current。
+- `waiting_actor` 固定映射：`DISCUSSION|ARCHITECTURE_REVIEW|RUN_FAILED|REVIEW_REQUIRED -> codex`；`WAITING_FOR_USER_CONFIRMATION|NEEDS_DECISION|REVIEW_DISCUSSION -> user`；`PLAN_READY|FIX_PLAN_READY -> runner`；`CODING -> claude`；`ACCEPTED -> null`。
+- `room_submit_task` 先处理 existing Task idempotent retry/`id_conflict`；仅首次 `implementation` submission 应用 clean Git gate，`fix` 不重新建立 baseline。
+
+上述内容是 Accepted implementation requirement，但尚未实现；现有六个 tool schema、Room transition、entity 与 error set 不变。
 
 ## 12. Runner 协议
 

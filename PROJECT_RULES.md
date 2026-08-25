@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 3 Claude Runner；已 fast-forward 集成到 `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
+> 当前阶段：PLAN_READY / Increment 4 Room MCP 与 Status CLI Accepted Contract
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -242,6 +242,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_3B_FIX_TASK_1.md](./docs/documents/INCREMENT_3B_FIX_TASK_1.md) | Leaf B Review 1 已确认的 required Room tool authority 最小 Fix Task | Codex | Leaf B Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_3_INTEGRATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) | 两个 accepted leaf 与 Room/Git/artifact 的串行 Claude Runner Integration Task Contract | Codex | Increment 3 Integration Coding 与 Review | Accepted |
 | [docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md](./docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md) | Integration Review 1 已确认的 current Task、partial session、central matrix 与 lifecycle 文档 Fix | Codex | Increment 3 Integration Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_4_TASK_CONTRACT.md](./docs/documents/INCREMENT_4_TASK_CONTRACT.md) | actor-scoped Room MCP、共享状态 snapshot 与 read-only Status CLI Implementation Task Contract | Codex | Increment 4 Coding 与 Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -270,4 +271,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交；Increment 3 Scope Scaffold 已集成，Increment 3A/3B 已分别接受并形成 commits `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。Integration worktree 的 lineage baseline 为 `63059189e97f7419238f5a3678513d4ca5e50f0d`，包含两个 exact accepted leaf commits；Integration Review 1 的四项 finding 已按 [Integration Fix Task 1](./docs/documents/INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 修复，Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受。Increment 3 Claude Runner、Fix、项目文档与 experience recovery 已形成 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`，并于 2026-08-24 经用户明确授权以 `git merge --ff-only` 集成到 `main`；Runner 现为 `main` Current TypeScript capability。用户已另行授权提交本次 main integration 状态文档同步；当前未授权 push 或 branch/worktree 清理。
+架构已于 2026-08-23 经用户确认。Increment 1–3 已完成、通过 Review、获用户接受并进入 `main`；Increment 3 Claude Runner commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。用户已于 2026-08-25 确认 [Increment 4 Room MCP 与 Status CLI Task Contract](./docs/documents/INCREMENT_4_TASK_CONTRACT.md)；当前为 `PLAN_READY`、`confirmed_by_user=true`。该确认不授权 commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理。

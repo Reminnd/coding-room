@@ -135,6 +135,8 @@ Verification 检测：
 - CLI 显示当前 waiting actor 与 active entity；
 - MCP 不暴露 file、Shell、Patch 或通用 Git tool。
 
+当前 Accepted implementation plan 见 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md)：同一 loopback process/SQLite authority 使用 `/mcp/codex` 与 `/mcp/claude` 两个 stateless Streamable HTTP route，通过 exact tool registration enforce actor；MCP 与 CLI 共享只读 Room state snapshot；首次 Implementation Task submission 连接既有 clean Git gate。该 Contract 已于 2026-08-25 获用户确认，但尚未 Coding，不是 Current runtime capability。
+
 ### 增量 5 — Decision 与 Fix Resume
 
 目标：支持 Question recovery 和 Review-confirmed Fix Run。
@@ -210,4 +212,6 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成并集成；Increment 3A/3B 已完成 Coding、Review、Fix、用户接受与独立提交，commits 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c` 和 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。[Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 已获用户确认，具体化 central Runner、`CODING` startup/init lifecycle、terminal evidence、Git/artifact failure 与 fake-process matrix。
 
-Integration Coding 已完成，但 Review `review-increment-003-integration-codex-001` 对 current Task guard、failure partial session evidence、central public-path matrix 与 lifecycle 文档一致性提出四项 finding，Decision 为 `changes_requested`。用户已确认最小方案，[Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 为 Accepted。Fix Coding 已按四项 confirmed finding 完成并验证（current Task authority 复用最新 `task_submitted` Event、`required_tool_missing` 保留 observed session、central `runClaude` 直接覆盖全部 transport/stream failure path、协议/架构统一为 `CODING → RUN_FAILED` startup/init 语义）。Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，阶段为 `ACCEPTED`，Runner 现为 Current TypeScript capability。Fix 不新增 state/schema/dependency，也不扩展 Increment 4/5 boundary；下一产品增量为 Increment 4 Room MCP，尚未形成或批准 Task Contract。
+Integration Coding 已完成，但 Review `review-increment-003-integration-codex-001` 对 current Task guard、failure partial session evidence、central public-path matrix 与 lifecycle 文档一致性提出四项 finding，Decision 为 `changes_requested`。用户已确认最小方案，[Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 为 Accepted。Fix Coding 已按四项 confirmed finding 完成并验证（current Task authority 复用最新 `task_submitted` Event、`required_tool_missing` 保留 observed session、central `runClaude` 直接覆盖全部 transport/stream failure path、协议/架构统一为 `CODING → RUN_FAILED` startup/init 语义）。Codex Review 2 未发现阻塞 finding，Decision 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，Runner 现为 Current TypeScript capability。
+
+[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认，冻结 dual-route actor authority、shared Room snapshot、new-only Implementation clean Git gate、explicit loopback runtime parameters 与 exact MCP SDK dependency。当前阶段为 `PLAN_READY`、`confirmed_by_user=true`；该确认未授权 documentation commit、branch/worktree、Claude Coding 派发、真实 Claude smoke、实现 commit、push 或清理，Increment 5/7 boundary 不变。
