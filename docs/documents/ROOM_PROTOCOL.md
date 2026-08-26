@@ -325,7 +325,7 @@ options:
 
 ### 11.7 Increment 4 Current transport/read-model
 
-[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认；Claude Coding 与 Fix Task 1–3 已完成，Codex Review `review-increment-004-codex-004` 为 `approved`，用户已明确接受并授权提交。以下 transport/read-model 已进入版本化 `main` 的 `0.2-design` Current implementation：
+[Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已于 2026-08-25 获用户确认；Claude Coding 与 Fix Task 1–3 已完成，Codex Review `review-increment-004-codex-004` 为 `approved`，用户已明确接受。以下 transport/read-model 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main` 的 `0.2-design` Current implementation：
 
 - `/mcp/codex` 只注册 `room_get_state`、`room_submit_task`、`room_submit_review`、`room_answer_question`、`room_accept_review`；`/mcp/claude` 只注册 `room_ask_question`。
 - 两个 route 使用同一 SQLite Room authority，但每个 HTTP request 使用 stateless MCP server/transport；只接受 POST，GET/DELETE 返回 405。
@@ -352,6 +352,19 @@ options:
 10. 请求且只请求一个 terminal transition。
 
 Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resume Run 使用该 session ID。新的 Implementation Task 不能继承上一 Task 的 session。
+
+### 12.1 Increment 5 Accepted design / Candidate continuation semantics
+
+[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认并具体化以下既有语义；实现、Review和用户接受前，它们仍不是 Current protocol behavior：
+
+1. `room_ask_question` 成功后，Question、`Run.status=needs_decision` 与 `Room=NEEDS_DECISION` 仍在同一 transaction内提交。
+2. Claude process退出后，Runner对同一 needs-decision Run执行 pause finalization：原子持久化 `claude_session_id`、`process_exit_code`、nullable `result`/`failure`、`git_evidence`、`artifact_refs` 与 `completed_at`，保持 Room/Run status不变，并追加一个 `run_paused` Event。
+3. `room_answer_question` 只有在 current open Question引用的 source Run已 pause-finalized（`completed_at != null`）后才接受；这样 `NEEDS_DECISION` 不会在旧 process仍活跃时被消费。
+4. `answer_changes_contract=false` 的 decision resume从 answered Question引用的 source Run继承 exact session/baseline；`true` 继续进入 `WAITING_FOR_USER_CONFIRMATION`，旧 Task不得 resume。
+5. Fix resume从 current Fix Task的 `based_on_review_id` 指向的 current Review及其 reviewed Run继承 exact session/baseline。
+6. 新 Implementation start继续要求 clean worktree；Decision/Fix resume允许保留 dirty evidence，但 owning repository的 actual `HEAD` 必须等于 inherited `baseline_head`。
+
+`run_paused` 只表示旧 Claude process已停止且 pause evidence已持久化，不是新的 Room state或 Run status。Accepted Contract不增加 transition pair、entity、field、table、error code或 protocol version；若 Coding证明现有 `0.2-design` 无法表达这些语义，必须返回 `needs_decision`而不是静默扩展。用户人工派发不改变本协议的 Runner-owned lifecycle authority。
 
 ## 13. Git 协议
 

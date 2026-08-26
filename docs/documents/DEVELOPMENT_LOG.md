@@ -2,22 +2,50 @@
 
 ## 当前状态
 
-- 日期：2026-08-25
-- 项目阶段：ACCEPTED / Increment 4 已进入版本化 `main` baseline
+- 日期：2026-08-26
+- 项目阶段：PLAN_READY / Increment 5 Accepted Contract / 用户人工派发
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：用户已批准
-- Implementation Task：`increment-004-room-mcp-status-cli` 为 Accepted、`confirmed_by_user=true`；Claude Coding 已完成（candidate）；Review `review-increment-004-codex-001` 为 `changes_requested`
-- Fix Task：Fix 1/2/3 Coding 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受 Increment 4
+- Implementation Task：`increment-005-decision-fix-resume` 为 Accepted、`confirmed_by_user=true`；用户选择暂时自行人工派发，Codex只提供指令
+- Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status；`main` Current implementation）
-- Git repository：Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成；main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。用户已授权把完整、已 Review 的 Increment 4 implementation scope 作为本次 atomic commit 纳入 `main`，具体 hash 以 Git history 为准；未授权 branch/worktree、真实 Claude smoke、push 或清理
+- Git repository：Increment 5 Accepted planning/state文档已形成 clean `main` documentation baseline；派发前以 live Git读取 exact `HEAD`并确认 staged、unstaged、untracked均为空
 
 ## 已完成
+
+### 2026-08-26 — Increment 5 documentation baseline 与人工派发门禁
+
+- 用户明确授权修正提交后仍保留的“baseline尚未提交”Current状态，并 amend当前未推送 documentation commit；授权范围只覆盖本次 planning/state文档一致性与同一 baseline commit，不包含 Claude Coding、实现 commit、push、branch/worktree、runtime初始化或清理。
+- `PROJECT_RULES.md`、Increment 5 Contract、文档中心、MVP Plan、Operations与本日志统一记录：Accepted documentation已进入 clean `main` baseline，项目仍为 `PLAN_READY`，下一 actor为用户人工派发 Claude Code。
+- 派发 metadata固定为 target worktree `D:\agent\case\codex-claudecode-room`、branch `main`、task owner `Claude Code（用户人工派发）`；exact `baseline_head`在 amend完成后从 live Git读取并随派发指令报告。
+- 未运行代码测试：本次只修正文档状态，source、test、package与runtime输入未变化；重复执行代码测试不会改变 documentation/dispatch gate判断。
+- Documentation impact audit：`documentation: updated`。Current状态、Contract prerequisite、运维视图与下一步已一致；Accepted design与尚不存在的 Candidate implementation保持分离。
+
+### 2026-08-25 — Increment 5 Task Contract 用户确认与人工派发选择
+
+- 用户明确确认 [Increment 5 Task Contract](./INCREMENT_5_TASK_CONTRACT.md) 的完整内容；Contract更新为 `Accepted`、`confirmed_by_user=true`，阶段从 `WAITING_FOR_USER_CONFIRMATION`进入 `PLAN_READY`。
+- 用户明确选择“暂时由我人工派发，给出指令”。Codex不启动 Claude、Room service、runtime database或 Runner launcher，只提供引用完整 Accepted Contract的可复制指令。
+- 本次人工 delivery是为开发当前缺失 continuation capability的一次性 execution bridge；不恢复通用 `claude -p` bootstrap规则，不建立第二套 Room state，不改变 Runner-owned product lifecycle，也不把模型自述当作验收证据。
+- 派发前置仍未满足：本轮9个 planning/state文档尚未获 commit授权，worktree非 clean，actual dispatch `baseline_head`尚未形成。用户不得在 documentation baseline提交并重新核对 branch/HEAD/status前执行指令。
+- 本次确认不授权 documentation commit、stage、Claude process、真实 paid smoke、实现 commit、push、branch/worktree、runtime初始化或清理。
+- Documentation impact audit：`documentation: updated`。同步 Contract、Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP、Operations与开发阶段；Accepted design与尚不存在的 Candidate implementation继续分离。
+
+### 2026-08-25 — Increment 5 Decision/Fix Resume Draft
+
+- 用户确认继续进入 Increment 5 planning；该确认不等于批准 Contract，也不授权 runtime 初始化、Runner launcher、Coding、真实 Claude smoke或任何 Git写操作。
+- Codex 从 clean `main` `44fd34959834b28c8909b589a203e4c48eadc5b0` 核对 Current Architecture、Room Protocol、MVP、ADR-0002、RoomService、Git Observer、central Runner、MCP public path与 tests，形成 [Increment 5 Draft Contract](./INCREMENT_5_TASK_CONTRACT.md)，`confirmed_by_user=false`。
+- 已确认的现状：RoomService已有 Question/answer/Fix reference/resume primitives，Process Transport已有 exact `--resume`；但 `runClaude` 对 Question使 Run变为 `needs_decision` 后仍只会调用 `completeRun`/`failRun`，并对 explicit resume继续执行 clean-worktree gate，session/baseline/mode与 answer context仍由 caller提供。
+- Draft的最小方向：Runner在 Question后提交同一 needs-decision Run的 pause evidence与 `run_paused` Event；answer等待 source Run `completed_at`，避免旧/新 process并行；Decision/Fix continuation分别从 persisted Question或 Review/source Run推导 exact session/baseline，保留 dirty Diff并验证 unchanged `HEAD`。
+- Draft不新增 state、transition、entity、schema/table/migration、MCP tool、source module、dependency、package script、Runner CLI、daemon或 scheduler；Increment 6/7 boundary保持不变。
+- Dispatch prerequisite事实：repository当前只有历史 `.agent-room/artifacts/`，没有 Room runtime database；`room:serve`不创建 Room/planning state，且没有 Runner launcher command。Contract确认后仍需用户另行授权一次性 runtime初始化、service启动与受限 Current Runner launcher，不恢复旧 `claude -p` Task transport。
+- 本轮未运行代码测试：只修改 planning文档，runtime输入未变化，重复执行186项 regression不会改变 Draft设计判断。文档完成前将运行 link/map/merge-marker/status consistency检查。
+- Documentation impact audit：`documentation: updated`。新增 Draft Contract并同步 Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP、Operations与当前阶段；Candidate未提升为 Current。
 
 ### 2026-08-25 — Increment 4 实现提交授权与版本化集成
 
 - 用户在明确的下一门禁中授权提交完整、已 Review 的 Increment 4 implementation scope；授权不包含 push、branch/worktree、真实 Claude smoke 或清理。
 - 本次 atomic commit 包含 Room MCP、Status CLI、shared Room snapshot、package dependency/script、scope 与集成测试、Fix Task 1–3、Project Rules 及最终 Current 文档状态；不包含 `AGENTS.md`、`CLAUDE.md` 或下一 Increment 文件。
-- Commit Message：`feat(mcp): add room coordination service and status CLI`。提交前 `main`、lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`、0 staged 与 exact task-owned path set 已核对；提交后 hash 与 clean-worktree 事实由 Git history/status 提供。
+- Commit：`44fd34959834b28c8909b589a203e4c48eadc5b0`，message `feat(mcp): add room coordination service and status CLI`。提交前 `main`、lineage baseline `6bb99797c95e0ad99a7cd1b38350bf6a0d8e6c31`、0 staged 与 exact task-owned path set 已核对；提交后 worktree clean。
 - Review 4 的验证输入未变化：`npm run typecheck`、MCP 27/27 与全量 186/186 通过。此次只维护接受后的 Current 文档状态，不重复运行相同代码测试。
 - Documentation impact audit：`documentation: updated`。Room MCP、Status CLI 与 runtime command 随同已接受实现进入版本化 `main` baseline；bootstrap transport 保持 `Superseded`，protocol version 不变。
 
@@ -595,8 +623,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无未解决 Review finding。Increment 4 已获用户接受并进入版本化 `main` baseline；未获 branch/worktree、真实 Claude smoke、push 或清理授权。
+无未解决 Review finding。Increment 5 Contract已获确认并进入 `PLAN_READY`，Accepted documentation baseline已建立；用户选择自行人工派发。未获 Codex启动 Claude、runtime初始化、branch/worktree、真实 Claude smoke、实现 commit、push或清理授权。
 
 ## 下一步
 
-下一步回到 Increment 5 planning gate；尚未生成或批准 Increment 5 Task Contract，也未授权 Coding。push 与 branch/worktree 清理仍须另行授权。
+Codex完成 amend后报告 `main` exact `baseline_head`、clean status、target worktree与 task owner，并给出引用完整 Accepted Contract的指令；随后由用户人工派发 Claude Code。Claude返回 Coding Result后进入 `REVIEW_REQUIRED`，Codex再审完整 task-owned Diff与独立验证证据。

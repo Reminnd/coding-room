@@ -15,7 +15,7 @@
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
 | Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受；commit 已 fast-forward 集成到 `main` |
 | Runtime readiness | Protocol/Room domain、只读 Git Observer 与 central Runner TypeScript API 已在 `main` |
-| Service readiness | Room server、MCP、Status CLI 已获用户接受并进入版本化 `main` baseline；Runner 仍是 TypeScript API，不包含 daemon manager |
+| Service readiness | Room server、MCP、Status CLI 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main`；Runner 仍是 TypeScript API，不包含 daemon manager |
 | 可执行验证 | `npm run typecheck`、MCP 27/27 与全量 186/186 通过；stale succeeded Run / wrong-current MCP direct regression 已闭环 |
 
 `room:serve`/`room:status` script 已进入版本化 `main` baseline。它们要求 operator 显式提供本地 database/project/port 或 room ID；没有 `npm start`、Room daemon、implicit production SQLite path 或 service manager。
@@ -101,11 +101,13 @@ Git Observer 只执行 `rev-parse`、`diff` 与 `ls-files`；不会 stage、comm
 | `RunTerminalEvidence`（`room-service.ts`） | `claude_session_id`、`process_exit_code`、`git_evidence`、`artifact_refs`；terminal transition 同一 transaction 持久化 |
 | failure mapping | `claude_start_failed` > `claude_exit_failed` > `room_mcp_unavailable` > `coding_result_invalid` > `git_evidence_failed` > `artifact_write_failed`；单一 terminal settlement |
 
-artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`，`artifact_refs` 使用 repository-root-relative path。没有 service/MCP/CLI 启动命令；真实 Claude smoke 需经用户明确授权，coding 只使用 fake-process fixture。
+artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`，`artifact_refs` 使用 repository-root-relative path。Runner本身没有 package script或 launcher command；真实 Claude smoke需经用户明确授权，coding只使用 fake-process fixture。
 
-## 4. Planned 外部接口
+Current `runClaude(input)` 的 explicit resume seam 仍由 caller提供 `mode`、`resumeSessionId` 与 `expectedBaselineHead`，并对 start/resume统一执行 clean-worktree gate。它已验证底层 process/stream/terminal能力，但尚未形成 Question/Fix product continuation；该缺口已有 Increment 5 Accepted design，Candidate implementation尚未开始。
 
-[ROOM_PROTOCOL.md 第 11 节](./ROOM_PROTOCOL.md#11-mcp-tools-接口) 设计了以下 MCP tools，但当前全部 unavailable：
+## 4. Current MCP 外部接口
+
+[ROOM_PROTOCOL.md 第 11 节](./ROOM_PROTOCOL.md#11-mcp-tools-接口) 定义且当前已实现以下 MCP tools：
 
 - `room_get_state`
 - `room_submit_task`
@@ -114,7 +116,7 @@ artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`�
 - `room_accept_review`
 - `room_ask_question`
 
-Runner process contract 与 terminal Run mapping 已由 Increment 3 实现；Room MCP transport、tool handlers、shared state snapshot、Status CLI 与 runtime entry 已由 Increment 4 实现并进入版本化 `main` baseline。Fix Task 1–3 已完成，Review `review-increment-004-codex-004` 为 `approved`，用户已接受；bootstrap `claude -p` 已 `Superseded`。
+Runner process contract 与 terminal Run mapping 已由 Increment 3 实现；Room MCP transport、tool handlers、shared state snapshot、Status CLI 与 runtime entry 已由 Increment 4 实现并由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main`。Fix Task 1–3 已完成，Review `review-increment-004-codex-004` 为 `approved`，用户已接受；bootstrap `claude -p` Task transport 已 `Superseded`。
 
 ### 4.1 Increment 4 Current 运维接口
 
@@ -135,6 +137,16 @@ npm run room:status -- --db <path> --room-id <id>
 ```
 
 成功时 stdout 输出 deterministic pretty JSON 且 exit 0；invalid args、missing Room 或无法读取 database 时 stderr 输出原因并 non-zero exit。raw MCP response 为 `application/json`；`room:status` 只读且既存空 database 不创建 schema，`room:serve` 在 open database 前拒绝 invalid project。
+
+### 4.2 Increment 5 Accepted design / Candidate implementation（不可用）
+
+[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认，规划以下 TypeScript application behavior：
+
+- Runner在 durable Question使 Room进入 `NEEDS_DECISION` 后，对同一 Run持久化 pause evidence并追加 `run_paused` Event；answer在 pause完成前拒绝。
+- contract内 Decision与 Review-confirmed Fix从 SQLite lineage推导 exact session/baseline，保留既有 dirty worktree并验证 `HEAD` 未偏离。
+- continuation继续使用 current `runClaude` process/stream/artifact/Git pipeline，不增加 MCP tool、package script、Runner CLI、daemon或 scheduler。
+
+当前 repository没有 Room runtime database，也没有 Room initialization或 Runner launcher command。用户选择本 Increment暂时自行人工派发完整 Accepted Contract；Codex只提供指令，不运行 Claude。该一次性开发 execution bridge不属于 Current product interface；Accepted documentation baseline已建立，实际派发前只需重新确认 live `main` HEAD与 clean worktree。
 
 ## 5. 人工操作命令
 

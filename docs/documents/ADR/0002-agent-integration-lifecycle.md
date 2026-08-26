@@ -77,6 +77,16 @@ MVP 不采用。用户明确要求 Codex App 作为交互界面，不需要另�
 
 用户于 2026-08-24 确认，`CODING` 覆盖 Runner atomic claim 之后的 process startup 与 MCP initialization：`startRun`/`resumeRun` 先创建 running Run 并进入 `CODING`，随后 Runner 才启动 Claude process 并校验 MCP init；startup/init failure 继续通过既有 `CODING → RUN_FAILED` 结束，不新增 Room state 或 transition。本澄清只具体化原「Runner 拥有 startup、output parsing、exit classification、Git evidence 与 terminal state transition」决策，不改变 Codex pull、process-per-Run、Task-lineage session 或 Runner-owned terminal state 的 accepted 边界。
 
+## 2026-08-25 Accepted design 澄清（Increment 5）
+
+[Increment 5 Accepted Contract](../INCREMENT_5_TASK_CONTRACT.md) 已获用户确认，按原决策具体化 Question/Fix continuation：
+
+- `room_ask_question` 先持久化 Question并进入 `NEEDS_DECISION`；旧 Claude process结束后仍由 Runner把 session、exit、result/failure、Git与artifact evidence提交到同一 needs-decision Run，并用 `run_paused` Event表明 process已停止。
+- Decision resume的 session/baseline来自 answered Question引用的 source Run；Fix resume来自 Fix Task引用的 Review及其 reviewed Run。caller与“最近 session”都不是 lineage authority。
+- clean-worktree gate只建立新的 Implementation lineage；Task-lineage continuation保留已有 worktree changes，但必须验证 owning repository的 `HEAD` 仍等于 inherited baseline。
+
+该 Accepted design不改变 explicit Codex pull、process-per-Run、Task-lineage session或 Runner-owned lifecycle决策，也不新增 Room state/schema、daemon或 scheduler。Candidate implementation通过 Review并获用户接受前，不能标记为 Current/Accepted implementation；本 Task的一次性人工派发也不替代 Runner-owned product lifecycle。
+
 ## 相关文档
 
 - [PROJECT_RULES.md](../../../PROJECT_RULES.md)
