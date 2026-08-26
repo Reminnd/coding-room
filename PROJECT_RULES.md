@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：FIX_PLAN_READY / Increment 5 Fix Task 1 Accepted / 等待用户人工派发
+> 当前阶段：ACCEPTED / Increment 5 已进入版本化 `main` / 等待后续规划
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -252,6 +252,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_4_FIX_TASK_3.md](./docs/documents/INCREMENT_4_FIX_TASK_3.md) | Increment 4 Review 3 stale submit-review MCP direct evidence 最小 Fix Task | Codex | Increment 4 Fix 3 Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_5_TASK_CONTRACT.md](./docs/documents/INCREMENT_5_TASK_CONTRACT.md) | Decision/Fix Resume、Question pause 与 lineage continuation Implementation Task Contract | Codex | Increment 5 Coding、Review 与 Fix规划 | Accepted |
 | [docs/documents/INCREMENT_5_FIX_TASK_1.md](./docs/documents/INCREMENT_5_FIX_TASK_1.md) | Increment 5 Review 1 三项 confirmed finding 的最小 Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_5_FIX_TASK_2.md](./docs/documents/INCREMENT_5_FIX_TASK_2.md) | Increment 5 Review 2 三项 confirmed regression-oracle finding 的 test-only Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -280,4 +281,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1–3 已完成、通过 Review、获用户接受并进入 `main`；Increment 3 Claude Runner commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成。Increment 4 已通过 Review、获用户接受，并以 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 把 Room MCP、Status CLI、shared snapshot、测试、依赖、Fix Contract 与最终文档状态纳入版本化 `main` baseline；通用 bootstrap Task transport 已 `Superseded`。用户已确认 [Increment 5 Accepted Contract](./docs/documents/INCREMENT_5_TASK_CONTRACT.md)，Claude Coding 已完成。Codex Review `review-increment-005-codex-001` 确认三项 finding：Question 后的非终态 stream Event 会被 running-only progress guard 拒绝而中断 pause finalization；pause-finalized Run 在 Question answered 后的同 payload retry 被 lifecycle guard 误伤；HEAD mismatch test 在 hash 以 `0` 结尾时会实际启动本机 Claude。Decision 为 `changes_requested`。用户已确认三项 finding 与最小 solution；[Increment 5 Fix Task 1](./docs/documents/INCREMENT_5_FIX_TASK_1.md) 为 Accepted、`review_fixes_only=true`。用户进一步明确授权提交本次 Codex docs-only Fix planning/Review/state路径并由自己人工派发；该 commit不得包含source/test candidate，manual dispatch以原baseline ancestry与exact docs commit scope维持lineage，不改变产品exact-HEAD invariant。当前为`FIX_PLAN_READY`，不授权Codex启动Claude、runtime初始化、Runner launcher、实现commit、push、branch/worktree、真实Claude smoke或清理。
+架构已于 2026-08-23 经用户确认。Increment 1–3 已完成、通过 Review、获用户接受并进入 `main`；Increment 3 Claude Runner commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成。Increment 4 已通过 Review、获用户接受，并以 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 把 Room MCP、Status CLI、shared snapshot、测试、依赖、Fix Contract 与最终文档状态纳入版本化 `main` baseline；通用 bootstrap Task transport 已 `Superseded`。用户已确认 [Increment 5 Accepted Contract](./docs/documents/INCREMENT_5_TASK_CONTRACT.md)，Claude Coding、[Fix Task 1](./docs/documents/INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./docs/documents/INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Codex Review `review-increment-005-codex-003` 对 Fix Task 2 无 finding，Decision 为 `approved`；三项 Contract-named Oracle、typecheck、聚焦 82/82、Git/MCP/Scope 45/45 与全量 207/207 均独立通过。用户已明确接受该 Review 与 Increment 5，并另行授权把完整 accepted scope 提交到 `main`；Decision/Fix continuation 现为版本化 Current capability。该提交授权不包含 push、runtime初始化、Runner launcher、branch/worktree、真实Claude smoke或清理。

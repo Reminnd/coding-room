@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   collectCompletionEvidence,
   establishCleanBaseline,
+  observeContinuation,
 } from '../src/git/git-observer.ts';
 import { GitCommandError } from '../src/git/git-process.ts';
 
@@ -181,6 +182,62 @@ test('collectCompletionEvidence rejects fatal evidence failure instead of return
   corruptIndex(fixture);
   try {
     await assertFatalEvidenceFailure(() => collectCompletionEvidence(fixture), fixture);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('observeContinuation returns full HEAD, root and dirty evidence without requiring clean', async () => {
+  const { fixture } = buildCombinedFixture();
+  try {
+    const observation = await observeContinuation(fixture);
+    assert.equal(observation.head, revParseHead(fixture));
+    assert.match(observation.head, /^[0-9a-f]{40}$/);
+    assert.equal(resolve(observation.repositoryRoot), resolve(fixture));
+    assert.deepEqual(observation.evidence.staged, ['both.txt', 'staged.txt']);
+    assert.deepEqual(observation.evidence.unstaged, ['both.txt', 'unstaged.txt']);
+    assert.deepEqual(observation.evidence.untracked, ['untracked-plain.txt', '带 空格.txt']);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('observeContinuation resolves the owning worktree root from a subdirectory', async () => {
+  const { fixture, subdir } = buildCombinedFixture();
+  try {
+    const observation = await observeContinuation(subdir);
+    assert.equal(resolve(observation.repositoryRoot), resolve(fixture));
+    assert.deepEqual(observation.evidence.staged, ['both.txt', 'staged.txt']);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('observeContinuation rejects fatal evidence failure instead of returning empty evidence', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  corruptIndex(fixture);
+  try {
+    await assertFatalEvidenceFailure(() => observeContinuation(fixture), fixture);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('observeContinuation rejects a non-repository target with git_repository_missing', async () => {
+  const fixture = makeFixture(); // 未 initRepo：非 git 目录
+  try {
+    assert.equal(await errorCodeAsync(() => observeContinuation(fixture)), 'git_repository_missing');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('observeContinuation returns git_head_missing for a worktree with no commit', async () => {
+  const fixture = makeFixture();
+  git(fixture, 'init', '-q', '-b', 'main'); // 无 commit → unborn HEAD
+  try {
+    assert.equal(await errorCodeAsync(() => observeContinuation(fixture)), 'git_head_missing');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }

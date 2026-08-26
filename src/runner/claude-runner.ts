@@ -3,8 +3,13 @@ import { join } from 'node:path';
 import { ProtocolError } from '../protocol/errors.ts';
 import type { CodingResult, Run, TaskContract } from '../protocol/schema.ts';
 import type { RoomRecord } from '../room/repository.ts';
-import { RoomService, type RunTerminalEvidence } from '../room/room-service.ts';
-import { collectCompletionEvidence, establishCleanBaseline, type GitEvidence } from '../git/git-observer.ts';
+import { RoomService, type ContinuationContext, type RunTerminalEvidence } from '../room/room-service.ts';
+import {
+  collectCompletionEvidence,
+  establishCleanBaseline,
+  observeContinuation,
+  type GitEvidence,
+} from '../git/git-observer.ts';
 import {
   ClaudeProcessInputError,
   ClaudeProcessStartError,
@@ -33,8 +38,6 @@ export interface ClaudeRunnerInput {
   expectedBaselineHead: string;
   // serialized Room MCP config，直接作为 --mcp-config 传入 process。
   mcpConfig: string;
-  mode: 'start' | 'resume';
-  resumeSessionId: string | null;
   // process boundary 注入 seam：仅 fake-process 测试替换 spawn，不是通用 command runner。
   spawnProcess?: ClaudeProcessSpawn;
 }
@@ -53,9 +56,10 @@ const MCP_INIT_FAILURE_REASONS: ReadonlySet<ClaudeStreamFailureReason> = new Set
   'required_tool_missing',
 ]);
 
-// 单一 central Runner public operation：clean baseline gate、完整 persisted Task prompt、
+// 单一 central Runner public operation：从 SQLite lineage 推导 continuation kind / mode /
+// session，再执行 clean-baseline 或 continuation observation gate、完整 persisted Task prompt、
 // start/resume claim、accepted process/stream leaf、progress Event、raw artifact、completion
-// Git evidence 与单一 terminal transition。
+// Git evidence 与单一 terminal settlement。
 export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResult> {
   // 读取已持久化的完整 TaskContract。confirmed_by_user 由 schema 强制为 literal true，
   // 持久化后不可能为 false，因此只做存在性检查，不做冗余断言。
@@ -64,28 +68,45 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
     throw new ProtocolError('entity_not_found', `task ${input.taskId} not found`);
   }
 
-  // start/resume mode 校验：start 要求 resumeSessionId=null；resume 要求 non-empty exact
-  // id；绝不使用 --continue 或推断最近 session。
-  if (input.mode === 'start' && input.resumeSessionId !== null) {
-    throw new ProtocolError('validation_failed', 'start mode requires resumeSessionId=null');
-  }
-  if (input.mode === 'resume' && (input.resumeSessionId === null || input.resumeSessionId === '')) {
-    throw new ProtocolError('validation_failed', 'resume mode requires a non-empty resumeSessionId');
+  // read-only continuation context：continuation kind、source Run、exact session/baseline 与
+  // answered Question 全部从 persisted Room/Task/Event reference 推导，caller 不提供 mode/session。
+  const context = input.roomService.getContinuationContext(task.room_id, task.task_id);
+
+  let mode: 'start' | 'resume';
+  let resumeSessionId: string | null;
+  let baselineHead: string;
+  let repositoryRoot: string;
+
+  if (context.kind === 'new_implementation') {
+    // 新 Implementation lineage：clean-worktree gate + actual HEAD 等于 dispatch expected baseline。
+    mode = 'start';
+    resumeSessionId = null;
+    const baseline = await establishCleanBaseline(input.targetWorktree);
+    if (baseline.baselineHead !== input.expectedBaselineHead) {
+      throw new ProtocolError(
+        'validation_failed',
+        `actual HEAD ${baseline.baselineHead} does not match expected baseline_head ${input.expectedBaselineHead}`,
+      );
+    }
+    baselineHead = baseline.baselineHead;
+    repositoryRoot = baseline.repositoryRoot;
+  } else {
+    // Decision/Fix continuation：允许保留 dirty evidence，但 actual HEAD 必须等于 source
+    // Run.baseline_head，否则在创建新 Run/process/artifact/Event 前拒绝。
+    mode = 'resume';
+    resumeSessionId = context.sourceRun.claude_session_id;
+    const observation = await observeContinuation(input.targetWorktree);
+    if (observation.head !== context.sourceRun.baseline_head) {
+      throw new ProtocolError(
+        'validation_failed',
+        `actual HEAD ${observation.head} does not match lineage baseline_head ${context.sourceRun.baseline_head}`,
+      );
+    }
+    baselineHead = context.sourceRun.baseline_head;
+    repositoryRoot = observation.repositoryRoot;
   }
 
-  // pre-run clean baseline：repository/HEAD/dirty error 原样拒绝，此时尚未创建
-  // Run/Event/artifact，也不进入 CODING。
-  const baseline = await establishCleanBaseline(input.targetWorktree);
-
-  // actual HEAD 必须等于 dispatch metadata 的 expected baseline_head。
-  if (baseline.baselineHead !== input.expectedBaselineHead) {
-    throw new ProtocolError(
-      'validation_failed',
-      `actual HEAD ${baseline.baselineHead} does not match expected baseline_head ${input.expectedBaselineHead}`,
-    );
-  }
-
-  const prompt = buildPrompt(task, input);
+  const prompt = buildPrompt(task, context, input);
   const codingResultJsonSchema = serializeCodingResultCliSchema();
 
   // 构造 Run 输入并原子 claim：startRun/resumeRun 先创建 running Run 并进入 CODING，
@@ -95,7 +116,7 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
     room_id: task.room_id,
     task_id: task.task_id,
     status: 'starting',
-    baseline_head: baseline.baselineHead,
+    baseline_head: baselineHead,
     claude_session_id: null,
     process_exit_code: null,
     started_at: new Date().toISOString(),
@@ -107,31 +128,48 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
   };
 
   const claimed =
-    input.mode === 'start'
+    mode === 'start'
       ? input.roomService.startRun(runInput)
       : input.roomService.resumeRun(runInput);
 
-  return executeRun(input, task, baseline.repositoryRoot, prompt, codingResultJsonSchema, claimed.run.run_id);
+  return executeRun(
+    input,
+    task,
+    repositoryRoot,
+    prompt,
+    codingResultJsonSchema,
+    claimed.run.run_id,
+    mode,
+    resumeSessionId,
+  );
 }
 
-// 把完整 persisted TaskContract 序列化为结构化 prompt。不得接受摘要代替 persisted
-// Contract，也不从普通文本猜测 Task。
-function buildPrompt(task: TaskContract, input: ClaudeRunnerInput): string {
-  return [
+// 把完整 persisted TaskContract 序列化为结构化 prompt；Decision continuation 额外附上完整
+// answered Question/answer context。Fix Task 本身已是完整 Fix Contract，无需额外拼接。不得
+// 接受摘要代替 persisted Contract，也不从 Review prose 或 session history 猜测 confirmed solution。
+function buildPrompt(task: TaskContract, context: ContinuationContext, input: ClaudeRunnerInput): string {
+  const lines = [
     '执行下面完整、已批准的 Implementation Task Contract，并返回符合提供的 JSON Schema 的 Coding Result。',
     '',
     'Dispatch metadata:',
     `- task_id: ${task.task_id}`,
     `- target_worktree: ${input.targetWorktree}`,
-    `- expected_baseline_head: ${input.expectedBaselineHead}`,
-    `- mode: ${input.mode}`,
-    `- resume_session_id: ${input.resumeSessionId ?? ''}`,
+    `- continuation_kind: ${context.kind}`,
     `- confirmed_by_user: true`,
     '',
     '--- BEGIN ACCEPTED CONTRACT ---',
     JSON.stringify(task, null, 2),
     '--- END ACCEPTED CONTRACT ---',
-  ].join('\n');
+  ];
+  if (context.kind === 'decision') {
+    lines.push(
+      '',
+      '--- BEGIN ANSWERED QUESTION CONTEXT ---',
+      JSON.stringify(context.question, null, 2),
+      '--- END ANSWERED QUESTION CONTEXT ---',
+    );
+  }
+  return lines.join('\n');
 }
 
 async function executeRun(
@@ -141,11 +179,13 @@ async function executeRun(
   prompt: string,
   codingResultJsonSchema: string,
   runId: string,
+  mode: 'start' | 'resume',
+  resumeSessionId: string | null,
 ): Promise<ClaudeRunResult> {
   const interpreter = new ClaudeStreamInterpreter({
     expectedTaskId: task.task_id,
     requiredToolName: REQUIRED_ROOM_TOOL_NAME,
-    expectedSessionId: input.mode === 'resume' ? input.resumeSessionId : null,
+    expectedSessionId: mode === 'resume' ? resumeSessionId : null,
   });
 
   const stdoutLines: string[] = [];
@@ -160,13 +200,15 @@ async function executeRun(
       prompt,
       codingResultJsonSchema,
       mcpConfig: input.mcpConfig,
-      resumeSessionId: input.resumeSessionId,
+      resumeSessionId,
       onStdoutLine: (line: string) => {
         stdoutLines.push(line);
         const progress = interpreter.acceptLine(line);
-        if (progress !== null) {
-          // run 刚被 startRun/resumeRun 置为 running，streaming 期间始终可写 progress；
-          // progress 不改变 Run/Room state，也不影响 terminal 分类。
+        // Room Run status 是 durable progress eligibility authority：仅 running Run 可写
+        // run_progress。room_ask_question 已把同一 Run 原子置为 needs_decision 后，Runner 继续
+        // 消费后续 stdout 以完成 interpreter/artifact/terminal/pause evidence，但不得再追加
+        // running-only progress。progress 不改变 Run/Room state，也不影响 terminal 分类。
+        if (progress !== null && input.roomService.getRun(runId)?.status === 'running') {
           input.roomService.appendRunProgress(runId, progress);
         }
       },
@@ -213,6 +255,16 @@ async function executeRun(
     git_evidence: gitEvidence,
     artifact_refs: artifactRefs,
   };
+
+  // Claude 在 run 内成功调用 room_ask_question 后，Run 已被原子置为 needs_decision：此时必须走
+  // needs-decision pause finalization，而不是 completeRun/failRun；不得把 durable Question 改写为
+  // REVIEW_REQUIRED/RUN_FAILED。
+  const currentRun = input.roomService.getRun(runId);
+  if (currentRun?.status === 'needs_decision') {
+    const pause = classifyNeedsDecisionPause(processError, processOutcome, streamOutcome, gitError, artifactError);
+    const finalized = input.roomService.finalizeNeedsDecision(runId, pause.result, pause.failure, evidence);
+    return { run: finalized.run, room: finalized.room };
+  }
 
   const terminal = classifyTerminal(processError, processOutcome, streamOutcome, gitError, artifactError);
 
@@ -273,6 +325,59 @@ function classifyTerminal(
     return { kind: 'failure', code: 'artifact_write_failed', message: errorMessage(artifactError) };
   }
   return { kind: 'success', codingResult: streamOutcome.codingResult };
+}
+
+// needs-decision pause 的分类：有效 status=needs_decision CodingResult 才持久化 result；
+// process/stream/Git/artifact 任一失败或 contradictory terminal 都记录为该 paused Run.failure。
+// 与 classifyTerminal 的差异：这里不要求 completed，也不产生 RUN_FAILED/REVIEW_REQUIRED。
+function classifyNeedsDecisionPause(
+  processError: ClaudeProcessStartError | ClaudeProcessInputError | null,
+  processOutcome: ClaudeProcessOutcome | null,
+  streamOutcome: ClaudeStreamOutcome,
+  gitError: unknown,
+  artifactError: unknown,
+): { result: CodingResult | null; failure: { code: string; message: string } | null } {
+  // 1. process 启动 / stdin 交付失败。
+  if (processError !== null) {
+    return { result: null, failure: { code: 'claude_start_failed', message: processError.message } };
+  }
+  // 2. non-zero exit 或 signal exit。
+  if (processOutcome !== null && (processOutcome.exitCode !== 0 || processOutcome.signal !== null)) {
+    return {
+      result: null,
+      failure: {
+        code: 'claude_exit_failed',
+        message: `claude exited with code ${processOutcome.exitCode} signal ${processOutcome.signal}`,
+      },
+    };
+  }
+  // 3. stream 失败：init 类映射 room_mcp_unavailable，其余映射 coding_result_invalid。
+  if (!streamOutcome.ok) {
+    if (MCP_INIT_FAILURE_REASONS.has(streamOutcome.reason)) {
+      return { result: null, failure: { code: 'room_mcp_unavailable', message: streamOutcome.message } };
+    }
+    return { result: null, failure: { code: 'coding_result_invalid', message: streamOutcome.message } };
+  }
+  // 4. paused Run 的 valid CodingResult 必须为 status=needs_decision；completed/blocked 属
+  // contradictory terminal，不持久化 result。
+  if (streamOutcome.codingResult.status !== 'needs_decision') {
+    return {
+      result: null,
+      failure: {
+        code: 'coding_result_invalid',
+        message: `coding result status ${streamOutcome.codingResult.status} is not needs_decision for a paused run`,
+      },
+    };
+  }
+  // 5. completion Git observation 失败。
+  if (gitError !== null) {
+    return { result: null, failure: { code: 'git_evidence_failed', message: errorMessage(gitError) } };
+  }
+  // 6. artifact 写入失败。
+  if (artifactError !== null) {
+    return { result: null, failure: { code: 'artifact_write_failed', message: errorMessage(artifactError) } };
+  }
+  return { result: streamOutcome.codingResult, failure: null };
 }
 
 function errorMessage(err: unknown): string {

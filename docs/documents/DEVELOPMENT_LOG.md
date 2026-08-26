@@ -3,15 +3,82 @@
 ## 当前状态
 
 - 日期：2026-08-26
-- 项目阶段：FIX_PLAN_READY / Increment 5 Fix Task 1 Accepted / 等待用户人工派发
+- 项目阶段：ACCEPTED / Increment 5 已进入版本化 `main` / 等待后续规划
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：用户已批准
-- Implementation Task：`increment-005-decision-fix-resume` 为 Accepted、`confirmed_by_user=true`；Coding 已完成，Review `review-increment-005-codex-001` 的 2 个 High 与 1 个 Medium finding/solution 已获用户确认；[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 为 Accepted、`review_fixes_only=true`，尚未人工派发/Coding/再次 Review/用户接受
+- Implementation Task：`increment-005-decision-fix-resume`、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 无 finding，Decision 为 `approved`；三项 Contract-named Oracle 与全部回归均独立通过。用户已明确接受并另行授权提交完整 accepted scope；Decision/Fix continuation 现为版本化 Current capability
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status；`main` Current implementation）
-- Git repository：原 Increment 5 lineage baseline 为 `bcb9a9f9da451d64b4787d3967c0032cbc453602`；用户已授权把 Accepted Fix Task 1 与本次 Codex Review/planning/state文档作为 exact docs-only descendant commit提交，source/test candidate继续保持未提交、0 staged、未 push。exact dispatch `HEAD` 在 commit 后从 live Git读取并随人工指令报告
+- Git repository：原 Increment 5 lineage baseline 为 `bcb9a9f9da451d64b4787d3967c0032cbc453602`；docs-only descendant `60683dd96aea24e8c2d3d7173a84c716cddbfabf` 仅包含获授权的九个 planning/state文档路径。完整 accepted scope 已由本次 implementation commit 纳入 `main`；未 push
 
 ## 已完成
+
+### 2026-08-26 — Increment 5 提交授权与版本化 Current
+
+- 用户在 Increment 5 已通过 Review、获明确接受且经验回收完成后，另行授权把完整 accepted scope 作为一个 commit 提交到 `main`；授权不包含 push、runtime初始化、Runner launcher、branch/worktree、真实Claude smoke或清理。
+- 提交scope精确包含3个source、6个test、Fix Task 2 Contract、8个Current/planning文档与2个角色指南，共20个path；无额外 staged、unstaged或untracked path。exact commit object 以 live Git为权威，不在同一 commit内容中自引用hash。
+- Decision/Fix continuation、pause finalization、lineage-derived resume、dirty-allowed exact-HEAD observation与三项test-only Oracle现为版本化`main` Current application capability。repository仍没有Room initialization或Runner launcher command，因此该状态不等于operator已有可调用的runtime workflow。
+- Documentation impact audit：`documentation: updated`。Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志从accepted candidate同步为版本化Current；历史条目保留原时点事实。
+
+### 2026-08-26 — Increment 5 用户接受与 Fix 经验回收
+
+- 用户明确接受 `review-increment-005-codex-003` 与 Increment 5，项目阶段从 `REVIEW_DISCUSSION` 进入 `ACCEPTED`；无 unresolved finding。该确认不授权commit、push、runtime初始化、Runner launcher、branch/worktree、真实Claude smoke或清理。
+- Experience recovery 使用Review 2三项finding、Accepted Fix Task 2、两个test文件的实际Diff、三项direct Oracle与Review 3独立验证。新增两类可复用规则：stream内状态切换必须在同一public execution中用切换前后recognized input与Event sequence证明；validation-before-spawn与retry/conflict的零副作用必须覆盖完整public durable snapshot、cursor及process/Run/artifact boundary。
+- Codex规则写入[Codex Review与规划指南](./agent-guides/CODEX_REVIEW_AND_PLANNING.md)第13节；Claude实现与regression规则写入[Claude Coding与Fix指南](./agent-guides/CLAUDE_CODING_AND_FIX.md)第12节。既有public-path、idempotency与transaction规则保留，不新增入口硬门禁、Room state、Event type、protocol field、runtime hook或ADR。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations、两个角色指南与本日志为“用户已接受但尚未版本化提交”；未把dirty working-tree candidate写成Current capability。
+
+### 2026-08-26 — Increment 5 Fix Task 2 Review 3（approved）
+
+- Codex 以原 lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602`、docs-only descendant `HEAD=60683dd96aea24e8c2d3d7173a84c716cddbfabf`、Accepted Fix Task 2、完整 staged/unstaged/untracked candidate与 Coding Result为输入复审。原 baseline仍为live `HEAD` ancestor，`baseline..HEAD`仅含九个已授权 planning/state文档，0 staged；Fix Task 2净新增只涉及两个test文件与本日志，未修改source/runtime。
+- 三项 confirmed finding均闭合：同一 fake process中Question前recognized progress产生恰好一个`run_progress`且`sequence < question_asked`，Question后recognized progress不新增`run_progress`并完成单一pause settlement；answer后same-payload retry与different-payload conflict分别对完整Run/Question/Room/Event list/cursor snapshot保持`deepEqual`；baseline mismatch拒绝前后Room/Event/cursor完整`deepEqual`，并保持零spawn、零Run、零artifact。
+- 独立验证：`npm run typecheck`通过；`node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"` 82/82通过；`node --test "tests/git-observer.test.ts" "tests/room-mcp.test.ts" "tests/scope.test.ts"` 45/45通过；`npm test` 207/207通过且exit 0。未启动或依赖真实Claude process。
+- Review ID：`review-increment-005-codex-003`；Findings：无；Decision：`approved`。阶段进入`REVIEW_DISCUSSION`，等待用户明确接受；Review通过不授权commit、push、runtime初始化、真实Claude smoke或清理。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志为Review 3 approved candidate状态；无需求、public API、architecture、protocol、state、schema、Event、dependency或运维命令变化，Increment 5未提升为Current。
+
+### 2026-08-26 — Increment 5 Fix Task 2 Coding 完成（candidate，test-only，REVIEW_REQUIRED）
+
+按 [Increment 5 Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 补齐 `review-increment-005-codex-002` 的三项 test-evidence Oracle，保持原 Implementation lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602` 与当前 dirty candidate Diff，`review_fixes_only`、test-only，未修改任何 source/runtime，未执行任何 Git 写操作：
+
+- `inc5-r2-pause-sequence-oracle`：`tests/claude-runner.test.ts` 的 needs-decision regression 改为同一 `runClaude` fake-process execution 内先写 `init` + 一个可识别非终态 `assistant` progress（Run 仍 `running`，经同步 `child.stdout.write` 使 `onStdoutLine` 在 `askQuestion` 前被消费并追加恰好一个 `run_progress`），再经真实 `RoomService.askQuestion` 把 Run 原子置为 `needs_decision`，随后写 `tool_result` progress 与 needs-decision terminal。断言 `run_progress` 数量为 1 且其 `sequence < question_asked`，Question 后零 `run_progress`，恰好一个 `question_asked`/`run_paused`、零 `run_completed`/`run_failed`，并完成 session/exit/result/Git evidence/artifact refs 持久化。
+- `inc5-r2-finalization-snapshot-oracle`：`tests/room-service.test.ts` 的 answer 后 retry/conflict regression 增加测试侧 `snapshot()`（完整 Run、Question、Room、Event list 与 cursor，cursor 为 Event list 最大 sequence，均来自 public `RoomService` read method）；same-payload retry 断言 `created=false` 且前后完整 snapshot `deepEqual`，different-payload 断言 literal `id_conflict` 且前后完整 snapshot `deepEqual`。
+- `inc5-r2-baseline-zero-side-effect-oracle`：`tests/claude-runner.test.ts` 的 baseline mismatch regression 在调用 `runClaude` 前保存完整 Room 与 Event list/cursor，`validation_failed` 后 `deepEqual`；继续保留 guaranteed-unequal valid hex、injected fake spawner、`invocations.length === 0`、Run 不存在与 artifact 不存在断言。
+
+验证：`npm run typecheck` 通过；`node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"` combined 82/82 通过（Runner 37、RoomService 45）；`node --test "tests/git-observer.test.ts" "tests/room-mcp.test.ts" "tests/scope.test.ts"` 45/45 通过；`npm test` 207/207 通过，未启动或依赖真实 Claude process。三项 Oracle 均直接通过，未暴露 source/runtime 缺陷，故未修改任何 `src/` 文件。未 commit、未 stage、未执行 branch/worktree/push/清理；candidate 未提升为 Current。
+
+Documentation impact audit：`documentation: updated`。仅更新本日志的 Fix Task 2 candidate test Diff/验证事实与 `REVIEW_REQUIRED` 状态；净变更为两个 test 文件与本日志，未修改 Project Rules/Architecture/Room Protocol/ADR/MVP Plan/Operations/README 或 Fix Contract，无 source/protocol/state/schema/Event/dependency 漂移。
+
+### 2026-08-26 — Increment 5 Review 2 方案确认与 Fix Task 2
+
+- 用户明确确认 `review-increment-005-codex-002` 的三项 finding 与最小 test-only solution：Runner regression在同一 fake process中构造 recognized running progress → durable Question → post-Question recognized progress，并直接断言 Question前保留一次有序`run_progress`、Question后不再增加且pause finalization完成；RoomService regression对answer后same-payload retry与different-payload conflict分别deepEqual完整Run、Question、Room、Event list与cursor；baseline mismatch regression在零spawn/零Run/零artifact之外deepEqual拒绝前后Room与Event/cursor。
+- 已创建 [Increment 5 Fix Task 2](./INCREMENT_5_FIX_TASK_2.md)，状态为 `Accepted`、`confirmed_by_user=true`、`review_fixes_only=true`、test-only；scope仅允许`tests/claude-runner.test.ts`、`tests/room-service.test.ts`与candidate Development Log。禁止修改任何source、protocol、state、schema、Event type、MCP、dependency或runtime interface；若新增断言暴露runtime/source缺陷，Claude必须返回`needs_decision`而不是越界修复。
+- Fix继续复用原Implementation lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602`、当前`main` dirty candidate与原Increment 5 Claude session；派发前读取live `HEAD`与worktree状态，不重新执行clean-worktree gate，不覆盖或拆分既有candidate。
+- 阶段进入`FIX_PLAN_READY`，等待用户人工派发。本次确认不授权Codex启动Claude，也不授权runtime初始化、真实Claude smoke、stage、commit、push、branch/worktree、reset、restore、clean或清理。
+- Documentation impact audit：`documentation: updated`。同步Accepted Fix Contract、Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志；没有产品行为或architecture decision变化，candidate保持unavailable、未提升为Current。
+
+### 2026-08-26 — Increment 5 Fix Task 1 Review 2（changes_requested）
+
+- Codex 以原 lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602` 审查完整 18-file task-owned Diff，并确认当前 `main` `HEAD=60683dd96aea24e8c2d3d7173a84c716cddbfabf` 是原 baseline 的 docs-only descendant；0 staged、0 untracked，未混入未授权 Git 写操作。
+- Review 1 的三项实现缺陷均按 Accepted solution 闭合：Question durable 后的 progress routing 只在 Run仍为 `running` 时调用 `appendRunProgress`；completed pause finalization 在首次 lifecycle guard 前处理 same-payload retry/different-payload conflict；baseline mismatch 使用 guaranteed-unequal hex与 injected fake spawner，零 invocation。未发现新的 source/runtime behavior、architecture、protocol、state、schema、Event type、dependency或scope漂移。
+- Medium `inc5-r2-pause-sequence-oracle`：`tests/claude-runner.test.ts` 的 post-question regression 在写任何 stream line 前先调用 `askQuestion`，并断言总 `run_progress=0`；没有按 Fix Contract 直接执行并证明 `init/running progress -> Question -> assistant/tool_result progress` 的同一 process顺序，无法同时验收 Question 前保留 progress 与 Question 后停止 durable progress。
+- Medium `inc5-r2-finalization-snapshot-oracle`：`tests/room-service.test.ts` 的 answer 后 retry/conflict regression 只检查少数字段与 Event count，没有在 same-payload retry及different-payload conflict前后 deepEqual完整 Run、Question、Room、Event list/cursor，未满足 Accepted Fix Contract点名的完整 durable-state不变证据。
+- Low `inc5-r2-baseline-zero-side-effect-oracle`：baseline mismatch regression 已证明 guaranteed mismatch、零 spawn、零 Run与零 artifact，但未保存并比较 Room与 Event/cursor，尚未直接证明拒绝前后没有 Event/cursor或Room副作用。
+- 独立验证：`npm run typecheck`通过；`node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"` 82/82通过（Runner 37、RoomService 45）；`node --test "tests/git-observer.test.ts" "tests/room-mcp.test.ts" "tests/scope.test.ts"` 45/45通过；`npm test` 207/207通过，未启动或依赖真实Claude process。Coding Result把 combined focused suite的82项误记为RoomService 82项，且`npm test` verification item缺少`status/result`；Review仅以live命令为authority。
+- Review ID：`review-increment-005-codex-002`；Decision：`changes_requested`。阶段进入`REVIEW_DISCUSSION`；用户确认 findings 与最小测试方案前不生成或派发下一 Fix Task，不提交candidate实现。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志为Review 2 candidate状态；实现行为未变化，Increment 5未提升为Current。
+
+### 2026-08-26 — Increment 5 Fix Task 1 Coding 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 修复 `review-increment-005-codex-001` 的三项 confirmed finding，保持原 Implementation lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602` 与当前未提交 candidate Diff，`review_fixes_only`，未执行任何 Git 写操作：
+
+- `inc5-r1-pause-progress-after-question`：`src/runner/claude-runner.ts` 的 `onStdoutLine` 在调用 `appendRunProgress` 前增加 `getRun(runId)?.status === 'running'` guard。Room Run status 仍是 durable progress eligibility authority：`room_ask_question` 把同一 Run 原子置为 `needs_decision` 后，Runner 继续消费后续 stdout 以完成 interpreter/artifact/terminal/pause evidence，但不再把非终态 progress 交给只接受 running 的 `appendRunProgress`。未放宽 `appendRunProgress` 的 running-only invariant。
+- `inc5-r1-finalization-idempotency-order`：`src/room/room-service.ts` 的 `finalizeNeedsDecision` 在同一 transaction 内把 `run.completed_at !== null` 的 retry/conflict 判定移到 `assertNeedsDecisionFinalizable` 之前；只有首次 finalization 执行 current Run/Room/latest open Question/membership guard。answer 后 exact same pause payload retry 返回既有 Run、`created=false` 且不新增 Event；different payload 返回 `id_conflict` 且 durable state 不变。
+- `inc5-r1-baseline-test-real-claude`：`tests/claude-runner.test.ts` 的 lineage `HEAD` drift regression 改为用翻转首字符构造 guaranteed-unequal 且仍为合法 hex object ID 的 expected hash（不再依赖末位替换为 `0`），并显式注入 `makeSpawner(new FakeClaudeProcess())` 记录 invocation count，断言 `validation_failed` 在 process start 前拒绝且 `invocations.length === 0`、不创建 Run/artifact。
+
+- tests：`tests/claude-runner.test.ts` 新增 `needs-decision pause consumes post-question progress lines without appending run_progress`（askQuestion 后经 assistant/tool_result 非终态 progress line，断言恰好一次 `question_asked`、一次 `run_paused`、零 `run_completed`/`run_failed`/`run_progress`，且不抛 `validation_failed`），并改写 baseline mismatch regression；`tests/room-service.test.ts` 把原 `finalizeNeedsDecision rejects after the question is answered` 更正为 answer 后 same-payload retry 幂等 + different-payload conflict regression，不再把违反 Accepted Contract 的 `validation_failed` 固化为期望。
+
+验证：`npm run typecheck` 通过；`node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"` combined 82/82 通过（Runner 37、RoomService 45）；`node --test "tests/git-observer.test.ts" "tests/room-mcp.test.ts" "tests/scope.test.ts"` 45/45 通过；`npm test` 207/207 通过，未启动或依赖真实 Claude process。未 commit、未 stage、未执行 branch/worktree/push/清理；candidate 未提升为 Current。
+
+Documentation impact audit：`documentation: updated`。仅更新本日志的 candidate Coding/验证事实与 `REVIEW_REQUIRED` 状态，未修改 Project Rules/Architecture/Room Protocol/ADR/MVP Plan/Operations 或 Fix Contract；净 source 变更为 `src/runner/claude-runner.ts` 与 `src/room/room-service.ts` 的最小 guard/顺序调整，净 test 变更为两个 test 文件，无 schema/state/Event/protocol/dependency 漂移。
 
 ### 2026-08-26 — Increment 5 Fix Task 1 docs-only commit 与人工派发授权
 
@@ -677,8 +744,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Review `review-increment-005-codex-001` 的 2 个 High 与 1 个 Medium finding/solution 已确认，但实现尚未修复；Fix Task 1 已 Accepted、尚未人工派发/Coding/再次 Review。Increment 5 保持 candidate。未获 runtime初始化、真实 Claude smoke、实现 commit、push、branch/worktree 或清理授权。
+无 unresolved Review finding。Increment 5 已获用户明确接受并进入版本化 `main`；当前没有产品/Review blocker。未获 runtime初始化、真实Claude smoke、push、branch/worktree或清理授权。
 
 ## 下一步
 
-用户在原 Increment 5 Claude session 中人工派发 [Fix Task 1](./INCREMENT_5_FIX_TASK_1.md)；Codex 不启动 Claude。Fix Coding Result 返回后，Codex审查完整 lineage candidate Diff与三项 direct regression；再次 Review 与用户接受前，candidate 不提交、不提升为 Current capability。
+由用户另行确认后续 Increment 的目标与规划；push、runtime初始化、Runner launcher、真实Claude smoke、branch/worktree与清理继续保持独立门禁。

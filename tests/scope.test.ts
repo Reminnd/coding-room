@@ -28,7 +28,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 4 allows exact MCP/CLI/shared-read-model files and keeps extra modules, tools and dependency drift rejected', () => {
+test('Increment 5 allows exact MCP/CLI/shared-read-model files and keeps extra modules, tools and dependency drift rejected', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }

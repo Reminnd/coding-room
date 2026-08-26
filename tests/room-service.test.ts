@@ -208,6 +208,16 @@ test('question flow: CODING -> NEEDS_DECISION -> answer(false) -> resumeRun -> C
   assert.equal(asked.room.state, 'NEEDS_DECISION');
   assert.equal(service.getRun('run-1')!.status, 'needs_decision');
 
+  // answer 前必须由 Runner 完成 pause finalization（completed_at 非 null）。
+  const paused = service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
+  assert.equal(paused.created, true);
+  assert.equal(paused.room.state, 'NEEDS_DECISION');
+
   const answered = service.answerQuestion('question-1', 'pick a', false);
   assert.equal(answered.room.state, 'NEEDS_DECISION'); // no transition yet
   assert.equal(answered.question.answer_changes_contract, false);
@@ -220,6 +230,12 @@ test('question flow: answer(true) moves NEEDS_DECISION -> WAITING_FOR_USER_CONFI
   const { service } = makeService();
   toCoding(service);
   service.askQuestion(makeQuestion());
+  service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
   const answered = service.answerQuestion('question-1', 'change it', true);
   assert.equal(answered.room.state, 'WAITING_FOR_USER_CONFIRMATION');
 });
@@ -305,7 +321,7 @@ test('full cycle: DISCUSSION -> ... -> FIX -> ... -> ACCEPTED', () => {
   service.submitTask(
     makeFixTask({ task_id: 'task-2', room_id: 'room-1', parent_task_id: 'task-1', based_on_review_id: 'review-1' }),
   ); // FIX_PLAN_READY
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
   service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence()); // REVIEW_REQUIRED
   service.submitReview(makeReview({ review_id: 'review-2', run_id: 'run-2', task_id: 'task-2' })); // REVIEW_DISCUSSION
   assert.equal(service.acceptReview('review-2', true).room.state, 'ACCEPTED');
@@ -347,14 +363,20 @@ test('startRun in FIX_PLAN_READY rejects a stale implementation Task with no par
   assert.equal(service.getRoom('room-1')!.state, 'FIX_PLAN_READY');
   assert.equal(service.getRun('run-2'), null);
   assert.equal(service.listEvents('room-1').length, eventsBefore);
-  // current Fix Task task-2 的合法 startRun 继续进入 CODING。
-  assert.equal(service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })).room.state, 'CODING');
+  // current Fix Task task-2 也禁止 startRun：FIX_PLAN_READY 必须 resumeRun 继承 lineage。
+  assert.equal(
+    errCode(() => service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }))),
+    'validation_failed',
+  );
+  assert.equal(service.getRun('run-2'), null);
+  // 同 run_id 对 current task-2 的合法 resumeRun 继续进入 CODING。
+  assert.equal(service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })).room.state, 'CODING');
 });
 
 test('resumeRun in NEEDS_DECISION rejects a stale implementation Task with no partial write', () => {
   const { service } = makeService();
   toFixPlanReady(service); // current task = task-2
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
   service.askQuestion(makeQuestion({ run_id: 'run-2', task_id: 'task-2' })); // NEEDS_DECISION
   const eventsBefore = service.listEvents('room-1').length;
   assert.equal(
@@ -369,8 +391,14 @@ test('resumeRun in NEEDS_DECISION rejects a stale implementation Task with no pa
 test('resumeRun for the current fix Task continues to CODING', () => {
   const { service } = makeService();
   toFixPlanReady(service); // current task = task-2
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
   service.askQuestion(makeQuestion({ run_id: 'run-2', task_id: 'task-2' })); // NEEDS_DECISION
+  service.finalizeNeedsDecision(
+    'run-2',
+    makeCodingResult({ status: 'needs_decision', task_id: 'task-2' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
   service.answerQuestion('question-1', 'pick a', false);
   const resumed = service.resumeRun(makeRun({ run_id: 'run-3', task_id: 'task-2' }));
   assert.equal(resumed.room.state, 'CODING');
@@ -383,8 +411,8 @@ test('new stale Run rollback leaves the run_id reusable for the current Task', (
   // stale run_id=run-2 引用 task-1 被拒绝并回滚，不留 Run。
   assert.equal(errCode(() => service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-1' }))), 'validation_failed');
   assert.equal(service.getRun('run-2'), null);
-  // 同 run_id 对 current task-2 可成功创建。
-  assert.equal(service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })).created, true);
+  // 同 run_id 对 current task-2 可经 resumeRun 成功创建。
+  assert.equal(service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })).created, true);
   assert.equal(service.getRoom('room-1')!.state, 'CODING');
 });
 
@@ -462,7 +490,7 @@ test('submitReview rejects a stale succeeded run after a newer run completed', (
   service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence()); // REVIEW_REQUIRED, run_completed run-1
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] })); // review-1, REVIEW_DISCUSSION
   service.submitTask(makeFixTask({ task_id: 'task-2', room_id: 'room-1', parent_task_id: 'task-1', based_on_review_id: 'review-1' })); // FIX_PLAN_READY
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
   service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence()); // REVIEW_REQUIRED, run_completed run-2
 
   const eventsBefore = service.listEvents('room-1').length;
@@ -488,7 +516,7 @@ test('submitReview is idempotent for a persisted review across a later run', () 
   service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence()); // REVIEW_REQUIRED, run_completed run-1
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] })); // review-1 持久化, REVIEW_DISCUSSION
   service.submitTask(makeFixTask({ task_id: 'task-2', room_id: 'room-1', parent_task_id: 'task-1', based_on_review_id: 'review-1' })); // FIX_PLAN_READY
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // CODING
   service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence()); // REVIEW_REQUIRED, run_completed run-2
 
   const eventsBefore = service.listEvents('room-1').length;
@@ -527,7 +555,7 @@ test('acceptReview rejects a stale review after a newer review is submitted', ()
   service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence());
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] })); // review-1
   service.submitTask(makeFixTask({ task_id: 'task-2', room_id: 'room-1', parent_task_id: 'task-1', based_on_review_id: 'review-1' }));
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }));
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }));
   service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence());
   service.submitReview(makeReview({ review_id: 'review-2', run_id: 'run-2', task_id: 'task-2' })); // review-2
   const eventsBefore = service.listEvents('room-1').length;
@@ -557,4 +585,224 @@ test('fix task referencing a finding not in the review is rejected with no persi
   assert.equal(service.getTask('task-2'), null);
   assert.equal(service.getRoom('room-1')!.state, 'REVIEW_DISCUSSION');
   assert.equal(service.listEvents('room-1').length, eventsBefore);
+});
+
+test('finalizeNeedsDecision persists pause evidence and appends run_paused without terminal events', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.askQuestion(makeQuestion()); // NEEDS_DECISION, run-1 needs_decision
+  const evidence = makeTerminalEvidence({
+    claude_session_id: 'sess-1',
+    process_exit_code: 0,
+    git_evidence: { staged: ['a.txt'], unstaged: ['b.txt'], untracked: ['c.txt'] },
+    artifact_refs: ['.agent-room/artifacts/run-1/stdout.jsonl', '.agent-room/artifacts/run-1/stderr.log'],
+  });
+  const { room, run, created } = service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    evidence,
+  );
+  assert.equal(created, true);
+  assert.equal(room.state, 'NEEDS_DECISION');
+  assert.equal(run.status, 'needs_decision');
+  assert.equal(run.completed_at !== null, true);
+  assert.equal(run.claude_session_id, 'sess-1');
+  assert.equal(run.process_exit_code, 0);
+  assert.equal(run.result?.status, 'needs_decision');
+  assert.equal(run.failure, null);
+  assert.deepEqual(run.git_evidence, evidence.git_evidence);
+  assert.deepEqual(run.artifact_refs, evidence.artifact_refs);
+  const events = service.listEvents('room-1');
+  assert.equal(events.filter((e) => e.type === 'question_asked').length, 1);
+  assert.equal(events.filter((e) => e.type === 'run_paused').length, 1);
+  assert.equal(events.filter((e) => e.type === 'run_completed').length, 0);
+  assert.equal(events.filter((e) => e.type === 'run_failed').length, 0);
+});
+
+test('finalizeNeedsDecision same-payload retry is idempotent; different payload conflicts', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.askQuestion(makeQuestion());
+  const result = makeCodingResult({ status: 'needs_decision' });
+  const evidence = makeTerminalEvidence({ claude_session_id: 'sess-1', process_exit_code: 0 });
+  const first = service.finalizeNeedsDecision('run-1', result, null, evidence);
+  assert.equal(first.created, true);
+  const eventsAfterFirst = service.listEvents('room-1').length;
+
+  const retry = service.finalizeNeedsDecision('run-1', result, null, evidence);
+  assert.equal(retry.created, false);
+  assert.equal(retry.run.status, 'needs_decision');
+  assert.equal(service.listEvents('room-1').length, eventsAfterFirst);
+
+  // 不同 payload 以 id_conflict 失败，durable state 不变。
+  assert.equal(
+    errCode(() => service.finalizeNeedsDecision('run-1', result, null, makeTerminalEvidence({ process_exit_code: 1 }))),
+    'id_conflict',
+  );
+  assert.equal(service.listEvents('room-1').length, eventsAfterFirst);
+  assert.equal(service.getRun('run-1')!.process_exit_code, 0);
+});
+
+test('finalizeNeedsDecision same-payload retry stays idempotent and different payload conflicts after the question is answered', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.askQuestion(makeQuestion());
+  const result = makeCodingResult({ status: 'needs_decision' });
+  const evidence = makeTerminalEvidence({ claude_session_id: 'sess-1', process_exit_code: 0 });
+  const first = service.finalizeNeedsDecision('run-1', result, null, evidence);
+  assert.equal(first.created, true);
+  service.answerQuestion('question-1', 'pick a', false);
+  assert.equal(service.getQuestion('question-1')!.status, 'answered');
+
+  // 完整 durable snapshot：Run、Question、Room、Event list 与 cursor，均来自 public RoomService
+  // read method，不从实现 helper 生成期望。cursor 为 Event list 最大 sequence。
+  const snapshot = () => {
+    const events = service.listEvents('room-1');
+    return {
+      run: service.getRun('run-1'),
+      question: service.getQuestion('question-1'),
+      room: service.getRoom('room-1'),
+      events,
+      cursor: events.length === 0 ? 0 : events[events.length - 1].sequence,
+    };
+  };
+
+  // answer 后 exact same pause payload retry 仍幂等：created=false，完整 snapshot 前后 deepEqual。
+  const beforeRetry = snapshot();
+  const retry = service.finalizeNeedsDecision('run-1', result, null, evidence);
+  assert.equal(retry.created, false);
+  assert.equal(retry.run.status, 'needs_decision');
+  assert.equal(retry.run.completed_at !== null, true);
+  assert.deepEqual(snapshot(), beforeRetry, 'same-payload retry must not change any durable state');
+
+  // answer 后 different payload 返回 literal id_conflict，完整 snapshot 前后 deepEqual。
+  const beforeConflict = snapshot();
+  assert.equal(
+    errCode(() =>
+      service.finalizeNeedsDecision('run-1', result, null, makeTerminalEvidence({ claude_session_id: 'sess-1', process_exit_code: 1 })),
+    ),
+    'id_conflict',
+  );
+  assert.deepEqual(snapshot(), beforeConflict, 'different-payload conflict must not change any durable state');
+});
+
+test('answerQuestion before pause finalization returns validation_failed with no partial write', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.askQuestion(makeQuestion()); // completed_at 仍 null
+  const eventsBefore = service.listEvents('room-1').length;
+  assert.equal(errCode(() => service.answerQuestion('question-1', 'pick a', false)), 'validation_failed');
+  assert.equal(service.getQuestion('question-1')!.status, 'open');
+  assert.equal(service.getRoom('room-1')!.state, 'NEEDS_DECISION');
+  assert.equal(service.listEvents('room-1').length, eventsBefore);
+
+  // finalization 后 answer 成功。
+  service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
+  assert.equal(service.answerQuestion('question-1', 'pick a', false).question.status, 'answered');
+});
+
+test('startRun rejects NEEDS_DECISION; resumeRun rejects first PLAN_READY with no prior lineage', () => {
+  const { service } = makeService();
+  // 首次 PLAN_READY 无 prior lineage Run，resumeRun 拒绝且不留 Run。
+  toPlanReady(service);
+  assert.equal(errCode(() => service.resumeRun(makeRun({ run_id: 'run-1' }))), 'validation_failed');
+  assert.equal(service.getRun('run-1'), null);
+  assert.equal(service.getRoom('room-1')!.state, 'PLAN_READY');
+
+  // NEEDS_DECISION 禁止 startRun；必须 resumeRun 继承 lineage。
+  service.startRun(makeRun()); // CODING
+  service.askQuestion(makeQuestion()); // NEEDS_DECISION
+  assert.equal(errCode(() => service.startRun(makeRun({ run_id: 'run-2' }))), 'validation_failed');
+  assert.equal(service.getRun('run-2'), null);
+  assert.equal(service.getRoom('room-1')!.state, 'NEEDS_DECISION');
+});
+
+test('getContinuationContext derives new_implementation and decision kinds from lineage', () => {
+  const { service } = makeService();
+  // new_implementation
+  toPlanReady(service);
+  const fresh = service.getContinuationContext('room-1', 'task-1');
+  assert.equal(fresh.kind, 'new_implementation');
+  assert.equal(fresh.sourceRun, null);
+
+  // decision：finalize + answer(false) 后从 persisted Question/source Run 推导 session/baseline。
+  service.startRun(makeRun());
+  service.askQuestion(makeQuestion());
+  service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
+  service.answerQuestion('question-1', 'pick a', false);
+  const decision = service.getContinuationContext('room-1', 'task-1');
+  assert.equal(decision.kind, 'decision');
+  if (decision.kind === 'decision') {
+    assert.equal(decision.sourceRun.run_id, 'run-1');
+    assert.equal(decision.sourceRun.claude_session_id, 'sess-1');
+    assert.equal(decision.question.question_id, 'question-1');
+    assert.equal(decision.question.answer_changes_contract, false);
+  }
+});
+
+test('getContinuationContext derives fix kind from the reviewed lineage session and baseline', () => {
+  const { service } = makeService();
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask());
+  service.startRun(makeRun());
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence({ claude_session_id: 'sess-1' }));
+  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }));
+  service.submitTask(
+    makeFixTask({ task_id: 'task-2', room_id: 'room-1', parent_task_id: 'task-1', based_on_review_id: 'review-1' }),
+  );
+  const fix = service.getContinuationContext('room-1', 'task-2');
+  assert.equal(fix.kind, 'fix');
+  if (fix.kind === 'fix') {
+    assert.equal(fix.sourceRun.run_id, 'run-1');
+    assert.equal(fix.sourceRun.claude_session_id, 'sess-1');
+    assert.equal(fix.sourceRun.baseline_head, 'deadbeef');
+    assert.equal(fix.review.review_id, 'review-1');
+  }
+});
+
+test('getContinuationContext rejects changed-contract answer, missing session and wrong state', () => {
+  const { service } = makeService();
+  // answer_changes_contract=true：不能 resume 旧 Task。
+  toCoding(service);
+  service.askQuestion(makeQuestion());
+  service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
+  service.answerQuestion('question-1', 'change it', true); // WAITING_FOR_USER_CONFIRMATION
+  assert.equal(errCode(() => service.getContinuationContext('room-1', 'task-1')), 'validation_failed');
+
+  // missing session：source Run 无 claude_session_id 时拒绝 fix continuation。
+  const { service: s2 } = makeService();
+  s2.createRoom('room-1');
+  s2.transitionToArchitectureReview('room-1');
+  s2.transitionToWaitingForUserConfirmation('room-1');
+  s2.submitTask(makeTask());
+  s2.startRun(makeRun());
+  s2.completeRun('run-1', makeCodingResult(), makeTerminalEvidence()); // session null
+  s2.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }));
+  s2.submitTask(
+    makeFixTask({ task_id: 'task-2', room_id: 'room-1', parent_task_id: 'task-1', based_on_review_id: 'review-1' }),
+  );
+  assert.equal(errCode(() => s2.getContinuationContext('room-1', 'task-2')), 'validation_failed');
+
+  // wrong state：CODING 不能 start run。
+  const { service: s3 } = makeService();
+  toCoding(s3);
+  assert.equal(errCode(() => s3.getContinuationContext('room-1', 'task-1')), 'validation_failed');
 });

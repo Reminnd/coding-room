@@ -438,6 +438,12 @@ test('codex write tools (answer_question, submit_review, accept_review) round-tr
     await codex.listTools();
 
     service.askQuestion(makeQuestion());
+    service.finalizeNeedsDecision(
+      'run-1',
+      makeCodingResult({ status: 'needs_decision' }),
+      null,
+      makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+    );
     const answered = await codex.callTool({
       name: 'room_answer_question',
       arguments: { question_id: 'question-1', answer: 'pick a', answer_changes_contract: false },
@@ -792,6 +798,12 @@ test('room_answer_question rejects an already-answered question', async () => {
   service.submitTask(makeTask());
   service.startRun(makeRun());
   service.askQuestion(makeQuestion());
+  service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
   service.answerQuestion('question-1', 'pick a', false);
   const { url, close } = await startApp(service, fixture);
   try {
@@ -804,6 +816,37 @@ test('room_answer_question rejects an already-answered question', async () => {
     });
     assert.equal(result.isError, true);
     assert.equal(errorPayload(result).code, 'validation_failed');
+    assert.equal(service.getRoom('room-1')!.state, 'NEEDS_DECISION');
+    assert.deepEqual(await snapshot(codex, 'room-1'), before);
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('room_answer_question rejects before pause finalization with no partial write', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask());
+  service.startRun(makeRun());
+  service.askQuestion(makeQuestion()); // run 仍 needs_decision，completed_at null
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    const before = await snapshot(codex, 'room-1');
+    const result = await codex.callTool({
+      name: 'room_answer_question',
+      arguments: { question_id: 'question-1', answer: 'pick a', answer_changes_contract: false },
+    });
+    assert.equal(result.isError, true);
+    assert.equal(errorPayload(result).code, 'validation_failed');
+    assert.equal(service.getQuestion('question-1')!.status, 'open');
     assert.equal(service.getRoom('room-1')!.state, 'NEEDS_DECISION');
     assert.deepEqual(await snapshot(codex, 'room-1'), before);
     await codex.close();
@@ -937,7 +980,7 @@ test('room_submit_review rejects a new review_id referencing a stale succeeded r
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] })); // review-1 → REVIEW_DISCUSSION
   // fix 路径提交 task-2、完成 run-2，使 Room 回到 REVIEW_REQUIRED 且 run-2 是 current completed Run。
   service.submitTask(makeFixTask({ task_id: 'task-2' })); // task-2 → FIX_PLAN_READY
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // run-2 → CODING
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // run-2 → CODING
   service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence()); // run-2 succeeded → REVIEW_REQUIRED
 
   const { url, close } = await startApp(service, fixture);
@@ -1033,7 +1076,7 @@ test('room_accept_review rejects a review that is no longer current', async () =
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }));
   // fix 路径提交第二个 task/run/review，使 review-1 不再是 current review。
   service.submitTask(makeFixTask({ task_id: 'task-2' }));
-  service.startRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }));
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }));
   service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence());
   service.submitReview(makeReview({
     review_id: 'review-2',

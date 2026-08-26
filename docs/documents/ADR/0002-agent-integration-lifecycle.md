@@ -85,11 +85,11 @@ MVP 不采用。用户明确要求 Codex App 作为交互界面，不需要另�
 - Decision resume的 session/baseline来自 answered Question引用的 source Run；Fix resume来自 Fix Task引用的 Review及其 reviewed Run。caller与“最近 session”都不是 lineage authority。
 - clean-worktree gate只建立新的 Implementation lineage；Task-lineage continuation保留已有 worktree changes，但必须验证 owning repository的 `HEAD` 仍等于 inherited baseline。
 
-该 Accepted design不改变 explicit Codex pull、process-per-Run、Task-lineage session或 Runner-owned lifecycle决策，也不新增 Room state/schema、daemon或 scheduler。Candidate implementation通过 Review并获用户接受前，不能标记为 Current/Accepted implementation；本 Task的一次性人工派发也不替代 Runner-owned product lifecycle。
+该 Accepted design不改变 explicit Codex pull、process-per-Run、Task-lineage session或 Runner-owned lifecycle决策，也不新增 Room state/schema、daemon或 scheduler。Candidate implementation只有在通过Review、获用户接受并提交进入版本化`main`后才能标记为Current implementation；本Task的一次性人工派发也不替代Runner-owned product lifecycle。
 
-### 2026-08-26 Candidate Coding 与 Review 1（Increment 5，未接受）
+### 2026-08-26 Current implementation（Increment 5）
 
-Claude Code 已完成 Decision/Fix continuation 的候选实现：`RoomService.finalizeNeedsDecision`/`getContinuationContext`、`GitObserver.observeContinuation` 与改写后的 `runClaude` 按本澄清从 persisted Question/Review/source Run lineage 推导 exact session/baseline，并持久化 pause evidence 与 `run_paused` Event。Codex Review `review-increment-005-codex-001` 对 pause progress、finalization retry ordering 与测试真实 process 边界提出三项 finding，Decision 为 `changes_requested`。用户已确认最小 solution，[Increment 5 Fix Task 1](../INCREMENT_5_FIX_TASK_1.md) 为 Accepted；Fix 只恢复既有 lifecycle/idempotency/test-isolation invariant。实现未新增 Room state/schema/daemon/scheduler，也未改变 Task-lineage session 或 Runner-owned lifecycle 决策；candidate 不标记为 Current/Accepted implementation。
+Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](../INCREMENT_5_FIX_TASK_2.md)：`RoomService.finalizeNeedsDecision`/`getContinuationContext`、`GitObserver.observeContinuation` 与改写后的 `runClaude` 按本澄清从 persisted Question/Review/source Run lineage 推导 exact session/baseline，并持久化 pause evidence 与 `run_paused` Event。Review `review-increment-005-codex-003` 无 finding且已获用户明确接受；event-order、完整 durable snapshot 与 baseline mismatch 零副作用 Oracle 已闭合。用户另行授权提交完整 accepted scope，当前实现已进入版本化 `main`；未新增 Room state/schema/daemon/scheduler，也未改变 Task-lineage session、Runner-owned lifecycle 或本 ADR 决策。
 
 ## 相关文档
 

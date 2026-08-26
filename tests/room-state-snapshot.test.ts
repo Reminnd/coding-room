@@ -153,6 +153,12 @@ test('current_question only when the latest question_asked is still open', () =>
   toCoding(service);
   service.askQuestion(makeQuestion());
   assert.equal(snap(service).current_question?.question_id, 'question-1');
+  service.finalizeNeedsDecision(
+    'run-1',
+    makeCodingResult({ status: 'needs_decision' }),
+    null,
+    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+  );
   service.answerQuestion('question-1', 'pick a', false);
   assert.equal(snap(service).current_question, null);
 });

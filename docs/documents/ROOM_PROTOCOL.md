@@ -353,9 +353,9 @@ options:
 
 Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resume Run 使用该 session ID。新的 Implementation Task 不能继承上一 Task 的 session。
 
-### 12.1 Increment 5 Accepted design / Candidate continuation semantics
+### 12.1 Increment 5 Current continuation semantics
 
-[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认并具体化以下既有语义；Review finding 解决并获用户接受前，它们仍不是 Current protocol behavior：
+[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认并具体化以下既有语义；Review finding 已解决，用户已接受并另行授权提交完整 accepted scope，以下现为版本化 `main` 的 Current protocol behavior：
 
 1. `room_ask_question` 成功后，Question、`Run.status=needs_decision` 与 `Room=NEEDS_DECISION` 仍在同一 transaction内提交。
 2. Claude process退出后，Runner对同一 needs-decision Run执行 pause finalization：原子持久化 `claude_session_id`、`process_exit_code`、nullable `result`/`failure`、`git_evidence`、`artifact_refs` 与 `completed_at`，保持 Room/Run status不变，并追加一个 `run_paused` Event。
@@ -364,7 +364,7 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 5. Fix resume从 current Fix Task的 `based_on_review_id` 指向的 current Review及其 reviewed Run继承 exact session/baseline。
 6. 新 Implementation start继续要求 clean worktree；Decision/Fix resume允许保留 dirty evidence，但 owning repository的 actual `HEAD` 必须等于 inherited `baseline_head`。
 
-`run_paused` 只表示旧 Claude process已停止且 pause evidence已持久化，不是新的 Room state或 Run status。Accepted Contract不增加 transition pair、entity、field、table、error code或 protocol version。Candidate implementation未扩展 state/transition/entity/field/table，但 Codex Review `review-increment-005-codex-001` 确认 Question 后 progress 会阻止 `run_paused` finalization，且 answered Question 会误伤同 payload finalization retry；Decision 为 `changes_requested`。用户已确认最小 solution，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 保持 running-only progress invariant，并以已持久化 pause payload 作为 completed finalization retry/conflict authority；不改变本协议版本、state、Event或 lifecycle ownership。这些语义在 Fix 再次 Review 与用户接受前仍不是 Current protocol behavior。
+`run_paused` 只表示旧 Claude process已停止且 pause evidence已持久化，不是新的 Room state或 Run status。Accepted Contract不增加 transition pair、entity、field、table、error code或 protocol version。[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已保持 running-only progress invariant，并以已持久化 pause payload 作为 completed finalization retry/conflict authority；test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已闭合 event-order 与完整 durable-state Oracle，未修改 protocol/source。Review `review-increment-005-codex-003` 无 finding且已获用户明确接受；这些语义现已进入版本化 `main`，协议版本、state、Event 与 lifecycle ownership均未改变。
 
 ## 13. Git 协议
 

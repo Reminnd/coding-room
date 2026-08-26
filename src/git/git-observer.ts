@@ -117,3 +117,22 @@ export async function collectCompletionEvidence(targetPath: string): Promise<Git
   const repositoryRoot = await resolveWorktreeRoot(targetPath);
   return collectEvidence(repositoryRoot);
 }
+
+// continuation observation 的返回值：repository root、完整 HEAD 与三类 evidence。
+export interface ContinuationObservation {
+  repositoryRoot: string;
+  head: string;
+  evidence: GitEvidence;
+}
+
+// continuation observation：Decision/Fix resume 的只读 worktree 观察。与 clean baseline 相同，
+// 解析 owning worktree root、完整 HEAD 与 staged/unstaged/untracked evidence，但不要求 evidence
+// 为空——lineage 的 staged/unstaged/untracked 变更是应保留的 work，不能作为新 Implementation 的
+// dirty 拒绝。任一 observation 失败（missing repo/HEAD、evidence command fatal）都沿调用链抛出，
+// 绝不降级为空 evidence。
+export async function observeContinuation(targetPath: string): Promise<ContinuationObservation> {
+  const repositoryRoot = await resolveWorktreeRoot(targetPath);
+  const head = await resolveBaselineHead(repositoryRoot);
+  const evidence = await collectEvidence(repositoryRoot);
+  return { repositoryRoot, head, evidence };
+}

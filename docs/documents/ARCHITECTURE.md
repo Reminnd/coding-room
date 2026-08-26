@@ -132,7 +132,7 @@ CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不�
 
 这些设计保持 State Machine、SQLite、Git 与 Runner ownership 不变。Fix Task 1–3 已直接覆盖 JSON response、request resource cleanup、write-tool durable rollback、review/question retry/conflict，以及 `room_submit_review` 对 stale succeeded Run / wrong-current 的 MCP public path。Codex Review `review-increment-004-codex-004` 无 finding，Decision 为 `approved`；`npm run typecheck`、MCP 27/27 与全量 186/186 均通过。用户已明确接受并授权提交，bootstrap transport 已 `Superseded`；Room MCP、Status CLI 与 runtime command 现为版本化 Current capability。
 
-### 3.9 Increment 5 Accepted design / Candidate implementation — Decision/Fix continuation
+### 3.9 Increment 5 Current implementation — Decision/Fix continuation
 
 [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认，冻结一个不改变组件所有权的最小 continuation wiring：
 
@@ -141,7 +141,7 @@ CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不�
 - Decision continuation 通过 current answered Question引用的 source Run推导 session/baseline；Fix continuation 通过 current Fix Task的 `based_on_review_id` 指向的 reviewed Run推导。caller不拥有 resume session或baseline。
 - 新 Implementation lineage仍要求 clean worktree；Decision/Fix continuation保留已有 staged/unstaged/untracked changes，只读验证 owning worktree、unchanged `HEAD` 与 inherited baseline。
 
-本 Accepted design不新增 Room state、transition、entity、SQLite field/table、MCP tool、source module、dependency、Runner daemon或 scheduler。Candidate implementation的 Coding 已完成，但 Codex Review `review-increment-005-codex-001` 确认 Question 后 progress 会中断 pause finalization、finalization retry 顺序违反幂等契约、baseline mismatch test 可意外启动真实 Claude 三项 finding，Decision 为 `changes_requested`。用户已确认三项 finding 与最小 solution，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 只修复 progress routing、已完成 finalization 的 retry/conflict 顺序与 deterministic fake-process test isolation，不改变本节 architecture decision。candidate 不能写成 Current capability；用户人工派发只改变本 Task的开发 delivery，不改变产品架构。
+本 Accepted design不新增 Room state、transition、entity、SQLite field/table、MCP tool、source module、dependency、Runner daemon或 scheduler。[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已按确认方案修复 progress routing、已完成 finalization 的 retry/conflict 顺序与 deterministic fake-process isolation；test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已补齐 Contract 点名的 event-order 与 durable zero-side-effect Oracle，未修改 source。Review `review-increment-005-codex-003` 无 finding，用户已明确接受并另行授权提交完整 accepted scope；实现现已进入版本化 `main`，且未产生新的 architecture、state ownership 或 runtime command。
 
 ## 4. 依赖方向
 

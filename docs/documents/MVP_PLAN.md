@@ -6,7 +6,7 @@
 > Increment 3 Integration：Review 1 `changes_requested`  
 > Increment 3 Integration Fix 1：Review 2 `approved` / 用户已接受 / `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
 > Increment 4：用户已接受 / `ACCEPTED` / main commit `44fd34959834b28c8909b589a203e4c48eadc5b0`
-> Increment 5：Fix Task 1 Accepted / `FIX_PLAN_READY` / 等待用户人工派发
+> Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 
 ## 1. 目标
 
@@ -158,7 +158,7 @@ Verification 检测：
 - Fix Task 必须引用现有 Review 与已确认 finding；
 - Fix Run 复用该 lineage 的 session 与 baseline。
 
-当前 Accepted design见 [Increment 5 Task Contract](./INCREMENT_5_TASK_CONTRACT.md)。Contract把已有 primitives收敛为以下最小闭环：Question保存后由 Runner完成 needs-decision Run pause evidence并产生 `run_paused` cursor；answer只在旧 process已停止后生效；Decision/Fix continuation从 persisted Question/Review/source Run推导 exact session与 baseline；新 Implementation仍要求 clean worktree，而 continuation保留 dirty Diff并校验 unchanged `HEAD`。Contract不增加 state/schema/MCP tool/dependency、Runner daemon或 scheduler。Candidate implementation Coding 已完成；Codex Review `review-increment-005-codex-001` 确认三项 finding，Decision 为 `changes_requested`。用户已确认三项最小 solution，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 为 Accepted、`review_fixes_only=true`；candidate 未获用户接受，不标记为 Current。
+当前 Accepted design见 [Increment 5 Task Contract](./INCREMENT_5_TASK_CONTRACT.md)。Contract把已有 primitives收敛为以下最小闭环：Question保存后由 Runner完成 needs-decision Run pause evidence并产生 `run_paused` cursor；answer只在旧 process已停止后生效；Decision/Fix continuation从 persisted Question/Review/source Run推导 exact session与 baseline；新 Implementation仍要求 clean worktree，而 continuation保留 dirty Diff并校验 unchanged `HEAD`。Contract不增加 state/schema/MCP tool/dependency、Runner daemon或 scheduler。[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已闭合 Review 1 的三项实现缺陷，test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已补齐 Contract-named event-order 与 durable zero-side-effect evidence。Review `review-increment-005-codex-003` 无 finding、全量 207/207 独立通过并获用户明确接受；完整 accepted scope 已进入版本化 `main`，现为 Current。
 
 ### 增量 6 — End-to-End MVP
 
@@ -220,4 +220,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已冻结 dual-route actor authority、shared Room snapshot、new-only Implementation clean Git gate、explicit loopback runtime parameters 与 exact MCP SDK dependency。Fix Task 3 的 stale succeeded Run / wrong-current MCP direct regression 已通过，Review `review-increment-004-codex-004` 无 finding，`npm run typecheck`、MCP 27/27 与全量 186/186 通过。用户已接受，implementation 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main` baseline。
 
-[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认，`confirmed_by_user=true`。用户人工派发 Claude Code 已完成 Coding；Codex Review `review-increment-005-codex-001` 确认 Question 后 progress 中断 pause finalization、finalization retry 幂等顺序错误、baseline mismatch test 可意外启动真实 Claude三项 finding，Decision 为 `changes_requested`。用户已确认 finding 与最小方案，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 为 Accepted，当前进入 `FIX_PLAN_READY`；等待用户在原 Increment 5 Claude session 中人工派发。该确认不授权 Coding、真实 Claude smoke、实现 commit、push与其它 Git写操作。
+[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 确认同一 pause stream Question 前后 progress 分界、answer 后 retry/conflict 完整 durable snapshot、baseline mismatch Event/cursor/Room 零副作用三项 Oracle 均闭合，无 finding，Decision 为 `approved`。用户已明确接受并另行授权提交完整 accepted scope；Increment 5 已进入版本化 `main`。真实 Claude smoke、push与后续 Increment 规划仍是独立门禁。

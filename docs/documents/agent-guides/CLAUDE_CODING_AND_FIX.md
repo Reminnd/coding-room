@@ -171,3 +171,13 @@ Contract 冻结 exact capability name 时，定义一个 module-owned `as const`
 leaf test 只负责 process/stream outcome；orchestrator test 负责 outcome 到 protocol error、terminal evidence 与 Room transition 的组合语义。Contract 点名的 asynchronous child error、stdin failure、signal、init、session、terminal 与 CodingResult failure 必须直接调用 central public operation，并断言：测试侧 literal error code、`Room=RUN_FAILED`、`Run=failed`、恰好一次 `run_failed`、零次 `run_completed`，以及场景要求的 session/exit/Git/artifact evidence。
 
 可以参数化 fake process 与 stream lines 来减少重复 setup，但不得从 product classifier、failure-reason set 或 transition table生成期望；否则 implementation 与 Oracle 会同源。
+
+## 12. Stream 状态边界与零副作用 Regression
+
+### 12.1 在同一 fake process 内跨越 durable state transition
+
+当 Fix 要求某类 progress 在 state transition 前写入、transition 后停止写入时，测试必须使用同一 `runClaude`/process execution。先发送 interpreter 可识别的非终态 line并确认它产生预期 Event，再调用真实 RoomService public method提交 durable transition，随后发送另一条可识别非终态 line与 terminal。最终用 Event sequence断言 transition前 Event存在且排序正确、transition后无新增同类 Event，并核对单一 terminal/pause settlement。不要用独立 service test、另一个 success Run或 init/result 这类返回 `null` 的 line替代该边界。
+
+### 12.2 validation-before-spawn 同时证明 durable 与 external side effect 为零
+
+若 Contract 声明 validation 在 Run、process、artifact与 Event创建前失败，测试在调用前保存完整 Room/相关entity/Event list/cursor snapshot，并在拒绝后 `deepEqual`；同时注入 recording/throwing fake spawner，断言 invocation count为零、新Run不存在且artifact owner path不存在。幂等 retry与`id_conflict`也分别在每次调用前保存完整 public snapshot，不只比较selected field或Event count。期望使用测试侧literal与public read method，不从private signature/helper生成。

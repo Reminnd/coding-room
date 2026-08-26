@@ -30,6 +30,14 @@ export interface RunTerminalEvidence {
   artifact_refs: string[];
 }
 
+// 只读 continuation context：Runner 在 spawn 前据此推导 Decision/Fix resume 的 exact session、
+// baseline 与 answered Question，不接受 caller 覆盖这些 authority。new_implementation 表示首次
+// Implementation（或 RUN_FAILED retry）走 clean-baseline start，不继承任何 lineage。
+export type ContinuationContext =
+  | { kind: 'new_implementation'; sourceRun: null; question: null; review: null }
+  | { kind: 'decision'; sourceRun: Run; question: Question; review: null }
+  | { kind: 'fix'; sourceRun: Run; question: null; review: Review };
+
 // application service 是唯一拥有 rooms.state 修改权限的模块。每个公开方法都在单个
 // SQLite transaction 内完成 entity write、state change 与 Event append，失败即回滚。
 export class RoomService {
@@ -122,6 +130,7 @@ export class RoomService {
         return { room: this.requireRoom(run.room_id), run: this.requireRun(run.run_id), created: false };
       }
       this.assertCurrentTask(run);
+      this.assertStartableState(run);
       this.applyTransition(run.room_id, 'CODING', 'runner');
       this.repo.appendEvent({
         room_id: run.room_id,
@@ -145,6 +154,7 @@ export class RoomService {
         return { room: this.requireRoom(run.room_id), run: this.requireRun(run.run_id), created: false };
       }
       this.assertCurrentTask(run);
+      this.assertResumableState(run);
       this.applyTransition(run.room_id, 'CODING', 'runner');
       this.repo.appendEvent({
         room_id: run.room_id,
@@ -322,6 +332,10 @@ export class RoomService {
       if (question.status !== 'open') {
         throw new ProtocolError('validation_failed', `question ${questionId} is not open`);
       }
+      // answer 前必须确认该 Question 是 Room 最新 question_asked 引用的 open Question、
+      // source Run 为 current needs_decision Run 且已完成 pause finalization（completed_at
+      // 非 null），避免旧 process 与 resume process 并行修改同一 worktree。
+      this.assertAnswerableQuestion(question);
       const answered: Question = {
         ...question,
         status: 'answered',
@@ -344,6 +358,78 @@ export class RoomService {
       });
       return { room: this.requireRoom(question.room_id), question: answered };
     });
+  }
+
+  // needs-decision Run 的 pause finalization：Claude process 退出后 Runner 调用，把已观察的
+  // session/exit/result/failure/Git/artifact evidence 与 completed_at 原子写回同一 needs_decision
+  // Run，保持 Room=NEEDS_DECISION、Run.status=needs_decision，并追加恰好一个 run_paused Event。
+  // 相同 finalization payload 的 retry 返回既有 Run 且不重复 Event，不同 payload 以 id_conflict 拒绝。
+  finalizeNeedsDecision(
+    runId: string,
+    result: CodingResult | null,
+    failure: { code: string; message: string } | null,
+    evidence: RunTerminalEvidence,
+  ): { room: RoomRecord; run: Run; created: boolean } {
+    return this.tx(() => {
+      const run = this.requireRun(runId);
+      if (run.completed_at !== null) {
+        // 已 finalize：先按已持久化 result/failure/evidence 与 incoming payload 比较，作为幂等
+        // retry / conflict 边界。该判定不依赖 Question 仍 open 或 Room 仍在首次 finalization
+        // state，故须在首次 lifecycle guard 之前执行，保证 answer 后同 payload retry 仍幂等。
+        const existingSignature = this.runPauseSignature(run);
+        const incomingSignature = this.pausePayloadSignature(result, failure, evidence);
+        if (existingSignature === incomingSignature) {
+          return { room: this.requireRoom(run.room_id), run, created: false };
+        }
+        throw new ProtocolError('id_conflict', `run ${runId} already pause-finalized with a different payload`);
+      }
+      this.assertNeedsDecisionFinalizable(run);
+      const updated: Run = {
+        ...run,
+        result,
+        failure,
+        claude_session_id: evidence.claude_session_id,
+        process_exit_code: evidence.process_exit_code,
+        git_evidence: evidence.git_evidence,
+        artifact_refs: evidence.artifact_refs,
+        completed_at: this.now(),
+      };
+      this.repo.updateRun(updated);
+      this.repo.appendEvent({
+        room_id: run.room_id,
+        type: 'run_paused',
+        actor: 'runner',
+        entity_type: 'run',
+        entity_id: runId,
+        summary: `run ${runId} paused for decision`,
+        created_at: this.now(),
+      });
+      return { room: this.requireRoom(run.room_id), run: updated, created: true };
+    });
+  }
+
+  // 只从当前 Room/Task 与既有 Event/reference 推导 continuation kind、source Run、exact
+  // baseline/session 与 answered Question，不接受 caller 覆盖。该 boundary 在 spawn 前由
+  // Runner 调用，任何 stale/wrong-state 都以 validation_failed 拒绝。
+  getContinuationContext(roomId: string, taskId: string): ContinuationContext {
+    const room = this.requireRoom(roomId);
+    const task = this.requireTask(taskId);
+    if (task.room_id !== roomId) {
+      throw new ProtocolError('validation_failed', `task ${taskId} is not in room ${roomId}`);
+    }
+    if (task.task_id !== this.currentTaskId(roomId)) {
+      throw new ProtocolError('validation_failed', `task ${taskId} is not the current task of room ${roomId}`);
+    }
+    switch (room.state) {
+      case 'PLAN_READY':
+        return { kind: 'new_implementation', sourceRun: null, question: null, review: null };
+      case 'NEEDS_DECISION':
+        return this.deriveDecisionContinuation(roomId, task);
+      case 'FIX_PLAN_READY':
+        return this.deriveFixContinuation(roomId, task);
+      default:
+        throw new ProtocolError('validation_failed', `room ${roomId} state ${room.state} cannot start a run`);
+    }
   }
 
   // ---- Review (codex) ----
@@ -545,6 +631,170 @@ export class RoomService {
     if (run.status !== 'running') {
       throw new ProtocolError('validation_failed', `run ${run.run_id} is not running (status ${run.status})`);
     }
+  }
+
+  // startRun 只用于新 Implementation lineage（PLAN_READY）或 RUN_FAILED retry；NEEDS_DECISION
+  // 与 FIX_PLAN_READY 必须 resumeRun（继承 lineage session/baseline）。guard 只在 newly
+  // inserted Run 上执行，不误伤同 ID/同 content 的 retry。
+  private assertStartableState(run: Run): void {
+    const room = this.requireRoom(run.room_id);
+    if (room.state === 'NEEDS_DECISION' || room.state === 'FIX_PLAN_READY') {
+      throw new ProtocolError(
+        'validation_failed',
+        `startRun cannot be used in ${room.state}; use resumeRun to continue the lineage`,
+      );
+    }
+  }
+
+  // resumeRun 要求存在 prior lineage Run：NEEDS_DECISION（decision）与 FIX_PLAN_READY（fix）
+  // 必然有先前的 source Run；PLAN_READY 只有 RUN_FAILED retry（已有 prior Run）才允许 resume，
+  // 首次 Implementation 必须 startRun。guard 只在 newly inserted Run 上执行。
+  private assertResumableState(run: Run): void {
+    const room = this.requireRoom(run.room_id);
+    if (room.state === 'PLAN_READY' && !this.hasPriorRun(run.room_id)) {
+      throw new ProtocolError(
+        'validation_failed',
+        'resumeRun requires a prior lineage Run; first PLAN_READY must use startRun',
+      );
+    }
+  }
+
+  // 任一 run_started/run_resumed Event 存在即表示已有 prior lineage Run。首 Run 一定由
+  // startRun 产生 run_started，resumeRun 永远只在既有 lineage 之后发生。
+  private hasPriorRun(roomId: string): boolean {
+    return (
+      this.repo.latestEventEntityId(roomId, 'run_started') !== null ||
+      this.repo.latestEventEntityId(roomId, 'run_resumed') !== null
+    );
+  }
+
+  // answer 前 gate：source Run 必须是 current needs_decision Run，且 pause finalization 已完成。
+  // Question 的 currency 由最新 question_asked Event reference 决定，不扫描 JSON content 猜 identity。
+  private assertAnswerableQuestion(question: Question): void {
+    const room = this.requireRoom(question.room_id);
+    if (room.state !== 'NEEDS_DECISION') {
+      throw new ProtocolError('validation_failed', `room ${question.room_id} is not NEEDS_DECISION`);
+    }
+    if (question.question_id !== this.repo.latestEventEntityId(question.room_id, 'question_asked')) {
+      throw new ProtocolError('validation_failed', `question ${question.question_id} is not the current open question`);
+    }
+    const run = this.requireRun(question.run_id);
+    if (run.status !== 'needs_decision') {
+      throw new ProtocolError('validation_failed', `question ${question.question_id} source run ${run.run_id} is not needs_decision`);
+    }
+    if (run.room_id !== question.room_id || run.task_id !== question.task_id) {
+      throw new ProtocolError('validation_failed', `question ${question.question_id} source run ${run.run_id} does not match task/room`);
+    }
+    if (run.completed_at === null) {
+      throw new ProtocolError('validation_failed', `question ${question.question_id} source run ${run.run_id} has not been pause-finalized`);
+    }
+  }
+
+  // pause finalization 的前置：只接受 current Run 已 needs_decision、Room=NEEDS_DECISION、最新
+  // question_asked 引用的 open Question 与该 Run 的 task/room/run 一致的场景。Question 必须在
+  // finalize 前保持 open（answer 会把它置为 answered）。
+  private assertNeedsDecisionFinalizable(run: Run): void {
+    if (run.status !== 'needs_decision') {
+      throw new ProtocolError('validation_failed', `run ${run.run_id} is not needs_decision (status ${run.status})`);
+    }
+    const room = this.requireRoom(run.room_id);
+    if (room.state !== 'NEEDS_DECISION') {
+      throw new ProtocolError('validation_failed', `room ${run.room_id} is not NEEDS_DECISION`);
+    }
+    const questionId = this.repo.latestEventEntityId(run.room_id, 'question_asked');
+    if (questionId === null) {
+      throw new ProtocolError('validation_failed', `room ${run.room_id} has no open question for pause finalization`);
+    }
+    const question = this.requireQuestion(questionId);
+    if (question.status !== 'open') {
+      throw new ProtocolError('validation_failed', `question ${questionId} is not open for pause finalization`);
+    }
+    if (question.run_id !== run.run_id || question.task_id !== run.task_id || question.room_id !== run.room_id) {
+      throw new ProtocolError('validation_failed', `question ${questionId} does not reference run ${run.run_id} task/room`);
+    }
+  }
+
+  // pause payload 的稳定签名：比较 pause evidence 是否与既有 Run 一致，用于 idempotent retry /
+  // id_conflict。result/failure 已经过 schema normalization，JSON.stringify 的 key 顺序稳定。
+  private pausePayloadSignature(
+    result: CodingResult | null,
+    failure: { code: string; message: string } | null,
+    evidence: RunTerminalEvidence,
+  ): string {
+    return JSON.stringify([
+      evidence.claude_session_id,
+      evidence.process_exit_code,
+      result,
+      failure,
+      evidence.git_evidence,
+      evidence.artifact_refs,
+    ]);
+  }
+
+  private runPauseSignature(run: Run): string {
+    return JSON.stringify([
+      run.claude_session_id,
+      run.process_exit_code,
+      run.result,
+      run.failure,
+      run.git_evidence,
+      run.artifact_refs,
+    ]);
+  }
+
+  private deriveDecisionContinuation(roomId: string, task: TaskContract): ContinuationContext {
+    const questionId = this.repo.latestEventEntityId(roomId, 'question_asked');
+    if (questionId === null) {
+      throw new ProtocolError('validation_failed', `room ${roomId} has no question for decision continuation`);
+    }
+    const question = this.requireQuestion(questionId);
+    if (question.status !== 'answered') {
+      throw new ProtocolError('validation_failed', `question ${questionId} is not answered`);
+    }
+    if (question.answer_changes_contract !== false) {
+      throw new ProtocolError('validation_failed', `question ${questionId} changes the contract and cannot be resumed`);
+    }
+    if (question.task_id !== task.task_id || question.room_id !== roomId) {
+      throw new ProtocolError('validation_failed', `question ${questionId} does not match task ${task.task_id}/room ${roomId}`);
+    }
+    const run = this.requireRun(question.run_id);
+    if (run.status !== 'needs_decision') {
+      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} is not needs_decision`);
+    }
+    if (run.room_id !== roomId || run.task_id !== task.task_id) {
+      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} does not match task/room`);
+    }
+    if (run.completed_at === null) {
+      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} has not been pause-finalized`);
+    }
+    if (run.claude_session_id === null || run.claude_session_id === '') {
+      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} has no session to resume`);
+    }
+    return { kind: 'decision', sourceRun: run, question, review: null };
+  }
+
+  private deriveFixContinuation(roomId: string, task: TaskContract): ContinuationContext {
+    if (task.type !== 'fix') {
+      throw new ProtocolError('validation_failed', `room ${roomId} is FIX_PLAN_READY but task ${task.task_id} is not a fix task`);
+    }
+    const review = this.requireReview(task.based_on_review_id ?? '');
+    if (review.room_id !== roomId || review.task_id !== task.parent_task_id) {
+      throw new ProtocolError('validation_failed', `fix task ${task.task_id} review ${review.review_id} does not target parent task`);
+    }
+    if (review.review_id !== this.currentReviewId(roomId)) {
+      throw new ProtocolError('validation_failed', `fix task ${task.task_id} review ${review.review_id} is not current`);
+    }
+    const run = this.requireRun(review.run_id);
+    if (run.status !== 'succeeded') {
+      throw new ProtocolError('validation_failed', `fix source run ${run.run_id} is not succeeded`);
+    }
+    if (run.room_id !== roomId || run.task_id !== review.task_id) {
+      throw new ProtocolError('validation_failed', `fix source run ${run.run_id} does not match review task/room`);
+    }
+    if (run.claude_session_id === null || run.claude_session_id === '') {
+      throw new ProtocolError('validation_failed', `fix source run ${run.run_id} has no session to resume`);
+    }
+    return { kind: 'fix', sourceRun: run, question: null, review };
   }
 
   private currentReviewId(roomId: string): string | null {

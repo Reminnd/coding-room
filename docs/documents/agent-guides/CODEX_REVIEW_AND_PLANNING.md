@@ -261,3 +261,13 @@ Central regression 至少同时断言测试侧 literal error code、`Room=RUN_FA
 ### 12.3 Lifecycle 文档必须反映真实执行顺序
 
 Review Runner lifecycle 时，transition table、Architecture failure table 与代码顺序必须描述同一链路。例如 atomic claim 先进入 `CODING`，随后执行 process startup/MCP init，失败再走 `CODING → RUN_FAILED`；不能在一处把 MCP init 写成进入 `CODING` 的前置条件，另一处又让 init failure 从 `CODING` 结束。若现有已批准 state/transition 能表达真实顺序，优先修正文档和实现次序，不为文字冲突新增中间 state。
+
+## 13. Increment 5 Fix 经验：同一执行边界与完整零副作用 Oracle
+
+### 13.1 stream 内状态切换必须由同一 execution 证明
+
+当 finding 约束“状态切换前允许、切换后禁止”的 stream/process 行为时，分开的 unit test、只发送 interpreter 忽略的 line，或只检查最终 Event 总数都不能证明时间边界。Regression 必须在同一 public execution 内依次产生：切换前可识别的非终态输入、真实 durable state transition、切换后可识别的非终态输入与 terminal settlement；再用 Event sequence 证明切换前 evidence 已提交、切换后没有同类 durable evidence，并同时断言最终 settlement。这样才能区分“整个路径从未记录 progress”与“只在状态切换后停止记录”。
+
+### 13.2 零副作用结论必须覆盖 Contract 声称的全部 authority
+
+Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时，不能只检查 error code 或下游 callback count。应在 operation 前保存 public durable snapshot，并在失败后比较完整 Room、相关 entity、Event list 与 cursor；同时按该 boundary 断言零 process invocation、零新 Run 与零 artifact。对已完成 command 的 same-payload retry 与 different-payload conflict，应分别在每次 operation 前保存完整 snapshot并在 operation 后 `deepEqual`，避免 selected field 或 Event count 掩盖其它 durable write。

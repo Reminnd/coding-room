@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-26
-> Last maintained review：`review-increment-005-codex-001`
+> Last maintained review：`review-increment-005-codex-003`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -103,7 +103,7 @@ Git Observer 只执行 `rev-parse`、`diff` 与 `ls-files`；不会 stage、comm
 
 artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`，`artifact_refs` 使用 repository-root-relative path。Runner本身没有 package script或 launcher command；真实 Claude smoke需经用户明确授权，coding只使用 fake-process fixture。
 
-Current `main` baseline 的 `runClaude(input)` 仍由 caller提供 `mode`、`resumeSessionId` 与 `expectedBaselineHead`，并对 start/resume统一执行 clean-worktree gate；它已验证底层 process/stream/terminal能力，但尚未形成 Question/Fix product continuation。该缺口的 Increment 5 Candidate implementation Coding 已完成：改写 `runClaude` 从 SQLite lineage（`getContinuationContext`）推导 mode/session/baseline、用 `observeContinuation` 取代 continuation 的 clean gate、以 `finalizeNeedsDecision` 持久化 pause evidence 与 `run_paused` Event；Codex Review 1 为 `changes_requested`，Fix Task 1 已 Accepted但尚未人工派发/再次 Review/用户接受，未进入 `main`。
+Current `main` baseline 的 `runClaude(input)` 已从 SQLite lineage（`getContinuationContext`）推导 mode/session/baseline，用 `observeContinuation` 对 continuation 执行 dirty-allowed、exact-HEAD gate，并以 `finalizeNeedsDecision` 持久化 pause evidence 与 `run_paused` Event。Increment 5、Fix Task 1 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已完成 Coding、Review、用户接受与版本化提交；三项 direct regression Oracle 已闭合。
 
 ## 4. Current MCP 外部接口
 
@@ -138,17 +138,17 @@ npm run room:status -- --db <path> --room-id <id>
 
 成功时 stdout 输出 deterministic pretty JSON 且 exit 0；invalid args、missing Room 或无法读取 database 时 stderr 输出原因并 non-zero exit。raw MCP response 为 `application/json`；`room:status` 只读且既存空 database 不创建 schema，`room:serve` 在 open database 前拒绝 invalid project。
 
-### 4.2 Increment 5 Accepted design / Candidate implementation（Review 1 changes_requested）
+### 4.2 Increment 5 Current implementation
 
-[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认，Candidate implementation Coding 已完成；Review `review-increment-005-codex-001` 发现 2 个 High 与 1 个 Medium finding，Decision 为 `changes_requested`。用户已确认三项最小 solution，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 为 Accepted、尚未人工派发，因此 candidate 仍不可用于 runtime：
+[Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Increment 5 Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 无 finding，Decision 为 `approved`；用户已明确接受并另行授权提交完整 accepted scope。以下现为版本化 `main` 的 Current application behavior：
 
 - Runner在 durable Question使 Room进入 `NEEDS_DECISION` 后，用 `finalizeNeedsDecision` 对同一 Run持久化 pause evidence（`claude_session_id`、`process_exit_code`、result/failure、`git_evidence`、`artifact_refs`、`completed_at`）并追加 `run_paused` Event；`answerQuestion` 在 pause finalization 完成前拒绝（answer-before-pause gate）。
 - contract内 Decision与 Review-confirmed Fix经 `getContinuationContext` 从 SQLite lineage（answered Question / Review 引用的 reviewed Run）推导 exact session/baseline，`runClaude` 据此 resume；continuation 用 `observeContinuation`（dirty-allowed）保留既有 worktree changes 并只读验证 owning repository 的 `HEAD` 等于 inherited baseline。
 - continuation继续复用 current `runClaude` process/stream/artifact/Git pipeline，不增加 MCP tool、package script、Runner CLI、daemon或 scheduler；failure 边界沿用既有 `claude_start_failed`/`claude_exit_failed`/`git_evidence_failed`/`artifact_write_failed` 单一 terminal settlement。
 
-Review 1 发现：Question 将 Run 切为 `needs_decision` 后，后续正常 stream progress 仍调用只接受 `running` 的 `appendRunProgress`，可在 `finalizeNeedsDecision` 前中断 pause settlement；`finalizeNeedsDecision` 在判断既有 `completed_at` 的 retry/conflict 前要求 Question 仍 open，使 answer 后的同 payload retry 不再幂等；lineage `HEAD` drift regression 用末位替换为 `0` 构造 expected hash，真实 `HEAD` 末位为 `0` 时不会形成 mismatch，并因未注入 fake spawner 而进入真实 Claude process path。已确认 Fix 保持 running-only progress invariant、让 completed finalization retry/conflict 先于首次 lifecycle guard，并以 guaranteed-unequal hash + injected spawner 证明零 process start；candidate 在再次 Review 与用户接受前不提升为 Current。
+Review 3 证据：同一 fake process 中 Question 前 recognized progress 产生恰好一个 sequence 更小的 `run_progress`，Question 后 recognized progress 不再新增该 Event；answer 后 same-payload retry 与 different-payload conflict 分别对完整 Run/Question/Room/Event/cursor snapshot 保持 `deepEqual`；baseline mismatch 对 Room/Event/cursor 零副作用且零 spawn、零 Run、零 artifact。typecheck、聚焦 82/82、Git/MCP/Scope 45/45 与全量 207/207 均独立通过。用户已接受，完整 accepted scope 已进入版本化 `main`。
 
-当前 repository没有 Room runtime database，也没有 Room initialization或 Runner launcher command；本 Increment的 continuation behavior 仍只是 TypeScript application API candidate，未进入 `main`，operator 无法通过任何 command 调用。Coding process、真实 Claude smoke、实现 commit、push与其它 Git写操作保持独立授权门禁；在修复测试隔离前不得把全量 test suite 视为不会启动真实 Claude 的纯 fake-process verification。
+当前 repository没有 Room runtime database，也没有 Room initialization或 Runner launcher command；本 Increment的 continuation behavior 已是版本化 TypeScript application API，但 operator 仍无法通过任何 command 调用。真实 Claude smoke、push与其它 Git写操作保持独立授权门禁；Review 3 已验证全量 207/207 使用 fake-process boundary且未启动真实 Claude。
 
 ## 5. 人工操作命令
 
@@ -219,6 +219,8 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-004-codex-002` | `changes_requested` / finding 与 solution 已确认 | JSON response、Status read-only、startup gate 与 typecheck 已闭环；cleanup abort/internal-failure 及 durable Event/cursor/idempotency public-path evidence 不完整 | [Fix Task 2](./INCREMENT_4_FIX_TASK_2.md) 已 Accepted；保持 MCP/CLI/runtime unavailable，等待用户人工派发 |
 | `review-increment-004-codex-003` | `changes_requested` / finding 与 solution 已确认 | actual cleanup 与多数 durable rollback/retry/conflict evidence 已闭环；`room_submit_review` stale succeeded Run / wrong-current MCP direct regression 缺失 | [Fix Task 3](./INCREMENT_4_FIX_TASK_3.md) 已 Accepted；保持 MCP/CLI/runtime unavailable，等待用户人工派发 |
 | `review-increment-004-codex-004` | `approved` / 用户已接受并授权提交 | stale succeeded Run / wrong-current MCP direct regression 已闭环；无 architecture/protocol version change | bootstrap 已 `Superseded`；Increment 4 进入版本化 `main` baseline |
-| `review-increment-005-codex-001` | `changes_requested` / finding 与 solution 已确认 | pause 后 progress 可阻断 finalization；answer 后 finalization retry 失去幂等；HEAD drift regression 可能启动真实 Claude | [Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已 Accepted；保持 candidate，等待用户人工派发 |
+| `review-increment-005-codex-001` | `changes_requested` / finding 与 solution 已确认 | pause 后 progress 可阻断 finalization；answer 后 finalization retry 失去幂等；HEAD drift regression 可能启动真实 Claude | [Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已 Accepted并完成 Coding；见 Review 2 |
+| `review-increment-005-codex-002` | `changes_requested` / finding 与 solution 已确认 | 三项实现修复正确且 full suite 为纯 fake-process 207/207；Fix regression 对同一 stream progress 分界、answer 后完整 durable snapshot、baseline mismatch 零副作用的直接 Oracle 不完整 | [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已 Accepted并完成 Coding；见 Review 3 |
+| `review-increment-005-codex-003` | `approved` / 用户已接受并授权提交 | 三项 Contract-named test Oracle 均闭合；无 source/protocol/state/schema/Event/dependency变化 | 完整 accepted scope 已进入版本化 `main`；continuation 为 Current application capability |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。
