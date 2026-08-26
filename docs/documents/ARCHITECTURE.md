@@ -141,7 +141,7 @@ CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不�
 - Decision continuation 通过 current answered Question引用的 source Run推导 session/baseline；Fix continuation 通过 current Fix Task的 `based_on_review_id` 指向的 reviewed Run推导。caller不拥有 resume session或baseline。
 - 新 Implementation lineage仍要求 clean worktree；Decision/Fix continuation保留已有 staged/unstaged/untracked changes，只读验证 owning worktree、unchanged `HEAD` 与 inherited baseline。
 
-本 Accepted design不新增 Room state、transition、entity、SQLite field/table、MCP tool、source module、dependency、Runner daemon或 scheduler。Coding、Review和用户接受前，Candidate implementation仍不存在，不能写成 Current capability。用户选择暂时人工派发；这只改变本 Task的开发 delivery，不改变产品架构。
+本 Accepted design不新增 Room state、transition、entity、SQLite field/table、MCP tool、source module、dependency、Runner daemon或 scheduler。Candidate implementation的 Coding 已完成，但 Codex Review `review-increment-005-codex-001` 确认 Question 后 progress 会中断 pause finalization、finalization retry 顺序违反幂等契约、baseline mismatch test 可意外启动真实 Claude 三项 finding，Decision 为 `changes_requested`。用户已确认三项 finding 与最小 solution，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 只修复 progress routing、已完成 finalization 的 retry/conflict 顺序与 deterministic fake-process test isolation，不改变本节 architecture decision。candidate 不能写成 Current capability；用户人工派发只改变本 Task的开发 delivery，不改变产品架构。
 
 ## 4. 依赖方向
 

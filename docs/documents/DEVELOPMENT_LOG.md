@@ -3,15 +3,54 @@
 ## 当前状态
 
 - 日期：2026-08-26
-- 项目阶段：PLAN_READY / Increment 5 Accepted Contract / 用户人工派发
+- 项目阶段：FIX_PLAN_READY / Increment 5 Fix Task 1 Accepted / 等待用户人工派发
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：用户已批准
-- Implementation Task：`increment-005-decision-fix-resume` 为 Accepted、`confirmed_by_user=true`；用户选择暂时自行人工派发，Codex只提供指令
+- Implementation Task：`increment-005-decision-fix-resume` 为 Accepted、`confirmed_by_user=true`；Coding 已完成，Review `review-increment-005-codex-001` 的 2 个 High 与 1 个 Medium finding/solution 已获用户确认；[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 为 Accepted、`review_fixes_only=true`，尚未人工派发/Coding/再次 Review/用户接受
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status；`main` Current implementation）
-- Git repository：Increment 5 Accepted planning/state文档已形成 clean `main` documentation baseline；派发前以 live Git读取 exact `HEAD`并确认 staged、unstaged、untracked均为空
+- Git repository：原 Increment 5 lineage baseline 为 `bcb9a9f9da451d64b4787d3967c0032cbc453602`；用户已授权把 Accepted Fix Task 1 与本次 Codex Review/planning/state文档作为 exact docs-only descendant commit提交，source/test candidate继续保持未提交、0 staged、未 push。exact dispatch `HEAD` 在 commit 后从 live Git读取并随人工指令报告
 
 ## 已完成
+
+### 2026-08-26 — Increment 5 Fix Task 1 docs-only commit 与人工派发授权
+
+- 用户明确要求完成 Accepted Fix Task文档提交，并继续由自己人工派发；授权的 Git scope只包含 `PROJECT_RULES.md`、Increment 5 Fix Task 1与本次 Codex Review/planning/state的八个 `docs/documents/`路径，不包含任何source、test、package、runtime或artifact。
+- 原 Implementation lineage baseline继续为`bcb9a9f9da451d64b4787d3967c0032cbc453602`。本次docs-only commit只允许让manual dispatch `HEAD`成为该baseline的descendant；派发前必须验证ancestry、commit path、0 staged与既有source/test candidate path set。人工delivery不调用candidate `runClaude`，因此不为产品exact-HEAD gate增加runtime例外。
+- Fix Coding仍由用户在原Increment 5 Claude session中人工派发；Claude不得执行任何Git写操作。Codex后续Review从原lineage baseline读取docs commit与未提交Fix candidate的完整task-owned Diff。
+- 本节不预写commit自身hash；exact commit与派发`HEAD`由commit完成后的live Git输出作为权威证据。
+- Documentation impact audit：`documentation: updated`。只具体化经用户授权的docs-only commit/manual dispatch metadata，不改变confirmed finding、Fix solution、product architecture、Room protocol或candidate Current状态。
+
+### 2026-08-26 — Increment 5 Review 1 方案确认与 Fix Task 1
+
+- 用户明确确认 `review-increment-005-codex-001` 的三项 finding 与最小 solution：Question durable 后不再把后续非终态 stream progress 交给 running-only `appendRunProgress`，但继续消费 stdout/artifact/terminal 并完成 pause settlement；completed finalization 先按已持久化 payload 处理 retry/conflict，只有首次 finalization 执行 open-Question lifecycle guard；baseline mismatch regression 使用 guaranteed-unequal valid hash、injected fake/throwing spawner 与零 invocation assertion。
+- 已创建 [Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md)，状态为 Accepted、`confirmed_by_user=true`、`review_fixes_only=true`，只允许最小修改 `src/runner/claude-runner.ts`、`src/room/room-service.ts`、对应两个 test 与 candidate Development Log；不新增或修改 state/schema/Event/protocol/MCP/dependency/Runner CLI。
+- Fix 继续复用原 Implementation lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602`、当前 `main` dirty candidate 与原 Increment 5 Claude session；不重新执行 clean-worktree gate，不覆盖或拆分既有 candidate。
+- 当前进入 `FIX_PLAN_READY`，等待用户人工派发。此次确认不授权 Codex 启动 Claude，也不授权真实 Claude smoke、stage、commit、push、branch/worktree、reset、restore、clean 或清理。
+- Documentation impact audit：`documentation: updated`。新增 Accepted Fix Contract并同步 Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP、Operations与当前开发状态；candidate 未提升为 Current。
+
+### 2026-08-26 — Increment 5 Review 1（changes_requested）
+
+- Codex 以 lineage baseline `bcb9a9f9da451d64b4787d3967c0032cbc453602` 核对 Accepted Contract、Coding Result、完整 staged/unstaged/untracked candidate、source/test/document Diff 与独立验证；Review ID 为 `review-increment-005-codex-001`，Decision 为 `changes_requested`。
+- High `inc5-r1-pause-progress-after-question`：`room_ask_question` 将 Run 持久化为 `needs_decision` 后，后续正常 Claude stream progress 仍调用只接受 `running` 的 `appendRunProgress`，可抛出 `validation_failed` 并在 `finalizeNeedsDecision` 前中断 pause settlement。既有 fake-process tests 在 Question 后只发出 interpreter 忽略的 `init`/`result`，未覆盖真实可达顺序。
+- High `inc5-r1-baseline-test-real-claude`：lineage HEAD drift regression 通过把真实 hash 末位替换为 `0` 构造 expected hash；当真实 `HEAD` 本身以 `0` 结尾时没有 mismatch，且该测试未注入 fake spawner，会进入本机真实 Claude process path。本次 `npm test` 即以 60.6 秒失败于 “Missing expected rejection”，全量结果为 205/206。
+- Medium `inc5-r1-finalization-idempotency-order`：`finalizeNeedsDecision` 在检查既有 `completed_at` payload retry/conflict 前要求 latest Question 仍 open；成功 finalization 并 answer 后，同 payload retry 返回 `validation_failed`，不再满足 Contract 的幂等返回既有 Run 语义。
+- 最小方向分别为：在 Question durable 后停止把后续 stream progress 追加到只接受 `running` 的 Room progress path，并补真实事件顺序 regression；先按已完成 Run 的持久化 payload 判定 retry/conflict，再只对首次 finalization 执行 open-Question lifecycle guard；构造 guaranteed-unequal valid hash 并注入 asserting fake/throwing spawner，证明 mismatch 在 process start 前拒绝。三个方向均不新增 state/schema/MCP/dependency，待用户确认后才能形成 `review_fixes_only` Fix Task。
+- Documentation impact audit：`documentation: updated`。同步 Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations 与本日志为 Review 1 `changes_requested`；未把 candidate 提升为 Current，未修改业务代码、测试或实现配置。
+
+### 2026-08-26 — Increment 5 Coding 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 5 Task Contract](./INCREMENT_5_TASK_CONTRACT.md) 交付 Decision/Fix continuation 的最小编排，lineage baseline `HEAD` 为 `bcb9a9f9da451d64b4787d3967c0032cbc453602`，0 staged，未执行任何 Git 写操作：
+
+- `src/room/room-service.ts`：新增 `ContinuationContext` type（`new_implementation` / `decision` / `fix`）；`startRun`/`resumeRun` 在 `assertCurrentTask` 之后分别执行 `assertStartableState`（拒绝 `NEEDS_DECISION`/`FIX_PLAN_READY`）与 `assertResumableState`（拒绝无 prior Run 的 `PLAN_READY`）；`answerQuestion` 在 open 检查后执行 `assertAnswerableQuestion`（source Run 未 pause-finalized 时拒绝）。新增 public `finalizeNeedsDecision(runId, result, failure, evidence)`（单 transaction：校验 `assertNeedsDecisionFinalizable`；`completed_at` 已存在时比较 `runPauseSignature` 与 `pausePayloadSignature`，相等→返回既有、不等→`id_conflict`；否则写 evidence+`completed_at`、追加 `run_paused` Event、保持 `needs_decision` status、不 `applyTransition`）与 `getContinuationContext(roomId, taskId)`（从 persisted Question/Review lineage 推导 continuation）。
+- `src/git/git-observer.ts`：新增 `ContinuationObservation` interface 与 `observeContinuation(targetPath)`，返回 `{repositoryRoot, head, evidence}`，dirty-allowed、不执行 clean gate、失败向上抛。
+- `src/runner/claude-runner.ts`：改写 `runClaude`，移除 caller 提供的 `mode`/`resumeSessionId`；改由 `getContinuationContext` 决定——`new_implementation` 走 `establishCleanBaseline`（mode=start），`decision`/`fix` 走 `observeContinuation` 并校验 `HEAD === sourceRun.baseline_head`（mode=resume、`resumeSessionId=sourceRun.claude_session_id`）。`executeRun` 用 `getRun(runId).status === 'needs_decision'` 分流：true→`classifyNeedsDecisionPause`→`finalizeNeedsDecision`，false→`classifyTerminal`→`completeRun`/`failRun`。
+
+- tests（fake-process matrix，覆盖 decision/fix continuation、answer_changes_contract 拒绝、lineage `HEAD` drift 与 needs-decision pause settlement）：`tests/claude-runner.test.ts`（`makeQuestion`/`makeDecisionReadyService`/`makeFixContinuationReadyService`，移除 `mode`/`resumeSessionId`，新增 4 项 continuation + 5 项 pause settlement）、`tests/room-service.test.ts`（`finalizeNeedsDecision` 持久化/幂等/冲突/reject-after-answered、answer-before-pause gate、start/resume wrong-mode guard、`getContinuationContext` 推导与拒绝）、`tests/git-observer.test.ts`（`observeContinuation` dirty-allowed、subdirectory root、fatal failure、non-repo、unborn HEAD）、`tests/room-mcp.test.ts`（pause-finalized gate、fix flow `resumeRun`）、`tests/room-state-snapshot.test.ts`（`finalizeNeedsDecision` 前置）、`tests/scope.test.ts`（test name Increment 5）。
+
+Coding Result 报告的验证为：`npm run typecheck` 通过；`node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"` 81/81；`node --test "tests/git-observer.test.ts" "tests/room-mcp.test.ts"` 44/44；`node --test "tests/scope.test.ts"` 1/1；`npm test` 206/206。Review 独立验证的当前事实以上一节为准。未 commit、未 stage、未执行 branch/worktree/push/清理；candidate 未提升为 Current。
+
+Documentation impact audit：`documentation: updated`。同步 Architecture §3.9、ROOM_PROTOCOL §12.1、ADR-0002、MVP Plan、Operations §4.2 与开发状态为「Coding 完成、candidate、未 Review/接受」；未把 Increment 5 写成 Current capability。
 
 ### 2026-08-26 — Increment 5 documentation baseline 与人工派发门禁
 
@@ -509,6 +548,21 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 验证
 
+### 2026-08-26 — Increment 5 Review 1 独立验证
+
+- `npm run typecheck`：通过。
+- 聚焦 suite：RoomService/Runner 81/81、Git Observer/MCP 44/44、Scope 1/1 通过；但既有 tests 未覆盖 Question 后可识别非终态 progress，并把 answer 后 finalization retry 的错误拒绝写成期望。
+- `npm test`：205/206；dispatch baseline mismatch regression 在 temporary commit hash 以 `0` 结尾时未形成 mismatch，进入默认真实 Claude process path并在约 60.6 秒后以 “Missing expected rejection” 失败。相同输入不重复运行，等待 Fix Task 1 先隔离 process boundary。
+- 两个 direct RoomService probe 分别复现 Question 后 running-only progress rejection 与 answer 后 same-payload finalization retry rejection。
+
+### 2026-08-26 — Increment 5 Coding Result 报告
+
+- `npm run typecheck`（`tsc --noEmit`）：无错误。
+- `node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"`：81/81 通过，覆盖 `finalizeNeedsDecision` 持久化/幂等/冲突/reject-after-answered、answer-before-pause gate、start/resume wrong-mode guard、`getContinuationContext` 推导/拒绝，以及 decision/fix continuation、answer_changes_contract 拒绝、lineage `HEAD` drift 与 needs-decision pause settlement 的 fake-process matrix。
+- `node --test "tests/git-observer.test.ts" "tests/room-mcp.test.ts"`：44/44 通过，覆盖 `observeContinuation` dirty-allowed/subdirectory/fatal/non-repo/unborn HEAD 与 pause-finalized MCP gate、fix flow `resumeRun`。
+- `node --test "tests/scope.test.ts"`：1/1 通过，Scope boundary 与 dependency baseline 不变。
+- `npm test`（`node --test`）：206/206 通过，无回归。
+
 ### 2026-08-25 — Increment 4 Fix Task 3 Review 4
 
 - `npm run typecheck`：通过。
@@ -623,8 +677,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无未解决 Review finding。Increment 5 Contract已获确认并进入 `PLAN_READY`，Accepted documentation baseline已建立；用户选择自行人工派发。未获 Codex启动 Claude、runtime初始化、branch/worktree、真实 Claude smoke、实现 commit、push或清理授权。
+Review `review-increment-005-codex-001` 的 2 个 High 与 1 个 Medium finding/solution 已确认，但实现尚未修复；Fix Task 1 已 Accepted、尚未人工派发/Coding/再次 Review。Increment 5 保持 candidate。未获 runtime初始化、真实 Claude smoke、实现 commit、push、branch/worktree 或清理授权。
 
 ## 下一步
 
-Codex完成 amend后报告 `main` exact `baseline_head`、clean status、target worktree与 task owner，并给出引用完整 Accepted Contract的指令；随后由用户人工派发 Claude Code。Claude返回 Coding Result后进入 `REVIEW_REQUIRED`，Codex再审完整 task-owned Diff与独立验证证据。
+用户在原 Increment 5 Claude session 中人工派发 [Fix Task 1](./INCREMENT_5_FIX_TASK_1.md)；Codex 不启动 Claude。Fix Coding Result 返回后，Codex审查完整 lineage candidate Diff与三项 direct regression；再次 Review 与用户接受前，candidate 不提交、不提升为 Current capability。

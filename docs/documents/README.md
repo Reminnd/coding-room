@@ -65,6 +65,7 @@
 | [Increment 4 Fix 2](./INCREMENT_4_FIX_TASK_2.md) | Accepted | 补齐 actual request cleanup 与 MCP durable-state/idempotency public-path direct evidence |
 | [Increment 4 Fix 3](./INCREMENT_4_FIX_TASK_3.md) | Accepted | 补齐 stale succeeded Run / wrong-current submit-review MCP direct evidence |
 | [Increment 5](./INCREMENT_5_TASK_CONTRACT.md) | Accepted | Question pause evidence、contract 内 Decision resume 与 Review-confirmed Fix resume |
+| [Increment 5 Fix 1](./INCREMENT_5_FIX_TASK_1.md) | Accepted | 修复 Question 后 progress settlement、answer 后 finalization idempotency 与 baseline test fake-process isolation |
 
 ### 2.4 Agent 执行指南
 
@@ -91,4 +92,4 @@
 - Integration Coding 已在 `codex/inc3-integration`、baseline `63059189e97f7419238f5a3678513d4ca5e50f0d` 完成；Review `review-increment-003-integration-codex-001` 的四项 finding 与最小方案已获用户确认。
 - [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。
 - Increment 4 Fix Task 3 已完成 Coding；Review `review-increment-004-codex-004` 无 finding，Decision 为 `approved`，MCP 27/27 与全量 186/186 通过。用户已明确接受，完整 implementation scope 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 纳入版本化 `main` baseline；bootstrap Task transport 已 `Superseded`。
-- [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已获用户确认，当前为 `PLAN_READY`，Accepted documentation已形成 clean `main` baseline。用户选择暂时自行人工派发，Codex只提供指令；未授权 Codex启动 Claude、runtime初始化、Runner launcher、实现 Git写操作或真实 Claude smoke。
+- [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md) 已完成 Coding；Codex Review `review-increment-005-codex-001` 确认三项 finding，Decision 为 `changes_requested`。用户已确认 finding 与最小方案，[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 为 Accepted、`review_fixes_only=true`，当前为 `FIX_PLAN_READY`，等待用户人工派发；candidate 未接受、未提交、未提升为 Current。
