@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 6 已进入版本化 `main` / 等待后续规划
+> 当前阶段：PLAN_READY / Increment 7 严格重执行 / documentation baseline commit 已授权，本次提交建立 clean baseline
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -76,6 +76,7 @@
 - 可以读取代码、Git 状态和 Diff，并运行与 Review 结论直接相关的只读检查或测试。
 - 不编写业务代码、测试或实现配置，不代替 Claude Code 完成 Coding Task。
 - Review 后必须先与用户讨论；用户确认解决方案后才能提交 Fix Task。
+- 已确认 Task 到达可执行 Coding state 后，Increment 7 Plugin workflow固定由Codex发起一次exact `room:run`，且host内部审批模式固定为UI“帮我批准”（`approvals_reviewer=auto_review`）。该权限不允许Codex或Plugin修改approval policy、绕过用户门禁、循环调度Run或代替Claude Code编写业务代码；`auto_review`拒绝时必须停止并报告。
 
 ### 4.3 Claude Code
 
@@ -116,6 +117,15 @@
 - 一个新的 Implementation Task 创建新的 Claude session；其 Fix Task 链复用该 session。
 - Codex App 使用显式拉取模型；用户触发 Codex 检查 Room 更新。
 
+Increment 7 的用户已确认目标架构保持上述 Current runtime 不变，并增加以下 packaging/deployment boundary：
+
+- 安装一次的 Agent Room Plugin 只共享通用 Codex Skill；project-specific MCP endpoint 与 runtime values 不进入 shared Plugin。
+- Project A、Project B 分别拥有 Room service、loopback port、SQLite database、project path/worktree、Room 与 Claude process，因此可以跨项目并行。
+- `room:run`仍是one-shot operator-authorized boundary；Increment 7 Plugin workflow的caller固定为Codex，host内部审批模式固定为operator配置的UI“帮我批准”（`approvals_reviewer=auto_review`）。Current CLI的人工可调用性不作为Plugin正常路径或fallback验收项。
+- 同一 Room 内 parallel Claude Runs 继续不支持，不属于 Increment 7。
+
+以上目标架构与完整实现范围均已获用户确认，权威入口为Accepted [Increment 7 Task Contract](./docs/documents/INCREMENT_7_TASK_CONTRACT.md)。首轮candidate未通过Review且不作为重执行或最终Review authority；严格重执行的clean documentation baseline形成前不得再次派发，Review、用户接受和版本化集成前不得提升为Current capability。
+
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
 ## 7. 工作流与门禁
@@ -152,6 +162,8 @@ DISCUSSION
 2026-08-25 一次性开发执行例外：Increment 5 正在实现的正是缺失的 Decision/Fix continuation，而当前 repository 尚无 Room initialization 与 Runner launcher command。用户明确选择暂时自行人工派发完整 [Increment 5 Accepted Contract](./docs/documents/INCREMENT_5_TASK_CONTRACT.md)；Codex 只提供指令、不启动 Claude。该例外只覆盖本次开发 Task 的人工 delivery/result return，不恢复通用 bootstrap规则、不建立平行 Room authority，也不授权 Claude执行任何 Git写操作。Accepted documentation已于 2026-08-26 形成 clean `main` baseline；实际派发仍须从 live Git记录 exact `HEAD` 并确认 staged、unstaged、untracked均为空。
 
 2026-08-26 一次性开发执行例外：Increment 6 正在交付缺失的 Room initialization/planning coordination tools 与 one-shot Runner launcher，因此这些 product paths 不能用于派发自身。用户已确认完整 [Increment 6 Accepted Contract](./docs/documents/INCREMENT_6_TASK_CONTRACT.md)，并选择在 clean documentation baseline 形成后自行人工派发；Codex只提供指令、不启动Claude。该例外只覆盖本次开发Task的人工delivery/result return，不恢复通用bootstrap、不建立平行Room authority、不作为runtime E2E验收证据，也不授权Claude执行任何Git写操作。用户已另行授权把Accepted/review documentation单独提交到`main`；实际派发metadata必须从该commit完成后的live Git确认exact `HEAD`与clean worktree。
+
+2026-08-27 一次性开发执行例外：Increment 7 正在交付尚不存在的Agent Room Plugin与project-local binding，用户已确认完整[Increment 7 Accepted Contract](./docs/documents/INCREMENT_7_TASK_CONTRACT.md)并选择自行人工派发。Review 1后用户不豁免baseline违约，要求先隔离首轮candidate并形成clean documentation baseline，再严格重执行完整Contract。Codex只提供引用完整Contract的指令，不启动Claude。本例外只覆盖本次Implementation Task delivery/result return，不改变目标Plugin中“Codex + `auto_review`执行one-shot `room:run`”的产品语义，不建立第二套Room authority，也不授权Claude执行Git写操作、真实paid Claude或越过Contract scope。用户已分别授权并完成candidate隔离、授权本次documentation baseline commit；再次派发前从commit完成后的clean live Git记录exact `HEAD`。
 
 用户于 2026-08-23 明确批准 Increment 1 Task Contract，并批准以下临时 bootstrap 路径：
 
@@ -257,6 +269,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_5_FIX_TASK_2.md](./docs/documents/INCREMENT_5_FIX_TASK_2.md) | Increment 5 Review 2 三项 confirmed regression-oracle finding 的 test-only Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_6_TASK_CONTRACT.md](./docs/documents/INCREMENT_6_TASK_CONTRACT.md) | planning coordination tools、one-shot Runner CLI、failure retry 与真实边界 E2E Implementation Task Contract | Codex | Increment 6 Coding、Review 与 Fix规划 | Accepted |
 | [docs/documents/INCREMENT_6_FIX_TASK_1.md](./docs/documents/INCREMENT_6_FIX_TASK_1.md) | Increment 6 Review 2 retry negative evidence 与 current-Task source语义最小Fix Task | Codex | Increment 6 Fix Coding 与再次Review | Accepted |
+| [docs/documents/INCREMENT_7_TASK_CONTRACT.md](./docs/documents/INCREMENT_7_TASK_CONTRACT.md) | shared Agent Room Plugin、project-local MCP/runtime binding 与跨项目并行隔离 Implementation Task Contract | Codex | Increment 7 Coding 与 Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -282,7 +295,8 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-08-24：用户要求总结 Increment 2 Fix 1 的可复用经验，并把“每个 Fix Task 验收后自动执行经验回收”固化为 Codex 文档工作流门禁。经验按 Codex Review 与 Claude Coding 职责写入细分指南；自动化只覆盖 Trigger、路由和一致性检查，不增加 Room state、protocol field、runtime hook 或 ADR。
 - Superseded 2026-08-24：Codex 的“运维文档编写者及维护者”窄角色已由下一条全项目文档角色替代；Review 后运维维护要求继续包含在新角色中。
 - 2026-08-24：用户明确要求 Codex 调用 `backend-doc-authoring` skill 编写和维护所有项目文档，并把人类可查看文档统一迁入 `docs/documents/`。根目录只保留 `AGENTS.md`、`CLAUDE.md`、`PROJECT_RULES.md` 三个 agent/tooling 控制入口；新增文档总索引和全项目文档维护指南，不保留旧路径副本。该变更只调整文档角色、目录和工作流，不改变产品 architecture、Room protocol 或 runtime，因此不新增 ADR。
+- 2026-08-27：用户确认 Increment 7 采用“安装一次的 Agent Room Plugin + 每个项目独立的 MCP/runtime 配置”；Plugin共享通用Skill，Project A/B分别保存port、database与project path并可通过独立Room/worktree/Claude process并行。`room:run`保持one-shot operator-authorized boundary，Plugin workflow固定由Codex执行，host内部审批模式固定为UI“帮我批准”（`approvals_reviewer=auto_review`）；Current CLI的人工可调用性不纳入Plugin正常路径。同一Room parallel Runs继续延后。该决定是ADR-0002的additive clarification，不改变Room protocol version、state/schema/Event/error或Current runtime。
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1–6 已完成、通过 Review、获用户接受并进入版本化 `main`；planning coordination tools、one-shot Runner CLI、failure retry、Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 6 从clean exact `main` baseline `7ac639a30ab2a94170ef69498e065fb16e77f833`完整重新执行；[Increment 6 Fix Task 1](./docs/documents/INCREMENT_6_FIX_TASK_1.md)补齐missing/non-failed/non-terminal current-task retry source的Runner direct regression，旧Task failed Event对新current Task继续按无source的new Implementation处理，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户明确接受并另行授权把完整accepted scope作为一个commit提交到`main`。首次candidate仍保存在`stash@{0}`；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理仍保持独立授权门禁。
+Increment 1–6 已完成、通过 Review、获用户接受并进入版本化 `main`；planning coordination tools、one-shot Runner CLI、failure retry、Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 7首轮candidate的Review `review-increment-007-codex-001`确认三项finding：Skill生成的`room:run`命令未使用`agent_room_root`，在普通目标项目中不能定位Agent Room package script；Coding未从包含Accepted documentation的clean exact baseline开始；two-project E2E未直接覆盖Contract点名的Task/Review/Question cross-project isolation。用户已确认findings与最小方案，并选择不豁免baseline违约、从clean exact baseline严格重执行完整Accepted Contract；首轮candidate不作为重执行或最终Review authority，不生成Fix Task。阶段回到`PLAN_READY`。首轮candidate已按独立授权隔离至stash object `a341a34df62795fed315ef21eb31831967184203`；用户已另行授权将当前九个Accepted/review文档作为本次documentation baseline commit，提交完成并确认clean live Git前不派发重执行。Plugin与多项目配置仍非Current capability，manual Codex Desktop smoke尚未执行；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理继续保持独立授权门禁。

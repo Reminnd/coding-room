@@ -2,16 +2,63 @@
 
 ## 当前状态
 
-- 日期：2026-08-26
-- 项目阶段：ACCEPTED / Increment 6 已进入版本化 `main` / 等待后续规划
+- 日期：2026-08-27
+- 项目阶段：PLAN_READY / Increment 7 严格重执行 / documentation baseline commit已授权，本次提交建立clean baseline
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
-- Architecture：用户已批准
-- Implementation Task：[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md)已从clean documentation baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)三类current-task retry source negative direct regression全部在既有production guard下通过；Review `review-increment-006-codex-003`无finding、Decision为`approved`。用户已明确接受并另行授权提交完整accepted scope；Increment 6现为Current capability
+- Architecture：用户已批准Increment 1–6；Increment 7的Plugin/shared Skill、project-local MCP/runtime binding、Codex + `auto_review` one-shot authorization ownership与cross-project parallel topology已确认
+- Implementation Task：[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容已获用户确认，`confirmed_by_user=true`；Review 1后用户确认三项finding与最小方案，选择不豁免baseline违约并严格重执行完整Contract。首轮candidate不是重执行或最终Review authority；Plugin与跨项目runtime未获用户接受、未进入版本化`main`，不是Current capability
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）
-- Git repository：branch=`main`；dispatch baseline为`7ac639a30ab2a94170ef69498e065fb16e77f833`，dispatch时worktree clean、0 staged；首次candidate仍隔离在`stash@{0}`（`increment-6-invalid-baseline-candidate`），未被恢复、应用或依赖；完整accepted scope已由本次implementation commit纳入`main`，未push
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；candidate packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`）与`.agents/plugins/marketplace.json`
+- Git repository：branch=`main`、提交前`HEAD=ca10034f0332ff1eb5b2410dbc5c0cf19ce894cd`、0 staged；首轮candidate的七个授权path已隔离至stash object `a341a34df62795fed315ef21eb31831967184203`，工作树只剩九个Accepted/review文档。用户已授权将这九个文档作为本次documentation baseline commit；exact post-commit `HEAD`从clean live Git读取，不在commit内容中自引用。未push、重新派发、执行产品`room:run`或修改runtime state
 
 ## 已完成
+
+### 2026-08-27 — Increment 7 Review 1 方案确认与严格重执行
+
+- 用户明确确认`review-increment-007-codex-001`三项finding与最小方案：launcher必须以已校验的`agent_room_root`作为cwd或使用等价`npm --prefix`定位Agent Room package；two-project E2E必须直接证明cross-database Task/current Task，并通过public lifecycle覆盖Review/Question isolation；不豁免clean documentation baseline违约。
+- 用户选择从clean exact `main` baseline严格重执行完整[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)。首轮candidate不作为重执行或最终Review authority；本次不是局部Review Fix，因此不生成Fix Task，阶段回到`PLAN_READY`。
+- 待独立Git授权后，仅隔离首轮candidate的七个path：`.agents/plugins/marketplace.json`、`plugins/agent-room/.codex-plugin/plugin.json`、`plugins/agent-room/skills/agent-room/SKILL.md`、`plugins/agent-room/skills/agent-room/references/project-setup.md`、`tests/plugin-packaging.test.ts`、`tests/multi-project-e2e.test.ts`、`tests/scope.test.ts`。不得包含文档，不删除隔离结果。
+- candidate隔离并验证工作树仅剩文档后，再另行取得documentation commit授权，将`PROJECT_RULES.md`、Increment 7 Contract及本次同步的文档状态形成clean baseline，读取live exact`HEAD`后才可重新派发完整Contract。重执行不得恢复或依赖首轮candidate。
+- 本次确认不授权stash、commit、Coding派发、产品`room:run`、manual paid smoke、push、runtime初始化、branch/worktree、stash删除或其它清理。
+- 用户随后独立授权仅隔离上述七个candidate path。Codex执行path-scoped `git stash push --include-untracked`，stash object为`a341a34df62795fed315ef21eb31831967184203`；`git stash show --name-status --include-untracked`确认精确包含六个新增文件与`tests/scope.test.ts`修改，`git status --short`确认工作树仅剩九个Accepted/review文档。stash保留，未包含文档、未删除candidate、未commit或派发。
+- 用户随后独立授权将当前九个Accepted/review文档提交到`main`，形成严格重执行的clean documentation baseline；授权不包含恢复或删除stash、Claude Coding派发、实现提交、push、runtime初始化、manual paid smoke、branch/worktree或其它清理。本次commit不在自身内容中记录自身hash；提交后从clean live Git读取exact `HEAD`作为人工派发baseline。
+- Documentation impact audit：`documentation: updated`。两项confirmed correction已并入原Accepted Contract，Project Rules、Architecture、Protocol、ADR、MVP、Operations、文档中心与开发状态同步为严格重执行门禁；accepted architecture与Current runtime capability不变。
+
+### 2026-08-27 — Increment 7 Review 1（changes_requested）
+
+- Review ID：`review-increment-007-codex-001`。输入为Accepted Contract、Coding Result、live `main`/`HEAD=ca10034f0332ff1eb5b2410dbc5c0cf19ce894cd`、完整staged/unstaged/untracked Diff、Plugin/Skill/templates、two-project E2E、scope与candidate文档；0 staged，未执行Git写操作。
+- High `inc7-r1-runtime-root-not-used`：Skill读取`agent_room_root`，但exact command仍是当前目录下的`npm run room:run`，既未以该root为cwd，也未使用`npm --prefix`。在安装Plugin的普通目标项目中会查找目标项目自己的`package.json`/script，无法到达Agent Room one-shot launcher；marker-only packaging regression未覆盖该执行语义。
+- High `inc7-r1-dispatch-baseline`：Contract要求Accepted documentation先进入clean exact `main` baseline再Coding；live Git仍停在planning `HEAD`，Accepted Contract为untracked且Project Rules/文档索引与candidate实现共同dirty。该历史前置不能由后续测试修复，需要用户决定接受combined Diff为本次Review authority，或形成clean documentation baseline后重新执行Implementation。
+- Medium `inc7-r1-entity-isolation-evidence-incomplete`：two-project E2E证明Run overlap、Run/Event room ID、Git/process/MCP/artifact隔离与second-active-run拒绝，但未直接断言cross-database Task/current Task，且未通过public lifecycle创建或检查Review/Question；不足以支撑Contract点名的Task/Run/Review/Question/Event完整隔离结论。
+- 独立验证：`npm run typecheck`通过；`node --test "tests/plugin-packaging.test.ts"` 6/6、`node --test "tests/multi-project-e2e.test.ts"` 1/1、`node --test "tests/scope.test.ts"` 1/1通过。官方OpenAI Plugin文档核对确认最小manifest与repository marketplace schema本身正确。静态finding已成立，因此未重复运行全量249项。
+- Review Decision：`changes_requested`。manual Codex Desktop smoke不执行：当前Skill command已知不可达，继续启动真实paid Claude不会改变Review决定。用户确认finding与最小方案前不生成Fix Task、不修改Plugin/test、不提交candidate。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志为Review 1结果；candidate仍未提升为Current。
+
+### 2026-08-27 — Increment 7 完整 Contract 确认与人工派发选择
+
+- 用户先确认`room:run`为one-shot operator-authorized boundary，随后进一步固定Increment 7 Plugin workflow：实际caller为Codex，host内部审批模式为UI“帮我批准”（`approvals_reviewer=auto_review`），operator direct run不再是Plugin正常路径或approval拒绝fallback。`auto_review`通过只授权一次invocation；拒绝时停止并报告。Plugin不得创建、修改、放宽或绕过active approval/rules。
+- 用户确认Agent Room Plugin安装一次并共享通用Skill；Project A/B各自保存port、database与project path，分别使用独立Room service、SQLite、worktree、artifact tree与Claude process，因此可跨项目并行。同一Room parallel Claude Runs继续不支持并延后。
+- 用户明确确认[Increment 7 Task Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容，要求所有requirements、acceptance criteria、verification与documentation updates完整完成；Contract更新为`Accepted`、`confirmed_by_user=true`，阶段进入`PLAN_READY`。
+- Accepted scope包含repository-local`plugins/agent-room/`与marketplace、project-scoped`.codex/config.toml`、local-only`.agent-room/runtime.json`、Codex + `auto_review` one-shot execution、two-project concurrent E2E和manual Codex Desktop smoke。首次`room_submit_task` baseline在同一workflow step保留，丢失时fail closed；不以live HEAD猜测、不建立本地baseline mirror。planned`run_id`在approval前后保持稳定，outcome不确定时先读Room。
+- 用户选择暂时人工派发本Implementation Task。该delivery选择不改变目标Plugin workflow；当前Accepted documentation尚未形成clean exact baseline，因此只提供完整派发指令，尚未实际派发。派发前须另行授权documentation commit、确认worktree clean并记录live exact`HEAD`。
+- Planning evidence：开始时`main`、`HEAD=ca10034f0332ff1eb5b2410dbc5c0cf19ce894cd`、worktree clean。未派发Claude、未执行`room:run`、未初始化database/service、未运行真实Claude、未执行Git写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations、ADR-0002与本日志为Accepted Contract、`PLAN_READY`和人工派发门禁；Plugin capability继续保持unavailable。
+
+### 2026-08-27 — Increment 7 Implementation 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md) 完成 Plugin 与多项目独立 runtime packaging 的最小实现；未执行任何 Git 写操作，未修改 `src/`、`package.json`、`package-lock.json` 或 production configuration：
+
+- `plugins/agent-room/.codex-plugin/plugin.json`：官方最小 manifest（`name`/`version`/`description`/`skills: "./skills/"`），无 hooks/App/MCP bundle/assets/dependency，也无静态 `.mcp.json`。
+- `plugins/agent-room/skills/agent-room/SKILL.md`：全仓库唯一 authoritative Skill。先读项目 `.agent-room/runtime.json` 五个字段（`agent_room_root`/`database_path`/`project_path`/`port`/`room_id`）并校验 endpoint port、project path 与 Room mismatch，不满足即停止报告；只调用 public MCP tools；首次 Implementation baseline 只取首次成功 `room_submit_task` 响应的 `observed_baseline_head` 并在同一 workflow step 保存 exact command，丢失时 fail closed；`room:run` 固定由 Codex 在 UI“帮我批准”（`approvals_reviewer=auto_review`）下至多执行一次，拒绝时零次执行并报告，不 fallback 到 operator direct run；run 后重读 `room_get_state`。
+- `plugins/agent-room/skills/agent-room/references/project-setup.md`：`.codex/config.toml`、`.agent-room/runtime.json` 与 `.gitignore` placeholder 模板，不含开发机真实路径、secret 或默认值。
+- `.agents/plugins/marketplace.json`：repository-local 登记，source 指向 `./plugins/agent-room`，installation `AVAILABLE`、authentication `ON_INSTALL`，不复制 Skill 内容。
+- 测试：
+  - `tests/plugin-packaging.test.ts`（6 项全过）：manifest 最小字段与单一 Skill authority、marketplace 不嵌入 Skill 内容、无 project-specific 硬编码（项目命名/entity ID/端口/绝对路径 deny tokens）、模板恰好五字段且全 placeholder、无 active permission mutation、必现 workflow boundary markers。
+  - `tests/multi-project-e2e.test.ts`：两个独立 Git repo/database/loopback port/Room 并发 `room:run`；显式 barrier 保证两个 drive 在写 child 输出前交叉读取对方 DB，观察到对方 Run 为 in-flight `running`；断言 durable `completed_at >=` 对方 `started_at`、DB/Event/cursor、Git HEAD/evidence、process cwd/`--mcp-config` endpoint、artifact 树完全隔离；second active Run 被既有 guard 以 `validation_failed` 拒绝（exit 1、零 spawn、无新 Run row）。
+  - `tests/scope.test.ts`：Increment 7 exact boundary（root 级 `plugins/agent-room` 与 `.agents/plugins` 目录树 allowlist；dependencies 不变）。
+- 验证：`npm run typecheck`（`tsc --noEmit`）无错误；`node --test "tests/plugin-packaging.test.ts"`、`node --test "tests/multi-project-e2e.test.ts"`、`node --test "tests/scope.test.ts"` 全部通过；`npm test` 全量 249 个测试通过（含既有 242 项无回归）。
+- 状态：candidate、`REVIEW_REQUIRED`。Plugin、project binding 与跨项目并行 runtime 尚未经 Codex Review、未获用户接受、未进入版本化 `main`，不是 Current capability；manual Codex Desktop smoke 未执行（需真实 paid Claude，由 Codex 在 `auto_review` 通过时执行一次）。
+- Documentation impact audit：`documentation: updated`。同步 Architecture §3.11、ROOM_PROTOCOL §12.3、ADR-0002、MVP Plan §增量 7、Operations §4.4 与本日志为 implementation facts（candidate）；未修改受保护的 PROJECT_RULES/CLAUDE.md/AGENTS.md 或文档索引，未把 Plugin 写成 Current。
 
 ### 2026-08-26 — Increment 6 提交授权与版本化 Current
 
@@ -860,8 +907,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无 unresolved finding。Increment 6已获用户明确接受并进入版本化`main`；未获runtime初始化、真实Claude smoke、push、branch/worktree、stash删除或其它清理授权。
+Review 1 findings与方案已解决到planning层，无待讨论finding；实现尚未修复或重执行。首轮Increment 7 candidate因baseline违约不作为重执行或最终Review authority，已隔离且保留；Plugin、project binding与跨项目并行runtime未获用户接受、未进入版本化`main`；manual Codex Desktop smoke未执行。未获documentation/implementation commit、实际Claude派发、runtime初始化、真实Claude smoke、push、branch/worktree、stash删除或其它清理授权。
 
 ## 下一步
 
-由用户另行确认Increment 7或其它后续规划；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理继续保持独立门禁。
+完成本次documentation baseline commit并验证clean worktree后，读取live exact`HEAD`交付给用户，由用户人工重新派发完整Accepted Contract。push、runtime初始化、manual paid smoke、branch/worktree、stash删除与其它清理继续保持独立门禁。

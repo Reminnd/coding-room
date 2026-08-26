@@ -391,6 +391,27 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 
 以上只具体化已有`RUN_FAILED → PLAN_READY → CODING`、`resumeRun`、`run_resumed`、Task-lineage session与Runner terminal ownership，不增加retry state/counter/Event/error或protocol version。clean-baseline re-execution E2E用真实loopback MCP、file-backed SQLite、representative Git与fake Claude process证明了acceptance workflow及failure recovery（含source session为空时的同 lineage replacement session）。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已通过`runClaude`直接证明missing/non-failed/non-terminal current-task source均在spawn、新Run、artifact与Event前拒绝，完整durable snapshot与worktree authority不变；既有production guard未修改。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope，这些语义现已进入版本化`main`，为Current protocol behavior。
 
+### 12.3 Increment 7 Accepted target clarification — caller 与多项目实例
+
+用户已确认以下Increment 7 target semantics与[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部范围；Plugin与project binding尚非Current capability：
+
+1. Current `room:run` CLI的协议语义不依赖caller，但Increment 7 Plugin workflow固定由Codex发起；host内部审批模式固定为operator配置的UI“帮我批准”（`approvals_reviewer=auto_review`）。一次审批至多对应一次CLI invocation与一个Run，不得推导后续Run、retry、Fix或accept。
+2. `auto_review`通过或拒绝属于Room外部执行环境事实，不新增actor、entity、Event、error或state transition。拒绝时不得claim Run或改变durable Room state，也不得由Plugin回退为operator direct run。
+3. Project A与Project B的并行由两个独立Room service、port、database、project path/worktree、Room、artifact tree和Claude process组成；各自仍遵循现有single-active-Run invariant。
+4. 同一Room parallel Runs不支持。实现该能力将改变claim/ownership与并发语义，必须另行Architecture Review、用户确认和协议设计。
+5. shared Plugin/Skill不是protocol authority；project-scoped MCP/runtime配置只选择目标Room instance，不复制Task、Run、Review、Question、Event、Git evidence或session lineage。
+
+因此Increment 7无需提升`0.2-design`版本；若后续实现同Room parallel Run、shared database coordination或新approval Event，才触发第15节的incompatible protocol流程。
+
+#### 12.3.1 首轮 Candidate implementation facts（2026-08-27，Review 1未通过）
+
+按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)已落地以下candidate实现；不改变本节语义，也未修改RoomService/Runner/MCP/CLI production semantics：
+
+- repository-local Plugin（`plugins/agent-room/.codex-plugin/plugin.json` + 唯一`skills/agent-room/SKILL.md` + placeholder模板）与marketplace登记（`.agents/plugins/marketplace.json`，source `./plugins/agent-room`）。Skill只调用public MCP tools并构造一次exact `room:run` command；先读项目`.agent-room/runtime.json`，endpoint/port、project path、Room mismatch时停止报告，不猜测其它项目配置。
+- baseline只取首次成功`room_submit_task`响应non-null`observed_baseline_head`并在同一step保存exact command，丢失时fail closed；Decision/Fix/retry仍由persisted source Run拥有baseline。`run_id`在展示、审批与执行间保持不变，不确定时先读Room，不静默生成第二个run_id。
+- 验证证据：`tests/plugin-packaging.test.ts`（6项）与`tests/multi-project-e2e.test.ts`通过；two-project E2E以真实file-backed SQLite与独立Git repo/port证明独立Room instances可真实in-flight重叠（交叉DB读取对方Run为`running`、durable `completed_at >=`对方`started_at`）且DB/Event/cursor、Git、process cwd/`--mcp-config` endpoint、artifact完全隔离；second active Run被既有guard以`validation_failed`拒绝（exit 1、零spawn、无新Run row）。`npm test`全量249项通过、typecheck通过。
+- Review `review-increment-007-codex-001`为`changes_requested`：Skill的launcher command未使用`agent_room_root`，clean dispatch baseline未形成，Task/Review/Question isolation direct evidence不完整。用户已确认findings与最小方案并选择严格重执行完整Accepted Contract；首轮candidate不作为重执行或最终Review authority。该决定不改变本节target semantics；Plugin未获用户接受、未进入版本化`main`，protocol version保持`0.2-design`。
+
 ## 13. Git 协议
 
 在新 Implementation Task 之前：

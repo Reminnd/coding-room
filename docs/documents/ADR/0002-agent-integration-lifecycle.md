@@ -102,6 +102,22 @@ Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FI
 
 该澄清不改变explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement或SQLite state ownership，不新增Room state/schema/Event/error/dependency。该设计已按用户确认的选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新实现。[Increment 6 Fix Task 1](../INCREMENT_6_FIX_TASK_1.md)以三类Runner direct regression闭合current-task损坏source证据，测试未暴露production defect；可识别的旧Task failed Event仍走new Implementation clean gate，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope，当前实现已进入版本化`main`，且未改变本ADR决策。
 
+## 2026-08-27 Accepted design 澄清（Increment 7）
+
+用户确认Increment 7采用“安装一次的Agent Room Plugin + 每个项目独立的MCP/runtime配置”，并明确调用与并行边界：
+
+- Plugin只共享通用Codex Skill，不成为Room runtime、protocol actor或第二状态权威，也不硬编码project endpoint、database、path、Room或active approval policy。
+- Project A/B分别拥有project-scoped MCP endpoint、Room service、loopback port、SQLite database、project path/worktree、Room、artifact tree与Claude process；多个独立项目可以并行。
+- `room:run`继续是one-shot operator-authorized boundary。Increment 7 Plugin workflow固定由Codex发起，host内部审批模式固定为operator配置的UI“帮我批准”（`approvals_reviewer=auto_review`）；Current CLI的人工可调用性不作为Plugin正常路径或fallback。该选择不改变Run claim、state transition或terminal settlement ownership。
+- `auto_review`通过或拒绝属于Room外部执行环境，不写入Room entity/Event。通过只授权一次invocation；拒绝时Plugin停止并报告。Plugin不得创建、修改、放宽或绕过host approval/rules。
+- 同一Room parallel Claude Runs继续不支持；未来实现该能力需要重新评估claim、lineage、artifact与worktree ownership，而不能由Plugin packaging隐式引入。
+
+该澄清保留explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement与SQLite/Git authority，不改变protocol version。具体`.agent-room/runtime.json`格式、Plugin/marketplace布局、two-project concurrent E2E与manual smoke已由用户整体确认为[Increment 7 Accepted Contract](../INCREMENT_7_TASK_CONTRACT.md)；实际人工派发仍须先形成clean documentation baseline并记录live exact `HEAD`。
+
+### 2026-08-27 Candidate implementation（Increment 7）
+
+按[Increment 7 Accepted Contract](../INCREMENT_7_TASK_CONTRACT.md)完成的首轮candidate提供`plugins/agent-room/`、repository-local marketplace与two-project overlap测试。Review `review-increment-007-codex-001`确认三项finding：Skill未使用`agent_room_root`定位Agent Room launcher；Coding未从clean documentation baseline开始；E2E未直接覆盖Task/Review/Question isolation。Decision为`changes_requested`。用户已确认findings与最小方案，并选择从clean exact baseline严格重执行完整Contract；首轮candidate不作为重执行或最终Review authority。这些事实不改变本ADR的accepted architecture；Plugin与跨项目runtime尚非Current capability。
+
 ## 相关文档
 
 - [PROJECT_RULES.md](../../../PROJECT_RULES.md)

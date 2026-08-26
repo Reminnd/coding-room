@@ -5,7 +5,7 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-08-26 |
+| 最后更新日期 | 2026-08-27 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
@@ -69,6 +69,7 @@
 | [Increment 5 Fix 2](./INCREMENT_5_FIX_TASK_2.md) | Accepted | 补齐同一 stream progress 分界、完整 durable snapshot 与 baseline mismatch 零副作用 Oracle |
 | [Increment 6](./INCREMENT_6_TASK_CONTRACT.md) | Accepted | planning/failure coordination tools、one-shot Runner CLI、RUN_FAILED retry 与真实边界 E2E |
 | [Increment 6 Fix 1](./INCREMENT_6_FIX_TASK_1.md) | Accepted | 补齐retry source negative direct evidence并统一current-Task source语义 |
+| [Increment 7](./INCREMENT_7_TASK_CONTRACT.md) | Accepted | shared Agent Room Plugin、project-local MCP/runtime binding 与跨项目并行隔离 |
 
 ### 2.4 Agent 执行指南
 
@@ -98,3 +99,4 @@
 - [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 无 finding，Decision 为 `approved`；用户已明确接受并另行授权提交完整 accepted scope。Decision/Fix continuation、测试、Fix Contract 与最终文档状态现已进入版本化 `main`，为 Current capability。
 - [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已从 clean exact `main` baseline `7ac639a30ab2a94170ef69498e065fb16e77f833` 重新执行；[Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，production source未改动。
 - Review `review-increment-006-codex-003`无finding、Decision为`approved`；Codex独立验证`npm run typecheck`与focused 95/95通过，Claude Coding Result报告全量242/242通过。用户已明确接受并另行授权提交完整accepted scope；planning coordination tools、one-shot Runner CLI与failure retry现已进入版本化`main`，为Current capability。Fix经验回收已完成；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理仍为独立门禁。
+- Increment 7首轮candidate的Review `review-increment-007-codex-001`确认Skill未使用`agent_room_root`定位launcher、Coding未从clean documentation baseline开始、Task/Review/Question isolation direct evidence不完整三项finding。用户已确认findings与最小方案，选择不豁免baseline违约并严格重执行完整Accepted Contract；首轮candidate已按独立授权隔离并保留，当前九个Accepted/review文档的documentation baseline commit也已获独立授权。首轮candidate不作为重执行或最终Review authority，Plugin仍非Current capability，manual Codex Desktop smoke未执行。

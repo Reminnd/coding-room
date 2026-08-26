@@ -2,8 +2,8 @@
 
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
-> 最后维护日期：2026-08-26
-> Last maintained review：`review-increment-006-codex-003`
+> 最后维护日期：2026-08-27
+> Last maintained review：`review-increment-007-codex-001`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -15,7 +15,7 @@
 | Accepted Scaffold source commit | `eb3637b642aaa88e1faab51a570c6fea688c3cf9`，保留于 `codex/increment-003-scope-scaffold` |
 | Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受；commit 已 fast-forward 集成到 `main` |
 | Runtime readiness | Protocol/Room domain、只读 Git Observer 与 central Runner TypeScript API 已在 `main` |
-| Service readiness | Room server、MCP、Status CLI 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main`；Runner 仍是 TypeScript API，不包含 daemon manager |
+| Service readiness | Room server、MCP、Status CLI与one-shot `room:run`均已进入版本化 `main`；不包含 daemon manager、scheduler或automatic wakeup |
 | Increment 6 | 用户已接受并进入版本化`main`；planning coordination tools、one-shot Runner CLI与failure retry为Current capability |
 | 可执行验证 | Codex独立`npm run typecheck`与focused 95/95通过；Claude Coding Result报告全量242/242通过 |
 
@@ -102,7 +102,7 @@ Git Observer 只执行 `rev-parse`、`diff` 与 `ls-files`；不会 stage、comm
 | `RunTerminalEvidence`（`room-service.ts`） | `claude_session_id`、`process_exit_code`、`git_evidence`、`artifact_refs`；terminal transition 同一 transaction 持久化 |
 | failure mapping | `claude_start_failed` > `claude_exit_failed` > `room_mcp_unavailable` > `coding_result_invalid` > `git_evidence_failed` > `artifact_write_failed`；单一 terminal settlement |
 
-artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`，`artifact_refs` 使用 repository-root-relative path。Runner本身没有 package script或 launcher command；真实 Claude smoke需经用户明确授权，coding只使用 fake-process fixture。
+artifact 写入 `.agent-room/artifacts/<run-id>/stdout.jsonl` 与 `stderr.log`，`artifact_refs` 使用 repository-root-relative path。Runner由`room:run` package script提供显式one-shot launcher；真实Claude smoke仍需用户明确授权，自动化验证使用fake-process fixture。
 
 Current `main` baseline 的 `runClaude(input)` 已从 SQLite lineage（`getContinuationContext`）推导 mode/session/baseline，用 `observeContinuation` 对 continuation 执行 dirty-allowed、exact-HEAD gate，并以 `finalizeNeedsDecision` 持久化 pause evidence 与 `run_paused` Event。Increment 5、Fix Task 1 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已完成 Coding、Review、用户接受与版本化提交；三项 direct regression Oracle 已闭合。
 
@@ -121,7 +121,7 @@ Runner process contract 与 terminal Run mapping 已由 Increment 3 实现；Roo
 
 ### 4.1 Increment 4 Current 运维接口
 
-Runtime 固定监听 `127.0.0.1`，显式接收 `--db <path> --project <path> --port <1..65535>`，并暴露 `/mcp/codex` 与 `/mcp/claude`；read-only Status CLI 显式接收 `--db <path> --room-id <id>`，且 missing database path 失败而不创建空 database。package script 为 `room:serve` 与 `room:status`（`src/mcp/serve.ts`、`src/cli/status.ts`）。
+Runtime 固定监听 `127.0.0.1`，显式接收 `--db <path> --project <path> --port <1..65535>`，并暴露 `/mcp/codex` 与 `/mcp/claude`；read-only Status CLI 显式接收 `--db <path> --room-id <id>`，且 missing database path 失败而不创建空 database。Current package scripts为`room:serve`、`room:status`与one-shot`room:run`。
 
 启动命令：
 
@@ -149,7 +149,7 @@ npm run room:status -- --db <path> --room-id <id>
 
 Review 3 证据：同一 fake process 中 Question 前 recognized progress 产生恰好一个 sequence 更小的 `run_progress`，Question 后 recognized progress 不再新增该 Event；answer 后 same-payload retry 与 different-payload conflict 分别对完整 Run/Question/Room/Event/cursor snapshot 保持 `deepEqual`；baseline mismatch 对 Room/Event/cursor 零副作用且零 spawn、零 Run、零 artifact。typecheck、聚焦 82/82、Git/MCP/Scope 45/45 与全量 207/207 均独立通过。用户已接受，完整 accepted scope 已进入版本化 `main`。
 
-当前 repository没有 Room runtime database，也没有 Room initialization或 Runner launcher command；本 Increment的 continuation behavior 已是版本化 TypeScript application API，但 operator 仍无法通过任何 command 调用。真实 Claude smoke、push与其它 Git写操作保持独立授权门禁；Review 3 已验证全量 207/207 使用 fake-process boundary且未启动真实 Claude。
+在Increment 5接受时，repository没有Room runtime database、Room initialization或Runner launcher command；该历史边界已由Increment 6的one-shot`room:run`替代。repository仍不内置runtime database，真实Claude smoke、push与其它Git写操作保持独立授权门禁。
 
 ### 4.3 Increment 6 Current 运维流程
 
@@ -167,6 +167,39 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
 4. `room_retry_run`只记录现有`RUN_FAILED → PLAN_READY` decision。随后再次显式执行`room:run`：保留dirty worktree并校验unchanged inherited HEAD；source session存在时exact resume，不存在时同一Task lineage启动replacement session。
 
 re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiring与coordination-tool public evidence。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)又补齐missing/non-failed/non-terminal current-task source的Runner direct regression；旧Task failed Event对新current Task按无source的new Implementation处理，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。operator现可在自行提供并启动本地Room runtime后显式使用`room:run`；本次版本化未执行runtime初始化或真实Claude smoke，push、stash删除和其它Git写操作继续分别授权。
+
+### 4.4 Increment 7 Planned Plugin 与多项目配置
+
+用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下是待实现的Accepted配置，不是Current command。Review 1后用户选择不豁免baseline违约并严格重执行完整Contract；首轮candidate已按独立授权隔离并保留，下一步须形成clean documentation baseline并记录live exact `HEAD`：
+
+1. Agent Room Plugin安装一次，只提供共享Skill。Project A/B各自保存project-scoped `.codex/config.toml`：
+
+   ```toml
+   [mcp_servers.agent_room]
+   url = "http://127.0.0.1:<project-port>/mcp/codex"
+   ```
+
+2. 每个项目另有被Git忽略的`.agent-room/runtime.json`，Accepted字段为：
+
+   ```json
+   {
+     "agent_room_root": "<absolute-agent-room-root>",
+     "database_path": "<absolute-project-database-path>",
+     "project_path": "<absolute-project-worktree-path>",
+     "port": 43117,
+     "room_id": "<project-room-id>"
+   }
+   ```
+
+3. operator分别启动A/B的`room:serve`，端口、database、project path/worktree与Room必须不同。Codex通过各项目MCP读取和推进各自Room；需要Coding时只构造一次exact`room:run`。
+4. Plugin workflow固定由Codex发起该command，host内部审批模式固定为UI“帮我批准”（`approvals_reviewer=auto_review`）。`auto_review`通过时Codex执行一次；拒绝时停止并报告，不claim Run、不改用operator direct run。Plugin不创建、修改或放宽active approval/rule；Current CLI的人工可调用性不作为本workflow步骤。
+5. 首次Implementation必须在首次成功`room_submit_task`返回non-null`observed_baseline_head`时生成exact command；该值未持久化到Room snapshot，后续丢失时不得用live HEAD猜测。Decision/Fix/retry仍不传caller baseline。
+6. planned`run_id`在command展示、approval与执行间保持不变；执行结果不确定时先读取Room，不生成第二个ID自动重试。
+7. A/B可同时运行各自Claude process；同一Room仍只允许一个active Run。Run返回后Codex重新读取对应Room state，不自动调度后续Run。
+
+Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Review后，manual Codex Desktop smoke才验证“Codex发起 + `auto_review`审查 + one-shot Run + 重新读取Room”；`auto_review`拒绝或runtime未准备好时结果保持pending，不改用operator direct run，也不虚报通过。
+
+实现状态（首轮candidate，2026-08-27）：Review `review-increment-007-codex-001`为`changes_requested`。Skill虽然读取`agent_room_root`，但当前exact command未用它定位Agent Room package script，普通目标项目不能执行launcher；Coding也未经过Contract要求的clean documentation baseline；E2E尚缺Task/Review/Question isolation direct evidence。用户已确认findings与最小方案，并选择严格重执行完整Accepted Contract；首轮candidate不作为重执行或最终Review authority。manual Codex Desktop smoke因此不执行，Plugin继续不是Current command。
 
 ## 5. 人工操作命令
 
@@ -244,5 +277,6 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-006-codex-001` | `changes_requested` / 用户已确认 findings 与方案 | `room:run` 接受错误loopback route并会初始化既存空database；CLI main、四个新增MCP tools与retry negative matrix的direct evidence不完整；dispatch未形成clean documentation baseline | 用户选择在clean documentation baseline上重新执行原Task；re-execution candidate已完成并验证（16/16、126/126、30/30、239/239），仍unavailable，等待新Review |
 | `review-increment-006-codex-002` | `changes_requested` / solution已确认 | Review 1多数缺口已闭合；retry仍缺missing/non-failed/non-terminal current-task source direct regression；旧Task Event语义已确认为new current Task无source | [Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已Accepted；保持candidate unavailable，等待用户人工派发 |
 | `review-increment-006-codex-003` | `approved` / 用户已接受 | 三类current-task损坏source已由`runClaude` direct regression闭合；既有guard正确，production source零改动 | Codex独立typecheck与focused 95/95通过；candidate等待版本化提交 |
+| `review-increment-007-codex-001` | `changes_requested` / findings与方案已确认 | Skill launcher漏用`agent_room_root`；clean documentation baseline未形成；Task/Review/Question isolation direct evidence不完整 | 不生成Fix Task；首轮candidate已隔离且documentation baseline commit已获授权，提交后严格重执行完整Contract；不执行manual paid smoke |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

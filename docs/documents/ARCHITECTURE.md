@@ -156,6 +156,42 @@ CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不�
 
 clean-baseline re-execution已按该Accepted design形成Current implementation：`/mcp/codex`注册九tools，`/mcp/claude`仍为一个`room_ask_question`；one-shot`room:run`与failure`retry` continuation已落地，端到端acceptance/failure recovery（含source session为空时的同lineage replacement session）以fake-process boundary穿过真实MCP/SQLite/Git通过。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐missing/non-failed/non-terminal current-task source的Runner direct regression，三类测试均在既有guard下通过，production source未改动；旧Task failed Event仍表示新current Task无source，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope，实现现已进入版本化`main`。
 
+### 3.11 Increment 7 Accepted target design — Plugin 与多项目独立部署
+
+用户于2026-08-27确认以下target architecture及[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部实现范围；本节不表示Plugin已实现：
+
+```text
+                         install once
+Codex App ───────────── Agent Room Plugin
+                           │ shared Skill
+              ┌────────────┴────────────┐
+              │                         │
+Project A .codex/config.toml    Project B .codex/config.toml
+Project A runtime.json          Project B runtime.json
+              │                         │
+Room service A / DB A / port A Room service B / DB B / port B
+worktree A / Claude A          worktree B / Claude B
+```
+
+- Plugin只封装稳定的Codex workflow/Skill，不拥有Room runtime state，也不硬编码project-specific endpoint、database、path、Room或approval policy。
+- 每个项目由project-scoped `.codex/config.toml`选择自己的`/mcp/codex` loopback endpoint，并以local-only `.agent-room/runtime.json`保存one-shot command所需的`agent_room_root`、`database_path`、`project_path`、`port`与`room_id`。该具体文件格式已纳入Accepted Contract。
+- Project A/B各自启动Room service并拥有独立SQLite、Git worktree、artifact tree和Claude process，可跨项目并行；它们不共享Room transaction、Event cursor、Task lineage或active Run。
+- `room:run`保持one-shot operator-authorized boundary；Increment 7 Plugin workflow的caller固定为Codex，host内部审批模式固定为UI“帮我批准”（`approvals_reviewer=auto_review`）。`auto_review`通过时Codex只执行一次，拒绝时停止并报告；Plugin不创建或修改active approval/rule，也不把operator direct run作为fallback。Current CLI的人工可调用性不因packaging改变。
+- 首次Implementation baseline沿用Current MCP边界：只接受首次成功`room_submit_task`响应返回的`observed_baseline_head`。它未进入Room snapshot；Skill必须在同一workflow step生成并保留exact command，丢失时fail closed，不以live HEAD猜测或建立本地baseline mirror。Decision/Fix/retry仍由persisted source Run拥有baseline。
+- 同一Room仍保持single active Run，不引入queue、scheduler、daemon、automatic wakeup/retry或parallel Run。
+
+该拓扑只增加Codex packaging和project binding，不改变Room Service、State Machine、SQLite Repository、Runner、Git Observer或MCP transport的production dependency direction。
+
+#### 3.11.1 Increment 7 首轮 candidate implementation facts（2026-08-27，Review 1未通过）
+
+按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)已落地以下candidate实现；以下事实不代表Current capability，也未修改`src/`或production runtime：
+
+- `plugins/agent-room/.codex-plugin/plugin.json`声明唯一Plugin（`name`=`agent-room`、`version`=`0.1.0`、`skills`=`./skills/`），无hooks/App/MCP bundle/assets/dependency与静态`.mcp.json`；`plugins/agent-room/skills/agent-room/SKILL.md`是全仓库唯一authoritative Skill，`references/project-setup.md`只含placeholder模板。
+- `.agents/plugins/marketplace.json`以repository-local方式登记该Plugin（source `./plugins/agent-room`），不复制Skill内容。
+- Skill先读项目`.agent-room/runtime.json`五字段并校验endpoint port/project path/Room mismatch后停止；baseline只取首次成功`room_submit_task`的`observed_baseline_head`且同一step保存exact command、丢失fail closed；`room:run`由Codex在UI“帮我批准”（`approvals_reviewer=auto_review`）下至多执行一次，拒绝零次执行，run后重读`room_get_state`。
+- 验证：`tests/plugin-packaging.test.ts`（6项）、`tests/multi-project-e2e.test.ts`（two-project并发overlap oracle与全隔离断言、second-active-run拒绝）、`tests/scope.test.ts`（Increment 7 exact allowlist）通过；`npm run typecheck`通过；`npm test`全量249项通过。two-project E2E用真实file-backed SQLite、独立Git repo、独立loopback port与fake Claude process证明Run可真实in-flight重叠且DB/Event/Git/process/artifact完全隔离。
+- Review `review-increment-007-codex-001`为`changes_requested`：Skill的exact command未使用`agent_room_root`定位Agent Room launcher；Coding未经过clean documentation baseline；two-project E2E未直接覆盖Task/Review/Question isolation。用户已确认findings与最小方案，并选择从clean exact baseline严格重执行完整Accepted Contract；首轮candidate不作为重执行或最终Review authority。该决定不改变本节accepted architecture；Plugin与跨项目runtime仍不是Current capability。
+
 ## 4. 依赖方向
 
 ```text
