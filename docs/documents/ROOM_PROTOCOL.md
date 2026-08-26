@@ -336,6 +336,19 @@ options:
 
 现有六个 tool schema、Room transition、entity 与 error set 不变。Fix Task 1–3 已直接观察 success、`ProtocolError`、invalid input、non-ProtocolError internal failure、client abort、write-tool durable rollback、review/question retry/conflict，以及 `room_submit_review` stale succeeded Run / wrong-current 的 adapter error mapping 与完整 snapshot 不变性。Codex Review `review-increment-004-codex-004` 独立验证 typecheck、MCP 27/27 与全量 186/186 通过，Decision 为 `approved`，用户已接受并授权提交。该兼容 transport 具体化不改变 protocol version。
 
+### 11.8 Increment 6 Accepted coordination tools（candidate）
+
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 增加四个Codex-only command adapters；它们复用第4节已有transition与`RoomService` transaction，不增加protocol state、transition pair、entity、Event或error。Coding 已完成（candidate），Review、用户接受与版本化提交前，11.7的五个`/mcp/codex` tools仍是Current surface。
+
+| Tool | Caller | Input | Output | Application command |
+|---|---|---|---|---|
+| `room_create` | Codex | `{ room_id: string }` | `{ room, created }` | `createRoom` |
+| `room_begin_architecture_review` | Codex | `{ room_id: string }` | `{ room }` | `transitionToArchitectureReview` |
+| `room_request_user_confirmation` | Codex | `{ room_id: string }` | `{ room }` | `transitionToWaitingForUserConfirmation` |
+| `room_retry_run` | Codex | `{ room_id: string }` | `{ room }` | `retryAfterFailure` |
+
+`room_create`相同payload重试返回`created=false`且不重复Event；三个transition command在wrong/repeated state返回既有`invalid_transition`。invalid input、`ProtocolError`与unexpected internal failure沿用11.7的MCP error mapping，拒绝前后Room/entity/Event list/cursor必须不变。Candidate `/mcp/codex` exact tool count为九，`/mcp/claude`仍恰好一个`room_ask_question`。
+
 ## 12. Runner 协议
 
 每个 Run 中，Runner 必须：
@@ -365,6 +378,18 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 6. 新 Implementation start继续要求 clean worktree；Decision/Fix resume允许保留 dirty evidence，但 owning repository的 actual `HEAD` 必须等于 inherited `baseline_head`。
 
 `run_paused` 只表示旧 Claude process已停止且 pause evidence已持久化，不是新的 Room state或 Run status。Accepted Contract不增加 transition pair、entity、field、table、error code或 protocol version。[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已保持 running-only progress invariant，并以已持久化 pause payload 作为 completed finalization retry/conflict authority；test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已闭合 event-order 与完整 durable-state Oracle，未修改 protocol/source。Review `review-increment-005-codex-003` 无 finding且已获用户明确接受；这些语义现已进入版本化 `main`，协议版本、state、Event 与 lifecycle ownership均未改变。
+
+### 12.2 Increment 6 Accepted retry 与 one-shot launcher semantics（candidate）
+
+1. `room:run`是operator显式发起的one-shot application boundary；每次只处理一个current Task/continuation。它不创建Room、不推进planning state、不启动MCP server、不自动发现或调度下一Run。
+2. CLI参数为`--db`、`--project`、`--task-id`、`--run-id`、`--mcp-url`，首次new Implementation另需`--baseline-head`。continuation/retry baseline由persisted source Run拥有，caller不得覆盖。
+3. CLI给Claude传入名为`agent_room`的HTTP MCP server config，URL为显式loopback`/mcp/claude` endpoint且`alwaysLoad=true`；required tool继续为`mcp__agent_room__room_ask_question`。
+4. durable Run为`succeeded`或`needs_decision`时CLI输出`{room, run}`并exit 0；durable Run为`failed`时仍输出该结果但exit 1；argument/preflight/ProtocolError或未settle异常写stderr并non-zero exit。
+5. `RUN_FAILED → PLAN_READY`后，latest `run_failed` Event引用的current failed Run是retry source。新Run必须经既有`resumeRun` claim、继承source baseline并追加既有`run_resumed` Event。
+6. retry允许保留staged/unstaged/untracked evidence，但actual `HEAD`必须等于inherited baseline。source有reliable non-empty session时使用exact `--resume`；session为空时省略`--resume`，replacement session仍属于同一Task lineage并写入新Run。
+7. missing/stale/non-failed source、wrong current Task、source未terminal或HEAD/baseline mismatch必须在spawn、新Run、artifact与Event之前拒绝，完整durable snapshot与worktree authority不变。
+
+以上只具体化已有`RUN_FAILED → PLAN_READY → CODING`、`resumeRun`、`run_resumed`、Task-lineage session与Runner terminal ownership，不增加retry state/counter/Event/error或protocol version。首次Candidate E2E用真实loopback MCP、file-backed SQLite、representative Git与fake Claude process证明了acceptance workflow及failure recovery正向路径（含source session为空时的同 lineage replacement session）。Review `review-increment-006-codex-001` 为`changes_requested`，因为dispatch未经过clean documentation baseline，且CLI preflight与Contract点名的negative/direct evidence尚未闭合。用户已确认findings并选择从clean documentation baseline重新执行原Implementation Task；当前mixed Diff不作为Fix/Review authority，candidate未提升为Current。
 
 ## 13. Git 协议
 

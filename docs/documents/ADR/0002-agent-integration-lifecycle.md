@@ -91,6 +91,17 @@ MVP 不采用。用户明确要求 Codex App 作为交互界面，不需要另�
 
 Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](../INCREMENT_5_FIX_TASK_2.md)：`RoomService.finalizeNeedsDecision`/`getContinuationContext`、`GitObserver.observeContinuation` 与改写后的 `runClaude` 按本澄清从 persisted Question/Review/source Run lineage 推导 exact session/baseline，并持久化 pause evidence 与 `run_paused` Event。Review `review-increment-005-codex-003` 无 finding且已获用户明确接受；event-order、完整 durable snapshot 与 baseline mismatch 零副作用 Oracle 已闭合。用户另行授权提交完整 accepted scope，当前实现已进入版本化 `main`；未新增 Room state/schema/daemon/scheduler，也未改变 Task-lineage session、Runner-owned lifecycle 或本 ADR 决策。
 
+## 2026-08-26 Accepted design 澄清（Increment 6）
+
+[Increment 6 Accepted Contract](../INCREMENT_6_TASK_CONTRACT.md) 已获用户确认，按原决策补齐operator execution与failure process recovery：
+
+- `room:run`是每次显式执行一个Run的one-shot boundary；Room service、Codex planning/Review与下一Run调度仍是独立显式操作，不引入persistent Runner、daemon、scheduler或automatic wakeup。
+- `RUN_FAILED → PLAN_READY`后的retry仍属于current Task lineage并经既有`resumeRun/run_resumed` claim。source Run拥有baseline；保留worktree但要求actual HEAD不变。
+- source Run有可靠session时新process使用exact `--resume`；session缺失时replacement process省略`--resume`并建立新session，但不会创建新Task或新lineage。process recovery与Task continuity是不同事实。
+- 真实loopback MCP、file-backed SQLite与representative Git负责E2E product evidence；external Claude process在默认验收中使用deterministic fake，以验证Runner ownership且不依赖paid availability。
+
+该澄清不改变explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement或SQLite state ownership，不新增Room state/schema/Event/error/dependency。首次Coding已形成candidate，但Review `review-increment-006-codex-001` 为`changes_requested`；用户已确认findings并选择不豁免dispatch baseline，当前mixed Diff不作为Fix/Review authority。该设计须在clean documentation baseline上重新实现，新的完整task-owned Diff只有在Review通过、用户接受与版本化提交后才成为Current。
+
 ## 相关文档
 
 - [PROJECT_RULES.md](../../../PROJECT_RULES.md)

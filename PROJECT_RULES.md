@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 5 已进入版本化 `main` / 等待后续规划
+> 当前阶段：PLAN_READY / Increment 6 clean documentation baseline / 用户人工 dispatch
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -151,6 +151,8 @@ DISCUSSION
 
 2026-08-25 一次性开发执行例外：Increment 5 正在实现的正是缺失的 Decision/Fix continuation，而当前 repository 尚无 Room initialization 与 Runner launcher command。用户明确选择暂时自行人工派发完整 [Increment 5 Accepted Contract](./docs/documents/INCREMENT_5_TASK_CONTRACT.md)；Codex 只提供指令、不启动 Claude。该例外只覆盖本次开发 Task 的人工 delivery/result return，不恢复通用 bootstrap规则、不建立平行 Room authority，也不授权 Claude执行任何 Git写操作。Accepted documentation已于 2026-08-26 形成 clean `main` baseline；实际派发仍须从 live Git记录 exact `HEAD` 并确认 staged、unstaged、untracked均为空。
 
+2026-08-26 一次性开发执行例外：Increment 6 正在交付缺失的 Room initialization/planning coordination tools 与 one-shot Runner launcher，因此这些 product paths 不能用于派发自身。用户已确认完整 [Increment 6 Accepted Contract](./docs/documents/INCREMENT_6_TASK_CONTRACT.md)，并选择在 clean documentation baseline 形成后自行人工派发；Codex只提供指令、不启动Claude。该例外只覆盖本次开发Task的人工delivery/result return，不恢复通用bootstrap、不建立平行Room authority、不作为runtime E2E验收证据，也不授权Claude执行任何Git写操作。用户已另行授权把Accepted/review documentation单独提交到`main`；实际派发metadata必须从该commit完成后的live Git确认exact `HEAD`与clean worktree。
+
 用户于 2026-08-23 明确批准 Increment 1 Task Contract，并批准以下临时 bootstrap 路径：
 
 - 在 Increment 4 的 Room MCP 被 Review 并接受前，Codex 可以使用本机 `claude -p`，把完整且已由用户批准的 Task Contract 直接交给 Claude Code CLI。
@@ -253,6 +255,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_5_TASK_CONTRACT.md](./docs/documents/INCREMENT_5_TASK_CONTRACT.md) | Decision/Fix Resume、Question pause 与 lineage continuation Implementation Task Contract | Codex | Increment 5 Coding、Review 与 Fix规划 | Accepted |
 | [docs/documents/INCREMENT_5_FIX_TASK_1.md](./docs/documents/INCREMENT_5_FIX_TASK_1.md) | Increment 5 Review 1 三项 confirmed finding 的最小 Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_5_FIX_TASK_2.md](./docs/documents/INCREMENT_5_FIX_TASK_2.md) | Increment 5 Review 2 三项 confirmed regression-oracle finding 的 test-only Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_6_TASK_CONTRACT.md](./docs/documents/INCREMENT_6_TASK_CONTRACT.md) | planning coordination tools、one-shot Runner CLI、failure retry 与真实边界 E2E Implementation Task Contract | Codex | Increment 6 Coding、Review 与 Fix规划 | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -281,4 +284,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1–3 已完成、通过 Review、获用户接受并进入 `main`；Increment 3 Claude Runner commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成。Increment 4 已通过 Review、获用户接受，并以 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 把 Room MCP、Status CLI、shared snapshot、测试、依赖、Fix Contract 与最终文档状态纳入版本化 `main` baseline；通用 bootstrap Task transport 已 `Superseded`。用户已确认 [Increment 5 Accepted Contract](./docs/documents/INCREMENT_5_TASK_CONTRACT.md)，Claude Coding、[Fix Task 1](./docs/documents/INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./docs/documents/INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Codex Review `review-increment-005-codex-003` 对 Fix Task 2 无 finding，Decision 为 `approved`；三项 Contract-named Oracle、typecheck、聚焦 82/82、Git/MCP/Scope 45/45 与全量 207/207 均独立通过。用户已明确接受该 Review 与 Increment 5，并另行授权把完整 accepted scope 提交到 `main`；Decision/Fix continuation 现为版本化 Current capability。该提交授权不包含 push、runtime初始化、Runner launcher、branch/worktree、真实Claude smoke或清理。
+架构已于 2026-08-23 经用户确认。Increment 1–5 已完成、通过 Review、获用户接受并进入版本化 `main`；Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 6 Review `review-increment-006-codex-001` 的六项 finding 已获用户确认；用户明确选择不豁免 dispatch baseline 违约，不把当前 mixed Diff 作为 Fix/Review authority，而是在 Accepted documentation 形成 clean exact `main` baseline 后重新执行原 Implementation Task。因此本轮不生成 Fix Task，阶段回到`PLAN_READY`。首次 candidate 的11个implementation/test/config路径已按用户授权隔离到`stash@{0}`（`increment-6-invalid-baseline-candidate`）；用户随后授权将九个documentation路径作为独立commit纳入`main`，并选择由其人工派发完整Contract。Codex不启动Claude；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理仍保持独立授权门禁。

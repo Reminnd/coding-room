@@ -7,6 +7,7 @@
 > Increment 3 Integration Fix 1：Review 2 `approved` / 用户已接受 / `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
 > Increment 4：用户已接受 / `ACCEPTED` / main commit `44fd34959834b28c8909b589a203e4c48eadc5b0`
 > Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
+> Increment 6：Review 1 `changes_requested` / 用户选择 clean-baseline re-execution / `PLAN_READY`
 
 ## 1. 目标
 
@@ -162,25 +163,27 @@ Verification 检测：
 
 ### 增量 6 — End-to-End MVP
 
-目标：使用 representative fixture repository 证明完整用户工作流。
+状态：`PLAN_READY`（Review `review-increment-006-codex-001` 为 `changes_requested`；用户已确认六项 finding 并选择 clean-baseline re-execution）。完整权威范围继续是 [Increment 6 Task Contract](./INCREMENT_6_TASK_CONTRACT.md)；首次 candidate 的 typecheck、e2e/CLI 12/12、focused 118/118 与 30/30、全量 227/227 虽通过，但其 dispatch baseline、两个 CLI preflight 行为及三组 Contract-named direct evidence未闭合，且该 mixed Diff 不再作为 Fix/Review authority。
+
+目标：交付可由operator显式执行的最小端到端runtime，并用representative fixture repository证明完整用户工作流与failure recovery。
 
 范围：
 
-- 提交 Implementation Task；
-- 执行 Claude Run；
-- 收集 Git evidence；
-- 提交 Review；
-- 进入 Review discussion state；
-- 提交 Fix Task；
-- 第二次 Review；
-- 完成 explicit acceptance；
-- 同步 documentation。
+- `/mcp/codex`增加`room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`与`room_retry_run`，直接映射既有RoomService commands；
+- 增加显式one-shot `room:run`，打开既有database、连接loopback `/mcp/claude`并执行恰好一个Run；
+- 完整`RUN_FAILED → PLAN_READY → CODING` retry orchestration：继承source baseline、保留dirty worktree；session存在时exact resume，session缺失时同一Task lineage new session；
+- 用file-backed SQLite、representative temporary Git repository、actual loopback MCP与fake Claude process完成`Implementation → Review → Fix → Review → ACCEPTED`；
+- 以独立failure scenario证明失败后恢复且worktree不丢失；
+- 同步documentation并保持existing Protocol/Room/Git/Runner/MCP/CLI regression。
+
+非目标：daemon、scheduler、automatic wakeup/retry、真实paid Claude smoke、remote/auth、Git mutation、new state/schema/Event/error/dependency与Increment 7 packaging。
 
 验收：
 
-- 一个 integration scenario 到达 `ACCEPTED`；
-- failure scenario 可以恢复并保留 worktree；
-- 实际行为与 `PROJECT_RULES.md`、`ARCHITECTURE.md` 和 `ROOM_PROTOCOL.md` 一致。
+- actual MCP + file SQLite + Git + fake-process integration scenario到达`ACCEPTED`，并证明current references、cursor、session/baseline、Git evidence与artifact refs；
+- failure scenario经actual `room_retry_run`恢复并保留worktree；同时覆盖source session为空时同lineage new session；
+- one-shot CLI、九个Codex tools/一个Claude tool、zero-side-effect preflight/rollback与full regression直接通过；
+- 实际行为与`PROJECT_RULES.md`、`ARCHITECTURE.md`、`ROOM_PROTOCOL.md`和Accepted Contract一致。
 
 ### 增量 7 — Codex Packaging
 
@@ -221,3 +224,5 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 [Increment 4 Task Contract](./INCREMENT_4_TASK_CONTRACT.md) 已冻结 dual-route actor authority、shared Room snapshot、new-only Implementation clean Git gate、explicit loopback runtime parameters 与 exact MCP SDK dependency。Fix Task 3 的 stale succeeded Run / wrong-current MCP direct regression 已通过，Review `review-increment-004-codex-004` 无 finding，`npm run typecheck`、MCP 27/27 与全量 186/186 通过。用户已接受，implementation 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main` baseline。
 
 [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 确认同一 pause stream Question 前后 progress 分界、answer 后 retry/conflict 完整 durable snapshot、baseline mismatch Event/cursor/Room 零副作用三项 Oracle 均闭合，无 finding，Decision 为 `approved`。用户已明确接受并另行授权提交完整 accepted scope；Increment 5 已进入版本化 `main`。真实 Claude smoke、push与后续 Increment 规划仍是独立门禁。
+
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 的首次 Coding candidate 经 Review `review-increment-006-codex-001` 确认主流程与failure recovery正向路径通过，但实际dispatch未形成Contract要求的clean documentation baseline，且存在`room:run` route/database preflight与CLI/MCP/retry direct evidence缺口。用户已确认六项finding并选择不豁免baseline：不生成Fix Task、不把当前mixed Diff作为后续authority。首次candidate已可恢复地隔离，用户已授权把Accepted/review documentation单独提交到`main`并选择自行人工派发；新Implementation必须以commit后的live exact HEAD与clean worktree为baseline。
