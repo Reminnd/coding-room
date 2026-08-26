@@ -108,8 +108,63 @@ const askQuestionOutputSchema = z.object({
   created: z.boolean(),
 });
 
-// /mcp/codex 只能列出并调用这五个 Codex tool。
+const roomIdInputSchema = z.object({
+  room_id: z.string().min(1),
+});
+
+const createRoomOutputSchema = z.object({
+  room: roomRecordSchema,
+  created: z.boolean(),
+});
+
+const roomOnlyOutputSchema = z.object({
+  room: roomRecordSchema,
+});
+
+// /mcp/codex 只能列出并调用这九个 Codex tool。
 export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies): void {
+  server.registerTool(
+    'room_create',
+    {
+      description:
+        'Create a Room, or return the existing Room with created=false when the ID already exists.',
+      inputSchema: roomIdInputSchema,
+      outputSchema: createRoomOutputSchema,
+    },
+    (args) => runTool(async () => deps.service.createRoom(args.room_id)),
+  );
+
+  server.registerTool(
+    'room_begin_architecture_review',
+    {
+      description: 'Move the Room to ARCHITECTURE_REVIEW for the current Task.',
+      inputSchema: roomIdInputSchema,
+      outputSchema: roomOnlyOutputSchema,
+    },
+    (args) => runTool(async () => ({ room: deps.service.transitionToArchitectureReview(args.room_id) })),
+  );
+
+  server.registerTool(
+    'room_request_user_confirmation',
+    {
+      description: 'Move the Room to WAITING_FOR_USER_CONFIRMATION to request user confirmation of the plan.',
+      inputSchema: roomIdInputSchema,
+      outputSchema: roomOnlyOutputSchema,
+    },
+    (args) =>
+      runTool(async () => ({ room: deps.service.transitionToWaitingForUserConfirmation(args.room_id) })),
+  );
+
+  server.registerTool(
+    'room_retry_run',
+    {
+      description: 'Return a failed Run to PLAN_READY so the Runner can retry the same Task.',
+      inputSchema: roomIdInputSchema,
+      outputSchema: roomOnlyOutputSchema,
+    },
+    (args) => runTool(async () => ({ room: deps.service.retryAfterFailure(args.room_id) })),
+  );
+
   server.registerTool(
     'room_get_state',
     {

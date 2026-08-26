@@ -10,7 +10,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli']);
 const allowedRunnerFiles = new Set(['claude-process.ts', 'claude-stream.ts', 'claude-runner.ts']);
 const allowedMcpFiles = new Set(['http.ts', 'tools.ts', 'serve.ts']);
-const allowedCliFiles = new Set(['status.ts']);
+const allowedCliFiles = new Set(['status.ts', 'run.ts']);
 const allowedRoomFiles = new Set([
   'state-machine.ts',
   'repository.ts',
@@ -28,7 +28,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 5 allows exact MCP/CLI/shared-read-model files and keeps extra modules, tools and dependency drift rejected', () => {
+test('Increment 6 allows exact MCP/CLI/shared-read-model files and keeps extra modules, tools and dependency drift rejected', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }

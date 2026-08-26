@@ -91,10 +91,15 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
     baselineHead = baseline.baselineHead;
     repositoryRoot = baseline.repositoryRoot;
   } else {
-    // Decision/Fix continuation：允许保留 dirty evidence，但 actual HEAD 必须等于 source
-    // Run.baseline_head，否则在创建新 Run/process/artifact/Event 前拒绝。
+    // Decision/Fix/retry continuation：允许保留 dirty evidence，但 actual HEAD 必须等于 source
+    // Run.baseline_head，否则在创建新 Run/process/artifact/Event 前拒绝。retry 的 source session
+    // 可能为空（replacement session）：空/缺失 session 时省略 --resume，由 Claude 创建同一 Task
+    // lineage 的新 session；decision/fix 的 session 已由 service 保证非空，normalization 无副作用。
     mode = 'resume';
-    resumeSessionId = context.sourceRun.claude_session_id;
+    resumeSessionId =
+      context.sourceRun.claude_session_id !== null && context.sourceRun.claude_session_id !== ''
+        ? context.sourceRun.claude_session_id
+        : null;
     const observation = await observeContinuation(input.targetWorktree);
     if (observation.head !== context.sourceRun.baseline_head) {
       throw new ProtocolError(

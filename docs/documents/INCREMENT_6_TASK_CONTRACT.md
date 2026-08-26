@@ -60,7 +60,8 @@ requirements:
   - source Run有可靠non-empty claude_session_id时，retry必须经resumeRun创建新running Run、追加既有run_resumed Event并向Claude process传递exact --resume session；不得使用--continue、最近session或Room-wide session。
   - source Run没有可靠session时，retry仍经resumeRun保持同一Task lineage、继承exact baseline并省略--resume，使Claude创建replacement session；新session由现有stream evidence持久化到新Run，不建立新的Implementation Task或lineage。
   - retry prompt必须包含完整persisted current TaskContract并明确continuation_kind=retry；failure/source Run事实以SQLite为authority，不复制transcript、不从artifact或session history猜测Task scope。
-  - wrong current Task、missing/stale/non-failed source Run、source未terminal、changed HEAD、baseline mismatch或invalid state必须在spawn、新Run、artifact与Event前以现有ProtocolError拒绝；Room、Task、Run、Review、Question、Event list/cursor与worktree authority保持不变。
+  - caller指定wrong/stale current Task，或latest run_failed Event引用missing Run、current Task的non-failed Run、current Task的未terminal Run，以及changed HEAD、baseline mismatch或invalid state时，必须在spawn、新Run、artifact与Event前以现有ProtocolError拒绝；Room、Task、Run、Review、Question、Event list/cursor与worktree authority保持不变。
+  - latest run_failed Event若引用旧Task的Run，该Event不属于新current Task的retry source；新current Task按无source的new Implementation处理，继续执行既有clean exact baseline gate，不继承旧Task session/baseline，也不向历史Event回扫其它source。
   - retry创建新Run后复用现有process/stream/progress/artifact/Git evidence/terminal settlement pipeline；成功进入REVIEW_REQUIRED，失败重新进入RUN_FAILED，Question按Increment 5语义进入NEEDS_DECISION；不得增加retry counter、queue、backoff、timeout、kill或automatic loop。
   - 增加一个end-to-end integration scenario：在representative temporary Git repository和file-backed SQLite上启动真实loopback Room MCP，通过实际/mcp/codex依次创建Room、进入ARCHITECTURE_REVIEW、进入WAITING_FOR_USER_CONFIRMATION并提交Implementation Task；用Runner application boundary与fake Claude process产生成功Implementation；经MCP提交有finding的Review、提交用户确认solution的Fix Task、执行exact-session/exact-baseline Fix resume、提交approved Review并accept，最终到达ACCEPTED。
   - 完整workflow scenario必须断言current Task/Run/Review、waiting_actor、Event sequence/cursor、Task/Review/Run structured references、baseline/session continuity、Git evidence与repository-root-relative artifact_refs；SQLite必须是唯一durable Room authority，不得用test-only parallel state推进生命周期。
@@ -83,6 +84,7 @@ architecture_decisions:
   - room:run是显式one-shot operator boundary，不是长期Runner runtime。Room server由operator单独启动，planning/Review仍经MCP，Run完成后由Codex explicit pull发现状态。
   - new Implementation dispatch baseline来自confirmed Task submission与live clean Git；Decision、Fix和failure retry baseline都来自persisted source Run，caller只选择显式database/project/task/run/MCP endpoint。
   - RUN_FAILED retry仍属于同一Task lineage并使用既有resumeRun/run_resumed。可靠session存在时resume；不存在时new session只是process recovery，不创建新Task、new lineage或new protocol state。
+  - retry source authority限定在current Task：可识别的旧Task failed Run等价于current Task无source；missing Event target或current Task source的status/completed_at损坏则拒绝。stale caller taskId仍由current-entity guard独立拒绝。
   - 端到端验收使用真实product transport/storage/Git boundaries与fake external process boundary；这验证应用wiring且避免把paid Claude可用性误当成产品determinism。
 
 scope:
@@ -109,7 +111,7 @@ acceptance_criteria:
   - room:run从existing file-backed SQLite读取current Task，首次Implementation要求clean exact --baseline-head，构造agent_room HTTP MCP config并执行恰好一个Run；succeeded/needs_decision exit 0，failed exit 1，输出/错误确定且无隐式Room/server/daemon行为。
   - RUN_FAILED有non-empty source session时，room_retry_run后dirty worktree与HEAD均保留，new Run继承baseline、通过resumeRun追加单一run_resumed并使用exact --resume；成功后进入REVIEW_REQUIRED且completion evidence完整。
   - RUN_FAILED source session为空时，retry仍在同一Task lineage继承baseline并经resumeRun创建Run，process args不含--resume，新observed session持久化后可正常settle；不创建新Task或新Event type。
-  - retry changed HEAD、wrong current Task、missing/stale/non-failed source或preflight failure均在spawn/new Run/artifact/Event前拒绝，Room/Task/Run/Review/Question/Event list/cursor与worktree authority前后deepEqual。
+  - retry changed HEAD、wrong/stale caller Task、missing Event target、current Task non-failed/non-terminal source或preflight failure均在spawn/new Run/artifact/Event前拒绝，Room/Task/Run/Review/Question/Event list/cursor与worktree authority前后deepEqual；旧Task failed Event对新current Task则按无source的new Implementation处理并通过clean baseline evidence直接验证。
   - file-backed SQLite + representative Git + actual loopback MCP + fake Claude E2E从room_create开始，完整经历Implementation -> Review finding -> confirmed Fix -> Review approved -> ACCEPTED；assert current references、waiting_actor、Event sequence/cursor、session/baseline、Git evidence与artifact_refs。
   - 独立failure scenario先产生并保留worktree change与durablefailed Run，再经实际room_retry_run与第二次one-shot Runner application invocation恢复成功；测试不启动真实Claude或外部network。
   - npm run typecheck、全部focused tests、scope regression与npm test通过；现有Protocol/Room/Git/Runner/MCP/serve/status/Increment 5 regressions不退化。
@@ -158,7 +160,11 @@ created_by: codex
 created_at: 2026-08-26T00:00:00Z
 ```
 
-## 2. 人工 Dispatch prerequisite（Contract 已确认，clean documentation baseline）
+## 2. 2026-08-26 Review 2 用户确认澄清
+
+用户已确认 [Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md) 的两项最小方案。本 Contract 中“stale source”只指 caller 指定非current Task，或 current Task retry reference 自身缺失/状态不合法；可明确识别为旧 Task 的 failed Run 不属于新 current Task 的 retry source，因此按无 source 的 `new_implementation` 处理并继续 clean exact baseline gate。三类损坏 source 的直接零副作用证据由 Fix Task 1 补齐；本澄清不改变 state、schema、Event、error、session/baseline ownership 或既有 production behavior。
+
+## 3. 人工 Dispatch prerequisite（Contract 已确认，clean documentation baseline）
 
 当前版本化 `main` 尚无 `room:run`，而本 Task 正在交付该执行入口；用户因此明确选择自行人工派发完整 Accepted Contract。这是 Increment 6 开发执行的一次性 bridge，不恢复已 `Superseded` 的通用 bootstrap，不建立平行 Room authority，也不把人工 process/result当成 Increment 6 runtime E2E 证据。首次Coding因未先形成clean documentation baseline而违反本节前置；Review `review-increment-006-codex-001` 后，用户明确选择不豁免该违约、不使用当前mixed Diff作为Fix/Review authority，并要求在clean documentation baseline上重新执行本Contract。
 
@@ -169,7 +175,7 @@ created_at: 2026-08-26T00:00:00Z
 5. Claude只执行本Contract并返回完整Coding Result；不得追加未确认finding、实现建议、scope或Git权限。需要产品、架构、scope、dependency或权限决定时返回`needs_decision`并停止受影响工作。
 6. Codex后续Review以Accepted Contract、exact clean baseline、完整staged/unstaged/untracked task-owned Diff、Coding Result与独立验证为authority；人工process exit、模型自述或green suite不能替代Contract-named public-path/durable-state evidence。
 
-## 3. 人工派发指令（仅在上述 clean documentation baseline 形成后执行）
+## 4. 原 Implementation 人工派发指令（历史）
 
 ```text
 执行 @docs/documents/INCREMENT_6_TASK_CONTRACT.md 中已批准的完整 Implementation Task。严格遵守其中的 scope、non_goals、constraints、verification、documentation_updates 和 question_policy；以上 requirements 与 acceptance_criteria 必须全部完成，不得拆分、省略或以摘要替代。完成后按 ROOM_PROTOCOL.md 的 Coding Result Contract 返回完整结果。不要执行 stage、commit、push、branch/worktree、reset、clean 或清理操作。

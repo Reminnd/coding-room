@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { runClaude, type ClaudeRunnerInput } from '../src/runner/claude-runner.ts';
 import { RoomService } from '../src/room/room-service.ts';
+import type { Event } from '../src/protocol/schema.ts';
 import {
   makeCodingResult,
   makeFixTask,
@@ -1063,6 +1064,443 @@ test('needs-decision pause keeps pre-question run_progress before question_asked
     assert.equal(events.filter((e) => e.type === 'run_completed').length, 0, 'zero run_completed');
     assert.equal(events.filter((e) => e.type === 'run_failed').length, 0, 'zero run_failed');
     assert.equal(service.getQuestion('question-1')!.status, 'open');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// 建立 retry 前置：task-1 run-1 failRun + retryAfterFailure → PLAN_READY，source Run 为
+// current Task 的 failed run，session 可由调用方决定（'' 表示 replacement session）。
+function makeRetryReadyService(baselineHead: string, sessionId: string | null = SESSION_ID): RoomService {
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask()); // task-1, PLAN_READY
+  service.startRun(makeRun({ baseline_head: baselineHead })); // run-1, CODING
+  service.failRun(
+    'run-1',
+    { code: 'claude_exit_failed', message: 'boom' },
+    makeTerminalEvidence({ claude_session_id: sessionId, process_exit_code: 1 }),
+  ); // RUN_FAILED
+  service.retryAfterFailure('room-1'); // PLAN_READY
+  return service;
+}
+
+test('retry continuation resumes the exact lineage session with inherited baseline and preserves a dirty worktree', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  // 保留 source Run 未完成的变更：retry 不得要求 clean worktree，也不清理 lineage 变更。
+  writeFileSync(join(fixture, 'failed-change.txt'), 'partial');
+  const service = makeRetryReadyService(baselineHead, SESSION_ID);
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID)]);
+    child.emit('close', 0, null);
+  });
+  try {
+    const { run, room } = await runClaude(
+      makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner }),
+    );
+    assert.equal(room.state, 'REVIEW_REQUIRED');
+    assert.equal(run.status, 'succeeded');
+    assert.equal(run.run_id, 'run-2');
+    assert.equal(run.task_id, TASK_ID);
+    assert.equal(run.claude_session_id, SESSION_ID);
+    assert.equal(run.baseline_head, baselineHead, 'retry must inherit the source run baseline');
+
+    const args = invocations[0].args;
+    const resumeIndex = args.indexOf('--resume');
+    assert.ok(resumeIndex >= 0, 'retry with a session must pass --resume');
+    assert.equal(args[resumeIndex + 1], SESSION_ID);
+    assert.ok(!args.includes('--continue'), 'must never use --continue');
+
+    // prompt 包含完整 persisted TaskContract 且明确 continuation_kind=retry。
+    await whenStdinFinished(child);
+    assert.ok(child.stdinWritten.includes('continuation_kind: retry'), 'stdin must mark continuation_kind retry');
+    assert.ok(child.stdinWritten.includes(TASK_ID), 'stdin must carry the full persisted contract');
+
+    assert.equal(existsSync(join(fixture, 'failed-change.txt')), true, 'retry must keep the dirty worktree change');
+
+    // resume 语义：retry run-2 只追加 run_resumed；run_started 仅来自 fixture 的 source
+    // run-1（startRun），retry 不创建新 run_started，也不创建新 Task/lineage。
+    const events = service.listEvents('room-1');
+    assert.equal(events.filter((e) => e.type === 'run_resumed').length, 1);
+    assert.equal(events.filter((e) => e.type === 'run_started').length, 1);
+    assert.equal(events.filter((e) => e.type === 'task_submitted').length, 1);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry with an empty source session omits --resume and starts a replacement session in the same task lineage', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  // source Run 的 claude_session_id 为空字符串：不得生成 --resume ''，由 Claude 创建
+  // replacement session，但 Task lineage 与 baseline 保持不变。
+  const service = makeRetryReadyService(baselineHead, '');
+  const replacementSession = 'sess-00000000-0000-4000-8000-000000000002';
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeLines(child, [initLine(replacementSession), resultLine(replacementSession)]);
+    child.emit('close', 0, null);
+  });
+  try {
+    const { run, room } = await runClaude(
+      makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner }),
+    );
+    assert.equal(room.state, 'REVIEW_REQUIRED');
+    assert.equal(run.status, 'succeeded');
+    assert.equal(run.run_id, 'run-2');
+    assert.equal(run.task_id, TASK_ID);
+    assert.equal(run.claude_session_id, replacementSession);
+    assert.equal(run.baseline_head, baselineHead);
+
+    const args = invocations[0].args;
+    assert.ok(!args.includes('--resume'), 'empty source session must omit --resume');
+    assert.ok(!args.includes('--continue'), 'must never use --continue');
+    await whenStdinFinished(child);
+    assert.ok(child.stdinWritten.includes('continuation_kind: retry'));
+
+    // 同一 Task lineage：无新 task_submitted，resume 语义 Event 正确。
+    const events = service.listEvents('room-1');
+    assert.equal(events.filter((e) => e.type === 'run_resumed').length, 1);
+    assert.equal(events.filter((e) => e.type === 'task_submitted').length, 1);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry with changed HEAD rejects before spawn, Run, artifact or Event with unchanged durable snapshot', async () => {
+  const { fixture } = makeRepo();
+  // source baseline 固定为 8 位 hex，真实 HEAD 是 40 位 hex，必然 mismatch。
+  const service = makeRetryReadyService('deadbeef', SESSION_ID);
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  // 调用前保存完整 Room/current Task/source Run/Event/cursor，证明 reject 零副作用。
+  const snapshot = () => {
+    const events = service.listEvents('room-1');
+    return {
+      room: service.getRoom('room-1'),
+      task: service.getTask(TASK_ID),
+      run: service.getRun('run-1'),
+      events,
+      cursor: events.length === 0 ? 0 : events[events.length - 1].sequence,
+    };
+  };
+  const before = snapshot();
+  try {
+    await assert.rejects(
+      () =>
+        runClaude(
+          makeInput(service, fixture, 'ignored-for-retry', { runId: 'run-2', spawnProcess: spawner }),
+        ),
+      (err: unknown) => errCode(err) === 'validation_failed',
+    );
+    assert.equal(invocations.length, 0, 'changed HEAD must not spawn a Claude process');
+    assert.equal(service.getRun('run-2'), null, 'changed HEAD must not create a Run');
+    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'changed HEAD must not write artifacts');
+    assert.deepEqual(snapshot(), before, 'Room/Event/cursor must be unchanged after rejection');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry with a stale task rejects before spawn, Run, artifact or Event with unchanged durable snapshot', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask()); // task-1
+  service.startRun(makeRun({ baseline_head: baselineHead })); // run-1, CODING
+  service.failRun(
+    'run-1',
+    { code: 'claude_exit_failed', message: 'boom' },
+    makeTerminalEvidence({ claude_session_id: SESSION_ID, process_exit_code: 1 }),
+  ); // RUN_FAILED
+  service.submitTask(makeTask({ task_id: 'task-2' })); // current task = task-2, PLAN_READY
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const eventsBefore = service.listEvents('room-1').length;
+  try {
+    await assert.rejects(
+      () =>
+        runClaude(
+          makeInput(service, fixture, baselineHead, { runId: 'run-2', taskId: 'task-1', spawnProcess: spawner }),
+        ),
+      (err: unknown) => errCode(err) === 'validation_failed',
+    );
+    assert.equal(invocations.length, 0, 'stale task must not spawn');
+    assert.equal(service.getRun('run-2'), null, 'stale task must not create a Run');
+    assert.equal(service.listEvents('room-1').length, eventsBefore, 'stale task must not append an Event');
+    assert.equal(service.getRoom('room-1')!.state, 'PLAN_READY');
+    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'stale task must not write artifacts');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry in RUN_FAILED without retryAfterFailure rejects before spawn with unchanged durable snapshot', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask());
+  service.startRun(makeRun({ baseline_head: baselineHead }));
+  service.failRun(
+    'run-1',
+    { code: 'claude_exit_failed', message: 'boom' },
+    makeTerminalEvidence({ claude_session_id: SESSION_ID, process_exit_code: 1 }),
+  ); // RUN_FAILED，未 retryAfterFailure
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const eventsBefore = service.listEvents('room-1').length;
+  try {
+    await assert.rejects(
+      () => runClaude(makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner })),
+      (err: unknown) => errCode(err) === 'validation_failed',
+    );
+    assert.equal(invocations.length, 0, 'RUN_FAILED must not spawn');
+    assert.equal(service.getRun('run-2'), null, 'RUN_FAILED must not create a Run');
+    assert.equal(service.listEvents('room-1').length, eventsBefore, 'RUN_FAILED must not append an Event');
+    assert.equal(service.getRoom('room-1')!.state, 'RUN_FAILED');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// Review 2 confirmed finding inc6-r2-retry-negative-matrix-incomplete：三类损坏的
+// current-task retry source（正常 public lifecycle 无法产生，只能经最窄 fixture SQL 构造）
+// 必须直接穿过 runClaude public boundary，在 spawn/新 Run/artifact/Event 之前以既有
+// ProtocolError 拒绝。events 表无 FK、Run 存 content_json，可在测试侧临时 SQLite 内
+// 表达 dangling reference 与 status/completed_at 不一致；不引入 production mutation API。
+
+test('retry with a missing source run rejects before spawn, Run, artifact or Event with unchanged durable snapshot', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask()); // task-1, PLAN_READY
+  // 最窄 fixture mutation：插入一条引用不存在 Run 的 run_failed Event。events 表无 FK，
+  // 该 dangling reference 可直接用 SQL 表达。
+  const seq = (
+    db.prepare('SELECT COALESCE(MAX(sequence), 0) AS m FROM events WHERE room_id = ?').get('room-1') as {
+      m: number;
+    }
+  ).m + 1;
+  const dangling: Event = {
+    event_id: 'ev-ghost-fail',
+    room_id: 'room-1',
+    sequence: seq,
+    type: 'run_failed',
+    actor: 'runner',
+    entity_type: 'run',
+    entity_id: 'ghost-run',
+    summary: 'run ghost-run failed',
+    created_at: new Date().toISOString(),
+  };
+  db.prepare('INSERT INTO events (event_id, room_id, sequence, content_json) VALUES (?, ?, ?, ?)').run(
+    dangling.event_id,
+    dangling.room_id,
+    dangling.sequence,
+    JSON.stringify(dangling),
+  );
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  // 调用前保存完整 Room/current Task/Run/Review/Question/Event list/cursor snapshot，
+  // 证明 reject 零副作用；被引用 Run 拒绝前不存在、拒绝后仍不存在。
+  const snapshot = () => {
+    const events = service.listEvents('room-1');
+    return {
+      room: service.getRoom('room-1'),
+      task: service.getTask(TASK_ID),
+      runs: [service.getRun('ghost-run')],
+      reviews: [service.getReview('review-1')],
+      questions: [service.getQuestion('question-1')],
+      events,
+      cursor: events.length === 0 ? 0 : events[events.length - 1].sequence,
+    };
+  };
+  const before = snapshot();
+  const worktreeBefore = {
+    head: git(fixture, 'rev-parse', 'HEAD'),
+    porcelain: git(fixture, 'status', '--porcelain'),
+  };
+  try {
+    await assert.rejects(
+      () => runClaude(makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner })),
+      (err: unknown) => errCode(err) === 'entity_not_found',
+    );
+    assert.equal(invocations.length, 0, 'missing source run must not spawn a Claude process');
+    assert.equal(service.getRun('run-2'), null, 'missing source run must not create a Run');
+    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'missing source run must not write artifacts');
+    assert.deepEqual(snapshot(), before, 'Room/Task/Run/Review/Question/Event/cursor must be unchanged');
+    assert.deepEqual(
+      { head: git(fixture, 'rev-parse', 'HEAD'), porcelain: git(fixture, 'status', '--porcelain') },
+      worktreeBefore,
+      'worktree authority must be unchanged',
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry with a non-failed current-task source run rejects before spawn, Run, artifact or Event with unchanged durable snapshot', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask()); // task-1, PLAN_READY
+  service.startRun(makeRun({ baseline_head: baselineHead })); // run-1, CODING
+  service.failRun(
+    'run-1',
+    { code: 'claude_exit_failed', message: 'boom' },
+    makeTerminalEvidence({ claude_session_id: SESSION_ID, process_exit_code: 1 }),
+  ); // RUN_FAILED
+  service.retryAfterFailure('room-1'); // PLAN_READY
+  // 最窄 fixture mutation：latest run_failed 引用 current Task 的 run-1，但其 status 被
+  // 翻转为非 failed（running），表达 source reference 与 Run status 不一致。Run 以
+  // content_json 存储，必须 parse + set + re-stringify 整体替换。
+  const runRow = db.prepare('SELECT content_json FROM runs WHERE run_id = ?').get('run-1') as {
+    content_json: string;
+  };
+  const runJson = JSON.parse(runRow.content_json) as { status: string };
+  runJson.status = 'running';
+  db.prepare('UPDATE runs SET content_json = ? WHERE run_id = ?').run(JSON.stringify(runJson), 'run-1');
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const snapshot = () => {
+    const events = service.listEvents('room-1');
+    return {
+      room: service.getRoom('room-1'),
+      task: service.getTask(TASK_ID),
+      runs: [service.getRun('run-1')],
+      reviews: [service.getReview('review-1')],
+      questions: [service.getQuestion('question-1')],
+      events,
+      cursor: events.length === 0 ? 0 : events[events.length - 1].sequence,
+    };
+  };
+  const before = snapshot();
+  const worktreeBefore = {
+    head: git(fixture, 'rev-parse', 'HEAD'),
+    porcelain: git(fixture, 'status', '--porcelain'),
+  };
+  try {
+    await assert.rejects(
+      () => runClaude(makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner })),
+      (err: unknown) => errCode(err) === 'validation_failed',
+    );
+    assert.equal(invocations.length, 0, 'non-failed source run must not spawn a Claude process');
+    assert.equal(service.getRun('run-2'), null, 'non-failed source run must not create a Run');
+    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'non-failed source run must not write artifacts');
+    assert.deepEqual(snapshot(), before, 'Room/Task/Run/Review/Question/Event/cursor must be unchanged');
+    assert.deepEqual(
+      { head: git(fixture, 'rev-parse', 'HEAD'), porcelain: git(fixture, 'status', '--porcelain') },
+      worktreeBefore,
+      'worktree authority must be unchanged',
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry with a failed source run that is not terminal rejects before spawn, Run, artifact or Event with unchanged durable snapshot', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask()); // task-1, PLAN_READY
+  service.startRun(makeRun({ baseline_head: baselineHead })); // run-1, CODING
+  service.failRun(
+    'run-1',
+    { code: 'claude_exit_failed', message: 'boom' },
+    makeTerminalEvidence({ claude_session_id: SESSION_ID, process_exit_code: 1 }),
+  ); // RUN_FAILED
+  service.retryAfterFailure('room-1'); // PLAN_READY
+  // 最窄 fixture mutation：run-1 已 failed 但 completed_at 被清空（显式 null，保留 key），
+  // 表达非 terminal failed source；正常 lifecycle 无法产生。显式 null 必须经
+  // parse + set + re-stringify 持久化，json_set(..., NULL) 会移除 key 而非存 null。
+  const runRow = db.prepare('SELECT content_json FROM runs WHERE run_id = ?').get('run-1') as {
+    content_json: string;
+  };
+  const runJson = JSON.parse(runRow.content_json) as { completed_at: string | null };
+  runJson.completed_at = null;
+  db.prepare('UPDATE runs SET content_json = ? WHERE run_id = ?').run(JSON.stringify(runJson), 'run-1');
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const snapshot = () => {
+    const events = service.listEvents('room-1');
+    return {
+      room: service.getRoom('room-1'),
+      task: service.getTask(TASK_ID),
+      runs: [service.getRun('run-1')],
+      reviews: [service.getReview('review-1')],
+      questions: [service.getQuestion('question-1')],
+      events,
+      cursor: events.length === 0 ? 0 : events[events.length - 1].sequence,
+    };
+  };
+  const before = snapshot();
+  const worktreeBefore = {
+    head: git(fixture, 'rev-parse', 'HEAD'),
+    porcelain: git(fixture, 'status', '--porcelain'),
+  };
+  try {
+    await assert.rejects(
+      () => runClaude(makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner })),
+      (err: unknown) => errCode(err) === 'validation_failed',
+    );
+    assert.equal(invocations.length, 0, 'non-terminal source run must not spawn a Claude process');
+    assert.equal(service.getRun('run-2'), null, 'non-terminal source run must not create a Run');
+    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'non-terminal source run must not write artifacts');
+    assert.deepEqual(snapshot(), before, 'Room/Task/Run/Review/Question/Event/cursor must be unchanged');
+    assert.deepEqual(
+      { head: git(fixture, 'rev-parse', 'HEAD'), porcelain: git(fixture, 'status', '--porcelain') },
+      worktreeBefore,
+      'worktree authority must be unchanged',
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('retry run that fails again settles RUN_FAILED with terminal evidence and keeps the worktree', async () => {
+  const { fixture, baselineHead } = makeRepo();
+  const service = makeRetryReadyService(baselineHead, SESSION_ID);
+  const child = new FakeClaudeProcess();
+  const { spawner } = autoSpawner(child, () => {
+    // retry 期间产生新的未完成变更；non-zero exit 使 retry run 失败。
+    writeFileSync(join(fixture, 'retry-change.txt'), 'again');
+    writeLines(child, [initLine(SESSION_ID)]);
+    child.emit('close', 1, null);
+  });
+  try {
+    const { run, room } = await runClaude(
+      makeInput(service, fixture, baselineHead, { runId: 'run-2', spawnProcess: spawner }),
+    );
+    assert.equal(room.state, 'RUN_FAILED');
+    assert.equal(run.run_id, 'run-2');
+    assert.equal(run.status, 'failed');
+    assert.equal(run.failure?.code, 'claude_exit_failed');
+    assert.equal(run.claude_session_id, SESSION_ID, 'observed session persists even on failure');
+    assert.notEqual(run.completed_at, null);
+    // 失败 run 的 completion evidence 捕获 retry 期间产生的变更，不降级为空；
+    // artifact refs 属于 retry run 自身（run-2），不是 source run。
+    assert.deepEqual(run.git_evidence, { staged: [], unstaged: [], untracked: ['retry-change.txt'] });
+    assert.deepEqual(run.artifact_refs, [
+      '.agent-room/artifacts/run-2/stdout.jsonl',
+      '.agent-room/artifacts/run-2/stderr.log',
+    ]);
+    assert.equal(existsSync(join(fixture, 'retry-change.txt')), true, 'failed retry keeps worktree changes');
+
+    const events = service.listEvents('room-1');
+    assert.equal(events.filter((e) => e.type === 'run_resumed').length, 1);
+    assert.equal(events.filter((e) => e.type === 'run_failed').length, 2, 'two failures in the lineage');
+    assert.equal(events.filter((e) => e.type === 'run_completed').length, 0);
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }

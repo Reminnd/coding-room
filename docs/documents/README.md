@@ -68,6 +68,7 @@
 | [Increment 5 Fix 1](./INCREMENT_5_FIX_TASK_1.md) | Accepted | 修复 Question 后 progress settlement、answer 后 finalization idempotency 与 baseline test fake-process isolation |
 | [Increment 5 Fix 2](./INCREMENT_5_FIX_TASK_2.md) | Accepted | 补齐同一 stream progress 分界、完整 durable snapshot 与 baseline mismatch 零副作用 Oracle |
 | [Increment 6](./INCREMENT_6_TASK_CONTRACT.md) | Accepted | planning/failure coordination tools、one-shot Runner CLI、RUN_FAILED retry 与真实边界 E2E |
+| [Increment 6 Fix 1](./INCREMENT_6_FIX_TASK_1.md) | Accepted | 补齐retry source negative direct evidence并统一current-Task source语义 |
 
 ### 2.4 Agent 执行指南
 
@@ -95,5 +96,5 @@
 - [Increment 3 Integration Fix Task 1](./INCREMENT_3_INTEGRATION_FIX_TASK_1.md) 已完成 Coding；Codex Review 2 为 `approved`，用户已明确接受。Increment 3 commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2` 已 fast-forward 集成到 `main`，main integration 状态文档 successor commit 为 `2c2b880905eb7b39a0a84814dd7d5c3b0165a763`。
 - Increment 4 Fix Task 3 已完成 Coding；Review `review-increment-004-codex-004` 无 finding，Decision 为 `approved`，MCP 27/27 与全量 186/186 通过。用户已明确接受，完整 implementation scope 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 纳入版本化 `main` baseline；bootstrap Task transport 已 `Superseded`。
 - [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 无 finding，Decision 为 `approved`；用户已明确接受并另行授权提交完整 accepted scope。Decision/Fix continuation、测试、Fix Contract 与最终文档状态现已进入版本化 `main`，为 Current capability。
-- [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 的首次 Coding candidate 经 Review `review-increment-006-codex-001` 判定为 `changes_requested`。六项 finding 已获用户确认；用户选择不豁免 dispatch baseline 违约，不把当前 mixed Diff 作为 Fix/Review authority，而是在 clean documentation baseline 上重新执行原 Implementation Task。
-- 项目阶段回到`PLAN_READY`，本轮不生成Fix Task。首次candidate的11个implementation/test/config路径已保存到`stash@{0}`（`increment-6-invalid-baseline-candidate`）；用户已另行授权把九个documentation路径作为独立commit纳入`main`，并选择自行人工派发完整Contract。派发metadata以commit后的live exact `HEAD`与clean status为准；push、Codex启动Claude、runtime/真实Claude smoke、branch/worktree、stash删除与其它清理仍为独立门禁。
+- [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已从 clean exact `main` baseline `7ac639a30ab2a94170ef69498e065fb16e77f833` 重新执行；[Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，production source未改动。
+- Review `review-increment-006-codex-003`无finding、Decision为`approved`；Codex独立验证`npm run typecheck`与focused 95/95通过，Claude Coding Result报告全量242/242通过。用户已明确接受并另行授权提交完整accepted scope；planning coordination tools、one-shot Runner CLI与failure retry现已进入版本化`main`，为Current capability。Fix经验回收已完成；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理仍为独立门禁。

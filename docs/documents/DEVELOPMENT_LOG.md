@@ -3,15 +3,84 @@
 ## 当前状态
 
 - 日期：2026-08-26
-- 项目阶段：PLAN_READY / Increment 6 clean documentation baseline / 用户人工 dispatch
+- 项目阶段：ACCEPTED / Increment 6 已进入版本化 `main` / 等待后续规划
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：用户已批准
-- Implementation Task：[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已获用户确认；首次Coding candidate的Review `review-increment-006-codex-001` 为`changes_requested`。用户确认六项finding并选择不豁免baseline，当前mixed Diff不作为Fix/Review authority，待clean documentation baseline后重新执行原Task
+- Implementation Task：[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md)已从clean documentation baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)三类current-task retry source negative direct regression全部在既有production guard下通过；Review `review-increment-006-codex-003`无finding、Decision为`approved`。用户已明确接受并另行授权提交完整accepted scope；Increment 6现为Current capability
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；status 为 `main` Current，run 为 Increment 6 candidate）
-- Git repository：branch=`main`；首次candidate的11个implementation/test/config路径保存在`stash@{0}`（`increment-6-invalid-baseline-candidate`），九个documentation路径已获独立commit授权；exact dispatch HEAD与clean status由commit后的live Git输出记录，未push
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）
+- Git repository：branch=`main`；dispatch baseline为`7ac639a30ab2a94170ef69498e065fb16e77f833`，dispatch时worktree clean、0 staged；首次candidate仍隔离在`stash@{0}`（`increment-6-invalid-baseline-candidate`），未被恢复、应用或依赖；完整accepted scope已由本次implementation commit纳入`main`，未push
 
 ## 已完成
+
+### 2026-08-26 — Increment 6 提交授权与版本化 Current
+
+- 用户在Increment 6通过Review、获明确接受且Fix经验回收完成后，另行授权把完整accepted scope作为一个commit提交到`main`；授权不包含push、runtime初始化、真实Claude smoke、branch/worktree、stash删除或其它清理。
+- 提交scope精确包含4个source、6个test、1个config、Implementation/Fix两个Contract、8个Current/planning文档与1个角色指南，共22个path；无额外staged、unstaged或untracked path。exact commit object以live Git为权威，不在同一commit内容中自引用hash。
+- planning coordination tools、one-shot Runner CLI、failure retry、端到端acceptance/failure recovery与三类current-task source direct regression现为版本化`main` Current capability。首次invalid-baseline candidate继续隔离在`stash@{0}`，本次提交未恢复或依赖它。
+- Documentation impact audit：`documentation: updated`。Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志从accepted candidate同步为版本化Current；历史条目保留原时点事实。
+
+### 2026-08-26 — Increment 6 用户接受与 Fix 经验回收
+
+- 用户明确接受Review `review-increment-006-codex-003`、Increment 6 Implementation与Fix Task 1；项目阶段从`REVIEW_DISCUSSION`进入`ACCEPTED`。该确认不授权stage、commit、push、runtime初始化、真实Claude smoke、branch/worktree、stash删除或其它清理。
+- 接受时live Git仍为`main`、`HEAD=7ac639a30ab2a94170ef69498e065fb16e77f833`、0 staged；完整accepted candidate保留在working tree，进入版本化`main`前不提升为Current capability，operator仍不得调用`room:run`。
+- 经验回收基于Review 2两项finding、用户确认的最小方案、Accepted Fix Contract、完整task-owned Diff、三类`runClaude` direct regression、Review 3独立验证与本次最终接受。既有指南已覆盖public-path evidence与完整零副作用Oracle；新增一条可复用fixture规则：正常public lifecycle无法产生、但Contract明确要求拒绝的durable-state损坏，应只在temporary test database做最窄test-owned mutation，再穿过public boundary验证，不新增production mutation API或generic corruption framework。该规则写入[Claude Coding 与 Fix 指南](./agent-guides/CLAUDE_CODING_AND_FIX.md)第12.3节；Codex Review指南无需重复扩写。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations、Claude Coding指南与本日志为用户接受、经验回收及pending versioned commit事实；不改变product architecture、protocol version、public contract或实现。
+
+### 2026-08-26 — Increment 6 Fix Task 1 Review 3（approved）
+
+- Review ID：`review-increment-006-codex-003`。输入为Accepted Implementation/Fix Contract、lineage baseline `7ac639a30ab2a94170ef69498e065fb16e77f833`、完整staged/unstaged/untracked task-owned Diff、Fix Coding Result、源码、测试与Current/Accepted文档；当前`main`、`HEAD`等于baseline、0 staged，未执行Git写操作。
+- `inc6-r2-retry-negative-matrix-incomplete`已闭环：missing source Run、current Task non-failed source、current Task failed但`completed_at=null`三类fixture均直接调用`runClaude`，以测试侧literal `entity_not_found`/`validation_failed`在Git observation、`resumeRun` claim、spawn、新Run、artifact与Event前拒绝；每类完整Room/Task/fixture-owned Run/Review/Question/Event list/cursor snapshot、`run-2`、fake invocation与worktree `HEAD/status` oracle均成立。
+- `inc6-r2-stale-source-semantics`已闭环：旧Task `run_failed` Event对新current Task继续返回`new_implementation/sourceRun=null`，stale caller taskId继续独立以`validation_failed`拒绝；测试名称与confirmed语义一致，production source无需修改。
+- Findings：无。Review Decision：`approved`。阶段进入`REVIEW_DISCUSSION`，等待用户明确接受；Review通过不授权candidate提交、push、runtime初始化、真实Claude smoke、branch/worktree、stash删除或其它清理。
+- 独立验证：`npm run typecheck`通过；`node --test tests/room-service.test.ts tests/claude-runner.test.ts` 95/95通过。Claude Coding Result报告e2e/CLI/MCP 50/50、其余单元97/97与全量242/242通过；输入未再变化，因此Codex不重复运行同一全量suite。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志为Review 3结果；只更新candidate阶段和验证事实，不改变architecture/protocol/运维语义，不提升Current capability。
+
+### 2026-08-26 — Increment 6 Fix Task 1 Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id `increment-006-end-to-end-mvp-runtime-fix-001`，`type=fix`，`review_fixes_only=true`，`based_on_review_id=review-increment-006-codex-002`，lineage baseline `7ac639a30ab2a94170ef69498e065fb16e77f833`。
+- `tests/claude-runner.test.ts` 新增三项 current-task retry source direct negative regression，全部直接穿过 `runClaude` public boundary 并以测试侧 literal ProtocolError 拒绝：latest `run_failed` Event 引用不存在的 Run → `entity_not_found`（dangling Event 经无 FK 的 events 表以最窄 fixture SQL 构造）；latest `run_failed` 引用 current Task 的 non-failed（`status` 翻转为 `running`）Run → `validation_failed`；引用 current Task 的 failed 但 `completed_at` 为显式 null（parse + set + re-stringify，避免 `json_set(..., NULL)` 移除 key）的 Run → `validation_failed`。
+- 每项均断言既有 guard 语义：fake process invocation=0、目标 `run-2` 不存在、`.agent-room` artifact 目录不存在、完整 Room/current Task/Run/Review/Question/Event list/cursor snapshot 前后 deepEqual、worktree `HEAD` 与 `git status --porcelain` 前后不变。三类场景在既有 `deriveRetryOrNewImplementation` guard（`requireRun` → `entity_not_found`；`status !== 'failed' || completed_at === null` → `validation_failed`）下直接通过，未新增 production mutation API，production source 零改动。
+- `tests/room-service.test.ts` 最小对齐：既有 old-Task `run_failed` Event regression 的测试名称从“the failure is stale”改为明确表达语义的“latest run_failed references an old task run”，消除 finding 点名的 stale-source 措辞歧义；assertion 与既有注释（旧 Task Event 对新 current Task 按无 source 的 `new_implementation` 处理）不变。
+- 验证：`npm run typecheck` 通过；focused `node --test "tests/room-service.test.ts" "tests/claude-runner.test.ts"` 95/95 通过；`node --test "tests/e2e-workflow.test.ts" "tests/runner-cli.test.ts" "tests/room-mcp.test.ts"` 50/50 通过；其余 `git-observer/room-serve/status-cli/scope/state-machine/protocol/claude-process/claude-stream/room-state-snapshot` 97/97 通过；`npm test` 242/242 通过且 exit 0（239 既有 + 3 新增）。未启动、付费或依赖真实 Claude process。
+- 未执行任何 Git 写操作（stage/commit/push/branch/worktree/reset/restore/clean/checkout/stash 删除/其它清理）；未改变 Room state/transition/Run status/Event type/entity/schema/table/migration/protocol/error/MCP/CLI/dependency。candidate 未提升为 Current，等待 Codex Review。
+- Documentation impact audit：`documentation: updated`。仅更新本日志为 Fix Task 1 candidate 事实；未修改 Codex-owned 文档（PROJECT_RULES、ARCHITECTURE、ROOM_PROTOCOL、ADR、MVP、OPERATIONS、README、Accepted Contract、Fix Contract）。
+
+### 2026-08-26 — Increment 6 Review 2 方案确认与 Fix Task 1
+
+- 用户明确确认`review-increment-006-codex-002`的两项finding与推荐最小方案：补齐missing/non-failed/non-terminal current-task retry source的Runner public-boundary direct regression；只有新测试暴露真实guard缺陷时才允许最小production修复。
+- 用户确认retry source是current Task scoped authority：latest `run_failed` Event若引用旧Task Run，对新current Task表示无source的`new_implementation`并继续clean exact baseline gate；caller传入stale/wrong `taskId`仍拒绝，missing Event target及current-task non-failed/non-terminal source仍拒绝。
+- 已创建[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)，状态为Accepted、`confirmed_by_user=true`、`review_fixes_only=true`，保留原Implementation lineage baseline `7ac639a30ab2a94170ef69498e065fb16e77f833`与当前完整candidate Diff；阶段进入`FIX_PLAN_READY`。
+- 用户继续在原Increment 6 Claude session中人工派发。该确认不授权Codex启动Claude，也不授权stage、commit、push、branch/worktree、真实Claude smoke、reset、restore、clean、checkout、stash删除或其它清理。
+- Documentation impact audit：`documentation: updated`。同步Accepted Implementation Contract澄清、Fix Contract、Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志；该用户确认收敛既有lineage语义，不新增state/schema/Event/error/dependency或protocol version，不把candidate提升为Current。
+
+### 2026-08-26 — Increment 6 clean-baseline re-execution Review 2（changes_requested）
+
+- Review ID：`review-increment-006-codex-002`。输入为Accepted Contract、clean dispatch baseline `7ac639a30ab2a94170ef69498e065fb16e77f833`、live staged/unstaged/untracked完整Diff、首次candidate `stash@{0}`、Coding Result、源码/测试与Current/Accepted文档。
+- Review 1闭合情况：dispatch baseline、exact `/mcp/claude` route、existing empty/non-Room database read-only preflight、CLI `runCliMain` stdout/exit 0/1，以及四个coordination tool的逐tool invalid-input/internal-failure/cleanup与完整snapshot evidence均已闭合。
+- Medium `inc6-r2-retry-negative-matrix-incomplete`：`tests/room-service.test.ts`与`tests/claude-runner.test.ts`新增了retry happy、empty-session、HEAD drift、stale `taskId`、未执行`retryAfterFailure`与retry再次失败，但没有直接构造Accepted Contract点名的missing source Run、latest `run_failed`引用non-failed Run或source未terminal三类场景，也没有对这些拒绝逐项比较完整Room/Task/Run/Review/Question/Event list/cursor与零spawn/artifact。Coding Result与candidate docs称“retry negative matrix全部闭合”不成立。
+- Medium `inc6-r2-stale-source-semantics`：`RoomService.deriveRetryOrNewImplementation`在latest `run_failed` Event引用旧Task Run时返回`new_implementation`，`tests/room-service.test.ts`通过`RUN_FAILED`后提交新Implementation Task直接固定该行为；Accepted Contract与ROOM_PROTOCOL又写“stale source必须拒绝”。该路径由现有public `submitTask`可达，不能同时把实现与文档都视为正确。推荐把“旧Task Event不属于current Task source”定义为当前Task无source、允许new Implementation，并把“stale taskId调用”保留为拒绝；若用户要求所有stale Event均拒绝，则改实现与测试。
+- 独立验证：`npm run typecheck`通过；`npm test` 239/239通过且exit 0。绿灯证明现有assertion成立，不替代缺失的Contract-named Oracle或协议语义决定。
+- Review Decision：`changes_requested`。阶段进入`REVIEW_DISCUSSION`；用户确认两项solution前不生成Fix Task、不提交candidate。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0002、MVP Plan、Operations与本日志为Review 2结果；未把candidate提升为Current，未修改Accepted Contract或业务实现。
+
+### 2026-08-26 — Increment 6 clean-baseline re-execution Coding 完成（candidate，REVIEW_REQUIRED）
+
+按 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 从用户人工派发的 clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`、branch `main`、dispatch 时 worktree clean、0 staged）重新执行完整 Implementation Task。未恢复、应用或依赖 `stash@{0}` 中的首次 candidate，未执行任何 Git 写操作：
+
+- `src/mcp/tools.ts`：`/mcp/codex` 在既有五个 tools 上增加且只增加 `room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`、`room_retry_run`（共九个），均直接适配既有 `RoomService.createRoom` / `transitionToArchitectureReview` / `transitionToWaitingForUserConfirmation` / `retryAfterFailure`，复用既有 actor isolation、stateless HTTP request lifecycle、ProtocolError/invalid-input/unexpected-error mapping 与 request cleanup；`/mcp/claude` 仍只注册 `room_ask_question`（一个）。
+- `src/room/room-service.ts`：`getContinuationContext` 的 `ContinuationContext` union 增加最小 `retry` kind——Room=`PLAN_READY` 且 current Task 已有由 latest `run_failed` Event 确定的 current failed source Run 时判定为 failure retry，无 source Run 时保持 `new_implementation`；retry source 必须属于 current Room/current Task、`status=failed` 且 `completed_at` 非空。
+- `src/runner/claude-runner.ts`：`runClaude` 对 `retry` kind 走 `observeContinuation`（dirty-allowed、exact-HEAD）继承 source Run baseline；source `claude_session_id` 非空时经 `resumeRun` 追加既有 `run_resumed` 并向 process 传 exact `--resume`，为空时同样经 `resumeRun` 保持同一 Task lineage 但省略 `--resume` 建立 replacement session；retry prompt 携带完整 persisted current TaskContract 与 `continuation_kind=retry`。
+- `src/cli/run.ts`（新增）与 `package.json`：one-shot `room:run` application entry——只打开既有 file-backed Room database（read-only probe 确认 `rooms` table，绝不初始化 schema，空文件/非 Room database 在构造 `RoomService` 前拒绝）、preflight 拒绝 missing database/non-directory project/non-loopback 或 pathname 非 exact `/mcp/claude` 的 MCP URL/不完整参数、`new_implementation` 要求 `--baseline-head`、构造 exact `agent_room` HTTP MCP config（`alwaysLoad=true`）并执行恰好一个 Run、输出 deterministic JSON `{room, run}`；succeeded/needs_decision exit 0，failed 仍输出结果但 exit 1，argument/preflight/ProtocolError 或未 settle 异常写 stderr 并 non-zero exit。`package.json` 只新增 `room:run` script，未新增 dependency。
+- tests：`tests/runner-cli.test.ts`（新增，13 项）与 `tests/e2e-workflow.test.ts`（新增，3 项）覆盖 CLI 黑盒（argument/preflight/ProtocolError non-zero exit、失败不创建/不初始化 database、route gate、`main()` stdout/exitCode 契约）与完整 acceptance workflow（实际 loopback MCP + file-backed SQLite + representative Git + fake Claude process 从 `room_create` 到 `ACCEPTED`）、独立 failure recovery（`room_retry_run` 后保留 dirty worktree、unchanged HEAD、exact session resume 成功）及 source session 为空时同 lineage replacement session；`tests/room-mcp.test.ts`、`tests/room-service.test.ts`、`tests/claude-runner.test.ts`、`tests/scope.test.ts` 增加四个新增 tool 的 actor/rollback/idempotency、`retry` continuation kind、retry source authority/session 选择/baseline gate、resumeRun/Event/terminal settlement 与 Increment 6 exact MCP tool list/scope/dependency boundary 的 direct regression。
+
+验证：`npm run typecheck` 通过；`node --test "tests/e2e-workflow.test.ts" "tests/runner-cli.test.ts"` 16/16 通过；`node --test "tests/room-mcp.test.ts" "tests/room-service.test.ts" "tests/claude-runner.test.ts"` 126/126 通过；`node --test "tests/git-observer.test.ts" "tests/room-serve.test.ts" "tests/status-cli.test.ts" "tests/scope.test.ts"` 30/30 通过；`npm test` 239/239 通过且 exit 0。未启动、付费或依赖真实 Claude process，未依赖外部 network 或固定 port。
+
+本次从 clean baseline 重新实现的同时，已直接闭合 Review 1 点名的 evidence 缺口：dispatch baseline 现为包含 Accepted/review documentation 的 clean exact `main`（`inc6-r1-dispatch-baseline`）；CLI `main()` 经 `runCliMain` seam 穿过 stdout `{room,run}` 与 process exit 0/1（`inc6-r1-cli-main-oracle`）；MCP URL preflight 拒绝非 `/mcp/claude` route、既有空 database 不被初始化 schema（`inc6-r1-mcp-url-route-preflight` / `inc6-r1-existing-db-schema-mutation`）；四个新增 coordination tools 的逐 tool negative public evidence 与 retry wrong-current/stale/non-failed source 等 Contract-named direct regression 全部补齐（`inc6-r1-mcp-negative-public-evidence` / `inc6-r1-retry-negative-oracle`）。
+
+未 commit、未 stage、未执行 branch/worktree/push/清理；candidate 未提升为 Current，operator 仍不得使用 `room:run`，等待 Codex 新 Review。
+
+Documentation impact audit：`documentation: updated`。同步 Architecture §3.10、ROOM_PROTOCOL §11.8/§12.2、ADR-0002、MVP Plan §增量6、Operations §1/§4.3/§5.2/§9 与本日志为「clean-baseline re-execution 完成、candidate、未 Review/接受」；未把 Increment 6 写成 Current capability，未新增 Room state/transition/entity/schema/Event/error/dependency。
 
 ### 2026-08-26 — Increment 6 Review 1 方案确认：clean-baseline re-execution
 
@@ -791,8 +860,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 6 Review `review-increment-006-codex-001` 有六项 unresolved finding；用户确认baseline处理与最小方案前不得生成/派发Fix Task或提交candidate。未获runtime初始化、真实Claude smoke、push、branch/worktree或清理授权。
+无 unresolved finding。Increment 6已获用户明确接受并进入版本化`main`；未获runtime初始化、真实Claude smoke、push、branch/worktree、stash删除或其它清理授权。
 
 ## 下一步
 
-等待用户确认Increment 6 Review 1 findings、dispatch baseline处理与最小方案；确认前不生成Fix Task。commit/push、runtime初始化、真实Claude smoke、branch/worktree与清理继续保持独立门禁。
+由用户另行确认Increment 7或其它后续规划；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理继续保持独立门禁。

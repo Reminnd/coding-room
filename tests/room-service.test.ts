@@ -806,3 +806,63 @@ test('getContinuationContext rejects changed-contract answer, missing session an
   toCoding(s3);
   assert.equal(errCode(() => s3.getContinuationContext('room-1', 'task-1')), 'validation_failed');
 });
+
+test('getContinuationContext derives retry kind from the current task failed run after retryAfterFailure', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.failRun(
+    'run-1',
+    { code: 'claude_exit_failed', message: 'boom' },
+    makeTerminalEvidence({ claude_session_id: 'sess-1', process_exit_code: 1 }),
+  ); // RUN_FAILED
+  assert.equal(service.getRoom('room-1')!.state, 'RUN_FAILED');
+  service.retryAfterFailure('room-1'); // PLAN_READY
+  const retry = service.getContinuationContext('room-1', 'task-1');
+  assert.equal(retry.kind, 'retry');
+  if (retry.kind === 'retry') {
+    // source 是 latest run_failed Event 引用的 current Task Run，带 persisted session/baseline。
+    assert.equal(retry.sourceRun.run_id, 'run-1');
+    assert.equal(retry.sourceRun.status, 'failed');
+    assert.equal(retry.sourceRun.claude_session_id, 'sess-1');
+    assert.equal(retry.sourceRun.baseline_head, 'deadbeef');
+    assert.notEqual(retry.sourceRun.completed_at, null);
+  }
+});
+
+test('getContinuationContext retry kind tolerates a source run without a session (replacement session)', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.failRun('run-1', { code: 'claude_exit_failed', message: 'boom' }, makeTerminalEvidence());
+  service.retryAfterFailure('room-1');
+  const retry = service.getContinuationContext('room-1', 'task-1');
+  assert.equal(retry.kind, 'retry');
+  if (retry.kind === 'retry') {
+    // 与 decision/fix 不同，retry 不要求 session：Runner 据此省略 --resume 创建 replacement session。
+    assert.equal(retry.sourceRun.claude_session_id, null);
+  }
+});
+
+test('getContinuationContext keeps new_implementation when no failed run exists or the latest run_failed references an old task run', () => {
+  // 无 run_failed Event → new_implementation。
+  const { service } = makeService();
+  toPlanReady(service);
+  assert.equal(service.getContinuationContext('room-1', 'task-1').kind, 'new_implementation');
+
+  // stale failure：更早 lineage 的 run_failed 不作为 current Task 的 retry source；从
+  // RUN_FAILED 提交新 Implementation 后保持首次 new Implementation 语义。
+  const { service: s2 } = makeService();
+  toCoding(s2);
+  s2.failRun('run-1', { code: 'claude_exit_failed', message: 'boom' }, makeTerminalEvidence()); // RUN_FAILED
+  s2.submitTask(makeTask({ task_id: 'task-2' })); // RUN_FAILED -> PLAN_READY, current task = task-2
+  const fresh = s2.getContinuationContext('room-1', 'task-2');
+  assert.equal(fresh.kind, 'new_implementation');
+  assert.equal(fresh.sourceRun, null);
+});
+
+test('getContinuationContext rejects a stale task while a failed source run exists', () => {
+  const { service } = makeService();
+  toCoding(service);
+  service.failRun('run-1', { code: 'claude_exit_failed', message: 'boom' }, makeTerminalEvidence()); // RUN_FAILED
+  service.submitTask(makeTask({ task_id: 'task-2' })); // current task = task-2
+  assert.equal(errCode(() => service.getContinuationContext('room-1', 'task-1')), 'validation_failed');
+});

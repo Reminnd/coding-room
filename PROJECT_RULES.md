@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：PLAN_READY / Increment 6 clean documentation baseline / 用户人工 dispatch
+> 当前阶段：ACCEPTED / Increment 6 已进入版本化 `main` / 等待后续规划
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -256,6 +256,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_5_FIX_TASK_1.md](./docs/documents/INCREMENT_5_FIX_TASK_1.md) | Increment 5 Review 1 三项 confirmed finding 的最小 Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_5_FIX_TASK_2.md](./docs/documents/INCREMENT_5_FIX_TASK_2.md) | Increment 5 Review 2 三项 confirmed regression-oracle finding 的 test-only Fix Task | Codex | Increment 5 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_6_TASK_CONTRACT.md](./docs/documents/INCREMENT_6_TASK_CONTRACT.md) | planning coordination tools、one-shot Runner CLI、failure retry 与真实边界 E2E Implementation Task Contract | Codex | Increment 6 Coding、Review 与 Fix规划 | Accepted |
+| [docs/documents/INCREMENT_6_FIX_TASK_1.md](./docs/documents/INCREMENT_6_FIX_TASK_1.md) | Increment 6 Review 2 retry negative evidence 与 current-Task source语义最小Fix Task | Codex | Increment 6 Fix Coding 与再次Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -284,4 +285,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-架构已于 2026-08-23 经用户确认。Increment 1–5 已完成、通过 Review、获用户接受并进入版本化 `main`；Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 6 Review `review-increment-006-codex-001` 的六项 finding 已获用户确认；用户明确选择不豁免 dispatch baseline 违约，不把当前 mixed Diff 作为 Fix/Review authority，而是在 Accepted documentation 形成 clean exact `main` baseline 后重新执行原 Implementation Task。因此本轮不生成 Fix Task，阶段回到`PLAN_READY`。首次 candidate 的11个implementation/test/config路径已按用户授权隔离到`stash@{0}`（`increment-6-invalid-baseline-candidate`）；用户随后授权将九个documentation路径作为独立commit纳入`main`，并选择由其人工派发完整Contract。Codex不启动Claude；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理仍保持独立授权门禁。
+架构已于 2026-08-23 经用户确认。Increment 1–6 已完成、通过 Review、获用户接受并进入版本化 `main`；planning coordination tools、one-shot Runner CLI、failure retry、Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 6 从clean exact `main` baseline `7ac639a30ab2a94170ef69498e065fb16e77f833`完整重新执行；[Increment 6 Fix Task 1](./docs/documents/INCREMENT_6_FIX_TASK_1.md)补齐missing/non-failed/non-terminal current-task retry source的Runner direct regression，旧Task failed Event对新current Task继续按无source的new Implementation处理，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户明确接受并另行授权把完整accepted scope作为一个commit提交到`main`。首次candidate仍保存在`stash@{0}`；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理仍保持独立授权门禁。

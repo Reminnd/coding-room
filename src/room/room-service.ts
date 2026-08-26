@@ -30,13 +30,15 @@ export interface RunTerminalEvidence {
   artifact_refs: string[];
 }
 
-// 只读 continuation context：Runner 在 spawn 前据此推导 Decision/Fix resume 的 exact session、
-// baseline 与 answered Question，不接受 caller 覆盖这些 authority。new_implementation 表示首次
-// Implementation（或 RUN_FAILED retry）走 clean-baseline start，不继承任何 lineage。
+// 只读 continuation context：Runner 在 spawn 前据此推导 Decision/Fix/retry resume 的 exact
+// session、baseline 与 answered Question，不接受 caller 覆盖这些 authority。new_implementation
+// 表示首次 Implementation（无 source Run），走 clean-baseline start；retry 表示同一 current
+// Task 存在已 terminal-finalized 的 failed source Run，继承其 baseline 与可选 session。
 export type ContinuationContext =
   | { kind: 'new_implementation'; sourceRun: null; question: null; review: null }
   | { kind: 'decision'; sourceRun: Run; question: Question; review: null }
-  | { kind: 'fix'; sourceRun: Run; question: null; review: Review };
+  | { kind: 'fix'; sourceRun: Run; question: null; review: Review }
+  | { kind: 'retry'; sourceRun: Run; question: null; review: null };
 
 // application service 是唯一拥有 rooms.state 修改权限的模块。每个公开方法都在单个
 // SQLite transaction 内完成 entity write、state change 与 Event append，失败即回滚。
@@ -422,7 +424,7 @@ export class RoomService {
     }
     switch (room.state) {
       case 'PLAN_READY':
-        return { kind: 'new_implementation', sourceRun: null, question: null, review: null };
+        return this.deriveRetryOrNewImplementation(roomId, task);
       case 'NEEDS_DECISION':
         return this.deriveDecisionContinuation(roomId, task);
       case 'FIX_PLAN_READY':
@@ -740,6 +742,28 @@ export class RoomService {
       run.git_evidence,
       run.artifact_refs,
     ]);
+  }
+
+  // PLAN_READY 分支：Room 状态由 source lineage 决定 retry 或 new_implementation。权威 retry
+  // source 是 latest run_failed Event 引用的 Run；该 Run 必须属于 current Room/current Task 且已
+  // terminal-finalized（status=failed、completed_at 非 null）。缺失 source 或 source 来自更早
+  // lineage/task 时保持首次 new Implementation 语义，绝不从 artifact/session history 猜测 source。
+  private deriveRetryOrNewImplementation(roomId: string, task: TaskContract): ContinuationContext {
+    const failedRunId = this.repo.latestEventEntityId(roomId, 'run_failed');
+    if (failedRunId === null) {
+      return { kind: 'new_implementation', sourceRun: null, question: null, review: null };
+    }
+    const run = this.requireRun(failedRunId);
+    if (run.room_id !== roomId || run.task_id !== task.task_id) {
+      return { kind: 'new_implementation', sourceRun: null, question: null, review: null };
+    }
+    if (run.status !== 'failed' || run.completed_at === null) {
+      throw new ProtocolError(
+        'validation_failed',
+        `retry source run ${run.run_id} is not a terminal failed run of task ${task.task_id}`,
+      );
+    }
+    return { kind: 'retry', sourceRun: run, question: null, review: null };
   }
 
   private deriveDecisionContinuation(roomId: string, task: TaskContract): ContinuationContext {

@@ -181,3 +181,7 @@ leaf test 只负责 process/stream outcome；orchestrator test 负责 outcome �
 ### 12.2 validation-before-spawn 同时证明 durable 与 external side effect 为零
 
 若 Contract 声明 validation 在 Run、process、artifact与 Event创建前失败，测试在调用前保存完整 Room/相关entity/Event list/cursor snapshot，并在拒绝后 `deepEqual`；同时注入 recording/throwing fake spawner，断言 invocation count为零、新Run不存在且artifact owner path不存在。幂等 retry与`id_conflict`也分别在每次调用前保存完整 public snapshot，不只比较selected field或Event count。期望使用测试侧literal与public read method，不从private signature/helper生成。
+
+### 12.3 正常 lifecycle 无法产生的 durable-state 损坏使用 test-owned mutation
+
+当 Accepted Contract 明确要求 public boundary 拒绝某类 persisted-state 损坏，而正常 public lifecycle 无法构造该状态时，只在 temporary test database 内对最窄 storage row/reference 做 test-owned mutation，再直接调用目标 public operation。mutation 后、operation 前保存完整 durable snapshot，并按 12.2 节证明拒绝零副作用。不得为测试新增 production mutation API、通用 corruption framework、schema/migration或第二套状态权威；若 direct regression 证明既有 production guard 正确，production source保持不变。

@@ -160,7 +160,7 @@ function resultText(result: unknown): string {
   return typeof text === 'string' ? text : '';
 }
 
-test('codex route exposes exactly the five Codex tools; claude route exposes only room_ask_question', async () => {
+test('codex route exposes exactly the nine Codex tools; claude route exposes only room_ask_question', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
@@ -170,7 +170,11 @@ test('codex route exposes exactly the five Codex tools; claude route exposes onl
     assert.deepEqual(await toolNames(codex), [
       'room_accept_review',
       'room_answer_question',
+      'room_begin_architecture_review',
+      'room_create',
       'room_get_state',
+      'room_request_user_confirmation',
+      'room_retry_run',
       'room_submit_review',
       'room_submit_task',
     ]);
@@ -1143,6 +1147,191 @@ test('restart persistence: a fresh file-backed app reads the same Room state', a
   } finally {
     await close();
     db2.close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('room_create round-trips created/false idempotency through the adapter', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    const created = await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
+    assert.equal(created.isError, undefined);
+    const createdBody = created.structuredContent as { room: { room_id: string; state: string }; created: boolean };
+    assert.equal(createdBody.room.room_id, 'room-1');
+    assert.equal(createdBody.room.state, 'DISCUSSION');
+    assert.equal(createdBody.created, true);
+
+    const duplicate = await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
+    assert.equal(duplicate.isError, undefined);
+    const duplicateBody = duplicate.structuredContent as { room: { room_id: string }; created: boolean };
+    assert.equal(duplicateBody.created, false, 'same-content retry must be idempotent');
+    assert.deepEqual(duplicateBody.room, createdBody.room);
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('room_begin_architecture_review and room_request_user_confirmation move the Room through planning', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1'); // DISCUSSION
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    const arch = await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
+    assert.equal(arch.isError, undefined);
+    assert.equal((arch.structuredContent as { room: { state: string } }).room.state, 'ARCHITECTURE_REVIEW');
+
+    const confirm = await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
+    assert.equal(confirm.isError, undefined);
+    assert.equal((confirm.structuredContent as { room: { state: string } }).room.state, 'WAITING_FOR_USER_CONFIRMATION');
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('room_retry_run returns a failed Run to PLAN_READY', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask());
+  service.startRun(makeRun());
+  service.failRun('run-1', { code: 'claude_exit_failed', message: 'boom' }, makeTerminalEvidence()); // RUN_FAILED
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    const result = await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1' } });
+    assert.equal(result.isError, undefined);
+    const body = result.structuredContent as { room: { room_id: string; state: string } };
+    assert.equal(body.room.room_id, 'room-1');
+    assert.equal(body.room.state, 'PLAN_READY');
+    // source Run 保持 terminal failed；current_run 仍是该 Run。
+    const state = await snapshot(codex, 'room-1');
+    assert.equal((state.current_run as { status: string } | null)?.status, 'failed');
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('the four coordination tools reject wrong-state transitions with a stable ProtocolError and unchanged full snapshot', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1');
+  service.transitionToArchitectureReview('room-1');
+  service.transitionToWaitingForUserConfirmation('room-1');
+  service.submitTask(makeTask()); // PLAN_READY：planning transitions 全部非法
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    const before = await snapshot(codex, 'room-1');
+    for (const name of [
+      'room_begin_architecture_review',
+      'room_request_user_confirmation',
+      'room_retry_run',
+    ]) {
+      const result = await codex.callTool({ name, arguments: { room_id: 'room-1' } });
+      assert.equal(result.isError, true, `${name} must reject the wrong-state transition`);
+      const err = errorPayload(result);
+      assert.equal(err.code, 'invalid_transition');
+      assert.ok(err.message.length > 0);
+      assert.deepEqual(await snapshot(codex, 'room-1'), before, `${name} must not change durable state`);
+    }
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('the four coordination tools reject missing or empty room_id with invalid-arguments and leave the full snapshot unchanged', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1');
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    const before = await snapshot(codex, 'room-1');
+    for (const name of [
+      'room_create',
+      'room_begin_architecture_review',
+      'room_request_user_confirmation',
+      'room_retry_run',
+    ]) {
+      for (const args of [{}, { room_id: '' }]) {
+        const result = await codex.callTool({ name, arguments: args });
+        assert.equal(result.isError, true, `${name} must reject invalid input`);
+        assert.match(resultText(result), /Invalid arguments/);
+        assert.deepEqual(await snapshot(codex, 'room-1'), before, `${name} must not change durable state`);
+      }
+    }
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('a non-ProtocolError internal failure in each coordination tool surfaces the raw error and cleans up its request resource', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const db = new DatabaseSync(':memory:');
+  const service = new RoomService(db);
+  service.createRoom('room-1');
+  db.close(); // 后续任何 write/prepare 抛 plain Error（非 ProtocolError）
+  const spy = closeSpy();
+  const { url, close } = await startApp(service, fixture, undefined, spy.observe);
+  try {
+    const codex = await connect(url, '/mcp/codex');
+    await codex.listTools();
+    await waitFor(
+      () => spy.serverCloses.length >= 2 && spy.transportCloses.length === spy.serverCloses.length,
+    );
+    let base = spy.serverCloses.length;
+    for (const name of [
+      'room_create',
+      'room_begin_architecture_review',
+      'room_request_user_confirmation',
+      'room_retry_run',
+    ]) {
+      const result = await codex.callTool({ name, arguments: { room_id: 'room-1' } });
+      assert.equal(result.isError, true, `${name} must surface the internal failure`);
+      const text = resultText(result);
+      assert.ok(text.length > 0);
+      // 非 ProtocolError 走 SDK internal tool-error path：content text 是原始错误消息，
+      // 不是 runTool 映射的 {code,message} JSON。
+      assert.throws(() => JSON.parse(text));
+      await waitFor(
+        () => spy.serverCloses.length === base + 1 && spy.transportCloses.length === base + 1,
+      );
+      base += 1;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(spy.serverCloses.length, base);
+    assert.equal(spy.transportCloses.length, base);
+    await codex.close();
+  } finally {
+    await close();
     rmSync(fixture, { recursive: true, force: true });
   }
 });

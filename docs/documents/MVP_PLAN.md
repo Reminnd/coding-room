@@ -7,7 +7,7 @@
 > Increment 3 Integration Fix 1：Review 2 `approved` / 用户已接受 / `main` commit `e8f0da6db9f3f4ff426355fa1a84d19bae4db9f2`
 > Increment 4：用户已接受 / `ACCEPTED` / main commit `44fd34959834b28c8909b589a203e4c48eadc5b0`
 > Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
-> Increment 6：Review 1 `changes_requested` / 用户选择 clean-baseline re-execution / `PLAN_READY`
+> Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 
 ## 1. 目标
 
@@ -163,7 +163,7 @@ Verification 检测：
 
 ### 增量 6 — End-to-End MVP
 
-状态：`PLAN_READY`（Review `review-increment-006-codex-001` 为 `changes_requested`；用户已确认六项 finding 并选择 clean-baseline re-execution）。完整权威范围继续是 [Increment 6 Task Contract](./INCREMENT_6_TASK_CONTRACT.md)；首次 candidate 的 typecheck、e2e/CLI 12/12、focused 118/118 与 30/30、全量 227/227 虽通过，但其 dispatch baseline、两个 CLI preflight 行为及三组 Contract-named direct evidence未闭合，且该 mixed Diff 不再作为 Fix/Review authority。
+状态：`ACCEPTED` / Current。完整Implementation权威范围是[Increment 6 Task Contract](./INCREMENT_6_TASK_CONTRACT.md)，Review 2确认的最小修复范围是[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)。Fix已补齐missing/non-failed/non-terminal current-task retry source的direct regression，旧Task failed Event对新current Task继续按无source的新Implementation处理；Review `review-increment-006-codex-003`无finding、Decision为`approved`。用户已明确接受并另行授权提交完整accepted scope；Increment 6现已进入版本化`main`。
 
 目标：交付可由operator显式执行的最小端到端runtime，并用representative fixture repository证明完整用户工作流与failure recovery。
 
@@ -225,4 +225,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 确认同一 pause stream Question 前后 progress 分界、answer 后 retry/conflict 完整 durable snapshot、baseline mismatch Event/cursor/Room 零副作用三项 Oracle 均闭合，无 finding，Decision 为 `approved`。用户已明确接受并另行授权提交完整 accepted scope；Increment 5 已进入版本化 `main`。真实 Claude smoke、push与后续 Increment 规划仍是独立门禁。
 
-[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 的首次 Coding candidate 经 Review `review-increment-006-codex-001` 确认主流程与failure recovery正向路径通过，但实际dispatch未形成Contract要求的clean documentation baseline，且存在`room:run` route/database preflight与CLI/MCP/retry direct evidence缺口。用户已确认六项finding并选择不豁免baseline：不生成Fix Task、不把当前mixed Diff作为后续authority。首次candidate已可恢复地隔离，用户已授权把Accepted/review documentation单独提交到`main`并选择自行人工派发；新Implementation必须以commit后的live exact HEAD与clean worktree为baseline。
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability；真实Claude smoke、push与后续Increment规划仍为独立门禁。

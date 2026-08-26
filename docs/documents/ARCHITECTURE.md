@@ -143,9 +143,9 @@ CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不�
 
 本 Accepted design不新增 Room state、transition、entity、SQLite field/table、MCP tool、source module、dependency、Runner daemon或 scheduler。[Increment 5 Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已按确认方案修复 progress routing、已完成 finalization 的 retry/conflict 顺序与 deterministic fake-process isolation；test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已补齐 Contract 点名的 event-order 与 durable zero-side-effect Oracle，未修改 source。Review `review-increment-005-codex-003` 无 finding，用户已明确接受并另行授权提交完整 accepted scope；实现现已进入版本化 `main`，且未产生新的 architecture、state ownership 或 runtime command。
 
-### 3.10 Increment 6 Accepted design — End-to-End MVP Runtime
+### 3.10 Increment 6 Current implementation — End-to-End MVP Runtime
 
-[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已于2026-08-26获用户确认，冻结以下candidate wiring；首次Coding candidate已完成但Review为`changes_requested`，用户选择在clean documentation baseline上重新执行原Implementation Task。在新的完整task-owned Diff通过Review、获用户接受与版本化提交前均不得标记为Current：
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已于2026-08-26获用户确认并冻结以下wiring；从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行的完整Implementation Task已完成Review、用户接受与版本化提交：
 
 - `/mcp/codex` 在既有五个tools上增加`room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`与`room_retry_run`，只适配现有`RoomService` commands；`/mcp/claude`仍只公开`room_ask_question`。
 - 新增显式one-shot `room:run` operator boundary。它打开既有file-backed SQLite，验证project/current Task/MCP endpoint后执行恰好一个Run；它不创建Room、不启动server、不轮询、不调度下一Run。
@@ -154,7 +154,7 @@ CLI 读取 Room 状态。除非后续已批准需求明确增加，否则它不�
 
 该设计继续保持SQLite/State Machine的durable state ownership、Git Observer只读边界、process-per-Run、Task-lineage session、Runner-owned terminal settlement与Codex explicit pull。不增加Room state/schema/Event/error/dependency、daemon、automatic retry、Git mutation或Increment 7 packaging。
 
-首次Coding已按该 Accepted design形成candidate：`/mcp/codex`注册九tools，`/mcp/claude`仍为一个`room_ask_question`；one-shot`room:run`与failure`retry` continuation已落地，端到端acceptance/failure recovery正向路径以fake-process boundary穿过真实MCP/SQLite/Git通过。Review `review-increment-006-codex-001` 为`changes_requested`：CLI MCP route/database preflight与Contract-named CLI/MCP/retry direct evidence尚未闭合。用户已确认findings并选择不豁免dispatch baseline，故当前mixed Diff不作为Fix/Review authority；架构目标不变，需从clean documentation baseline重新实现与验证。
+clean-baseline re-execution已按该Accepted design形成Current implementation：`/mcp/codex`注册九tools，`/mcp/claude`仍为一个`room_ask_question`；one-shot`room:run`与failure`retry` continuation已落地，端到端acceptance/failure recovery（含source session为空时的同lineage replacement session）以fake-process boundary穿过真实MCP/SQLite/Git通过。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐missing/non-failed/non-terminal current-task source的Runner direct regression，三类测试均在既有guard下通过，production source未改动；旧Task failed Event仍表示新current Task无source，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope，实现现已进入版本化`main`。
 
 ## 4. 依赖方向
 

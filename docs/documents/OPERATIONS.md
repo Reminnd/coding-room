@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-26
-> Last maintained review：`review-increment-006-codex-001`
+> Last maintained review：`review-increment-006-codex-003`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -16,8 +16,8 @@
 | Integration 状态 | Review 1 的四项 finding 已修复；Review 2 `approved`、用户已接受；commit 已 fast-forward 集成到 `main` |
 | Runtime readiness | Protocol/Room domain、只读 Git Observer 与 central Runner TypeScript API 已在 `main` |
 | Service readiness | Room server、MCP、Status CLI 已由 commit `44fd34959834b28c8909b589a203e4c48eadc5b0` 进入版本化 `main`；Runner 仍是 TypeScript API，不包含 daemon manager |
-| Increment 6 candidate | Review 1 `changes_requested`；用户选择clean-baseline re-execution，当前mixed Diff不作为Fix/Review authority，仍不可作为Current命令使用 |
-| 可执行验证 | `npm run typecheck`、MCP 27/27 与全量 186/186 通过；stale succeeded Run / wrong-current MCP direct regression 已闭环 |
+| Increment 6 | 用户已接受并进入版本化`main`；planning coordination tools、one-shot Runner CLI与failure retry为Current capability |
+| 可执行验证 | Codex独立`npm run typecheck`与focused 95/95通过；Claude Coding Result报告全量242/242通过 |
 
 `room:serve`/`room:status` script 已进入版本化 `main` baseline。它们要求 operator 显式提供本地 database/project/port 或 room ID；没有 `npm start`、Room daemon、implicit production SQLite path 或 service manager。
 
@@ -151,11 +151,11 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
 
 当前 repository没有 Room runtime database，也没有 Room initialization或 Runner launcher command；本 Increment的 continuation behavior 已是版本化 TypeScript application API，但 operator 仍无法通过任何 command 调用。真实 Claude smoke、push与其它 Git写操作保持独立授权门禁；Review 3 已验证全量 207/207 使用 fake-process boundary且未启动真实 Claude。
 
-### 4.3 Increment 6 Accepted 运维设计（candidate，尚不可调用）
+### 4.3 Increment 6 Current 运维流程
 
-[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 规划以下显式operator flow；本节记录已批准目标。首次Coding candidate的Review为`changes_requested`，且用户选择在clean documentation baseline上重新执行，因此operator仍不得调用下面的`room:run`示例：
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 规划的以下显式operator flow已完成clean-baseline re-execution与Fix Task 1（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）、通过Codex Review、获用户接受并进入版本化`main`：
 
-1. operator先独立启动现有`room:serve`，使用实际`/mcp/codex`创建Room、推进planning并提交Task；candidate新增四个tools：`room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`、`room_retry_run`。
+1. operator先独立启动现有`room:serve`，使用实际`/mcp/codex`创建Room、推进planning并提交Task；Current surface新增四个tools：`room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`、`room_retry_run`。
 2. 每次需要Coding时显式运行一次：
 
    ```text
@@ -163,10 +163,10 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
    ```
 
    `--baseline-head`只用于首次new Implementation；Decision/Fix/retry从SQLite source Run继承。command不创建database/Room、不启动server、不自动运行下一Task。
-3. candidate CLI固定传入`agent_room` HTTP MCP config与`alwaysLoad=true`。durable succeeded/needs-decision输出`{room, run}`并exit 0；durable failed仍输出结果但exit 1；preflight或unsettled error写stderr并non-zero。
+3. Current CLI固定传入`agent_room` HTTP MCP config与`alwaysLoad=true`。durable succeeded/needs-decision输出`{room, run}`并exit 0；durable failed仍输出结果但exit 1；preflight或unsettled error写stderr并non-zero。
 4. `room_retry_run`只记录现有`RUN_FAILED → PLAN_READY` decision。随后再次显式执行`room:run`：保留dirty worktree并校验unchanged inherited HEAD；source session存在时exact resume，不存在时同一Task lineage启动replacement session。
 
-Review `review-increment-006-codex-001` 已请求修改：candidate当前会接受loopback但非`/mcp/claude`的route，并会在既存空database中初始化Room schema；CLI main、四个新增MCP tools与retry negative matrix的direct evidence也未满足Accepted Contract。用户已确认六项finding并选择不豁免dispatch baseline；当前mixed Diff不进入Fix流程，首次candidate已隔离，Accepted/review documentation已获独立commit授权。用户将从commit后的clean exact`main` baseline人工重新派发；Codex不启动Claude，push、真实smoke、stash删除和其它Git写操作继续分别授权。
+re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiring与coordination-tool public evidence。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)又补齐missing/non-failed/non-terminal current-task source的Runner direct regression；旧Task failed Event对新current Task按无source的new Implementation处理，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。operator现可在自行提供并启动本地Room runtime后显式使用`room:run`；本次版本化未执行runtime初始化或真实Claude smoke，push、stash删除和其它Git写操作继续分别授权。
 
 ## 5. 人工操作命令
 
@@ -194,7 +194,7 @@ npm test
 | 查询 runtime status/health | 无 | Unavailable |
 | 查询 Room state snapshot | `npm run room:status -- --db <path> --room-id <id>` | Available |
 | 调用 MCP | service 启动后使用 `/mcp/codex` 或 `/mcp/claude` | Available |
-| 执行一个 Runner Run | `npm run room:run -- ...` | Implemented candidate / Unavailable；Review 1 changes requested |
+| 执行一个 Runner Run | `npm run room:run -- ...` | Available（one-shot；要求既有database与已启动的Room service） |
 
 ## 6. 状态、存储与制品
 
@@ -214,7 +214,7 @@ npm test
 2. 运行 `npm run typecheck` 和聚焦/完整测试，区分类型偏移与行为回归。
 3. Git Observer 抛出 `ProtocolError` 时按 `git_repository_missing`、`git_head_missing`、`worktree_not_clean` 处理；`GitCommandError` 表示观察 command 本身失败，不能解释为 clean/empty。
 4. 历史 bootstrap artifact 继续保留在 `.agent-room/artifacts/`；bootstrap transport 已 `Superseded`，不得为后续 Task 再启动。
-5. 当前没有 service restart、database backup/restore、health probe 或 Runner retry CLI；one-shot Runner与failure retry已纳入Increment 6 Accepted candidate，但必须完成Coding、Review、用户接受与版本化提交后才可使用。
+5. 当前没有 service restart、database backup/restore或health probe；one-shot Runner与failure retry已进入版本化`main`。retry仍由operator先调用`room_retry_run`，再显式执行一次`room:run`，不存在automatic retry或background scheduler。
 
 所有 protocol error code 见 [ROOM_PROTOCOL.md 第 14 节](./ROOM_PROTOCOL.md#14-错误码)。
 
@@ -241,6 +241,8 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-005-codex-001` | `changes_requested` / finding 与 solution 已确认 | pause 后 progress 可阻断 finalization；answer 后 finalization retry 失去幂等；HEAD drift regression 可能启动真实 Claude | [Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 已 Accepted并完成 Coding；见 Review 2 |
 | `review-increment-005-codex-002` | `changes_requested` / finding 与 solution 已确认 | 三项实现修复正确且 full suite 为纯 fake-process 207/207；Fix regression 对同一 stream progress 分界、answer 后完整 durable snapshot、baseline mismatch 零副作用的直接 Oracle 不完整 | [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) 已 Accepted并完成 Coding；见 Review 3 |
 | `review-increment-005-codex-003` | `approved` / 用户已接受并授权提交 | 三项 Contract-named test Oracle 均闭合；无 source/protocol/state/schema/Event/dependency变化 | 完整 accepted scope 已进入版本化 `main`；continuation 为 Current application capability |
-| `review-increment-006-codex-001` | `changes_requested` / 等待用户确认 findings 与方案 | `room:run` 接受错误loopback route并会初始化既存空database；CLI main、四个新增MCP tools与retry negative matrix的direct evidence不完整；dispatch未形成clean documentation baseline | 保持Increment 6 candidate unavailable；确认前不生成Fix Task、不提交或运行candidate |
+| `review-increment-006-codex-001` | `changes_requested` / 用户已确认 findings 与方案 | `room:run` 接受错误loopback route并会初始化既存空database；CLI main、四个新增MCP tools与retry negative matrix的direct evidence不完整；dispatch未形成clean documentation baseline | 用户选择在clean documentation baseline上重新执行原Task；re-execution candidate已完成并验证（16/16、126/126、30/30、239/239），仍unavailable，等待新Review |
+| `review-increment-006-codex-002` | `changes_requested` / solution已确认 | Review 1多数缺口已闭合；retry仍缺missing/non-failed/non-terminal current-task source direct regression；旧Task Event语义已确认为new current Task无source | [Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已Accepted；保持candidate unavailable，等待用户人工派发 |
+| `review-increment-006-codex-003` | `approved` / 用户已接受 | 三类current-task损坏source已由`runClaude` direct regression闭合；既有guard正确，production source零改动 | Codex独立typecheck与focused 95/95通过；candidate等待版本化提交 |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

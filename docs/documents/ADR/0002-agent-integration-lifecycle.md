@@ -100,7 +100,7 @@ Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FI
 - source Run有可靠session时新process使用exact `--resume`；session缺失时replacement process省略`--resume`并建立新session，但不会创建新Task或新lineage。process recovery与Task continuity是不同事实。
 - 真实loopback MCP、file-backed SQLite与representative Git负责E2E product evidence；external Claude process在默认验收中使用deterministic fake，以验证Runner ownership且不依赖paid availability。
 
-该澄清不改变explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement或SQLite state ownership，不新增Room state/schema/Event/error/dependency。首次Coding已形成candidate，但Review `review-increment-006-codex-001` 为`changes_requested`；用户已确认findings并选择不豁免dispatch baseline，当前mixed Diff不作为Fix/Review authority。该设计须在clean documentation baseline上重新实现，新的完整task-owned Diff只有在Review通过、用户接受与版本化提交后才成为Current。
+该澄清不改变explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement或SQLite state ownership，不新增Room state/schema/Event/error/dependency。该设计已按用户确认的选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新实现。[Increment 6 Fix Task 1](../INCREMENT_6_FIX_TASK_1.md)以三类Runner direct regression闭合current-task损坏source证据，测试未暴露production defect；可识别的旧Task failed Event仍走new Implementation clean gate，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope，当前实现已进入版本化`main`，且未改变本ADR决策。
 
 ## 相关文档
 
