@@ -8,7 +8,7 @@
 > Increment 4：用户已接受 / `ACCEPTED` / main commit `44fd34959834b28c8909b589a203e4c48eadc5b0`
 > Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
-> Increment 7：`PLAN_READY` / 首轮candidate已隔离 / documentation baseline commit已授权
+> Increment 7：Review 2 `changes_requested` / Fix Task 1 `Accepted` / `FIX_PLAN_READY`
 
 ## 1. 目标
 
@@ -188,7 +188,7 @@ Verification 检测：
 
 ### 增量 7 — Codex Packaging
 
-状态：[Increment 7 Task Contract](./INCREMENT_7_TASK_CONTRACT.md)已获用户完整确认，状态为`Accepted`。Review `review-increment-007-codex-001`确认首轮candidate存在runtime root漏用、clean baseline未形成与entity isolation direct evidence不完整三项finding；用户已确认findings与最小方案，选择不豁免baseline违约并从clean exact baseline严格重执行完整Contract，当前回到`PLAN_READY`。首轮candidate不作为重执行或最终Review authority；Plugin与跨项目runtime未获用户接受、未进入版本化`main`，不是Current capability；manual Codex Desktop smoke未执行。
+状态：[Increment 7 Task Contract](./INCREMENT_7_TASK_CONTRACT.md)已获用户完整确认，状态为`Accepted`。严格重执行已闭合Review 1的runtime root、clean baseline与entity isolation三项finding；Review 2 `review-increment-007-codex-002`确认marketplace schema、Skill state/status入口、首次baseline authority及完整workflow/setup四项finding，Decision为`changes_requested`。用户已确认finding与最小方案，[Increment 7 Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)为`Accepted`，当前为`FIX_PLAN_READY`，本次确认不授权Codex启动Claude。Plugin与跨项目runtime未获用户接受、未进入版本化`main`，不是Current capability；manual Codex Desktop smoke保持pending。
 
 目标：安装一次Agent Room Plugin，在多个无关项目中复用同一通用Skill，同时让每个项目以独立MCP/runtime binding管理自己的Room service、port、database、project path/worktree与Claude process。
 
@@ -218,12 +218,12 @@ Verification 检测：
 - packaging不授予Codex business Coding权限、不修改host policy、不声明automatic wakeup；
 - focused tests、scope、typecheck、full suite与如实记录的manual Codex Desktop smoke满足Accepted Contract。
 
-实现与验证事实（candidate，2026-08-27）：
+实现与验证事实（严格重执行 candidate，2026-08-27）：
 
-- `plugins/agent-room/.codex-plugin/plugin.json`（最小manifest）、唯一`skills/agent-room/SKILL.md`（先读`.agent-room/runtime.json`五字段、mismatch停止；baseline只取首次`observed_baseline_head`、丢失fail closed；Codex + `auto_review`下至多一次`room:run`）与`references/project-setup.md`placeholder模板；`.agents/plugins/marketplace.json`repository-local登记，不复制Skill内容。
-- `tests/plugin-packaging.test.ts`（6项：manifest/单一Skill authority/marketplace/无project硬编码/placeholder五字段/无permission mutation/workflow boundary）与`tests/multi-project-e2e.test.ts`（two-project并发overlap oracle、DB/Event/Git/process/MCP/artifact全隔离、second-active-run拒绝）全部通过；`tests/scope.test.ts`更新为Increment 7 exact allowlist。
+- `plugins/agent-room/.codex-plugin/plugin.json`（最小manifest）、唯一`skills/agent-room/SKILL.md`（先读`.agent-room/runtime.json`五字段、mismatch停止；baseline只取首次`observed_baseline_head`、丢失fail closed；Codex + `auto_review`下至多一次`room:run`；launcher经已校验`agent_room_root`以`npm --prefix <AGENT_ROOM_ROOT> run room:run`定位Agent Room script，不在目标项目cwd查找`room:run`、不要求目标项目复制/暴露manifest，且不提供active `prefix_rule`写入步骤）与`references/project-setup.md`placeholder模板；`.agents/plugins/marketplace.json`repository-local登记，不复制Skill内容。
+- `tests/plugin-packaging.test.ts`（6项：manifest/单一Skill authority/marketplace/无project硬编码与secret形态/无permission mutation且含禁止marker/launcher root直接证明）与`tests/multi-project-e2e.test.ts`（two-project并发overlap oracle、DB/Event/Git/process/MCP/artifact全隔离、second-active-run拒绝、cross-database Task/Review/Question直接查找与snapshot current引用双向隔离、Review/Question经公开lifecycle创建）全部通过；`tests/scope.test.ts`更新为Increment 7 exact allowlist。
 - `npm run typecheck`通过；`npm test`全量249项通过（含既有242项无回归）。
-- 未执行：manual Codex Desktop smoke（需真实paid Claude，由Codex在`auto_review`通过时执行一次）、Review、用户接受、版本化提交。
+- 未执行：manual Codex Desktop smoke（Review 2已有阻塞finding，不启动真实paid Claude）、用户接受、版本化提交。
 
 ## 5. Task Contract 规则
 
@@ -250,4 +250,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 7 Review `review-increment-007-codex-001`的三项finding与最小方案已获用户确认；不生成Fix Task。首轮candidate已按独立授权隔离并保留，当前九个Accepted/review文档的documentation baseline commit也已获独立授权；提交并确认clean live Git后读取exact `HEAD`，再由用户人工重新派发完整Contract。Plugin继续不可用，manual Codex Desktop smoke、用户接受与版本化实现提交均保持pending。
+Increment 7严格重执行已闭合Review 1三项finding。Review 2 `review-increment-007-codex-002`为`changes_requested`；用户已确认四项finding与最小方案，[Increment 7 Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)为`Accepted`，并选择暂时自行人工派发完整Contract。下一步等待Fix Coding Result后Review完整task-owned Diff；Plugin继续不可用，manual Codex Desktop smoke、用户接受与版本化实现提交均保持pending。

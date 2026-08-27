@@ -182,15 +182,15 @@ worktree A / Claude A          worktree B / Claude B
 
 该拓扑只增加Codex packaging和project binding，不改变Room Service、State Machine、SQLite Repository、Runner、Git Observer或MCP transport的production dependency direction。
 
-#### 3.11.1 Increment 7 首轮 candidate implementation facts（2026-08-27，Review 1未通过）
+#### 3.11.1 Increment 7 严格重执行 candidate implementation facts（2026-08-27）
 
-按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)已落地以下candidate实现；以下事实不代表Current capability，也未修改`src/`或production runtime：
+按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)从 clean documentation baseline 严格重执行已落地以下candidate实现；以下事实不代表Current capability，也未修改`src/`或production runtime：
 
 - `plugins/agent-room/.codex-plugin/plugin.json`声明唯一Plugin（`name`=`agent-room`、`version`=`0.1.0`、`skills`=`./skills/`），无hooks/App/MCP bundle/assets/dependency与静态`.mcp.json`；`plugins/agent-room/skills/agent-room/SKILL.md`是全仓库唯一authoritative Skill，`references/project-setup.md`只含placeholder模板。
 - `.agents/plugins/marketplace.json`以repository-local方式登记该Plugin（source `./plugins/agent-room`），不复制Skill内容。
-- Skill先读项目`.agent-room/runtime.json`五字段并校验endpoint port/project path/Room mismatch后停止；baseline只取首次成功`room_submit_task`的`observed_baseline_head`且同一step保存exact command、丢失fail closed；`room:run`由Codex在UI“帮我批准”（`approvals_reviewer=auto_review`）下至多执行一次，拒绝零次执行，run后重读`room_get_state`。
-- 验证：`tests/plugin-packaging.test.ts`（6项）、`tests/multi-project-e2e.test.ts`（two-project并发overlap oracle与全隔离断言、second-active-run拒绝）、`tests/scope.test.ts`（Increment 7 exact allowlist）通过；`npm run typecheck`通过；`npm test`全量249项通过。two-project E2E用真实file-backed SQLite、独立Git repo、独立loopback port与fake Claude process证明Run可真实in-flight重叠且DB/Event/Git/process/artifact完全隔离。
-- Review `review-increment-007-codex-001`为`changes_requested`：Skill的exact command未使用`agent_room_root`定位Agent Room launcher；Coding未经过clean documentation baseline；two-project E2E未直接覆盖Task/Review/Question isolation。用户已确认findings与最小方案，并选择从clean exact baseline严格重执行完整Accepted Contract；首轮candidate不作为重执行或最终Review authority。该决定不改变本节accepted architecture；Plugin与跨项目runtime仍不是Current capability。
+- Skill已把launcher改为经`agent_room_root`执行`npm --prefix <AGENT_ROOM_ROOT> run room:run`，并保留Codex + `auto_review`、不写active `prefix_rule`等marker；但Review 2确认其实际workflow仍在`CODING`/active Run时启动launcher、用不受支持的`room:run ... status`检查状态、以live `git rev-parse HEAD`替代首次`observed_baseline_head`，且未实现完整planning/Review、runtime mismatch、fresh stable `run_id`与post-run durable reread要求。
+- 验证：`tests/plugin-packaging.test.ts`（6项，含launcher root直接证明：模板以`npm --prefix <AGENT_ROOM_ROOT>`开头、无裸`npm run room:run`、真实`package.json`的`room:run` script指向`src/cli/run.ts`）、`tests/multi-project-e2e.test.ts`（two-project并发overlap oracle、second-active-run拒绝、Task/Review/Question cross-database直接查找与snapshot current引用双向隔离、Review/Question经公开lifecycle创建）、`tests/scope.test.ts`（Increment 7 exact allowlist）通过；`npm run typecheck`通过；`npm test`全量249项通过。two-project E2E用真实file-backed SQLite、独立Git repo、独立loopback port与fake Claude process证明Run可真实in-flight重叠且DB/Event/Git/process/artifact完全隔离。
+- Review 1三项finding已由严格重执行闭合。Review 2 `review-increment-007-codex-002`确认marketplace schema、Skill state/status入口、首次baseline authority及完整workflow/setup四项finding，Decision为`changes_requested`。用户已确认四项finding与最小方案，[Increment 7 Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)为`Accepted`/`FIX_PLAN_READY`，且冻结为packaging/Skill/reference/test-only修复；Plugin与跨项目runtime仍不是Current capability。
 
 ## 4. 依赖方向
 

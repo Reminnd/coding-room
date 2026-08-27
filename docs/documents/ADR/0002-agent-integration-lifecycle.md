@@ -114,9 +114,9 @@ Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FI
 
 该澄清保留explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement与SQLite/Git authority，不改变protocol version。具体`.agent-room/runtime.json`格式、Plugin/marketplace布局、two-project concurrent E2E与manual smoke已由用户整体确认为[Increment 7 Accepted Contract](../INCREMENT_7_TASK_CONTRACT.md)；实际人工派发仍须先形成clean documentation baseline并记录live exact `HEAD`。
 
-### 2026-08-27 Candidate implementation（Increment 7）
+### 2026-08-27 Candidate implementation（Increment 7，严格重执行）
 
-按[Increment 7 Accepted Contract](../INCREMENT_7_TASK_CONTRACT.md)完成的首轮candidate提供`plugins/agent-room/`、repository-local marketplace与two-project overlap测试。Review `review-increment-007-codex-001`确认三项finding：Skill未使用`agent_room_root`定位Agent Room launcher；Coding未从clean documentation baseline开始；E2E未直接覆盖Task/Review/Question isolation。Decision为`changes_requested`。用户已确认findings与最小方案，并选择从clean exact baseline严格重执行完整Contract；首轮candidate不作为重执行或最终Review authority。这些事实不改变本ADR的accepted architecture；Plugin与跨项目runtime尚非Current capability。
+Review 1三项finding已在clean exact baseline严格重执行中闭合：launcher经`agent_room_root`定位，dispatch baseline正确，two-project E2E补齐Task/Review/Question隔离。Review 2 `review-increment-007-codex-002`进一步确认candidate marketplace不符合Codex当前schema，Skill在错误Room state调用launcher并使用无效status命令、首次baseline authority错误，且完整planning/Review/config/run identity/durable reread与setup模板未实现；Decision为`changes_requested`。用户已确认四项finding与最小方案，[Increment 7 Fix Task 1](../INCREMENT_7_FIX_TASK_1.md)为`Accepted`/`FIX_PLAN_READY`。这些实现finding与Fix均不改变本ADR的accepted architecture；Plugin与跨项目runtime尚非Current capability。
 
 ## 相关文档
 

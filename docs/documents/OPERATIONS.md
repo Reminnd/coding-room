@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-27
-> Last maintained review：`review-increment-007-codex-001`
+> Last maintained review：`review-increment-007-codex-002`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -170,7 +170,7 @@ re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiri
 
 ### 4.4 Increment 7 Planned Plugin 与多项目配置
 
-用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下是待实现的Accepted配置，不是Current command。Review 1后用户选择不豁免baseline违约并严格重执行完整Contract；首轮candidate已按独立授权隔离并保留，下一步须形成clean documentation baseline并记录live exact `HEAD`：
+用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下仍是Accepted target runbook，不是Current command。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发，Review 2为`changes_requested`；用户已确认四项finding与最小方案，[Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)为`Accepted`，当前等待另行派发：
 
 1. Agent Room Plugin安装一次，只提供共享Skill。Project A/B各自保存project-scoped `.codex/config.toml`：
 
@@ -199,7 +199,7 @@ re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiri
 
 Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Review后，manual Codex Desktop smoke才验证“Codex发起 + `auto_review`审查 + one-shot Run + 重新读取Room”；`auto_review`拒绝或runtime未准备好时结果保持pending，不改用operator direct run，也不虚报通过。
 
-实现状态（首轮candidate，2026-08-27）：Review `review-increment-007-codex-001`为`changes_requested`。Skill虽然读取`agent_room_root`，但当前exact command未用它定位Agent Room package script，普通目标项目不能执行launcher；Coding也未经过Contract要求的clean documentation baseline；E2E尚缺Task/Review/Question isolation direct evidence。用户已确认findings与最小方案，并选择严格重执行完整Accepted Contract；首轮candidate不作为重执行或最终Review authority。manual Codex Desktop smoke因此不执行，Plugin继续不是Current command。
+实现状态（严格重执行candidate，2026-08-27）：Review 1三项finding已闭合；Review 2 `review-increment-007-codex-002`确认marketplace schema无效、Skill在`CODING`/active Run时调用launcher且status命令无效、首次baseline错误读取live Git，以及完整planning/Review/runtime mismatch/fresh stable `run_id`/durable reread/setup模板未实现。Decision为`changes_requested`；用户已确认最小方案，Fix Task 1为`Accepted`/`FIX_PLAN_READY`，但未授权Codex启动Claude。manual Codex Desktop smoke保持pending，Plugin继续不是Current command。
 
 ## 5. 人工操作命令
 
@@ -277,6 +277,7 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-006-codex-001` | `changes_requested` / 用户已确认 findings 与方案 | `room:run` 接受错误loopback route并会初始化既存空database；CLI main、四个新增MCP tools与retry negative matrix的direct evidence不完整；dispatch未形成clean documentation baseline | 用户选择在clean documentation baseline上重新执行原Task；re-execution candidate已完成并验证（16/16、126/126、30/30、239/239），仍unavailable，等待新Review |
 | `review-increment-006-codex-002` | `changes_requested` / solution已确认 | Review 1多数缺口已闭合；retry仍缺missing/non-failed/non-terminal current-task source direct regression；旧Task Event语义已确认为new current Task无source | [Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已Accepted；保持candidate unavailable，等待用户人工派发 |
 | `review-increment-006-codex-003` | `approved` / 用户已接受 | 三类current-task损坏source已由`runClaude` direct regression闭合；既有guard正确，production source零改动 | Codex独立typecheck与focused 95/95通过；candidate等待版本化提交 |
-| `review-increment-007-codex-001` | `changes_requested` / findings与方案已确认 | Skill launcher漏用`agent_room_root`；clean documentation baseline未形成；Task/Review/Question isolation direct evidence不完整 | 不生成Fix Task；首轮candidate已隔离且documentation baseline commit已获授权，提交后严格重执行完整Contract；不执行manual paid smoke |
+| `review-increment-007-codex-001` | `changes_requested` / findings与方案已确认 | Skill launcher漏用`agent_room_root`；clean documentation baseline未形成；Task/Review/Question isolation direct evidence不完整 | 不生成Fix Task；首轮candidate已隔离，严格重执行从clean exact baseline（`b9ebeffd`）完成并闭合三项finding（249/249）；candidate待Review 2；不执行manual paid smoke |
+| `review-increment-007-codex-002` | `changes_requested` / findings与方案已确认 | marketplace schema无效；Skill state/status入口与首次baseline authority错误；完整workflow/setup缺失 | [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)已`Accepted`，当前`FIX_PLAN_READY`；用户选择暂时人工派发，不执行manual paid smoke |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。
