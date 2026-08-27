@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：FIX_PLAN_READY / Increment 7 Fix Task 1 `Accepted` / 用户选择人工派发
+> 当前阶段：FIX_PLAN_READY / Increment 7 Fix Task 2 `Accepted` / 用户选择人工派发
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -124,7 +124,7 @@ Increment 7 的用户已确认目标架构保持上述 Current runtime 不变，
 - `room:run`仍是one-shot operator-authorized boundary；Increment 7 Plugin workflow的caller固定为Codex，host内部审批模式固定为operator配置的UI“帮我批准”（`approvals_reviewer=auto_review`）。Current CLI的人工可调用性不作为Plugin正常路径或fallback验收项。
 - 同一 Room 内 parallel Claude Runs 继续不支持，不属于 Increment 7。
 
-以上目标架构与完整实现范围均已获用户确认，权威入口为Accepted [Increment 7 Task Contract](./docs/documents/INCREMENT_7_TASK_CONTRACT.md)。首轮candidate未通过Review且不作为重执行或最终Review authority；严格重执行candidate已从clean exact baseline完成，但Review 2仍为`changes_requested`。用户已确认Review 2四项finding与最小方案，[Increment 7 Fix Task 1](./docs/documents/INCREMENT_7_FIX_TASK_1.md)为`Accepted`，阶段进入`FIX_PLAN_READY`；本次确认不授权Codex启动Claude。Fix Review、用户接受和版本化集成前不得提升为Current capability。
+以上目标架构与完整实现范围均已获用户确认，权威入口为Accepted [Increment 7 Task Contract](./docs/documents/INCREMENT_7_TASK_CONTRACT.md)。首轮candidate未通过Review且不作为重执行或最终Review authority；严格重执行candidate已从clean exact baseline完成。Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](./docs/documents/INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3 `review-increment-007-codex-003`的两项finding与最小方案：[Increment 7 Fix Task 2](./docs/documents/INCREMENT_7_FIX_TASK_2.md)为`Accepted`，仅允许补齐唯一Skill的YAML front matter及修正durable `NEEDS_DECISION` Decision resume gate，并增加对应packaging direct Oracle；阶段进入`FIX_PLAN_READY`，用户选择人工派发，Codex不启动Claude。Fix Review、用户接受和版本化集成前不得提升为Current capability。
 
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
@@ -271,6 +271,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_6_FIX_TASK_1.md](./docs/documents/INCREMENT_6_FIX_TASK_1.md) | Increment 6 Review 2 retry negative evidence 与 current-Task source语义最小Fix Task | Codex | Increment 6 Fix Coding 与再次Review | Accepted |
 | [docs/documents/INCREMENT_7_TASK_CONTRACT.md](./docs/documents/INCREMENT_7_TASK_CONTRACT.md) | shared Agent Room Plugin、project-local MCP/runtime binding 与跨项目并行隔离 Implementation Task Contract | Codex | Increment 7 Coding 与 Review | Accepted |
 | [docs/documents/INCREMENT_7_FIX_TASK_1.md](./docs/documents/INCREMENT_7_FIX_TASK_1.md) | Increment 7 Review 2 marketplace、Skill lifecycle/baseline 与 setup/packaging evidence 最小 Fix Task | Codex | Increment 7 Fix Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_7_FIX_TASK_2.md](./docs/documents/INCREMENT_7_FIX_TASK_2.md) | Increment 7 Review 3 Skill front matter 与 Decision resume gate 最小 Fix Task | Codex | Increment 7 Fix 2 Coding 与再次 Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -300,4 +301,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-Increment 1–6 已完成、通过 Review、获用户接受并进入版本化 `main`；planning coordination tools、one-shot Runner CLI、failure retry、Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1的launcher root、dispatch baseline与entity isolation三项finding已闭合。Review 2 `review-increment-007-codex-002`确认四项新finding：repository-local marketplace不是Codex当前marketplace schema；Skill在`CODING`/active Run时调用launcher且status命令无效；首次baseline错误取live `git rev-parse HEAD`；Skill缺失Accepted Contract要求的完整planning/Review workflow、runtime mismatch校验、stable fresh `run_id`与post-run durable reread，setup模板也未提供`.codex/config.toml`和`.gitignore`。用户已确认四项finding与最小方案，[Increment 7 Fix Task 1](./docs/documents/INCREMENT_7_FIX_TASK_1.md)为`Accepted`，阶段为`FIX_PLAN_READY`，并选择暂时自行人工派发；Codex不启动Claude。Plugin与多项目配置仍非Current capability，manual Codex Desktop smoke保持pending；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理继续保持独立授权门禁。
+Increment 1–6 已完成、通过 Review、获用户接受并进入版本化 `main`；planning coordination tools、one-shot Runner CLI、failure retry、Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](./docs/documents/INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3 `review-increment-007-codex-003`的“唯一Skill缺少YAML front matter”与“durable `NEEDS_DECISION` Decision resume被Skill ready-state gate阻断”两项finding及最小方案；[Increment 7 Fix Task 2](./docs/documents/INCREMENT_7_FIX_TASK_2.md)为`Accepted`，阶段为`FIX_PLAN_READY`，用户选择人工派发，Codex不启动Claude。Plugin与多项目配置仍非Current capability，manual Codex Desktop smoke保持pending；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理继续保持独立授权门禁。

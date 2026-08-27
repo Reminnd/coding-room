@@ -116,7 +116,7 @@ Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FI
 
 ### 2026-08-27 Candidate implementation（Increment 7，严格重执行）
 
-Review 1三项finding已在clean exact baseline严格重执行中闭合：launcher经`agent_room_root`定位，dispatch baseline正确，two-project E2E补齐Task/Review/Question隔离。Review 2 `review-increment-007-codex-002`进一步确认candidate marketplace不符合Codex当前schema，Skill在错误Room state调用launcher并使用无效status命令、首次baseline authority错误，且完整planning/Review/config/run identity/durable reread与setup模板未实现；Decision为`changes_requested`。用户已确认四项finding与最小方案，[Increment 7 Fix Task 1](../INCREMENT_7_FIX_TASK_1.md)为`Accepted`/`FIX_PLAN_READY`。这些实现finding与Fix均不改变本ADR的accepted architecture；Plugin与跨项目runtime尚非Current capability。
+Review 1三项finding已在clean exact baseline严格重执行中闭合；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](../INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3 `review-increment-007-codex-003`的Skill front matter与durable `NEEDS_DECISION` Decision resume gate两项finding及最小方案；[Increment 7 Fix Task 2](../INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`，只修正Skill metadata/workflow与packaging Oracle。这些实现finding与Fix不改变本ADR的accepted architecture、actor或lifecycle ownership；Plugin与跨项目runtime尚非Current capability。
 
 ## 相关文档
 

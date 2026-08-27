@@ -407,10 +407,10 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 
 按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)从 clean documentation baseline 严格重执行已落地以下candidate实现；不改变本节语义，也未修改RoomService/Runner/MCP/CLI production semantics：
 
-- repository-local Plugin文件与Skill/reference已落地，launcher已改为经`agent_room_root`执行`npm --prefix <AGENT_ROOM_ROOT> run room:run`；但`.agents/plugins/marketplace.json`未使用Codex当前顶层marketplace与`plugins[]` entry schema，不能作为有效discovery登记。
-- Review 2确认Skill没有实现本节target semantics：它在`CODING`/active Run时再次调用launcher，使用不受支持的`room:run ... status`，首次baseline读取live Git而非`room_submit_task.observed_baseline_head`，也未建立fresh stable `run_id`、不确定outcome先读Room及run后重读durable snapshot的完整流程。
-- 验证证据：`tests/plugin-packaging.test.ts`（6项，含launcher root直接证明）与`tests/multi-project-e2e.test.ts`通过；two-project E2E以真实file-backed SQLite与独立Git repo/port证明独立Room instances可真实in-flight重叠（交叉DB读取对方Run为`running`、durable `completed_at >=`对方`started_at`）且DB/Event/cursor、Git、process cwd/`--mcp-config` endpoint、artifact完全隔离；second active Run被既有guard以`validation_failed`拒绝（exit 1、零spawn、无新Run row）。实体隔离直接证据：Project A在in-flight窗口经claude-route actual MCP `room_ask_question`创建question-a-1（run-a-1转needs_decision），Project B经公开lifecycle提交review-b-1；cross-database直接查找断言`getTask`/`getQuestion`/`getReview`双向隔离，snapshot current Task/Review/Question引用各自只指向本房间实体，Event全量room_id校验。`npm test`全量249项通过、typecheck通过。
-- Review 1三项finding已闭合；Review 2 `review-increment-007-codex-002`因上述packaging/workflow偏差为`changes_requested`。用户已确认四项finding与最小方案，[Increment 7 Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)为`Accepted`；Fix只使Skill遵守本节既有state/tool/baseline authority，不增加或修改protocol entity、transition、Event、error或version。Plugin未获用户接受、未进入版本化`main`，protocol version保持`0.2-design`。
+- Fix Task 1已把repository marketplace改为Codex当前嵌套schema，删除无效status形态，并修正首次baseline、stable fresh `run_id`、setup模板、approval与post-run reread；Fix Coding Result报告packaging 16/16、two-project E2E 1/1、scope 1/1与全量259/259通过。
+- Review 3 `review-increment-007-codex-003`确认Skill仍与Current Decision lifecycle冲突：`room_answer_question(answer_changes_contract=false)`不会把Room移回ready state，durable state仍为`NEEDS_DECISION`；Skill虽从该分支指向Step 4，却把Step 4 launcher限制为`PLAN_READY`/`FIX_PLAN_READY`。因此合法Decision resume被自身gate阻断，现有packaging test未直接证明该组合路径。
+- Review 3另确认唯一Skill缺少Codex要求的YAML front matter，影响Skill本身的有效加载，但不增加或修改Room protocol entity、transition、Event、error或version。
+- 用户已确认Review 3两项finding与最小方案，[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`。Fix只使Skill与本节既有`NEEDS_DECISION → CODING` resume语义一致并补齐Skill discovery metadata/direct Oracle，不修改protocol entity、transition、Event、error或version。Plugin未获用户接受、未进入版本化`main`，protocol version保持`0.2-design`。
 
 ## 13. Git 协议
 
