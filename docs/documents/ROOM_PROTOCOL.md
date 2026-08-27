@@ -393,7 +393,7 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 
 ### 12.3 Increment 7 Accepted target clarification — caller 与多项目实例
 
-用户已确认以下Increment 7 target semantics与[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部范围；Plugin与project binding尚非Current capability：
+用户已确认以下Increment 7 target semantics与[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部范围；这些Plugin与project binding语义现已随 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`进入Current capability：
 
 1. Current `room:run` CLI的协议语义不依赖caller，但Increment 7 Plugin workflow固定由Codex发起；host内部审批模式固定为operator配置的UI“帮我批准”（`approvals_reviewer=auto_review`）。一次审批至多对应一次CLI invocation与一个Run，不得推导后续Run、retry、Fix或accept。
 2. `auto_review`通过或拒绝属于Room外部执行环境事实，不新增actor、entity、Event、error或state transition。拒绝时不得claim Run或改变durable Room state，也不得由Plugin回退为operator direct run。
@@ -403,15 +403,15 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 
 因此Increment 7无需提升`0.2-design`版本；若后续实现同Room parallel Run、shared database coordination或新approval Event，才触发第15节的incompatible protocol流程。
 
-#### 12.3.1 Increment 7 严格重执行 Candidate implementation facts（2026-08-27）
+#### 12.3.1 Increment 7 严格重执行 implementation facts（2026-08-27）
 
-按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)从 clean documentation baseline 严格重执行已落地以下candidate实现；不改变本节语义，也未修改RoomService/Runner/MCP/CLI production semantics：
+按[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)从 clean documentation baseline 严格重执行已落地以下实现；这些事实已由 Review 5、用户接受和版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`确认，不改变本节语义，也未修改RoomService/Runner/MCP/CLI production semantics：
 
 - Fix Task 1已把repository marketplace改为Codex当前嵌套schema，删除无效status形态，并修正首次baseline、stable fresh `run_id`、setup模板、approval与post-run reread；Fix Coding Result报告packaging 16/16、two-project E2E 1/1、scope 1/1与全量259/259通过。
 - Review 3 `review-increment-007-codex-003`确认Skill仍与Current Decision lifecycle冲突：`room_answer_question(answer_changes_contract=false)`不会把Room移回ready state，durable state仍为`NEEDS_DECISION`；Skill虽从该分支指向Step 4，却把Step 4 launcher限制为`PLAN_READY`/`FIX_PLAN_READY`。因此合法Decision resume被自身gate阻断，现有packaging test未直接证明该组合路径。
 - Review 3另确认唯一Skill缺少Codex要求的YAML front matter，影响Skill本身的有效加载，但不增加或修改Room protocol entity、transition、Event、error或version。
-- 用户已确认Review 3两项finding与最小方案，[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`。Fix只使Skill与本节既有`NEEDS_DECISION → CODING` resume语义一致并补齐Skill discovery metadata/direct Oracle，不修改protocol entity、transition、Event、error或version。Plugin未获用户接受、未进入版本化`main`，protocol version保持`0.2-design`。
-- Fix Task 2 Coding已正确表达answered `NEEDS_DECISION` continuation；Review 4 `review-increment-007-codex-004`未发现Room lifecycle回归，但确认front matter `description`因未引用的colon-space而不是合法YAML，测试侧局部parser仍误报通过。用户已确认finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，待版本化`main` commit；Fix 3仅修正metadata scalar与test Oracle，不修改本协议的entity、transition、Event、error、baseline/session ownership或`0.2-design`版本。
++ 用户已确认Review 3两项finding与最小方案，[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`。Fix只使Skill与本节既有`NEEDS_DECISION → CODING` resume语义一致并补齐Skill discovery metadata/direct Oracle，不修改protocol entity、transition、Event、error或version；该Fix随后完成Review与接受，protocol version保持`0.2-design`。
+- Fix Task 2 Coding已正确表达answered `NEEDS_DECISION` continuation；Review 4 `review-increment-007-codex-004`未发现Room lifecycle回归，但确认front matter `description`因未引用的colon-space而不是合法YAML，测试侧局部parser仍误报通过。用户已确认finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`；Fix 3仅修正metadata scalar与test Oracle，不修改本协议的entity、transition、Event、error、baseline/session ownership或`0.2-design`版本。
 
 ## 13. Git 协议
 

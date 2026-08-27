@@ -168,9 +168,9 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
 
 re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiring与coordination-tool public evidence。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)又补齐missing/non-failed/non-terminal current-task source的Runner direct regression；旧Task failed Event对新current Task按无source的new Implementation处理，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。operator现可在自行提供并启动本地Room runtime后显式使用`room:run`；本次版本化未执行runtime初始化或真实Claude smoke，push、stash删除和其它Git写操作继续分别授权。
 
-### 4.4 Increment 7 Planned Plugin 与多项目配置
+### 4.4 Increment 7 Plugin 与多项目配置
 
-用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下仍是Accepted target runbook，不是Current command。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
+用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下为已进入版本化 `main` 的Current runbook。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
 
 1. Agent Room Plugin安装一次，只提供共享Skill。Project A/B各自保存project-scoped `.codex/config.toml`：
 
@@ -199,7 +199,7 @@ re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiri
 
 Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Review后，manual Codex Desktop smoke才验证“Codex发起 + `auto_review`审查 + one-shot Run + 重新读取Room”；`auto_review`拒绝或runtime未准备好时结果保持pending，不改用operator direct run，也不虚报通过。
 
-实现状态（accepted，2026-08-27）：Fix Task 1已修正marketplace、status、baseline、run identity、setup、approval与durable reread。Fix Task 2已正确加入answered `NEEDS_DECISION` continuation并报告packaging 18/18及全量261/261通过；Review 4独立标准YAML解析因`description`中的未引用`binding: validate`失败，证明局部parser未验证真实YAML scalar规则。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证标准YAML解析、packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261均通过，无finding，Decision为`approved`，用户已明确接受，待版本化 `main` commit。manual Codex Desktop smoke保持pending，Plugin将在该commit后进入Current command。
+实现状态（Current，2026-08-27）：Fix Task 1已修正marketplace、status、baseline、run identity、setup、approval与durable reread。Fix Task 2已正确加入answered `NEEDS_DECISION` continuation并报告packaging 18/18及全量261/261通过；Review 4独立标准YAML解析因`description`中的未引用`binding: validate`失败，证明局部parser未验证真实YAML scalar规则。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证标准YAML解析、packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261均通过，无finding，Decision为`approved`，用户已明确接受，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。manual Codex Desktop smoke保持pending，Plugin与多项目配置现为Current command。
 
 ## 5. 人工操作命令
 
@@ -281,6 +281,6 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-007-codex-002` | `changes_requested` / findings与方案已确认 | marketplace schema无效；Skill state/status入口与首次baseline authority错误；完整workflow/setup缺失 | [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)已`Accepted`，当前`FIX_PLAN_READY`；用户选择暂时人工派发，不执行manual paid smoke |
 | `review-increment-007-codex-003` | `changes_requested` / findings与方案已确认 | 唯一Skill缺少YAML front matter；Decision answer(false)后durable `NEEDS_DECISION` resume被Skill自身ready-state gate阻断 | [Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已`Accepted`/`FIX_PLAN_READY`；用户人工派发，保持Plugin unavailable且不执行manual paid smoke |
 | `review-increment-007-codex-004` | `changes_requested` / finding与方案已确认 | Decision resume gate已闭合；Skill front matter的未引用colon-space使标准YAML解析失败，packaging局部parser误报18/18通过 | [Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已`Accepted`；随后完成Fix Coding并进入下一次Review，保持Plugin unavailable且不执行manual paid smoke |
-| `review-increment-007-codex-005` | `approved` / 用户已明确接受 | Fix Task 3已将description改为合法JSON-compatible double-quoted YAML scalar，并让packaging Oracle拒绝未引用colon-space；独立回归与scope/ancestry核对无finding | 当前为`ACCEPTED`，待版本化 `main` commit；manual paid smoke仍未授权，commit后Plugin进入Current capability |
+| `review-increment-007-codex-005` | `approved` / 用户已明确接受 | Fix Task 3已将description改为合法JSON-compatible double-quoted YAML scalar，并让packaging Oracle拒绝未引用colon-space；独立回归与scope/ancestry核对无finding | `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`；Plugin与多项目配置为Current capability，manual paid smoke仍未授权 |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

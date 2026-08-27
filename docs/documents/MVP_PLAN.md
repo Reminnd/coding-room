@@ -8,7 +8,7 @@
 > Increment 4：用户已接受 / `ACCEPTED` / main commit `44fd34959834b28c8909b589a203e4c48eadc5b0`
 > Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
-> Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / 待版本化 `main` commit
+> Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 
 ## 1. 目标
 
@@ -188,7 +188,7 @@ Verification 检测：
 
 ### 增量 7 — Codex Packaging
 
-状态：[Increment 7 Task Contract](./INCREMENT_7_TASK_CONTRACT.md)已获用户完整确认，状态为`Accepted`。严格重执行已闭合Review 1三项finding；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill front matter的未引用colon-space导致标准YAML解析失败，Decision为`changes_requested`。用户已确认该finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，当前为`ACCEPTED`，待版本化 `main` commit。Plugin与跨项目runtime将在该commit后进入Current capability；manual Codex Desktop smoke保持pending。
+状态：[Increment 7 Task Contract](./INCREMENT_7_TASK_CONTRACT.md)已获用户完整确认，状态为`Accepted`。严格重执行已闭合Review 1三项finding；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill front matter的未引用colon-space导致标准YAML解析失败，Decision为`changes_requested`。用户已确认该finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，当前为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。Plugin与跨项目runtime现为Current capability；manual Codex Desktop smoke保持pending。
 
 目标：安装一次Agent Room Plugin，在多个无关项目中复用同一通用Skill，同时让每个项目以独立MCP/runtime binding管理自己的Room service、port、database、project path/worktree与Claude process。
 
@@ -224,8 +224,8 @@ Verification 检测：
 - Fix Coding Result报告`tests/plugin-packaging.test.ts` 16/16、`tests/multi-project-e2e.test.ts` 1/1、`tests/scope.test.ts` 1/1、typecheck与全量259/259通过。
 - Review 3仍确认两个阻塞：唯一Skill无YAML front matter；Decision answer(false)后Room保持`NEEDS_DECISION`，但Step 4只允许ready state，合法resume路径被阻断。现有packaging Oracle未直接覆盖这两个条件。
 - Fix Task 2 Coding报告packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261通过；Review 4独立确认Decision continuation闭合，但标准YAML parser以`mapping values are not allowed here`拒绝Skill `description`中的`binding: validate`，说明局部front matter parser存在盲点。
-- Fix Task 3 Coding报告packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261通过；Review `review-increment-007-codex-005`独立标准YAML解析、focused/full regression与scope/ancestry核对均通过，无finding，Decision为`approved`；用户已明确接受，当前为`ACCEPTED`，待版本化 `main` commit。
-- 未执行：manual Codex Desktop smoke（未获得单独授权）、版本化提交（正在执行）。
+- Fix Task 3 Coding报告packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261通过；Review `review-increment-007-codex-005`独立标准YAML解析、focused/full regression与scope/ancestry核对均通过，无finding，Decision为`approved`；用户已明确接受，当前为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。
+- 未执行：manual Codex Desktop smoke（未获得单独授权）；版本化提交已完成。
 
 ## 5. Task Contract 规则
 
@@ -252,4 +252,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 7 Review 4的front matter YAML合法性finding与最小方案已获用户确认，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`无finding、Decision为`approved`，用户已明确接受，当前为`ACCEPTED`，待版本化 `main` commit。Plugin继续不可用直至该commit完成；manual Codex Desktop smoke保持pending。
+Increment 7 Review 4的front matter YAML合法性finding与最小方案已获用户确认，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`无finding、Decision为`approved`，用户已明确接受，当前为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。Plugin与多项目配置现为Current capability；manual Codex Desktop smoke保持pending。
