@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-27
-> Last maintained review：`review-increment-007-codex-003`
+> Last maintained review：`review-increment-007-codex-005`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -170,7 +170,7 @@ re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiri
 
 ### 4.4 Increment 7 Planned Plugin 与多项目配置
 
-用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下仍是Accepted target runbook，不是Current command。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3两项finding与最小方案，[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`并由用户人工派发：
+用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下仍是Accepted target runbook，不是Current command。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
 
 1. Agent Room Plugin安装一次，只提供共享Skill。Project A/B各自保存project-scoped `.codex/config.toml`：
 
@@ -199,7 +199,7 @@ re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiri
 
 Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Review后，manual Codex Desktop smoke才验证“Codex发起 + `auto_review`审查 + one-shot Run + 重新读取Room”；`auto_review`拒绝或runtime未准备好时结果保持pending，不改用operator direct run，也不虚报通过。
 
-实现状态（candidate，2026-08-27）：Fix Task 1已修正marketplace、status、baseline、run identity、setup、approval与durable reread，并报告packaging 16/16及全量259/259通过。Review 3确认唯一Skill缺少YAML front matter，且Decision answer(false)后Room保持`NEEDS_DECISION`时，Skill Step 4的ready-state限制会阻断合法resume；用户已确认两项最小方案，Fix Task 2为`Accepted`/`FIX_PLAN_READY`。manual Codex Desktop smoke保持pending，Plugin继续不是Current command。
+实现状态（accepted，2026-08-27）：Fix Task 1已修正marketplace、status、baseline、run identity、setup、approval与durable reread。Fix Task 2已正确加入answered `NEEDS_DECISION` continuation并报告packaging 18/18及全量261/261通过；Review 4独立标准YAML解析因`description`中的未引用`binding: validate`失败，证明局部parser未验证真实YAML scalar规则。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证标准YAML解析、packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261均通过，无finding，Decision为`approved`，用户已明确接受，待版本化 `main` commit。manual Codex Desktop smoke保持pending，Plugin将在该commit后进入Current command。
 
 ## 5. 人工操作命令
 
@@ -280,5 +280,7 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-007-codex-001` | `changes_requested` / findings与方案已确认 | Skill launcher漏用`agent_room_root`；clean documentation baseline未形成；Task/Review/Question isolation direct evidence不完整 | 不生成Fix Task；首轮candidate已隔离，严格重执行从clean exact baseline（`b9ebeffd`）完成并闭合三项finding（249/249）；candidate待Review 2；不执行manual paid smoke |
 | `review-increment-007-codex-002` | `changes_requested` / findings与方案已确认 | marketplace schema无效；Skill state/status入口与首次baseline authority错误；完整workflow/setup缺失 | [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)已`Accepted`，当前`FIX_PLAN_READY`；用户选择暂时人工派发，不执行manual paid smoke |
 | `review-increment-007-codex-003` | `changes_requested` / findings与方案已确认 | 唯一Skill缺少YAML front matter；Decision answer(false)后durable `NEEDS_DECISION` resume被Skill自身ready-state gate阻断 | [Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已`Accepted`/`FIX_PLAN_READY`；用户人工派发，保持Plugin unavailable且不执行manual paid smoke |
+| `review-increment-007-codex-004` | `changes_requested` / finding与方案已确认 | Decision resume gate已闭合；Skill front matter的未引用colon-space使标准YAML解析失败，packaging局部parser误报18/18通过 | [Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已`Accepted`；随后完成Fix Coding并进入下一次Review，保持Plugin unavailable且不执行manual paid smoke |
+| `review-increment-007-codex-005` | `approved` / 用户已明确接受 | Fix Task 3已将description改为合法JSON-compatible double-quoted YAML scalar，并让packaging Oracle拒绝未引用colon-space；独立回归与scope/ancestry核对无finding | 当前为`ACCEPTED`，待版本化 `main` commit；manual paid smoke仍未授权，commit后Plugin进入Current capability |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

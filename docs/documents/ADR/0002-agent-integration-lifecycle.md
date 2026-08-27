@@ -116,7 +116,7 @@ Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FI
 
 ### 2026-08-27 Candidate implementation（Increment 7，严格重执行）
 
-Review 1三项finding已在clean exact baseline严格重执行中闭合；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](../INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3 `review-increment-007-codex-003`的Skill front matter与durable `NEEDS_DECISION` Decision resume gate两项finding及最小方案；[Increment 7 Fix Task 2](../INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`，只修正Skill metadata/workflow与packaging Oracle。这些实现finding与Fix不改变本ADR的accepted architecture、actor或lifecycle ownership；Plugin与跨项目runtime尚非Current capability。
+Review 1三项finding已在clean exact baseline严格重执行中闭合；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](../INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Increment 7 Fix Task 2](../INCREMENT_7_FIX_TASK_2.md)已完成Skill metadata/workflow与packaging Oracle修改。Review 4 `review-increment-007-codex-004`确认Decision lifecycle对齐，但front matter `description`中的未引用colon-space使标准YAML解析失败，Decision为`changes_requested`。用户已确认finding与最小方案，[Increment 7 Fix Task 3](../INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，待版本化 `main` commit。该packaging fix不改变本ADR的accepted architecture、actor或lifecycle ownership；Plugin将在该commit后进入Current capability。
 
 ## 相关文档
 

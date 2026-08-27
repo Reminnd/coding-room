@@ -1,0 +1,6 @@
+{
+  "name": "agent-room",
+  "version": "0.1.0",
+  "description": "Agent Room: one-shot implementation task runner with task reviews and questions",
+  "skills": "./skills/"
+}

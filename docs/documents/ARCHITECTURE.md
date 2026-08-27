@@ -191,6 +191,7 @@ worktree A / Claude A          worktree B / Claude B
 - Review 3 `review-increment-007-codex-003`确认两个剩余阻塞：唯一`SKILL.md`缺少Codex Skill所需YAML front matter；`room_answer_question(answer_changes_contract=false)`后durable Room仍为`NEEDS_DECISION`，但Skill Step 4把launcher限制为`PLAN_READY`/`FIX_PLAN_READY`，与Current Decision resume lifecycle矛盾。该finding不改变本节target architecture或production dependency direction。
 - Fix Coding Result报告`tests/plugin-packaging.test.ts` 16/16、`tests/multi-project-e2e.test.ts` 1/1、`tests/scope.test.ts` 1/1、typecheck与全量259/259通过；现有packaging Oracle未直接覆盖上述front matter与`NEEDS_DECISION` resume组合语义。
 - 用户已确认Review 3两项finding与最小方案，[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`：只补齐Skill discovery front matter、对齐既有Decision continuation state gate并增加packaging direct Oracle，不改变本节target architecture或production dependency direction。用户选择人工派发；Plugin与跨项目runtime仍不是Current capability。
+- Fix Task 2 Coding已把answered `NEEDS_DECISION` continuation纳入Step 4并补充front matter/组合Oracle；Review 4 `review-increment-007-codex-004`确认Decision lifecycle已对齐，但未加引号的front matter `description`包含`binding: validate`，标准YAML parser拒绝该mapping，测试侧局部parser未覆盖真实YAML scalar规则。用户已确认finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，待版本化`main` commit；Fix 3仅修正description scalar表示和对应negative Oracle，不改变target architecture、production dependency direction或protocol version，Plugin将在该commit后进入Current capability。
 
 ## 4. 依赖方向
 

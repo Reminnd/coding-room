@@ -411,6 +411,7 @@ Implementation Task 的第一个 Run 创建 session。Fix Run 和 decision-resum
 - Review 3 `review-increment-007-codex-003`确认Skill仍与Current Decision lifecycle冲突：`room_answer_question(answer_changes_contract=false)`不会把Room移回ready state，durable state仍为`NEEDS_DECISION`；Skill虽从该分支指向Step 4，却把Step 4 launcher限制为`PLAN_READY`/`FIX_PLAN_READY`。因此合法Decision resume被自身gate阻断，现有packaging test未直接证明该组合路径。
 - Review 3另确认唯一Skill缺少Codex要求的YAML front matter，影响Skill本身的有效加载，但不增加或修改Room protocol entity、transition、Event、error或version。
 - 用户已确认Review 3两项finding与最小方案，[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`。Fix只使Skill与本节既有`NEEDS_DECISION → CODING` resume语义一致并补齐Skill discovery metadata/direct Oracle，不修改protocol entity、transition、Event、error或version。Plugin未获用户接受、未进入版本化`main`，protocol version保持`0.2-design`。
+- Fix Task 2 Coding已正确表达answered `NEEDS_DECISION` continuation；Review 4 `review-increment-007-codex-004`未发现Room lifecycle回归，但确认front matter `description`因未引用的colon-space而不是合法YAML，测试侧局部parser仍误报通过。用户已确认finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，待版本化`main` commit；Fix 3仅修正metadata scalar与test Oracle，不修改本协议的entity、transition、Event、error、baseline/session ownership或`0.2-design`版本。
 
 ## 13. Git 协议
 

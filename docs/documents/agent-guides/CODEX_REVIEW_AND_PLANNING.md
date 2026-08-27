@@ -271,3 +271,7 @@ Review Runner lifecycle 时，transition table、Architecture failure table 与�
 ### 13.2 零副作用结论必须覆盖 Contract 声称的全部 authority
 
 Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时，不能只检查 error code 或下游 callback count。应在 operation 前保存 public durable snapshot，并在失败后比较完整 Room、相关 entity、Event list 与 cursor；同时按该 boundary 断言零 process invocation、零新 Run 与零 artifact。对已完成 command 的 same-payload retry 与 different-payload conflict，应分别在每次 operation 前保存完整 snapshot并在 operation 后 `deepEqual`，避免 selected field 或 Event count 掩盖其它 durable write。
+
+## 14. 结构化 Metadata Oracle 必须验证 Consumer Grammar
+
+当 Plugin、discovery 或 packaging metadata 声明符合某个标准格式时，Review 必须对真实 candidate 使用实际 consumer/parser 验证格式合法性；只按分隔符拆行的局部 parser 不能证明 scalar、quoting 或 delimiter 语义正确。局部 Oracle 可以只约束 Contract 冻结的字段，但必须明确其合法 scalar 子集，并对项目支持路径中已知的 malformed 形态提供独立 direct negative fixture；不能用局部 parser 的 green result 替代真实 consumer 的加载证据。

@@ -17,6 +17,15 @@ const allowedRoomFiles = new Set([
   'room-service.ts',
   'state-snapshot.ts',
 ]);
+const allowedPluginEntries = new Set(['agent-room']);
+const allowedAgentsEntries = new Set(['plugins']);
+const allowedMarketplaceEntries = new Set(['marketplace.json']);
+
+function assertDirEntries(dir: string, allowed: Set<string>): void {
+  assert.equal(existsSync(dir), true, `missing scope directory: ${dir}`);
+  const entries = readdirSync(dir).sort();
+  assert.deepEqual(entries, [...allowed].sort(), `unapproved entries under ${dir}`);
+}
 
 function assertDirFiles(dir: string, allowed: Set<string>): void {
   if (!existsSync(dir)) return;
@@ -28,7 +37,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 6 allows exact MCP/CLI/shared-read-model files and keeps extra modules, tools and dependency drift rejected', () => {
+test('Increment 7 allows exact MCP/CLI/shared-read-model files and the plugin/marketplace boundary, and keeps extra modules, tools and dependency drift rejected', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }
@@ -37,6 +46,12 @@ test('Increment 6 allows exact MCP/CLI/shared-read-model files and keeps extra m
   assertDirFiles(join(root, 'src', 'mcp'), allowedMcpFiles);
   assertDirFiles(join(root, 'src', 'cli'), allowedCliFiles);
   assertDirFiles(join(root, 'src', 'room'), allowedRoomFiles);
+
+  // Increment 7 packaging boundary：安装一次的 shared Plugin 与 repository-local
+  // marketplace 是根目录唯一新增结构；plugin/skill 内部细节由 plugin-packaging.test.ts 锁定。
+  assertDirEntries(join(root, 'plugins'), allowedPluginEntries);
+  assertDirEntries(join(root, '.agents'), allowedAgentsEntries);
+  assertDirEntries(join(root, '.agents', 'plugins'), allowedMarketplaceEntries);
 
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
     dependencies: Record<string, string>;

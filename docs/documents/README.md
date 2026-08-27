@@ -72,6 +72,7 @@
 | [Increment 7](./INCREMENT_7_TASK_CONTRACT.md) | Accepted | shared Agent Room Plugin、project-local MCP/runtime binding 与跨项目并行隔离 |
 | [Increment 7 Fix 1](./INCREMENT_7_FIX_TASK_1.md) | Accepted | 修复marketplace schema、Skill lifecycle/baseline与setup/packaging direct evidence |
 | [Increment 7 Fix 2](./INCREMENT_7_FIX_TASK_2.md) | Accepted | 补齐Skill YAML front matter并修正NEEDS_DECISION Decision resume gate与direct Oracle |
+| [Increment 7 Fix 3](./INCREMENT_7_FIX_TASK_3.md) | Accepted | 修正description YAML scalar合法性并补齐malformed colon-space negative Oracle |
 
 ### 2.4 Agent 执行指南
 
@@ -101,4 +102,4 @@
 - [Increment 5 Accepted Contract](./INCREMENT_5_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_5_FIX_TASK_1.md) 与 test-only [Fix Task 2](./INCREMENT_5_FIX_TASK_2.md) Coding 均已完成。Review `review-increment-005-codex-003` 无 finding，Decision 为 `approved`；用户已明确接受并另行授权提交完整 accepted scope。Decision/Fix continuation、测试、Fix Contract 与最终文档状态现已进入版本化 `main`，为 Current capability。
 - [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已从 clean exact `main` baseline `7ac639a30ab2a94170ef69498e065fb16e77f833` 重新执行；[Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，production source未改动。
 - Review `review-increment-006-codex-003`无finding、Decision为`approved`；Codex独立验证`npm run typecheck`与focused 95/95通过，Claude Coding Result报告全量242/242通过。用户已明确接受并另行授权提交完整accepted scope；planning coordination tools、one-shot Runner CLI与failure retry现已进入版本化`main`，为Current capability。Fix经验回收已完成；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理仍为独立门禁。
-- Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3 `review-increment-007-codex-003`的Skill YAML front matter与durable `NEEDS_DECISION` Decision resume gate两项finding及最小方案；[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`，当前为`FIX_PLAN_READY`并由用户人工派发。Plugin仍非Current capability，manual Codex Desktop smoke保持pending。
+- Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill `description`中的未引用colon-space使front matter无法由标准YAML parser加载，测试侧局部parser误报通过。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，当前阶段为`ACCEPTED`，待版本化`main` commit。Plugin与多项目配置将在该commit后进入Current capability，manual Codex Desktop smoke保持pending。
