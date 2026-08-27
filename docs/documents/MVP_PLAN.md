@@ -9,6 +9,7 @@
 > Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
+> Increment 8：完整Contract已确认 / `Accepted` / `PLAN_READY`
 
 ## 1. 目标
 
@@ -227,6 +228,24 @@ Verification 检测：
 - Fix Task 3 Coding报告packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261通过；Review `review-increment-007-codex-005`独立标准YAML解析、focused/full regression与scope/ancestry核对均通过，无finding，Decision为`approved`；用户已明确接受，当前为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。
 - 未执行：manual Codex Desktop smoke（未获得单独授权）；版本化提交已完成。
 
+### 增量 8 — Automatic Project Setup
+
+状态：[Increment 8 Task Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认，状态为`Accepted`，项目阶段为`PLAN_READY`。automatic setup尚未实现；documentation baseline、dispatch与Git写操作仍需独立门禁。
+
+目标：在现有唯一Agent Room Skill中增加显式setup mode，从operator提供的runtime root自动建立当前项目binding、启动existing`room:serve`，并在Codex Desktop reload后通过project-scoped MCP创建和验证Room。
+
+范围：
+
+- Skill-owned Node.js/TypeScript helper生成project-local database path、loopback ephemeral port与`room-<UUID>`，保守创建或合并runtime/config/gitignore；
+- valid binding幂等复用，existing conflict或mismatch在写入前停止；
+- loopback port关闭时启动一次service，开放时避免重复启动，Room identity由reload后的MCP验证；
+- reload continuation只调用existing`room_create`与`room_get_state`，最终到达`DISCUSSION`；
+- focused setup、packaging/scope与actual loopback E2E evidence。
+
+非目标：新Room protocol/state/schema/Event/MCP/production CLI/dependency，global config或raw HTTP fallback，daemon/service manager，自动reload，`room:run`/Claude/paid smoke或Git mutation。
+
+验收：fresh project只输入valid `agent_room_root`即可得到一致的五字段runtime、project MCP config与ignore rules；existing content保留、rerun identity稳定、conflict零写入；service/reload/MCP continuation到exact Room `DISCUSSION`，且setup不越过Room workflow与one-shot Runner gate。
+
 ## 5. Task Contract 规则
 
 每个 increment 只有满足以下条件后，才能转换为独立 Task Contract：
@@ -252,4 +271,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 7 Review 4的front matter YAML合法性finding与最小方案已获用户确认，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`无finding、Decision为`approved`，用户已明确接受，当前为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。Plugin与多项目配置现为Current capability；manual Codex Desktop smoke保持pending。
+Increment 7已接受并进入版本化`main`。用户已明确确认[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)全部内容，当前为`PLAN_READY`，并已授权提交本Accepted planning scope。commit完成后从clean live Git记录exact`HEAD`；用户选择暂时自行人工派发完整Contract。该选择不授权Codex启动Claude/service，也不授权implementation Git写操作或push。

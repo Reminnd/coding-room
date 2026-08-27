@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 7 / `review-increment-007-codex-005` `approved` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
+> 当前阶段：PLAN_READY / Increment 8 Accepted Contract / documentation baseline commit 已授权 / 用户人工派发
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -125,6 +125,8 @@ Increment 7 的用户已确认目标架构保持上述 Current runtime 不变，
 - 同一 Room 内 parallel Claude Runs 继续不支持，不属于 Increment 7。
 
 以上目标架构与完整实现范围均已获用户确认，权威入口为Accepted [Increment 7 Task Contract](./docs/documents/INCREMENT_7_TASK_CONTRACT.md)。首轮candidate未通过Review且不作为重执行或最终Review authority；严格重执行candidate已从clean exact baseline完成。Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](./docs/documents/INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3 `review-increment-007-codex-003`的两项finding与最小方案，[Increment 7 Fix Task 2](./docs/documents/INCREMENT_7_FIX_TASK_2.md)为`Accepted`并已完成Coding。Review 4 `review-increment-007-codex-004`确认Decision resume gate已闭合，但Skill front matter的未加引号`description`包含`binding: validate`，标准YAML解析失败，而测试侧局部parser仍误报通过；Decision为`changes_requested`。用户已确认该finding与最小方案，[Increment 7 Fix Task 3](./docs/documents/INCREMENT_7_FIX_TASK_3.md)为`Accepted`并已完成Coding。Review `review-increment-007-codex-005`无finding、Decision为`approved`；用户已明确接受，当前阶段为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。Fix 3不改变架构或协议版本；Plugin与多项目配置现为Current capability。
+
+Increment 8 的用户已确认[完整Accepted Contract](./docs/documents/INCREMENT_8_TASK_CONTRACT.md)：setup自动创建或保守合并`.codex/config.toml`与`.gitignore`，自动生成`database_path`、`port`与`room_id`，operator首次提供一次`agent_room_root`；确定性helper、reload前后两段lifecycle、conflict/idempotency、scope、non-goals与verification同时获确认。用户已单独授权提交本Accepted planning范围并选择暂时自行人工派发；Codex不启动Claude/service。该Accepted target不是Current implementation，manual dispatch必须使用commit后clean live Git exact`HEAD`并注入完整Contract。
 
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
@@ -273,6 +275,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_7_FIX_TASK_1.md](./docs/documents/INCREMENT_7_FIX_TASK_1.md) | Increment 7 Review 2 marketplace、Skill lifecycle/baseline 与 setup/packaging evidence 最小 Fix Task | Codex | Increment 7 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_7_FIX_TASK_2.md](./docs/documents/INCREMENT_7_FIX_TASK_2.md) | Increment 7 Review 3 Skill front matter 与 Decision resume gate 最小 Fix Task | Codex | Increment 7 Fix 2 Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_7_FIX_TASK_3.md](./docs/documents/INCREMENT_7_FIX_TASK_3.md) | Increment 7 Review 4 YAML scalar legality 与 front matter negative Oracle 最小 Fix Task | Codex | Increment 7 Fix 3 Coding 与再次 Review | Accepted |
+| [docs/documents/INCREMENT_8_TASK_CONTRACT.md](./docs/documents/INCREMENT_8_TASK_CONTRACT.md) | Agent Room Skill 自动project setup、service startup与reload continuation Implementation Task Contract | Codex | Increment 8 Coding与Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -299,7 +302,9 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - Superseded 2026-08-24：Codex 的“运维文档编写者及维护者”窄角色已由下一条全项目文档角色替代；Review 后运维维护要求继续包含在新角色中。
 - 2026-08-24：用户明确要求 Codex 调用 `backend-doc-authoring` skill 编写和维护所有项目文档，并把人类可查看文档统一迁入 `docs/documents/`。根目录只保留 `AGENTS.md`、`CLAUDE.md`、`PROJECT_RULES.md` 三个 agent/tooling 控制入口；新增文档总索引和全项目文档维护指南，不保留旧路径副本。该变更只调整文档角色、目录和工作流，不改变产品 architecture、Room protocol 或 runtime，因此不新增 ADR。
 - 2026-08-27：用户确认 Increment 7 采用“安装一次的 Agent Room Plugin + 每个项目独立的 MCP/runtime 配置”；Plugin共享通用Skill，Project A/B分别保存port、database与project path并可通过独立Room/worktree/Claude process并行。`room:run`保持one-shot operator-authorized boundary，Plugin workflow固定由Codex执行，host内部审批模式固定为UI“帮我批准”（`approvals_reviewer=auto_review`）；Current CLI的人工可调用性不纳入Plugin正常路径。同一Room parallel Runs继续延后。该决定是ADR-0002的additive clarification，不改变Room protocol version、state/schema/Event/error或Current runtime。
+- 2026-08-27：用户先确认Increment 8 setup的三项输入边界，随后明确确认[完整Implementation Contract](./docs/documents/INCREMENT_8_TASK_CONTRACT.md)。Contract现为`Accepted`，阶段进入`PLAN_READY`；本次确认不授权Git写操作、跳过clean documentation baseline、直接启动Claude/service，或把automatic setup提升为Current。
+- 2026-08-27：用户随后明确授权提交Increment 8 Accepted planning文档范围，并选择暂时自行人工派发完整Contract。授权不覆盖Codex/Plugin启动Claude或service、implementation commit、push、branch/worktree、runtime初始化、paid smoke或其它Git写操作；manual dispatch必须使用commit后clean live Git exact`HEAD`。
 
 ## 14. 当前阶段
 
-Increment 1–6 已完成、通过 Review、获用户接受并进入版本化 `main`；planning coordination tools、one-shot Runner CLI、failure retry、Decision/Fix continuation、Room MCP、Status CLI与central Runner均为Current capability。Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](./docs/documents/INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。用户已确认Review 3两项finding及最小方案，[Increment 7 Fix Task 2](./docs/documents/INCREMENT_7_FIX_TASK_2.md)已完成Coding。Review 4 `review-increment-007-codex-004`确认Decision continuation修复正确，但唯一Skill的front matter存在未引用colon-space；用户已确认该finding与最小方案，[Increment 7 Fix Task 3](./docs/documents/INCREMENT_7_FIX_TASK_3.md)已完成Coding。Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，当前阶段为`ACCEPTED`，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。Fix 3不改变架构或协议版本；Plugin与多项目配置现为Current capability，manual Codex Desktop smoke保持pending；push、runtime初始化、branch/worktree、真实Claude smoke、stash删除与其它清理继续保持独立授权门禁。
+Increment 1–7 已完成、通过 Review、获用户接受并进入版本化 `main`；Plugin与多项目配置现为Current capability，manual Codex Desktop smoke保持pending。用户已明确确认[Increment 8完整Contract](./docs/documents/INCREMENT_8_TASK_CONTRACT.md)，当前阶段为`PLAN_READY`，并已授权提交本Accepted planning文档范围；提交后的clean live Git exact`HEAD`作为manual dispatch baseline。用户选择暂时自行人工派发；未授权Codex/Plugin启动Claude/service、implementation Git写操作、push、runtime初始化或真实Claude smoke。

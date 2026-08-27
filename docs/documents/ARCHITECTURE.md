@@ -193,6 +193,36 @@ worktree A / Claude A          worktree B / Claude B
 + 用户已确认Review 3两项finding与最小方案，[Increment 7 Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`：只补齐Skill discovery front matter、对齐既有Decision continuation state gate并增加packaging direct Oracle，不改变本节target architecture或production dependency direction。用户选择人工派发；该Fix随后完成Review与接受。
 - Fix Task 2 Coding已把answered `NEEDS_DECISION` continuation纳入Step 4并补充front matter/组合Oracle；Review 4 `review-increment-007-codex-004`确认Decision lifecycle已对齐，但未加引号的front matter `description`包含`binding: validate`，标准YAML parser拒绝该mapping，测试侧局部parser未覆盖真实YAML scalar规则。用户已确认finding与最小方案，[Increment 7 Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`；Fix 3仅修正description scalar表示和对应negative Oracle，不改变target architecture、production dependency direction或protocol version，Plugin与多项目配置现为Current capability。
 
+### 3.12 Increment 8 Accepted target — Automatic Project Setup
+
+> 状态：Accepted target。权威范围见[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)；automatic setup尚未实现，不能标记为Current capability。
+
+```text
+operator provides agent_room_root once
+                 │
+                 v
+existing Agent Room Skill setup mode
+                 │
+                 v
+Skill-owned helper ──> runtime.json + project MCP config + .gitignore
+                 │       database / port / room_id generated locally
+                 v
+existing room:serve ──> Codex Desktop reload boundary
+                              │
+                              v
+                    project-scoped room_create
+                              │
+                              v
+                    room_get_state = DISCUSSION
+```
+
+- setup是现有唯一Skill的显式模式，不是Room lifecycle state或第二持久化authority；普通workflow不得因binding缺失而静默进入setup。
+- operator首次只提供absolute `agent_room_root`；`project_path`来自当前workspace，`database_path`固定为project-local SQLite path，`port`由OS loopback ephemeral allocation生成，`room_id`使用`room-<UUID>`。
+- Skill-owned TypeScript helper只负责确定性校验、生成与保守文件合并。Room schema仍由existing`room:serve`拥有，Room entity仍由existing`room_create`拥有；helper不写SQLite。
+- service启动前探测binding port：已开放时不启动第二个process，关闭时启动一次existing`room:serve`。该probe只避免明显重复启动，Room identity最终由reload后的project-scoped MCP验证；不新增PID registry、service manager、daemon或health scheduler。
+- `.codex/config.toml`加载形成明确reload boundary。reload前只建立binding并启动service；reload后只用project-scoped `room_create`/`room_get_state`创建或复用exact Room。setup完成后停止，不进入Architecture Review、Task、`room:run`或Claude。
+- invalid existing binding、config conflict或runtime/config mismatch在任何写入前停止；valid rerun复用全部identity。该deployment convenience不改变Room Service、State Machine、SQLite、Runner、Git Observer、MCP transport或protocol version。
+
 ## 4. 依赖方向
 
 ```text

@@ -201,6 +201,16 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 
 实现状态（Current，2026-08-27）：Fix Task 1已修正marketplace、status、baseline、run identity、setup、approval与durable reread。Fix Task 2已正确加入answered `NEEDS_DECISION` continuation并报告packaging 18/18及全量261/261通过；Review 4独立标准YAML解析因`description`中的未引用`binding: validate`失败，证明局部parser未验证真实YAML scalar规则。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证标准YAML解析、packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261均通过，无finding，Decision为`approved`，用户已明确接受，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。manual Codex Desktop smoke保持pending，Plugin与多项目配置现为Current command。
 
+### 4.5 Increment 8 Accepted target automatic setup
+
+> 状态：Accepted target，尚不可用。以下是[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)的目标runbook；Review、用户接受并进入版本化`main`前不替代当前§4.4人工prerequisite。
+
+1. operator对当前项目显式请求setup，并首次提供一次absolute `agent_room_root`。setup验证该runtime root与existing`room:serve`/`room:run`，自动解析当前`project_path`。
+2. setup自动生成`database_path=<project>/.agent-room/room.sqlite`、OS-assigned loopback `port`与`room_id=room-<UUID>`，保守建立五字段`.agent-room/runtime.json`、project-scoped `.codex/config.toml`与所需`.gitignore`条目。
+3. existing runtime/config conflict、mismatch或invalid root必须在写入前停止。valid rerun复用identity；binding port已开放时不启动第二个process，关闭时启动一次existing`room:serve`。approval拒绝或bind失败保留binding并报告`service_start_pending`。
+4. Skill报告Codex Desktop reload required并停止。reload后operator显式继续setup；Skill只通过当前project-scoped MCP调用existing`room_create`与`room_get_state`，验证exact Room处于`DISCUSSION`。
+5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。当前Accepted design尚无implementation；manual smoke仍保持pending。
+
 ## 5. 人工操作命令
 
 ### 5.1 环境前置
@@ -247,7 +257,7 @@ npm test
 2. 运行 `npm run typecheck` 和聚焦/完整测试，区分类型偏移与行为回归。
 3. Git Observer 抛出 `ProtocolError` 时按 `git_repository_missing`、`git_head_missing`、`worktree_not_clean` 处理；`GitCommandError` 表示观察 command 本身失败，不能解释为 clean/empty。
 4. 历史 bootstrap artifact 继续保留在 `.agent-room/artifacts/`；bootstrap transport 已 `Superseded`，不得为后续 Task 再启动。
-5. 当前没有 service restart、database backup/restore或health probe；one-shot Runner与failure retry已进入版本化`main`。retry仍由operator先调用`room_retry_run`，再显式执行一次`room:run`，不存在automatic retry或background scheduler。
+5. 当前没有 service restart、database backup/restore或health probe；Increment 8 Accepted target只包含setup-time loopback port probe，不是Current health capability。one-shot Runner与failure retry已进入版本化`main`；retry仍由operator先调用`room_retry_run`，再显式执行一次`room:run`，不存在automatic retry或background scheduler。
 
 所有 protocol error code 见 [ROOM_PROTOCOL.md 第 14 节](./ROOM_PROTOCOL.md#14-错误码)。
 

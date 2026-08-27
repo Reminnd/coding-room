@@ -118,6 +118,17 @@ Claude Code 已完成 Decision/Fix continuation、[Fix Task 1](../INCREMENT_5_FI
 
 Review 1三项finding已在clean exact baseline严格重执行中闭合；Review 2四项finding已形成Accepted [Increment 7 Fix Task 1](../INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Increment 7 Fix Task 2](../INCREMENT_7_FIX_TASK_2.md)已完成Skill metadata/workflow与packaging Oracle修改。Review 4 `review-increment-007-codex-004`确认Decision lifecycle对齐，但front matter `description`中的未引用colon-space使标准YAML解析失败，Decision为`changes_requested`。用户已确认finding与最小方案，[Increment 7 Fix Task 3](../INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。该packaging fix不改变本ADR的accepted architecture、actor或lifecycle ownership；Plugin与多项目配置现为Current capability。
 
+## 2026-08-27 Accepted design 澄清（Increment 8）
+
+用户已完整确认[Increment 8 Accepted Contract](../INCREMENT_8_TASK_CONTRACT.md)，在不改变Room lifecycle ownership的前提下增加显式project setup lifecycle：
+
+- setup是现有唯一Codex Skill的显式operator请求，不是Room state、automatic wakeup或普通workflow的隐式fallback。operator首次提供一次`agent_room_root`，其余project-local identity由Skill-owned helper按Contract生成并持久化。
+- reload前，Skill只建立project binding并启动existing`room:serve`；service process仍位于Room外部执行环境，setup-time port probe只避免明显重复启动，不成为Room identity或health authority。
+- `.codex/config.toml`加载是明确的Codex Desktop reload boundary。reload后，Skill只通过当前project-scoped MCP调用existing`room_create`与`room_get_state`创建或验证exact Room；不使用global config、raw HTTP或直接SQLite写入建立旁路。
+- setup完成后停止，不进入Architecture Review、Task、`room:run`或Claude。`room:run`继续保持独立one-shot operator-authorized boundary；Runner的process/session/terminal settlement ownership不变。
+
+该澄清保留explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement与SQLite/Git authority，不新增protocol state/schema/Event/error、daemon、scheduler或service manager。automatic setup只有在Implementation通过Review、获用户接受并进入版本化`main`后才能标记为Current capability。
+
 ## 相关文档
 
 - [PROJECT_RULES.md](../../../PROJECT_RULES.md)
