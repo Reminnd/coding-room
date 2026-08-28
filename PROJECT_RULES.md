@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 8 Current / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
+> 当前阶段：WAITING_FOR_USER_CONFIRMATION / Increment 9 Accepted Contract 等待 clean dispatch baseline；Current implementation 仍为 Increment 8 / protocol v0.2
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -128,6 +128,8 @@ Increment 7 的用户已确认目标架构保持上述 Current runtime 不变，
 
 Increment 8 的用户已确认[完整Accepted Contract](./docs/documents/INCREMENT_8_TASK_CONTRACT.md)：setup自动创建或保守合并`.codex/config.toml`与`.gitignore`，自动生成`database_path`、`port`与`room_id`，operator首次提供一次`agent_room_root`；确定性helper、reload前后两段lifecycle、conflict/idempotency、scope、non-goals与verification同时获确认。Implementation Coding、[Fix Task 1](./docs/documents/INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./docs/documents/INCREMENT_8_FIX_TASK_2.md)均已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合，代码与direct regression无finding；focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob均独立通过。用户随后明确授权Plugin install/reload与actual installed-plugin consumer evaluation；candidate已从`agent-room-local`安装为`0.1.0`，installed cache与workspace Plugin逐文件一致，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部符合Accepted门禁。Review Decision为`approved`，用户于2026-08-28明确最终接受，Fix验收经验回收已完成；完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current implementation。未授权Codex启动Claude/service、runtime setup或push。
 
+用户于2026-08-29确认[Agent Room v0.3六阶段路线](./docs/documents/AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./docs/documents/ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9完整Accepted Contract](./docs/documents/INCREMENT_9_TASK_CONTRACT.md)。Stage 1只交付Participant/Role/Assignment、generic actor/session/participant route、新v0.3 database与binding；`Plan`/`Approval`随Stage 3实际consumer交付。开发期由固定clean planning baseline的detached v0.2 launcher worktree驱动当前target main与现有Room，避免breaking candidate破坏Review/Fix通道。以上内容是Accepted direction，不是Current implementation；v0.2 database、binding与runtime在candidate通过Review、用户接受并获单独cutover授权前保持权威且不得改写。
+
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
 ## 7. 工作流与门禁
@@ -246,6 +248,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
 | [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
 | [docs/documents/MVP_PLAN.md](./docs/documents/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
+| [docs/documents/AGENT_ROOM_V03_ROADMAP.md](./docs/documents/AGENT_ROOM_V03_ROADMAP.md) | Agent Room v0.3六阶段路线、阶段门禁与人工控制点 | Codex | v0.3阶段规划与跨阶段架构校验 | Accepted |
 | [docs/documents/OPERATIONS.md](./docs/documents/OPERATIONS.md) | 人工运维接口、架构/结构、命令、状态/制品与恢复视图 | Codex | 人工运维；每次 Review 后维护 | Current |
 | [docs/documents/INCREMENT_1_TASK_CONTRACT.md](./docs/documents/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
 | [docs/documents/INCREMENT_1_FIX_TASK_1.md](./docs/documents/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
@@ -278,9 +281,11 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_8_TASK_CONTRACT.md](./docs/documents/INCREMENT_8_TASK_CONTRACT.md) | Agent Room Skill 自动project setup、service startup与reload continuation Implementation Task Contract | Codex | Increment 8 Coding与Review | Accepted |
 | [docs/documents/INCREMENT_8_FIX_TASK_1.md](./docs/documents/INCREMENT_8_FIX_TASK_1.md) | Increment 8 dotted-key config conflict与actual Skill consumer evidence最小Fix Task | Codex | Increment 8 Fix Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_8_FIX_TASK_2.md](./docs/documents/INCREMENT_8_FIX_TASK_2.md) | Increment 8 TOML dotted-key table-context误判最小Fix Task | Codex | Increment 8 Fix 2 Coding与再次Review | Accepted |
+| [docs/documents/INCREMENT_9_TASK_CONTRACT.md](./docs/documents/INCREMENT_9_TASK_CONTRACT.md) | Protocol v0.3 Participant / Role Foundation Implementation Task Contract | Codex | Increment 9 Coding、Review与Fix规划 | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
+| [docs/documents/ADR/0003-participant-role-and-v03-evolution.md](./docs/documents/ADR/0003-participant-role-and-v03-evolution.md) | Participant/Role authority、v0.3新数据库与分阶段演进决策 | Codex | v0.3协议、binding、migration与阶段规划 | Accepted |
 
 “会话必读”文档为：
 
@@ -312,7 +317,8 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-08-27：Fix Review 3 `review-increment-008-codex-003`先确认Fix Task 2代码与direct regression无finding；因actual installed-plugin consumer evaluation未授权、未运行，Decision暂为`needs_discussion`。用户随后明确授权重试local marketplace注册与candidate安装；Codex从`agent-room-local`安装`agent-room@0.1.0`并在fresh tasks完成direct/indirect/negative/boundary activation与bundled resource检查，全部通过，Decision更新为`approved`。阶段保持`REVIEW_DISCUSSION`等待用户最终接受；automatic setup仍为candidate，不授权service/runtime、Claude或Git写操作。
 - 2026-08-28：用户明确最终接受Increment 8 Implementation、Fix Task 1/2与`review-increment-008-codex-003`；阶段进入`ACCEPTED`。Codex完成Fix验收经验回收，将installed consumer evaluation的逐断言证据分配、失败/引导性task排除与replacement规则写入Review指南；本次确认不授权commit、push、service/runtime setup、Claude或其它Git写操作。
 - 2026-08-28：用户另行明确授权提交Increment 8完整accepted scope；commit `8428046dded5f7542690735b3df8a5c5490e8090`已进入`main`，automatic setup成为Current capability。该授权不覆盖push、service/runtime setup、Claude、branch/worktree或其它操作。
+- 2026-08-29：用户确认Agent Room v0.3六阶段路线、ADR-0003、Increment 9完整Contract与三项设计：Stage 1不提前创建无consumer的Plan/Approval；Participant是identity、Role是authority、Assignment只路由future entity且历史identity固化；breaking self-host实现由detached v0.2 launcher worktree驱动current target main。用户授权修改本文件，分别提交setup binding与v0.3 planning文档，创建`D:\agent\case\codex-claudecode-room-v02-launcher` detached worktree，更新Gitignored local runtime binding，并按`auto_review`发起一次one-shot `room:run`。不授权push、database cutover、旧数据删除或implementation commit；v0.3在Review、用户接受和单独cutover授权前仅为candidate。
 
 ## 14. 当前阶段
 
-Increment 1–8均已完成、通过Review、获用户接受并进入版本化`main`。Increment 8 automatic setup由commit `8428046dded5f7542690735b3df8a5c5490e8090`纳入Current capability；manual service/runtime setup smoke保持pending。未授权Codex/Plugin启动Claude/service、push或runtime初始化。
+Increment 1–8均已完成、通过Review、获用户接受并进入版本化`main`。Increment 9完整Contract、六阶段路线与ADR-0003已获用户确认；当前先形成两个独立clean commits并创建detached v0.2 launcher，之后通过现有Room提交Contract进入`PLAN_READY`并发起唯一一次Implementation Run。Current implementation仍为Increment 8 / protocol v0.2。未授权push、database cutover、旧数据删除或implementation commit。

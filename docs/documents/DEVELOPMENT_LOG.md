@@ -2,16 +2,28 @@
 
 ## 当前状态
 
-- 日期：2026-08-28
-- 项目阶段：ACCEPTED / Increment 8 Current / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
-- Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
-- Architecture：Increment 1–7已接受；Increment 8 Accepted target保持既有Room authority与protocol不变，在唯一Skill增加automatic project setup与reload continuation
-- Implementation Task：[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认，`confirmed_by_user=true`；[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均为`Accepted`且已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；用户授权后的actual installed-plugin consumer evaluation已通过，Decision为`approved`。用户已明确最终接受，Fix验收经验回收已完成；commit `8428046dded5f7542690735b3df8a5c5490e8090`已将automatic setup纳入Current capability
+- 日期：2026-08-29
+- 项目阶段：`WAITING_FOR_USER_CONFIRMATION / Agent Room v0.3 Stage 1 Accepted Contract pending submission`；Current implementation仍为Increment 8 / protocol `0.2-design`
+- Room runtime state：project binding指向`room-4f175b12-3e18-417a-a0da-8fda8b002353`；本轮已按workflow从`DISCUSSION`推进至`ARCHITECTURE_REVIEW`再到`WAITING_FOR_USER_CONFIRMATION`，无current Task/Run/Review/Question
+- Architecture：用户已确认六阶段v0.3路线与[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)；它触发ADR-0001的parallel Run/worktree/UI重新评估条件并替换ADR-0002固定agent lifecycle的长期方向，但Current authority尚未改变
+- Implementation Task：[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)为`Accepted`、`confirmed_by_user=true`；Plan/Approval延后、v0.3binding exact字段和detached v0.2 launcher worktree均已确认，等待授权范围提交与clean baseline后调用`room_submit_task`
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`、Increment 8 coding candidate `skills/agent-room/scripts/setup-project.ts`）与`.agents/plugins/marketplace.json`
-- Git repository：branch=`main`；Increment 8 planning HEAD=`992a32e28869ac745d6cd5bae6a761f5aba045c4`，Implementation/Fix lineage baseline与live `HEAD`均为`0872dda067c6af4d7333c58da8d9ac2a967acce2`，0 staged。worktree保留同一Increment 8 candidate与Codex-owned Review/Fix文档；Fix Review 3检查与consumer evaluation前后path集合未漂移。Codex按用户授权注册local marketplace、安装candidate并创建fresh evaluation tasks；未执行stage、commit、push、Claude启动、service启动、runtime初始化或产品`room:run`。Fix Task 2净代码改动仅落在task-owned untracked helper/test路径；Review文档同步由Codex维护
+- Git repository：branch=`main`、planning `HEAD=7b6d034bf2a9b44656d5ae7209b228071478b645`、0 staged；本轮开始前已有automatic setup生成的`.gitignore`修改与untracked`.codex/config.toml`，两者归属既有setup而非Stage 1。当前另有本轮Codex-owned v0.3规划文档Diff。未执行stage、commit、push、branch/worktree、Claude、`room:run`、database切换或其它Git写操作
 
 ## 已完成
+
+### 2026-08-29 — Agent Room v0.3 Stage 1 Architecture Review Draft
+
+- 用户随后明确确认Increment 9完整Contract与三项设计，并授权修改`PROJECT_RULES.md`、分别提交setup binding/planning文档、创建指定detached launcher worktree、更新local runtime binding及按`auto_review`发起一次one-shot`room:run`；明确不授权push、database切换、旧数据删除或实现提交。
+
+- 用户要求实施六阶段v0.3计划；已创建[路线图](./AGENT_ROOM_V03_ROADMAP.md)，保留每阶段功能、人工控制点、Verification与待选功能，并冻结“每阶段独立Contract/Review/验收、GitHub最后接入”的方向。
+- 代码事实确认：Current `Actor`为fixed enum，Event只有`actor`，Run只有`claude_session_id`，MCP只有`/mcp/codex`与`/mcp/claude`，snapshot只返回current entity；SQLite无protocol metadata。因此Stage 1是breaking protocol/storage/route/binding变更，不能作为普通type rename实现。
+- 已创建Proposed [ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9 Draft Contract](./INCREMENT_9_TASK_CONTRACT.md)。推荐new v0.3database、v0.2未改写只读保留、participant route、history-frozen identity及Current串行lifecycle等价回归。
+- 两项计划顺序冲突已收窄为待确认：Current domain没有Plan/Approval consumer，故不在Stage 1创建空entity；Stage 1修改runtime自身，故从detached planning-baseline worktree加载Current v0.2 launcher驱动当前target main/Room，接受后再执行产品binding cutover。
+- Room已按Current coordination tools进入`WAITING_FOR_USER_CONFIRMATION`；未提交Task，等待用户明确确认完整Increment 9 Contract及三项边界。
+- `PROJECT_RULES.md`同步因受保护入口权限审查被拒绝，未绕过；需要用户明确批准后再修改。现有setup dirty files、documentation baseline commit、branch/worktree与开发Room setup也均需独立授权。
+- Documentation impact audit：`documentation: updated`。新增路线图、Proposed ADR与Draft Contract，并同步Architecture、Protocol、MVP、Operations、文档中心和本日志；Current v0.2 implementation未提升或改写。
 
 ### 2026-08-28 — Increment 8 进入版本化 `main`
 

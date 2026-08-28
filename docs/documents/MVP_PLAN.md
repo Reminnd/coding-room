@@ -10,6 +10,7 @@
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
+> Agent Room v0.3：六阶段方向与Stage 1 / Increment 9完整Contract已获用户确认；等待clean dispatch baseline
 
 ## 1. 目标
 
@@ -246,6 +247,26 @@ Verification 检测：
 
 验收：fresh project只输入valid `agent_room_root`即可得到一致的五字段runtime、project MCP config与ignore rules；existing content保留、rerun identity稳定、conflict零写入；service/reload/MCP continuation到exact Room `DISCUSSION`，且setup不越过Room workflow与one-shot Runner gate。
 
+### 增量 9 — Protocol v0.3 Participant / Role Foundation（Accepted）
+
+状态：[六阶段路线图](./AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)均已获用户明确确认；当前形成clean documentation/setup baseline，尚未调用`room_submit_task`。
+
+目标：在保持Current串行lifecycle的前提下，以ParticipantProfile、RoleAssignment、generic actor/session和participant route替换固定`codex`/`claude`/`runner`identity；创建new v0.3 Room/database/binding，并把v0.2 database未改写地只读保留。
+
+范围：
+
+- protocol metadata、Participant/Profile/Assignment、history-frozen Task/Run/Review/Event identity；
+- `agent_session_ref`、`/mcp/participants/{participant_id}`、multi-entity snapshot与default Codex/Claude/local Runner profiles；
+- v0.2五字段binding到v0.3binding的保守切换，旧database不迁移、不删除；
+- Current串行acceptance/failure/question/fix lifecycle等价回归；
+- breaking self-hosted实现使用detached v0.2 launcher worktree驱动当前target main/Room。
+
+非目标：multi-Run/Executor scheduler、Plan/Approval/DAG/Git write、Chat、SSE/VS Code、GitHub、新provider adapter或v0.2原地migration。
+
+已确认：Plan-scope assignment与Approval延后到Stage 3的真实consumer；v0.3 binding exact新增字段；detached v0.2 launcher worktree与local runtime binding更新。
+
+验收：default profiles完成现有串行end-to-end lifecycle；assignment变化只影响未来entity；历史participant/role不变；participant route role gate与跨Room隔离成立；v0.2database byte content不变且v0.3 writable service拒绝打开；Stage 2–6 capability未混入。
+
 ## 5. Task Contract 规则
 
 每个 increment 只有满足以下条件后，才能转换为独立 Task Contract：
@@ -271,4 +292,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–8均已接受并进入版本化`main`。Increment 8 automatic setup由commit `8428046dded5f7542690735b3df8a5c5490e8090`纳入Current capability；manual service/runtime setup smoke保持pending。不启动Claude/service，不执行runtime setup或push。
+Increment 1–8均已接受并进入版本化`main`，继续构成Current v0.2 capability。Agent Room v0.3 Stage 1已完成Architecture Review Draft并进入`WAITING_FOR_USER_CONFIRMATION`；下一步是用户确认[Increment 9 Draft Contract](./INCREMENT_9_TASK_CONTRACT.md)的三项待确认边界，再分别处理受保护规则同步、documentation/setup Git baseline与独立worktree/开发Room授权。确认前不提交Task、不启动Claude/service、不切换database/binding。

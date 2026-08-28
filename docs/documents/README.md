@@ -5,7 +5,7 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-08-27 |
+| 最后更新日期 | 2026-08-29 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
@@ -40,6 +40,7 @@
 |---|---|---|
 | [ADR-0001](./ADR/0001-local-room-and-state-ownership.md) | Accepted | 本地 Room、SQLite/Git/VS Code 状态所有权 |
 | [ADR-0002](./ADR/0002-agent-integration-lifecycle.md) | Accepted | Codex pull、Runner process 与 Claude session lifecycle |
+| [ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md) | Accepted | Participant/Role 解耦、v0.3 数据切换与六阶段演进 |
 
 ### 2.3 Increment 与 Fix Contracts
 
@@ -76,6 +77,8 @@
 | [Increment 8](./INCREMENT_8_TASK_CONTRACT.md) | Accepted | 单一Agent Room Skill自动建立project binding、启动service并在reload后创建/验证Room |
 | [Increment 8 Fix 1](./INCREMENT_8_FIX_TASK_1.md) | Accepted | 修复dotted-key config conflict并闭合actual installed-plugin Skill consumer evidence门禁 |
 | [Increment 8 Fix 2](./INCREMENT_8_FIX_TASK_2.md) | Accepted | 修复dotted-key classifier丢失TOML table context导致的unrelated config误判 |
+| [Agent Room v0.3 Roadmap](./AGENT_ROOM_V03_ROADMAP.md) | Accepted direction | 六阶段交付、人工控制点、Verification 与待选功能 |
+| [Increment 9](./INCREMENT_9_TASK_CONTRACT.md) | Accepted | Protocol v0.3 Participant/Role foundation、new Room 与 v0.2只读保留 |
 
 ### 2.4 Agent 执行指南
 
@@ -107,3 +110,4 @@
 - Review `review-increment-006-codex-003`无finding、Decision为`approved`；Codex独立验证`npm run typecheck`与focused 95/95通过，Claude Coding Result报告全量242/242通过。用户已明确接受并另行授权提交完整accepted scope；planning coordination tools、one-shot Runner CLI与failure retry现已进入版本化`main`，为Current capability。Fix经验回收已完成；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理仍为独立门禁。
 - Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill `description`中的未引用colon-space使front matter无法由标准YAML parser加载，测试侧局部parser误报通过。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，Increment 7已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`，Plugin与多项目配置现为Current capability，manual Codex Desktop smoke保持pending。
 - [Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob独立通过。用户授权后，candidate已从local marketplace安装，fresh-task direct/indirect/negative/boundary activation与bundled helper/reference resolution全部通过；Decision为`approved`，用户已于2026-08-28明确最终接受，Fix验收经验回收已完成。完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current capability。
+- 用户于2026-08-29明确确认[Agent Room v0.3六阶段路线](./AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9完整Contract](./INCREMENT_9_TASK_CONTRACT.md)，包括Plan/Approval延后、v0.3 binding字段及detached v0.2 launcher worktree方案。Current runtime仍为v0.2；已授权planning/setup commits、launcher worktree、local runtime binding与一次`room:run`，但尚未提交Task或启动Claude。

@@ -461,3 +461,28 @@ Codex Review 读取实时 repository。已保存 Git evidence 用于导航和检
 2. 更新 protocol version；
 3. 更新受影响 ADR 和 Documentation Map；
 4. 在同一个已 Review 增量中完成对应 implementation 与 integration test。
+
+## 16. Protocol v0.3 Candidate boundary
+
+> 状态：Proposed；不覆盖本文件1–15节的Current `0.2-design`。完整字段和验收以[Increment 9 Draft Contract](./INCREMENT_9_TASK_CONTRACT.md)为准。
+
+v0.3候选不再使用fixed `Actor`作为authority：
+
+```text
+ParticipantProfile
+  + RoleAssignment
+  → resolved participant_id + actor_role
+  → frozen Task / Run / Review / Event identity
+```
+
+候选变化：
+
+- `Role = planner | worker | reviewer | executor | git_controller | orchestrator`。
+- `Event.actor`替换为required `actor_role + participant_id`。
+- `Run.claude_session_id`替换为nullable opaque `agent_session_ref`。
+- v0.3 route为`/mcp/participants/{participant_id}`；tool operation映射固定required role并校验assignment。
+- snapshot返回Room内全部Participant、Assignment、Task、Run、Review、Question与Event，同时保留由Event推导的current reference。
+- new v0.3 database持久化exact protocol metadata；v0.3 writable service对缺失metadata的v0.2 database在schema write前返回`protocol_version_mismatch`。
+- v0.2 database不迁移、不backfill、不改写历史actor/session；binding切换后只读保留。
+
+Stage 1仍只允许single active Run；Plan-scope Assignment和Approval snapshot在Stage 3出现真实TaskGraph/Git action consumer时定义。该延后项与new binding exact字段均待用户确认，确认前不实现或派发。

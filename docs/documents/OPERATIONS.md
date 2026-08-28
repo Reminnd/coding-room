@@ -2,7 +2,7 @@
 
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
-> 最后维护日期：2026-08-27
+> 最后维护日期：2026-08-29
 > Last maintained review：`review-increment-008-codex-003`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
@@ -211,6 +211,24 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 4. Skill报告Codex Desktop reload required并停止。reload后operator显式继续setup；Skill只通过当前project-scoped MCP调用existing`room_create`与`room_get_state`，验证exact Room处于`DISCUSSION`。
 5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。真实service/runtime setup smoke仍未运行；consumer routing evaluation不替代该operator-run smoke。
 6. 实现状态（Current，2026-08-28，`ACCEPTED`）：Fix Task 2已收窄top-level ownership判断并补public CLI regression；Fix Review 3 `review-increment-008-codex-003`确认代码无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过。用户授权后，candidate已从`agent-room-local`安装为`0.1.0`，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部通过，Decision为`approved`，且用户已明确最终接受；完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`。manual service/runtime setup smoke仍未运行，不影响Current automatic setup capability。
+
+### 4.6 Proposed v0.3 Stage 1 cutover
+
+> 状态：Proposed；以下不是Current runbook，不得现在执行。Current setup、service、database与fixed route仍以§4.4–4.5为准。
+
+Stage 1验收后才允许形成cutover preview：
+
+| 项目 | Proposed结果 | 失败动作 |
+|---|---|---|
+| v0.2 database | 保持existing path/content，记录为`archived_database_path`，不再由v0.3 writable service打开 | 任意内容变化或路径冲突时停止，不删除/重命名/重试覆盖 |
+| v0.3 database | 新建`<project>/.agent-room/room-v0.3.sqlite`并写exact protocol metadata | schema/version不一致时停止，不回落旧database |
+| runtime binding | 原五字段增加`protocol_version`、`control_participant_id`、`archived_database_path` | existing/config mismatch在写入前停止 |
+| project MCP | URL切换为`/mcp/participants/{control_participant_id}` | reload前不使用raw HTTP或旧project route绕过 |
+| Room | 创建new room_id并bootstrap defaultParticipant/Assignment | identity/readback不一致时保持v0.2 binding并报告 |
+
+Stage 1 candidate继续写入当前target main，但不从candidate路径重新加载launcher：固定planning baseline的detached v0.2 launcher worktree负责`room:serve`/`room:run`，当前Room/database/project path保持不变，Gitignored runtime binding只临时切换`agent_room_root`。launcher worktree创建、binding更新、documentation commit、最终cutover与cleanup是独立授权；任何一步未授权都停止。
+
+当前没有可执行v0.3命令。实际command、preview schema、成功信号和恢复步骤必须由Accepted Contract implementation与Review证据确定后再提升到Current runbook。
 
 ## 5. 人工操作命令
 

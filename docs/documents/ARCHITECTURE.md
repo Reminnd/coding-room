@@ -228,6 +228,32 @@ existing room:serve ──> Codex Desktop reload boundary
 - 用户已确认Fix Review 2 finding与最小方案，[Increment 8 Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`：只让existing narrow classifier保留判断冻结dotted assignment是否位于TOML top-level所需的最小table context，并补unrelated-table public CLI direct regression。Skill/helper、Room authority、reload lifecycle、production dependency direction与protocol version均不改变；actual installed-plugin consumer evaluation仍需另行授权。
 - Fix Review 3 `review-increment-008-codex-003`确认该table-context修复与public CLI regression无finding，focused/full自动化验证通过。用户随后授权local marketplace registration、candidate install与actual installed-plugin consumer evaluation；installed cache与workspace Plugin逐文件一致，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部符合预期，故Decision更新为`approved`。用户于2026-08-28明确最终接受，完整accepted scope由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current capability。这不改变Accepted architecture、Room authority、reload lifecycle、production dependency direction或protocol version。
 
+### 3.13 Proposed target — Protocol v0.3 Participant / Role Foundation
+
+> 状态：Proposed。Current runtime继续使用本文件前述v0.2固定actor、single active Run与dual route；只有[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)获用户确认、Implementation通过Review并进入版本化`main`后，本节才能提升为Current。
+
+v0.3 Stage 1把identity与authority分离，但不提前实现Stage 2–6：
+
+```mermaid
+flowchart LR
+    P["ParticipantProfile<br/>identity / provider / adapter / capability"]
+    A["RoleAssignment<br/>room or concrete entity scope"]
+    C["Role-gated Command"]
+    E["Task / Run / Review / Event<br/>frozen participant + role"]
+    DB[("new v0.3 SQLite")]
+
+    P --> A --> C --> E --> DB
+```
+
+- `ParticipantProfile`拥有identity和adapter metadata；secret只通过opaque `config_ref`引用。
+- `RoleAssignment`拥有future routing；entity创建时把resolved participant/role固化到历史entity/Event。
+- v0.3 MCP目标route为`/mcp/participants/{participant_id}`，tool自身冻结required role，caller不能用参数声明authority。
+- v0.3使用new database与new binding；v0.2 database保持原内容、原路径并在cutover后只读保留。
+- Stage 1默认adapter仍是Codex App、Claude Code CLI与local Runner，串行lifecycle和Git只读/人工授权边界保持不变。
+- `Plan`、`Approval`、multi-Run、DAG、Scheduler、Git Controller write、Chat、SSE/UI与GitHub不在Stage 1创建空implementation；它们在首个真实consumer阶段交付。
+
+Stage 1修改runtime自身，因此Proposed开发执行让固定planning baseline的detached v0.2 launcher worktree驱动当前target main/Room；candidate只修改target，不覆盖后续Fix/Decision所加载的launcher代码。这只隔离development，不构成产品worktree manager。详细决策见[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)。
+
 ## 4. 依赖方向
 
 ```text
