@@ -3,15 +3,23 @@
 ## 当前状态
 
 - 日期：2026-08-28
-- 项目阶段：ACCEPTED / Increment 8 用户已最终接受 / versioned commit pending
+- 项目阶段：ACCEPTED / Increment 8 Current / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：Increment 1–7已接受；Increment 8 Accepted target保持既有Room authority与protocol不变，在唯一Skill增加automatic project setup与reload continuation
-- Implementation Task：[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认，`confirmed_by_user=true`；[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均为`Accepted`且Coding candidate已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；用户授权后的actual installed-plugin consumer evaluation已通过，Decision为`approved`。用户已明确最终接受，阶段为`ACCEPTED`；automatic setup在完成版本化前仍不是Current capability
+- Implementation Task：[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认，`confirmed_by_user=true`；[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均为`Accepted`且已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；用户授权后的actual installed-plugin consumer evaluation已通过，Decision为`approved`。用户已明确最终接受，Fix验收经验回收已完成；commit `8428046dded5f7542690735b3df8a5c5490e8090`已将automatic setup纳入Current capability
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`、Increment 8 coding candidate `skills/agent-room/scripts/setup-project.ts`）与`.agents/plugins/marketplace.json`
 - Git repository：branch=`main`；Increment 8 planning HEAD=`992a32e28869ac745d6cd5bae6a761f5aba045c4`，Implementation/Fix lineage baseline与live `HEAD`均为`0872dda067c6af4d7333c58da8d9ac2a967acce2`，0 staged。worktree保留同一Increment 8 candidate与Codex-owned Review/Fix文档；Fix Review 3检查与consumer evaluation前后path集合未漂移。Codex按用户授权注册local marketplace、安装candidate并创建fresh evaluation tasks；未执行stage、commit、push、Claude启动、service启动、runtime初始化或产品`room:run`。Fix Task 2净代码改动仅落在task-owned untracked helper/test路径；Review文档同步由Codex维护
 
 ## 已完成
+
+### 2026-08-28 — Increment 8 进入版本化 `main`
+
+- 用户在最终接受后另行明确授权提交当前完整Increment 8 accepted scope；Codex以显式pathspec暂存已Review的16个代码、测试、Plugin资源与配套文档路径，没有夹带角色入口或下一Increment文件。
+- implementation commit：`8428046dded5f7542690735b3df8a5c5490e8090`（`feat(plugin): add automatic Agent Room project setup`）。automatic setup现为Current capability。
+- Commit前门禁：branch=`main`、HEAD仍为lineage baseline `0872dda067c6af4d7333c58da8d9ac2a967acce2`、baseline ancestry成立、0 pre-existing staged、无unstaged或untracked遗漏；staged snapshot恰好16个task-owned路径且`git diff --cached --check`通过。
+- 未执行push、service/runtime setup、Room MCP、`room:run`、Claude、branch/worktree或其它操作；manual service/runtime setup smoke保持pending且不阻塞Current。
+- Documentation impact audit：`documentation: updated`。Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与本日志从accepted candidate同步为版本化Current；Room protocol、product architecture、production dependency direction与public contract不变。
 
 ### 2026-08-28 — Increment 8 用户最终接受与经验回收
 
@@ -1129,8 +1137,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 8没有未解决阻塞finding，Review Decision为`approved`且用户已最终接受。automatic setup在versioned `main` commit前仍为accepted candidate；未获Codex启动Claude/service、runtime初始化、implementation commit/push、branch/worktree、stash删除或其它清理授权。
+Increment 8没有未解决阻塞finding，Review Decision为`approved`且用户已最终接受；implementation commit已进入版本化`main`。未获Codex启动Claude/service、runtime初始化、push、branch/worktree、stash删除或其它清理授权。
 
 ## 下一步
 
-等待用户另行决定是否授权Increment 8 versioned commit；Codex不得自行启动Claude/service、执行runtime setup或Git写操作。
+Increment 8没有必需的后续实现工作。manual service/runtime setup smoke与push均为独立可选门禁；未获授权不得执行。

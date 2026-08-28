@@ -9,7 +9,7 @@
 > Increment 5：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
-> Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / versioned commit pending
+> Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
 
 ## 1. 目标
 
@@ -230,7 +230,7 @@ Verification 检测：
 
 ### 增量 8 — Automatic Project Setup
 
-状态：[Increment 8 Task Contract](./INCREMENT_8_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均为`Accepted`，Coding candidate已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context修复与direct regression无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过；用户授权后的actual installed-plugin Skill consumer evaluation也已覆盖direct/indirect/negative/boundary activation与bundled resource resolution并通过。Decision为`approved`，用户已于2026-08-28明确最终接受，当前为`ACCEPTED`，Fix验收经验回收已完成；automatic setup在versioned `main` commit前保持accepted candidate，不能标记为Current capability。
+状态：[Increment 8 Task Contract](./INCREMENT_8_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均为`Accepted`且已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context修复与direct regression无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过；用户授权后的actual installed-plugin Skill consumer evaluation也已覆盖direct/indirect/negative/boundary activation与bundled resource resolution并通过。Decision为`approved`，用户已于2026-08-28明确最终接受，Fix验收经验回收已完成；完整accepted scope由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current capability。
 
 目标：在现有唯一Agent Room Skill中增加显式setup mode，从operator提供的runtime root自动建立当前项目binding、启动existing`room:serve`，并在Codex Desktop reload后通过project-scoped MCP创建和验证Room。
 
@@ -271,4 +271,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 7已接受并进入版本化`main`。Increment 8 Fix Task 2代码与direct regression已通过Fix Review 3且无finding；用户授权后的actual installed-plugin consumer evaluation也已通过，Review Decision为`approved`。用户已明确最终接受，当前为`ACCEPTED`并完成Fix验收经验回收；下一步由用户另行决定是否授权versioned commit。automatic setup在提交前仍是accepted candidate；不启动Claude/service，不执行runtime setup、Git写操作或push。
+Increment 1–8均已接受并进入版本化`main`。Increment 8 automatic setup由commit `8428046dded5f7542690735b3df8a5c5490e8090`纳入Current capability；manual service/runtime setup smoke保持pending。不启动Claude/service，不执行runtime setup或push。
