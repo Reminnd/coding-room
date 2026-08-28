@@ -1,2 +1,7 @@
 node_modules/
 .agent-room/
+
+.agent-room/runtime.json
+.agent-room/room.sqlite
+.agent-room/room.sqlite-*
+.agent-room/artifacts/
