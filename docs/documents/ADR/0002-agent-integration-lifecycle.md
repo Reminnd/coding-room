@@ -129,6 +129,10 @@ Review 1三项finding已在clean exact baseline严格重执行中闭合；Review
 
 该澄清保留explicit Codex pull、process-per-Run、Task-lineage session、Runner-owned terminal settlement与SQLite/Git authority，不新增protocol state/schema/Event/error、daemon、scheduler或service manager。automatic setup只有在Implementation通过Review、获用户接受并进入版本化`main`后才能标记为Current capability。
 
+### 2026-08-28 Accepted candidate implementation（Increment 8）
+
+人工派发的Increment 8 Implementation Coding已从clean `main` exact `HEAD` `0872dda067c6af4d7333c58da8d9ac2a967acce2`完成。[Increment 8 Fix Task 1](../INCREMENT_8_FIX_TASK_1.md) Coding已覆盖top-level冻结dotted grammar与offline consumer-evidence边界。[Increment 8 Fix Task 2](../INCREMENT_8_FIX_TASK_2.md)随后收窄Skill-owned helper classifier并补direct regression；Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码无finding。用户授权后的actual installed-plugin consumer evaluation进一步证明direct/indirect setup与normal-workflow/unsupported negative routing正确，bundled helper/reference可从installed cache解析；Decision为`approved`。用户于2026-08-28明确最终接受，阶段进入`ACCEPTED`。该Fix不改变本ADR的accepted architecture、actor或lifecycle ownership；完成versioned `main` commit前仍是accepted candidate，不能标记为Current capability。
+
 ## 相关文档
 
 - [PROJECT_RULES.md](../../../PROJECT_RULES.md)

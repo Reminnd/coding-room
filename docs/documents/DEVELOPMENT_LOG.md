@@ -2,16 +2,119 @@
 
 ## 当前状态
 
-- 日期：2026-08-27
-- 项目阶段：PLAN_READY / Increment 8 Accepted Contract / documentation baseline commit已授权 / 用户人工派发
+- 日期：2026-08-28
+- 项目阶段：ACCEPTED / Increment 8 用户已最终接受 / versioned commit pending
 - Room runtime state：当前未启动 service；bootstrap transport 已 `Superseded`。Room MCP/Status CLI/runtime command 已为 Current capability，由 operator 使用显式参数启动或查询
 - Architecture：Increment 1–7已接受；Increment 8 Accepted target保持既有Room authority与protocol不变，在唯一Skill增加automatic project setup与reload continuation
-- Implementation Task：[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认，`confirmed_by_user=true`；全部requirements、scope、non-goals、acceptance、verification、documentation updates与question policy已冻结，automatic setup尚未实现
+- Implementation Task：[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认，`confirmed_by_user=true`；[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均为`Accepted`且Coding candidate已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；用户授权后的actual installed-plugin consumer evaluation已通过，Decision为`approved`。用户已明确最终接受，阶段为`ACCEPTED`；automatic setup在完成版本化前仍不是Current capability
 - Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`）与`.agents/plugins/marketplace.json`
-- Git repository：branch=`main`；Increment 8 planning HEAD=`992a32e28869ac745d6cd5bae6a761f5aba045c4`。本轮仅有Codex-owned Accepted planning文档变更；未执行stage、commit、push、Claude启动、service启动、runtime初始化或产品`room:run`
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`、Increment 8 coding candidate `skills/agent-room/scripts/setup-project.ts`）与`.agents/plugins/marketplace.json`
+- Git repository：branch=`main`；Increment 8 planning HEAD=`992a32e28869ac745d6cd5bae6a761f5aba045c4`，Implementation/Fix lineage baseline与live `HEAD`均为`0872dda067c6af4d7333c58da8d9ac2a967acce2`，0 staged。worktree保留同一Increment 8 candidate与Codex-owned Review/Fix文档；Fix Review 3检查与consumer evaluation前后path集合未漂移。Codex按用户授权注册local marketplace、安装candidate并创建fresh evaluation tasks；未执行stage、commit、push、Claude启动、service启动、runtime初始化或产品`room:run`。Fix Task 2净代码改动仅落在task-owned untracked helper/test路径；Review文档同步由Codex维护
 
 ## 已完成
+
+### 2026-08-28 — Increment 8 用户最终接受与经验回收
+
+- 用户明确最终接受Increment 8 Implementation、Fix Task 1/2与Review `review-increment-008-codex-003`；项目阶段从`REVIEW_DISCUSSION`进入`ACCEPTED`。
+- automatic setup现为accepted candidate；进入versioned `main`前仍不是Current capability。本次确认不授权stage、commit、push、service/runtime setup、Claude、branch/worktree或其它Git写操作。
+- Fix验收经验回收已完成：在[Codex Review、规划与 Fix 指南](./agent-guides/CODEX_REVIEW_AND_PLANNING.md)新增installed consumer evaluation逐断言证据分配规则，明确activation、resource resolution与architecture assertion必须各由实际transcript/tool evidence承担，失败、不完整或引导性task不得冒充独立门禁证据。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations、本日志与Codex Review指南；Room protocol、product architecture、production dependency direction与public contract不变。
+
+### 2026-08-28 — Increment 8 installed-plugin evaluation transcript audit（approved，evidence exclusions）
+
+- Review范围：逐项读取六个referenced fresh tasks的完整transcript与tool output，并对照[Increment 8 Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)冻结的actual consumer门禁；不依据task标题、先前摘要或模型自述判定。
+- 有效direct/resource证据仅来自`Inc8 Plugin Eval Direct Resources`（task `01a043da-9102-7c41-92af-6e4ba485ae32`）：consumer激活`agent-room:agent-room` setup mode，并从installed cache以三次read-only command成功读取完整`SKILL.md`、`scripts/setup-project.ts`与`references/project-setup.md`。首个`Inc8 Plugin Eval Direct`虽然识别正确Skill，但随后发起无关web search并命中usage limit，没有final resource结论；该task不计为成功resource evidence，replacement已闭合门禁。
+- `Inc8 Plugin Eval Indirect`（task `01a043ac-1c9b-7941-80b0-f9d23b9aa83e`）只计为indirect activation evidence：它在未读取installed `SKILL.md`时正确选择`agent-room:agent-room`，但final把launcher错误描述为Plugin bundled resource；Accepted architecture实际要求`room:run`由project binding中的`agent_room_root`解析，Plugin不内嵌Agent Room runtime。该错误未进入项目文档，也不计为resource/architecture evidence；installed Skill正文与direct-resource task均持有正确边界，因此不形成candidate实现finding。
+- 有效negative/boundary证据：`Inc8 Plugin Eval Missing Binding`（task `01a043ac-4121-7b50-b9e8-8b5ff5e75b28`）在normal workflow明确停止并拒绝隐式setup；不含任何Room/Plugin词汇的`Inc8 Plugin Eval Unsupported Clean`（task `01a043e0-184e-7640-a498-55166b8a8c51`）无tool marker且未激活Plugin。原`Inc8 Plugin Eval Unsupported`显式要求“不要使用”Room Plugin，prompt本身会引导negative结果，只保留为补充记录，不作为独立boundary Oracle。
+- Findings：无candidate实现finding。聊天证据存在上述两项非阻塞质量缺陷（首个direct未完成、indirect resource misattribution），但replacement/clean tasks与installed cache direct reads分别提供独立证据，Fix Task 1要求的direct/indirect/negative/boundary activation和bundled helper/reference resolution仍全部闭合。
+- Review Decision：`approved`维持不变；阶段仍为`REVIEW_DISCUSSION`，等待用户最终接受。未执行service/runtime setup、Room MCP、`room:run`、Claude或Git写操作。
+- Documentation impact audit：`documentation: updated`。本日志新增transcript evidence分级与排除项；需求、Accepted Contract、Architecture、ADR、MVP Plan、Operations、README与Current capability均不改变。
+
+### 2026-08-27 — Increment 8 Fix Review 3 consumer continuation（approved）
+
+- 用户明确授权安装/reload当前workspace candidate并执行actual installed-plugin consumer evaluation，随后在宿主auto-review两次超时后再次明确授权marketplace registration重试。授权范围不含service/runtime setup、Room MCP、`room:run`、Claude、Git写操作或host policy修改。
+- 安装证据：`codex-cli 0.149.1`从local repository marketplace `agent-room-local`安装`agent-room@0.1.0`到`C:\Users\RM\.codex\plugins\cache\agent-room-local\agent-room\0.1.0`；install JSON返回exact marketplace、version与cache path。`git diff --no-index`比较installed cache与workspace `plugins/agent-room` exit 0，证明被consumer加载的完整Plugin与candidate逐文件一致；当前Skill catalog也暴露包含explicit setup trigger的新版description。
+- Fresh-task activation set：direct setup replacement task `01a043da-9102-7c41-92af-6e4ba485ae32`激活`agent-room:agent-room` setup mode，并从installed cache完整读取`SKILL.md`、`scripts/setup-project.ts`与`references/project-setup.md`，三次read均exit 0；indirect setup task `01a043ac-1c9b-7941-80b0-f9d23b9aa83e`选择同一installed workflow；missing-binding normal workflow task `01a043ac-4121-7b50-b9e8-8b5ff5e75b28`明确停止并拒绝隐式进入setup；不含任何Room/Plugin词汇的clean unsupported README task `01a043e0-184e-7640-a498-55166b8a8c51`只返回普通README文本且无tool marker，未激活Room Plugin。首个direct task已识别installed Skill，但在resource结论前命中account usage limit；因此用新的fresh direct replacement task补齐并通过，不把失败turn计作resource evidence。
+- Safety evidence：所有evaluation prompts显式禁止项目读取/写入、service、Room MCP、`room:run`、Claude与Git；resource task transcript只包含installed cache的read-only `Get-Content`。未创建`.agent-room/runtime.json`、`.codex/config.toml`或service process，未执行真实automatic setup/manual smoke。
+- Findings：无。Accepted Fix Task 1/2要求的actual consumer activation/routing与bundled resource resolution门禁已闭合。
+- Review Decision：`approved`。阶段保持`REVIEW_DISCUSSION`等待用户最终接受；用户接受前automatic setup仍为candidate，不能标记为Current capability或进入版本化提交。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与本日志；Room protocol、Accepted architecture、production dependency direction与Current capability不变。
+
+### 2026-08-27 — Increment 8 Fix Review 3（needs_discussion，代码无finding）
+
+- Review ID：`review-increment-008-codex-003`。输入为Accepted Implementation/Fix Task 1/Fix Task 2、lineage baseline与live `HEAD` `0872dda067c6af4d7333c58da8d9ac2a967acce2`、完整staged/unstaged/untracked task-owned Diff、Fix Coding Result、helper/public CLI regression及Current/Accepted文档；`main`、0 staged、baseline精确等于live `HEAD`，path集合无新增夹带。
+- Findings：无。`topLevelPrefix`只把第一个active table header前的冻结dotted assignment作为document-root binding/ownership；table后的nested agent_room/other-server key保留为当前table内容。missing runtime与valid runtime的public CLI direct regression分别证明fresh append、matching/mismatch/other-server nested排除、原内容逐字保留、唯一top-level section、五字段identity与gitignore不漂移；Fix Task 1全部真正top-level语义继续通过。
+- 独立验证：`node --test "tests/plugin-setup.test.ts"` 12/12、`node --test "tests/plugin-packaging.test.ts"` 20/20、`node --test "tests/scope.test.ts"` 1/1、`npm run typecheck`通过；全量同一`tests/**/*.test.ts` test glob以简洁reporter完成并exit 0。未启动Claude/service、未执行`room:run`、未安装/reload Plugin、未执行Git写操作。
+- Open Question：Accepted Fix Task 1/2要求actual installed-plugin Skill consumer evaluation在Review批准前验证direct/indirect/negative/boundary activation与bundled helper/reference resolution；当前未获Plugin install/reload授权，该项保持`not_run`，不能写成passed或批准整个Increment。
+- Review Decision：`needs_discussion`。代码无finding；阶段进入`REVIEW_DISCUSSION`，等待用户决定是否另行授权Codex/operator执行actual installed-plugin consumer evaluation。automatic setup仍为candidate，不是Current capability。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与本日志的Review 3、阶段、验证与pending consumer门禁；Room protocol、Accepted architecture、production dependency direction与Current capability不变。
+
+### 2026-08-27 — Increment 8 Fix Task 2 Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-008-automatic-project-setup-fix-002`（Review ID `review-increment-008-codex-002`）。`review_fixes_only=true`；仅修改两项scope path（setup helper、plugin-setup test）与本日志，未触碰`src/`、root package/lock、dependency、package script、production config、Skill正文、reference、Plugin manifest、marketplace、`.agents/plugins`、protocol或packaging test。
+- Finding `inc8-r2-dotted-key-table-context` 闭合：`setup-project.ts`现有单一config classifier在冻结dotted grammar之上保留最小TOML table context。新增`topLevelPrefix`（返回第一个active table header之前的行；header判定与既有section扫描一致，`t.startsWith('[') && t.endsWith(']')`，含`[[...]]` array-of-tables形态）；`findAgentRoomDottedUrls`与其它server的top-level direct dotted URL ownership检查只扫描该prefix。`[unrelated]`等table header后的嵌套同名dotted key属于该table，不再按top-level agent_room binding、matching/mismatch或other-server ownership分类；未引入generic TOML parser、第二scanner authority、dependency或compatibility layer。
+- Direct Oracle：`tests/plugin-setup.test.ts`经helper public CLI（spawnSync执行`scripts/setup-project.ts`，断言exit/result与目标文件状态）新增两个unrelated-table direct regression——(1) missing runtime + `[unrelated]`内嵌套agent_room dotted（三种冻结server-name形态循环）→ fresh setup成功（exit 0、mode=created、config.action=appended），原table逐字节保留（configOut以原内容为前缀）、恰好一个top-level `[mcp_servers.agent_room]`、URL为generated expected URL，runtime.json五字段与gitignore正常生成；(2) valid runtime三个子场景——nested agent_room dotted等于expected（不得按matching→unchanged复用）、nested不同URL（不得按mismatch拒绝）、nested `mcp_servers.other.url`等于expected（不得按other-server ownership conflict拒绝）→ 均exit 0、mode=reused、config.action=appended、reload_required=true、五字段runtime identity deepEqual不漂移、unrelated table逐字保留、恰好一个matching top-level section、gitignore byte-identical。
+- Fix Task 1冻结的top-level语义全部保持：三种top-level dotted grammar matching复用（不追加table、reload_required=false）、different URL mismatch、其它server bare-key dotted ownership、missing runtime conflict-before-allocation与全部reject零写入；section+dotted混合仍fail closed；inline `agent_room = {...}`与裸`url = "..."`检查保持Fix Task 1冻结的全文件扫描行为（finding仅涉及冻结dotted assignment的table-context分类，改动该两处超出`review_fixes_only` scope）。
+- Verification（live）：`node --test "tests/plugin-setup.test.ts"` 12/12通过（10既有+2新增）；`node --test "tests/plugin-packaging.test.ts"` 20/20通过；`node --test "tests/scope.test.ts"` 1/1通过；`npm run typecheck`通过；`npm test` 275/275通过 exit 0（273既有+2新增）。`git status --short --branch`：`main`、HEAD=`0872dda067c6af4d7333c58da8d9ac2a967acce2`、0 staged；Fix净改动仅落在untracked task-owned路径`plugins/agent-room/skills/agent-room/scripts/setup-project.ts`与`tests/plugin-setup.test.ts`，modified/untracked路径集合与派发时一致、无新增tracked路径、无夹带。actual installed-plugin consumer evaluation保持`not_run`：Claude未安装/reload Plugin、未启动service、未执行manual smoke；该验收项需Codex/operator在另行授权后真实执行并记录direct/indirect/negative/boundary activation与bundled helper/reference resolution。
+- Deviations（question_policy允许的最小选择）：table-context以单遍`topLevelPrefix`线性扫描实现，与既有classifier共用同一authority、无第二parser；header判定复用既有`startsWith('[') && endsWith(']')` section判定；direct regression以parameterized fixture（三种server-name形态、三个valid-runtime子场景）与固定literal expected URL组织。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Fix Coding为candidate、`REVIEW_REQUIRED`，等待Codex Fix Review；未commit、未stage、未执行任何Git写操作或清理，未把automatic setup写成Current capability。
+
+### 2026-08-27 — Increment 8 Review 2 方案确认与 Fix Task 2
+
+- 用户明确确认Fix Review 2 `review-increment-008-codex-002`的Medium finding `inc8-r2-dotted-key-table-context`与最小方案。
+- [Increment 8 Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)已创建为`Accepted`，`review_fixes_only=true`、`confirmed_by_user=true`，继承原Implementation lineage baseline `0872dda067c6af4d7333c58da8d9ac2a967acce2`。
+- Fix scope只包含`setup-project.ts`现有窄classifier的最小TOML table-context分类、`plugin-setup.test.ts`的unrelated-table public CLI direct regression与本日志的Coding事实。只有第一个active table header前的冻结dotted assignment按top-level binding/ownership分类；unrelated table内nested agent_room/other-server同名key必须保留，不得被误判。真正top-level的Fix Task 1 matching/mismatch/ownership/zero-write语义全部保持。
+- Non-goals：不引入generic TOML parser/dependency、第二scanner authority、compatibility layer或格式化；不修改Skill/reference/packaging/scope、`src/`、root package/lock、protocol、runtime、active config或任何Git状态。
+- Actual consumer门禁保持不变：本次确认不构成Plugin install/reload或actual installed-plugin consumer evaluation授权。Fix Coding通过后仍需用户另行授权Codex/operator执行direct/indirect/negative/boundary activation与bundled helper/reference resolution；未运行时Fix Review不得批准该验收项。
+- Dispatch metadata：live branch=`main`、`HEAD=0872dda067c6af4d7333c58da8d9ac2a967acce2`、lineage baseline为HEAD ancestor、0 staged。当前项目仍缺少`.agent-room/runtime.json`与`.codex/config.toml`，无法durable `room_submit_task`且不得运行candidate setup猜测binding；阶段进入`FIX_PLAN_READY`，等待用户人工派发或另行明确执行授权。
+- 权限：本次确认不授权Codex启动Claude、安装/reload Plugin、actual consumer evaluation、service/runtime初始化、`room:run`、stage、commit、push、branch/worktree或其它Git写操作/清理。
+- Documentation impact audit：`documentation: updated`。新增Accepted Fix Task 2并同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与当前状态；Accepted architecture、Room protocol与Current capability不变。
+
+### 2026-08-27 — Increment 8 Fix Review 2（changes_requested）
+
+- Review ID：`review-increment-008-codex-002`。输入为Accepted Fix Task 1、lineage baseline与live `HEAD` `0872dda067c6af4d7333c58da8d9ac2a967acce2`、完整staged/unstaged/untracked task-owned Diff、Fix Coding Result、Skill-owned helper及focused tests；Review开始与结束均为`main`、0 staged，baseline为HEAD ancestor。
+- Medium `inc8-r2-dotted-key-table-context`：`findAgentRoomDottedUrls`按整份config逐行匹配冻结dotted grammar，没有保留TOML当前table。public helper CLI输入`[unrelated]`后跟`mcp_servers.agent_room.url = "http://127.0.0.1:43210/mcp/codex"`时以`runtime binding is missing`拒绝；独立TOML parser将其解析为`unrelated.mcp_servers.agent_room.url`，证明该key不是top-level Agent Room binding。该可达existing-config形态被误判，破坏preserve-and-merge unrelated config语义。最窄方向是让既有classifier保留必要table context、只分类冻结的top-level dotted assignment，并增加同一public CLI direct regression；不引入generic TOML parser/dependency。
+- 原Review 1的top-level dotted-key分类与offline evidence表述已闭合；但actual installed-plugin Skill consumer evaluation仍为`not_run`，因此direct/indirect/negative/boundary activation与bundled helper/reference resolution验收尚未闭合。未获授权，本轮未安装/reload Plugin或运行manual consumer evaluation。
+- 独立验证：`node --test "tests/plugin-setup.test.ts"` 10/10、`node --test "tests/plugin-packaging.test.ts"` 20/20、`node --test "tests/scope.test.ts"` 1/1、`npm run typecheck`与`npm test` 273/273均通过。额外public helper probe复现table-context误判；green suite未覆盖该public input。
+- Review Decision：`changes_requested`，阶段进入`REVIEW_DISCUSSION`。用户确认finding与最小方案前不生成或派发下一Fix Task；不执行Plugin install/reload、manual consumer evaluation、service/Claude启动、runtime setup或Git写操作。
+- Agent Room durable Review submission：`blocked`。当前项目缺少`.agent-room/runtime.json`与`.codex/config.toml`，无project-scoped MCP可用；按Agent Room Skill未猜测binding、使用其它项目MCP、raw HTTP或direct SQLite。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与本日志；Accepted architecture、Room protocol与Current capability不变。
+
+### 2026-08-27 — Increment 8 Fix Task 1 Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-008-automatic-project-setup-fix-001`（Review ID `review-increment-008-codex-001`）。`review_fixes_only=true`；仅修改三项scope path（setup helper、plugin-setup test、plugin-packaging test）与本日志，未触碰`src/`、root package/lock、dependency、package script、production config、Skill正文、reference、Plugin manifest、marketplace、`.agents/plugins`或protocol。
+- Finding `inc8-r1-dotted-key-config-conflict` 闭合：`setup-project.ts`的config classifier在既有section-header/inline形态外识别冻结的三种agent_room direct dotted URL assignment grammar（`mcp_servers.agent_room.url`、`mcp_servers."agent_room".url`、`mcp_servers.'agent_room'.url`，URL为double-quoted scalar；不解析任意quoted key、multiline value、array/table AST或general TOML normalization）。runtime缺失且任一冻结形态定义agent_room时，在`allocateLoopbackPort`、`randomUUID`与任何目录/文件写入前以既有`runtime binding is missing`错误拒绝，config byte-identical、`.agent-room/runtime.json`与`.gitignore`保持不存在；valid runtime + matching dotted URL按已有匹配binding处理（幂等复用五字段identity、不追加`[mcp_servers.agent_room]`、config byte-identical），different URL按runtime/config mismatch拒绝，其它server（bare key）以direct dotted URL assignment占用exact expected URL时按other-server ownership conflict拒绝；section header与dotted key混合定义同一server按无法保守判定fail closed。全部reject场景下runtime/config/gitignore三份目标文件前后byte-identical。
+- Direct Oracle：`tests/plugin-setup.test.ts`经helper public CLI（spawnSync执行`scripts/setup-project.ts`，断言exit/result与目标文件状态）扩展direct regression——missing runtime + 三种冻结dotted key零写入（runtime/gitignore不存在、config逐字节不变）；valid runtime + matching dotted URL幂等复用五字段identity且不追加table、reload_required=false；dotted不同URL mismatch与其它server dotted占用均保持三文件byte-identical；conflicts test title更新为覆盖section/dotted两种形态。既有table-header/inline/same-URL/fresh/idempotent/probe/bind failure/actual loopback E2E/standard-library-only regression全部保留，未删除或弱化断言。
+- Finding `inc8-r1-actual-skill-validator-missing` 边界修正：`tests/plugin-packaging.test.ts`中局部parser"提供离线等价consumer证据"的主张改为准确边界——只验证冻结metadata子集（name plain scalar + JSON-compatible double-quoted description、恰好两字段与负向grammar fixture），不能替代actual installed-plugin consumer；对应test title从"loadable YAML front matter"改为"frozen metadata subset"。既有front matter frozen value、setup discovery、helper/reference packaging与negative workflow Oracle全部保持不变。
+- Verification（live）：`node --test "tests/plugin-setup.test.ts"` 10/10通过（9既有+1新增）；`node --test "tests/plugin-packaging.test.ts"` 20/20通过；`node --test "tests/scope.test.ts"` 1/1通过；`npm run typecheck`通过；`npm test` 273/273通过 exit 0（272既有+1新增）。`git status --short --branch`：`main`、HEAD=`0872dda`、0 staged；modified/untracked路径与派发时完全一致（无新增tracked路径、无夹带）。actual installed-plugin consumer evaluation保持`not_run`：Claude未安装/reload Plugin、未启动service、未执行manual smoke；该验收项需Codex/operator在另行授权后真实执行并记录direct/indirect/negative/boundary activation与bundled helper/reference resolution。
+- Deviations（question_policy允许的最小选择）：冻结dotted grammar以三个module-level regex表达并在`findAgentRoomDottedUrls`中统一收集（missing分支与planConfig共用同一classifier，无第二authority）；其它server dotted assignment只接受TOML bare key server-name形态；section+dotted混合定义按fail closed处理；missing-runtime dotted拒绝复用既有`runtime binding is missing`错误前缀。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Fix Coding为candidate、`REVIEW_REQUIRED`，等待Codex Fix Review；未commit、未stage、未执行任何Git写操作或清理，未把automatic setup写成Current capability。
+
+### 2026-08-27 — Increment 8 Review 1 方案确认与 Fix Task 1
+
+- 用户明确确认Review `review-increment-008-codex-001`的High `inc8-r1-dotted-key-config-conflict`与Medium `inc8-r1-actual-skill-validator-missing` finding及最小方案。
+- [Increment 8 Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)已创建为`Accepted`，`review_fixes_only=true`、`confirmed_by_user=true`，继承原Implementation lineage baseline `0872dda067c6af4d7333c58da8d9ac2a967acce2`。Fix只允许在existing helper classifier识别冻结的agent_room/other-server dotted URL assignment、增加helper public CLI matching/conflict/zero-write regression，并修正packaging test对offline parser证据边界的表述；不引入generic TOML parser/dependency，不修改Skill正文/reference/Plugin/runtime/protocol。
+- Actual consumer门禁：OpenAI官方文档要求完整Plugin安装后以direct、indirect、negative与boundary requests验证Skill activation、完整workflow及bundled resource resolution；未提供本Contract可依赖的stable standalone validator command。因此Claude不得声称offline parser等价，Fix Coding Result保持actual installed-plugin evaluation `not_run`；Codex/operator只有在用户另行授权后才执行并记录真实consumer evidence，未运行时Fix Review不得批准该验收项。
+- Dispatch metadata：live branch=`main`、`HEAD=0872dda067c6af4d7333c58da8d9ac2a967acce2`、lineage baseline为HEAD ancestor、0 staged；当前项目仍缺少`.agent-room/runtime.json`与`.codex/config.toml`，无法durable提交Fix且不得运行candidate setup猜测binding。阶段进入`FIX_PLAN_READY`，等待用户人工派发或另行明确执行授权。
+- 权限：本次确认不授权Codex启动Claude、安装/reload Plugin、manual consumer evaluation、service/runtime初始化、`room:run`、stage、commit、push、branch/worktree或其它Git写操作/清理。
+- Documentation impact audit：`documentation: updated`。新增Accepted Fix Contract并同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与当前开发状态；Accepted architecture、Room protocol与Current capability不变。
+
+### 2026-08-27 — Increment 8 Review 1（changes_requested）
+
+- Review ID：`review-increment-008-codex-001`。输入为Accepted Contract、manual dispatch baseline exact `0872dda067c6af4d7333c58da8d9ac2a967acce2`、当前`main`完整staged/unstaged/untracked candidate Diff、Coding Result、Plugin/Skill/helper、focused tests与候选文档；Review开始时0 staged，live `HEAD`等于baseline，9 modified + 2 untracked均为Contract scope path。
+- High `inc8-r1-dotted-key-config-conflict`：`setup-project.ts`只识别table header/inline `agent_room`，遗漏标准TOML dotted-key `mcp_servers.agent_room.url = "..."`。定向复现中runtime缺失且该binding已存在，helper仍exit 0、创建`.agent-room/runtime.json`/`.gitignore`并追加第二个`[mcp_servers.agent_room]`，违反existing agent_room conflict-before-write与zero-write invariant；focused `tests/plugin-setup.test.ts`仍9/9，证明该入口没有direct regression。
+- Medium `inc8-r1-actual-skill-validator-missing`：Accepted Contract要求actual Codex Skill validator验证真实Skill package；Coding Result标记manual Codex Desktop smoke `not_run`，`tests/plugin-packaging.test.ts`亦明确其局部parser只提供离线证据。当前候选未获得actual consumer load/discovery证据，不能满足该验收项。
+- Review Decision：`changes_requested`。当前进入`REVIEW_DISCUSSION`；用户确认finding与最小方案前不生成或派发Fix Task，不提交、不stage、不执行branch/worktree、service/Claude启动、runtime setup、push或清理。
+- Agent Room durable Review submission：`blocked`。当前项目缺少`.agent-room/runtime.json`与`.codex/config.toml`，无project-scoped MCP `room_get_state`/`room_submit_review`可用；按Agent Room Skill不得猜测binding、使用其它项目MCP、raw HTTP或direct SQLite，因此本次只完成manual dispatch exception下的Git/Diff Review与项目文档维护。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、ADR-0002、MVP Plan、Operations与本日志为Review 1结果；Accepted architecture、Room protocol与Current capability不变。
+
+### 2026-08-27 — Increment 8 Implementation Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-008-automatic-project-setup`。dispatch gate：branch=`main`，clean baseline exact `HEAD`=`0872dda067c6af4d7333c58da8d9ac2a967acce2`，0 staged。
+- 实现：唯一Skill增加显式setup mode两阶段（Phase 1建立binding并启动existing`room:serve`，Phase 2经Codex Desktop reload后project-scoped `room_create`/`room_get_state` continuation到`DISCUSSION`）；新增Skill-owned deterministic helper `plugins/agent-room/skills/agent-room/scripts/setup-project.ts`（仅Node.js standard library，先读后写、conflict零写入、fresh生成/valid幂等复用、`--probe` loopback probe）；`references/project-setup.md`补充helper用法、generated values与三模板。未修改`src/`、package.json/package-lock.json、marketplace.json、Plugin manifest、PROJECT_RULES或docs index；未触发`room:run`、Claude process、Git mutation或host approval policy修改。
+- Verification（live）：`node --test "tests/plugin-setup.test.ts"` 9/9通过；`node --test "tests/plugin-packaging.test.ts"` 20/20通过；`node --test "tests/scope.test.ts"` 1/1通过；`npm run typecheck`通过；`npm test` 272/272通过 exit 0。`git status --short --branch`：`main`、HEAD=`0872dda`、0 staged；modified 4（SKILL.md、project-setup.md、plugin-packaging.test.ts、scope.test.ts）+ untracked 2（scripts/setup-project.ts、plugin-setup.test.ts），全部为Contract scope path，无夹带。manual Codex Desktop smoke保持not_run（operator-run）。
+- Deviations（question_policy允许的最小选择）：helper内部函数组织、JSON summary字段顺序、temporary fixture结构与SKILL章节组织由Claude按existing style作最小选择并记录；frozen description literal与setup-section/helper边界断言按既有packaging测试风格组织在`plugin-packaging.test.ts`。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Implementation为candidate、`REVIEW_REQUIRED`，等待Codex Review；未commit、未stage、未执行任何Git写操作或runtime初始化，未把automatic setup写成Current capability。
 
 ### 2026-08-27 — Increment 8 Documentation Baseline 与人工派发授权
 
@@ -1026,8 +1129,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 8 Contract已Accepted，当前Accepted planning scope的documentation baseline commit已获授权但尚待本次操作完成。Plugin当前仍只支持Increment 7人工binding prerequisite；manual Codex Desktop smoke保持pending。未获implementation commit/push、Codex启动Claude/service、runtime初始化、真实Claude smoke、branch/worktree、stash删除或其它清理授权。
+Increment 8没有未解决阻塞finding，Review Decision为`approved`且用户已最终接受。automatic setup在versioned `main` commit前仍为accepted candidate；未获Codex启动Claude/service、runtime初始化、implementation commit/push、branch/worktree、stash删除或其它清理授权。
 
 ## 下一步
 
-完成当前Accepted planning scope的documentation baseline commit并核对clean live Git exact`HEAD`；随后由用户按标准指令人工派发完整Increment 8 Contract。Codex不得启动Claude/service或执行其它Git写操作。
+等待用户另行决定是否授权Increment 8 versioned commit；Codex不得自行启动Claude/service、执行runtime setup或Git写操作。

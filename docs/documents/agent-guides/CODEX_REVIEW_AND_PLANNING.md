@@ -275,3 +275,9 @@ Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时
 ## 14. 结构化 Metadata Oracle 必须验证 Consumer Grammar
 
 当 Plugin、discovery 或 packaging metadata 声明符合某个标准格式时，Review 必须对真实 candidate 使用实际 consumer/parser 验证格式合法性；只按分隔符拆行的局部 parser 不能证明 scalar、quoting 或 delimiter 语义正确。局部 Oracle 可以只约束 Contract 冻结的字段，但必须明确其合法 scalar 子集，并对项目支持路径中已知的 malformed 形态提供独立 direct negative fixture；不能用局部 parser 的 green result 替代真实 consumer 的加载证据。
+
+## 15. Installed Consumer Evaluation 必须逐断言分配证据
+
+每个 fresh consumer task只证明其transcript与tool output实际观察到的assertion。正确activation不同时证明bundled resource resolution或architecture描述正确；resource resolution必须有installed cache实际读取或等价consumer tool evidence，不能用模型自述替代。
+
+失败或未完成的task不得计入通过，应以新的fresh replacement闭合对应门禁并明确记录排除项。unsupported boundary prompt必须表达与Plugin无关的正常目标，不能通过点名或禁止Plugin引导negative结果。多个独立task可以共同形成acceptance evidence，但Review与项目文档必须说明每个task具体承担哪个assertion。

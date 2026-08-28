@@ -3,7 +3,7 @@
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
 > 最后维护日期：2026-08-27
-> Last maintained review：`review-increment-007-codex-005`
+> Last maintained review：`review-increment-008-codex-003`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -203,13 +203,14 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 
 ### 4.5 Increment 8 Accepted target automatic setup
 
-> 状态：Accepted target，尚不可用。以下是[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)的目标runbook；Review、用户接受并进入版本化`main`前不替代当前§4.4人工prerequisite。
+> 状态：Accepted candidate，尚不可用。以下是[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)的目标runbook；进入版本化`main`前不替代当前§4.4人工prerequisite。
 
 1. operator对当前项目显式请求setup，并首次提供一次absolute `agent_room_root`。setup验证该runtime root与existing`room:serve`/`room:run`，自动解析当前`project_path`。
 2. setup自动生成`database_path=<project>/.agent-room/room.sqlite`、OS-assigned loopback `port`与`room_id=room-<UUID>`，保守建立五字段`.agent-room/runtime.json`、project-scoped `.codex/config.toml`与所需`.gitignore`条目。
 3. existing runtime/config conflict、mismatch或invalid root必须在写入前停止。valid rerun复用identity；binding port已开放时不启动第二个process，关闭时启动一次existing`room:serve`。approval拒绝或bind失败保留binding并报告`service_start_pending`。
 4. Skill报告Codex Desktop reload required并停止。reload后operator显式继续setup；Skill只通过当前project-scoped MCP调用existing`room_create`与`room_get_state`，验证exact Room处于`DISCUSSION`。
-5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。当前Accepted design尚无implementation；manual smoke仍保持pending。
+5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。真实service/runtime setup smoke仍未运行；consumer routing evaluation不替代该operator-run smoke。
+6. 实现状态（accepted candidate，2026-08-28，`ACCEPTED` / versioned commit pending）：Fix Task 2已收窄top-level ownership判断并补public CLI regression；Fix Review 3 `review-increment-008-codex-003`确认代码无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过。用户授权后，candidate已从`agent-room-local`安装为`0.1.0`，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部通过，Decision为`approved`，且用户已明确最终接受；本runbook不替代§4.4人工prerequisite，automatic setup在进入版本化`main`前仍不是Current capability。
 
 ## 5. 人工操作命令
 
@@ -292,5 +293,9 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-007-codex-003` | `changes_requested` / findings与方案已确认 | 唯一Skill缺少YAML front matter；Decision answer(false)后durable `NEEDS_DECISION` resume被Skill自身ready-state gate阻断 | [Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已`Accepted`/`FIX_PLAN_READY`；用户人工派发，保持Plugin unavailable且不执行manual paid smoke |
 | `review-increment-007-codex-004` | `changes_requested` / finding与方案已确认 | Decision resume gate已闭合；Skill front matter的未引用colon-space使标准YAML解析失败，packaging局部parser误报18/18通过 | [Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已`Accepted`；随后完成Fix Coding并进入下一次Review，保持Plugin unavailable且不执行manual paid smoke |
 | `review-increment-007-codex-005` | `approved` / 用户已明确接受 | Fix Task 3已将description改为合法JSON-compatible double-quoted YAML scalar，并让packaging Oracle拒绝未引用colon-space；独立回归与scope/ancestry核对无finding | `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`；Plugin与多项目配置为Current capability，manual paid smoke仍未授权 |
+| `review-increment-008-codex-001` | `changes_requested` / findings与方案已确认 | helper遗漏standard TOML dotted-key binding并发生非零写入；actual installed-plugin Skill consumer evaluation未运行 | [Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)已`Accepted`/`FIX_PLAN_READY`；保持automatic setup candidate，等待人工派发，consumer evaluation需另行授权 |
+| `review-increment-008-codex-002` | `changes_requested` / 等待用户确认 | top-level冻结dotted-key回归已闭合；classifier丢失TOML table context，误把unrelated table内嵌套同名key当作project binding；actual installed-plugin consumer evaluation仍为`not_run` | 保持automatic setup candidate并进入`REVIEW_DISCUSSION`；确认方案前不生成Fix Task，consumer evaluation仍需单独授权 |
+| `review-increment-008-codex-002` solution | finding与方案已确认 | 运维目标不变；只收窄helper的top-level TOML ownership判断，actual consumer仍pending | [Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)已`Accepted`/`FIX_PLAN_READY`；等待人工派发或另行执行授权，不安装/reload Plugin |
+| `review-increment-008-codex-003` | `approved` / 用户已最终接受 / `ACCEPTED` | table-context修复与public CLI regression闭合，自动化验证全部通过；授权后的actual installed-plugin consumer evaluation覆盖direct/indirect/negative/boundary routing与bundled resource resolution并通过 | 保持automatic setup accepted candidate与§4.4人工prerequisite；等待独立versioned commit授权，不执行service/runtime setup、Claude或Git写操作 |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

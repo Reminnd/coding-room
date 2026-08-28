@@ -74,6 +74,8 @@
 | [Increment 7 Fix 2](./INCREMENT_7_FIX_TASK_2.md) | Accepted | 补齐Skill YAML front matter并修正NEEDS_DECISION Decision resume gate与direct Oracle |
 | [Increment 7 Fix 3](./INCREMENT_7_FIX_TASK_3.md) | Accepted | 修正description YAML scalar合法性并补齐malformed colon-space negative Oracle |
 | [Increment 8](./INCREMENT_8_TASK_CONTRACT.md) | Accepted | 单一Agent Room Skill自动建立project binding、启动service并在reload后创建/验证Room |
+| [Increment 8 Fix 1](./INCREMENT_8_FIX_TASK_1.md) | Accepted | 修复dotted-key config conflict并闭合actual installed-plugin Skill consumer evidence门禁 |
+| [Increment 8 Fix 2](./INCREMENT_8_FIX_TASK_2.md) | Accepted | 修复dotted-key classifier丢失TOML table context导致的unrelated config误判 |
 
 ### 2.4 Agent 执行指南
 
@@ -104,4 +106,4 @@
 - [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已从 clean exact `main` baseline `7ac639a30ab2a94170ef69498e065fb16e77f833` 重新执行；[Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，production source未改动。
 - Review `review-increment-006-codex-003`无finding、Decision为`approved`；Codex独立验证`npm run typecheck`与focused 95/95通过，Claude Coding Result报告全量242/242通过。用户已明确接受并另行授权提交完整accepted scope；planning coordination tools、one-shot Runner CLI与failure retry现已进入版本化`main`，为Current capability。Fix经验回收已完成；push、runtime初始化、真实Claude smoke、branch/worktree、stash删除与其它清理仍为独立门禁。
 - Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill `description`中的未引用colon-space使front matter无法由标准YAML parser加载，测试侧局部parser误报通过。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，Increment 7已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`，Plugin与多项目配置现为Current capability，manual Codex Desktop smoke保持pending。
-- [Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)已获用户完整确认：除三项setup输入外，deterministic helper、reload前后两段workflow、conflict/idempotency、scope、non-goals与verification均已冻结。当前为`PLAN_READY`；用户已授权提交本Accepted planning范围并选择人工派发。automatic setup尚未实现，不是Current capability。
+- [Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md) Coding candidate均已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob独立通过。用户授权后，candidate已从local marketplace安装，fresh-task direct/indirect/negative/boundary activation与bundled helper/reference resolution全部通过；Decision为`approved`，用户已于2026-08-28明确最终接受，阶段为`ACCEPTED`，Fix验收经验回收已完成。automatic setup在versioned `main` commit前仍是accepted candidate，不是Current capability。

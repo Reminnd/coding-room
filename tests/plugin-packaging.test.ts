@@ -87,6 +87,11 @@ function parseFrontMatter(text: string): FrontMatter {
     assert.ok(kv, `front matter line must be key: value: ${line}`);
     fields.set(kv[1], kv[2]);
   }
+  assert.deepEqual(
+    [...fields.keys()],
+    ['name', 'description'],
+    'front matter must contain exactly name and description',
+  );
   const name = fields.get('name');
   const description = fields.get('description');
   assert.ok(name !== undefined && name.length > 0, 'front matter must define name');
@@ -207,11 +212,15 @@ test('shared plugin contains no project-specific values, secrets or permission m
   );
 });
 
-// 测试侧 frozen description literal：与 Accepted Fix Task 3 冻结值逐字符一致，用于 exact 断言。
+// 测试侧 frozen description literal：与 Increment 8 冻结值（显式 setup mode 入口）逐字符
+// 一致，用于 exact 断言。本局部 parser 只验证冻结 metadata 子集（name plain scalar +
+// JSON-compatible double-quoted description、恰好两个字段与负向 grammar fixture），不构成
+// actual installed-plugin consumer evidence：真实 load/activation 与 bundled resource
+// resolution 由 Codex/operator 在另行授权后执行，未运行前保持 not_run/pending。
 const frozenDescription =
-  'Use when the operator asks to run the Agent Room workflow for the current project or its local `.agent-room/runtime.json` binding: validate the project-local Room binding, follow the durable Room state through planning, one-shot Claude Run, Question, Review/Fix and acceptance, and invoke the Agent Room launcher at most once per approved task run.';
+  'Use when the operator asks to run the Agent Room workflow for the current project or its local `.agent-room/runtime.json` binding, or to set up the Agent Room for the current project from an operator-provided agent_room_root: validate the project-local Room binding, follow the durable Room state through planning, one-shot Claude Run, Question, Review/Fix and acceptance, and invoke the Agent Room launcher at most once per approved task run.';
 
-test('skill starts with loadable YAML front matter naming agent-room with a trigger-oriented description', () => {
+test('skill front matter satisfies the frozen metadata subset: exact name, frozen description and negative grammar fixtures', () => {
   const skill = readText(skillPath);
   // 局部 parser 必须拒绝 heading-first 与无 front matter 分隔符的形态（不得只搜索正文单词）。
   assert.throws(() => parseFrontMatter('# Agent Room Skill\n\ntext\n'), /front matter/);
@@ -228,10 +237,10 @@ test('skill starts with loadable YAML front matter naming agent-room with a trig
   );
   const fm = parseFrontMatter(skill);
   assert.equal(fm.name, 'agent-room');
-  // description 必须与 Accepted Fix Task 3 冻结值一致（JSON.parse 取回的内容，不含引号）。
+  // description 必须与 Increment 8 冻结值一致（JSON.parse 取回的内容，不含引号）。
   assert.equal(fm.description, frozenDescription, 'description must equal the frozen value');
-  // description 面向 discovery：何时使用 + project-local binding/planning/run/Question/Review-Fix。
-  for (const trigger of ['runtime.json', 'planning', 'one-shot Claude Run', 'Question', 'Review/Fix']) {
+  // description 面向 discovery：setup 显式入口 + project-local binding/planning/run/Question/Review-Fix。
+  for (const trigger of ['set up the Agent Room', 'runtime.json', 'planning', 'one-shot Claude Run', 'Question', 'Review/Fix']) {
     assert.ok(fm.description.includes(trigger), `description must cover trigger ${trigger}`);
   }
   // description 不得声称非目标能力（只检查 front matter 描述块）。
@@ -284,11 +293,12 @@ test('config.toml template defines the exact project-scoped agent_room MCP URL',
   assert.ok(!/:\d+/.test(block), 'template must not contain a hardcoded port');
 });
 
-test('gitignore template ignores runtime.json and the local artifact directory', () => {
+test('gitignore template ignores the runtime binding, local database files and the artifact directory', () => {
   const setup = readText(projectSetupPath);
   const block = codeFenceBlocks(setup).find((b) => b.includes('.agent-room/runtime.json'));
   assert.ok(block, 'gitignore template must be a fenced block');
   assert.ok(block.includes('.agent-room/runtime.json'));
+  assert.ok(block.includes('.agent-room/room.sqlite\n.agent-room/room.sqlite-*'), 'database files must be ignored');
   assert.ok(block.includes('.agent-room/artifacts/'));
 });
 
@@ -298,6 +308,46 @@ test('setup requires merging, not overwriting, existing config and gitignore, an
   assert.ok(
     setup.includes('stop and ask the operator'),
     'setup must stop and ask the operator on binding conflicts',
+  );
+});
+
+test('skill exposes an explicit setup mode routed only from an operator request and never from the normal workflow', () => {
+  const skill = readText(skillPath);
+  assert.ok(skill.includes('## Setup mode'), 'skill must define a Setup mode section');
+  assert.ok(skill.includes('explicit project setup'), 'setup entry must be an explicit operator request');
+  assert.ok(skill.includes('Setup mode is never entered implicitly'), 'setup must never run implicitly');
+  assert.ok(skill.includes('setup continuation'), 'reload continuation must be documented');
+  assert.ok(skill.includes('reload required'), 'Codex Desktop reload requirement must be reported');
+  assert.ok(skill.includes('service_start_pending'), 'rejected/blocked service start must be reported');
+  assert.ok(skill.includes('scripts/setup-project.ts'), 'setup mode must route through the Skill-owned helper');
+  assert.ok(skill.includes('references/project-setup.md'), 'setup reference must stay referenced');
+  // Setup section 只走 room_get_state/room_create 一次 + 服务启动；不含 Task/launcher 通路。
+  const setupStart = skill.indexOf('## Setup mode');
+  const nextHeading = skill.indexOf('\n## ', setupStart + 1);
+  const setupSection = nextHeading >= 0 ? skill.slice(setupStart, nextHeading) : skill.slice(setupStart);
+  assert.ok(setupSection.includes('room_create'), 'setup continuation must create the Room once');
+  assert.ok(setupSection.includes('room_get_state'), 'setup continuation must verify via room_get_state');
+  assert.ok(setupSection.includes('do not invoke the launcher'), 'setup must never invoke the launcher');
+  assert.ok(!setupSection.includes('room_submit_task'), 'setup mode must never submit a Task');
+  assert.ok(!setupSection.includes('run room:run'), 'setup mode must never run the launcher');
+  // launcher invocation 形式只允许出现一次：Step 4 的 one-shot command template。
+  assert.equal(skill.match(/run room:run/g)?.length, 1, 'launcher invocation form must appear exactly once');
+});
+
+test('setup helper is discoverable, standard-library-only, and the Skill package keeps a single authority', () => {
+  const skill = readText(skillPath);
+  const helperPath = join(skillDir, 'scripts', 'setup-project.ts');
+  assert.ok(existsSync(helperPath), 'setup helper must exist inside the Skill package');
+  const helper = readText(helperPath);
+  const imports = [...helper.matchAll(/^import[^;]*?from\s+'([^']+)';/gm)].map((m) => m[1]);
+  assert.ok(imports.length > 0, 'helper must import its modules');
+  for (const spec of imports) {
+    assert.ok(spec.startsWith('node:'), `helper may only import Node.js standard library, got ${spec}`);
+  }
+  assert.ok(!helper.includes('child_process'), 'helper must not be able to spawn any process');
+  assert.ok(
+    skill.includes('only the existing `room:serve`, `room_create` and `room_get_state`'),
+    'setup mode must be routed through the single existing authority',
   );
 });
 

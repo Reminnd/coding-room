@@ -1,11 +1,11 @@
 ---
 name: agent-room
-description: "Use when the operator asks to run the Agent Room workflow for the current project or its local `.agent-room/runtime.json` binding: validate the project-local Room binding, follow the durable Room state through planning, one-shot Claude Run, Question, Review/Fix and acceptance, and invoke the Agent Room launcher at most once per approved task run."
+description: "Use when the operator asks to run the Agent Room workflow for the current project or its local `.agent-room/runtime.json` binding, or to set up the Agent Room for the current project from an operator-provided agent_room_root: validate the project-local Room binding, follow the durable Room state through planning, one-shot Claude Run, Question, Review/Fix and acceptance, and invoke the Agent Room launcher at most once per approved task run."
 ---
 
 # Agent Room Skill
 
-Run the Agent Room workflow for the current project: validate the project-local Room binding, follow the durable Room state through planning, one-shot run, question, retry, review, fix and acceptance, and invoke the Agent Room launcher exactly once per approved task run.
+Run the Agent Room workflow for the current project: validate the project-local Room binding, follow the durable Room state through planning, one-shot run, question, retry, review, fix and acceptance, and invoke the Agent Room launcher exactly once per approved task run. On an explicit operator request, run the setup mode that binds the current project to its own local Agent Room service.
 
 ## Overview
 
@@ -18,17 +18,65 @@ The SQLite Room is the single durable state authority. The launcher's process ou
 ## When To Use
 
 - The operator asks to run the Agent Room workflow for a project, or
+- The operator explicitly asks to set up the Agent Room for the current project (setup mode), or
 - The project's `.agent-room/runtime.json` exists and the Room MCP server is running, and
 - The Room is in a state that allows the next workflow step (planning, run, question, retry, review, fix or acceptance).
 
-Do not use for free-form conversation or for inspecting the Room outside the workflow; the project-scoped MCP endpoint is the authority for reading state.
+Do not use for free-form conversation or for inspecting the Room outside the workflow; the project-scoped MCP endpoint is the authority for reading state. Setup mode is never entered implicitly: in the normal workflow a missing or invalid binding stops and reports.
 
 ## Prerequisites
 
+Normal workflow (Steps 1-4):
+
 - Node.js installed; the Agent Room repository is present locally.
 - The target project has a `.agent-room/runtime.json` and a project-scoped `.codex/config.toml` as described in `references/project-setup.md`.
-- The target project's Room MCP server is already running on the configured loopback port (the operator starts it with the Agent Room `room:serve` script before this workflow; the Skill does not initialize runtime).
+- The target project's Room MCP server is already running on the configured loopback port (the operator starts it with the Agent Room `room:serve` script before this workflow; the normal workflow does not initialize runtime).
 - The target project is the project you are currently working in.
+
+Setup mode: the operator provides the local Agent Room repository root (`agent_room_root`) once; the setup mode establishes the binding, starts the service and, after a Codex Desktop reload, creates the Room. Details below and in `references/project-setup.md`.
+
+## Setup mode — explicit project setup
+
+Entry: the operator explicitly asks to initialize the Agent Room for the current project and provides the local Agent Room repository root (`agent_room_root`) exactly once; the helper persists it in the project binding. Setup mode is never entered implicitly: in the normal workflow a missing binding stops and reports.
+
+### Phase 1 — establish the binding and start the service
+
+1. Validate `agent_room_root`: resolve it to an absolute path and confirm the directory contains the Agent Room `package.json` whose scripts define both `room:serve` and `room:run`. Stop before any project write if this fails.
+2. Run the Skill-owned deterministic helper from the target project working directory:
+
+```text
+node "<AGENT_ROOM_ROOT>/plugins/agent-room/skills/agent-room/scripts/setup-project.ts" --agent-room-root "<AGENT_ROOM_ROOT>"
+```
+
+   The helper reads and validates every existing file before any write, then plans or stops:
+   - No runtime binding and no `[mcp_servers.agent_room]` in `.codex/config.toml` → create a fresh binding: `database_path` = `<PROJECT_PATH>/.agent-room/room.sqlite` (absolute), `port` = an OS-assigned ephemeral loopback port (JSON integer in `1..65535`), `room_id` = `room-<UUID>`; create or conservatively merge the three files.
+   - Valid existing binding → reuse its exact `agent_room_root`, `database_path`, `port` and `room_id`; only append missing matching config/gitignore entries; semantically identical files are never rewritten.
+   - Invalid binding, `agent_room_root` mismatch, missing runtime with an existing `[mcp_servers.agent_room]`, same-URL conflict or runtime/config mismatch → stop with zero writes and report; ask the operator how to proceed. Never overwrite, never rename a server, never pick a second port to dodge a conflict.
+   The helper prints one deterministic JSON summary: `mode` (`created`/`reused`), the five runtime values, config/gitignore change summary, the exact `room:serve` command inputs and `reload_required`. This stdout is informational only — the Room never treats it as durable state.
+3. Probe the binding's loopback port:
+
+```text
+node "<AGENT_ROOM_ROOT>/plugins/agent-room/skills/agent-room/scripts/setup-project.ts" --probe
+```
+
+   The probe prints `{"port_open":true|false}` for the current project binding. If the port is open, do not start a second process. If it is closed, start exactly one existing `room:serve` through the host-supported background process boundary, capturing its output:
+
+```text
+npm --prefix "<AGENT_ROOM_ROOT>" run room:serve -- --db "<DATABASE_PATH>" --project "<PROJECT_PATH>" --port <PROJECT_PORT>
+```
+
+   Wait for the existing listening success signal (the probe reports `port_open:true` within a short bounded wait). The probe is not Room identity authority. If host approval rejects the start or the bind fails, keep the generated binding, report `service_start_pending` and stop. No service manager, no automatic restart, no health scheduler.
+4. Report Codex Desktop reload required and stop. The project-scoped `.codex/config.toml` MCP entry loads only after the reload; never bypass it with raw HTTP, another project's MCP, global Codex config or direct database writes.
+
+### Phase 2 — setup continuation (after reload)
+
+The operator explicitly continues setup after the Codex Desktop reload:
+
+1. Re-validate per Step 1 and Step 2: the five runtime fields, the exact `http://127.0.0.1:<PROJECT_PORT>/mcp/codex` config URL and the service.
+2. Call `room_get_state` with the exact generated `room_id`. If the Room does not exist yet, call `room_create` once with that exact `room_id` (setup mode only), then call `room_get_state` again: it must return the same Room with state `DISCUSSION`. If the same-id Room already exists, reuse it (idempotency). Any other MCP error stops and reports.
+3. Setup is complete when the binding is consistent, the service is reachable and the Room exists with readable identity and `DISCUSSION` state. Report the result and stop — do not begin an Architecture Review, do not submit a Task, do not invoke the launcher, do not start a Claude process and do not create the next turn.
+
+The setup mode never enters the normal workflow: it uses only the existing `room:serve`, `room_create` and `room_get_state`. Everything else — planning, run, question, review, fix and acceptance — stays behind the normal workflow gates.
 
 ## Step 1 — Validate the project-local runtime binding
 
@@ -113,3 +161,4 @@ The project MCP snapshot remains the workflow authority.
 
 - No planning beyond the Room's legal transitions, no direct edits to the target project's files, no commit/push/branch/reset/clean or any other Git write operation, no starting a real Claude process by the Skill itself.
 - No multi-project scheduling inside one approval, no parallel runs inside a single Room, no scheduling of repeated runs.
+- Setup mode never invokes the one-shot launcher (`room:run`), never submits a Task, never starts a Claude process and never mutates Git; it never adds a service manager, automatic restart, health scheduler, global Codex config or raw HTTP fallback.

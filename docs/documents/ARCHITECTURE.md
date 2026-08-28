@@ -195,7 +195,7 @@ worktree A / Claude A          worktree B / Claude B
 
 ### 3.12 Increment 8 Accepted target — Automatic Project Setup
 
-> 状态：Accepted target。权威范围见[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)；automatic setup尚未实现，不能标记为Current capability。
+> 状态：Accepted target / Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / versioned commit pending。权威范围见[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)；进入版本化`main`前不能标记为Current capability。
 
 ```text
 operator provides agent_room_root once
@@ -222,6 +222,11 @@ existing room:serve ──> Codex Desktop reload boundary
 - service启动前探测binding port：已开放时不启动第二个process，关闭时启动一次existing`room:serve`。该probe只避免明显重复启动，Room identity最终由reload后的project-scoped MCP验证；不新增PID registry、service manager、daemon或health scheduler。
 - `.codex/config.toml`加载形成明确reload boundary。reload前只建立binding并启动service；reload后只用project-scoped `room_create`/`room_get_state`创建或复用exact Room。setup完成后停止，不进入Architecture Review、Task、`room:run`或Claude。
 - invalid existing binding、config conflict或runtime/config mismatch在任何写入前停止；valid rerun复用全部identity。该deployment convenience不改变Room Service、State Machine、SQLite、Runner、Git Observer、MCP transport或protocol version。
+- 用户已于2026-08-27授权提交Accepted planning范围并选择人工派发；Implementation Coding已从clean `main` exact `HEAD` `0872dda067c6af4d7333c58da8d9ac2a967acce2`完成。Review `review-increment-008-codex-001`定向复现标准TOML dotted-key `mcp_servers.agent_room.url`已存在、runtime缺失时，helper仍exit 0、创建runtime/gitignore并追加第二个agent_room table，破坏Contract的conflict-before-write/zero-write invariant；focused setup仍9/9，证明该public input未覆盖。actual installed-plugin Skill consumer evaluation亦未运行，测试侧parser不能替代真实consumer evidence。Decision为`changes_requested`。
+- 用户已确认两项finding及最小方案，[Increment 8 Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)为`Accepted`/`FIX_PLAN_READY`：只在existing helper classifier识别冻结的agent_room/other-server dotted URL assignment并增加public CLI zero-write regression；packaging parser只保留offline metadata子集证据，真实activation/resource resolution由另行授权的installed-plugin evaluation验收。不引入generic TOML parser/dependency，不改变本节Accepted architecture、Room authority或production dependency direction。
+- Fix Task 1 Coding已完成；Fix Review 2 `review-increment-008-codex-002`独立验证focused setup 10/10、packaging 20/20、scope 1/1、typecheck与全量273/273通过，并确认offline parser已准确声明其证据边界。但dotted classifier按整份文件逐行匹配而未跟踪TOML当前table；public helper CLI对`[unrelated]`下的嵌套`mcp_servers.agent_room.url`返回`runtime binding is missing`，而独立TOML parser显示该key属于`unrelated.mcp_servers.agent_room.url`。Decision为`changes_requested`；actual installed-plugin consumer evaluation仍为`not_run`。该finding不改变Accepted architecture、Room authority或production dependency direction。
+- 用户已确认Fix Review 2 finding与最小方案，[Increment 8 Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`：只让existing narrow classifier保留判断冻结dotted assignment是否位于TOML top-level所需的最小table context，并补unrelated-table public CLI direct regression。Skill/helper、Room authority、reload lifecycle、production dependency direction与protocol version均不改变；actual installed-plugin consumer evaluation仍需另行授权。
+- Fix Review 3 `review-increment-008-codex-003`确认该table-context修复与public CLI regression无finding，focused/full自动化验证通过。用户随后授权local marketplace registration、candidate install与actual installed-plugin consumer evaluation；installed cache与workspace Plugin逐文件一致，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部符合预期，故Decision更新为`approved`。用户于2026-08-28明确最终接受，阶段进入`ACCEPTED`；这不改变Accepted architecture、Room authority、reload lifecycle、production dependency direction或protocol version。automatic setup在完成versioned `main` commit前仍是accepted candidate，不是Current capability。
 
 ## 4. 依赖方向
 

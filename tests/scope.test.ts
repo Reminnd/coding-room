@@ -20,6 +20,28 @@ const allowedRoomFiles = new Set([
 const allowedPluginEntries = new Set(['agent-room']);
 const allowedAgentsEntries = new Set(['plugins']);
 const allowedMarketplaceEntries = new Set(['marketplace.json']);
+// Increment 8：plugin 树恰好是 manifest + 唯一 Skill authority + setup reference + Skill-owned
+// deterministic setup helper（无 package manifest、无第二 Skill、无运行时生成物）。
+const allowedPluginFiles = new Set([
+  '.codex-plugin/plugin.json',
+  'skills/agent-room/SKILL.md',
+  'skills/agent-room/references/project-setup.md',
+  'skills/agent-room/scripts/setup-project.ts',
+]);
+
+// 递归收集目录下全部文件的 '/' 分隔相对路径（供精确边界断言）。
+function collectRelativeFiles(dir: string): string[] {
+  const files: string[] = [];
+  function walk(current: string): void {
+    for (const entry of readdirSync(current, { withFileTypes: true }).sort()) {
+      const p = join(current, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else if (entry.isFile()) files.push(p.slice(dir.length + 1).replaceAll('\\', '/'));
+    }
+  }
+  walk(dir);
+  return files.sort();
+}
 
 function assertDirEntries(dir: string, allowed: Set<string>): void {
   assert.equal(existsSync(dir), true, `missing scope directory: ${dir}`);
@@ -37,7 +59,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 7 allows exact MCP/CLI/shared-read-model files and the plugin/marketplace boundary, and keeps extra modules, tools and dependency drift rejected', () => {
+test('Increment 8 allows exact MCP/CLI/shared-read-model files, the plugin/marketplace boundary with the Skill-owned setup helper, and keeps extra modules, tools and dependency drift rejected', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }
@@ -47,11 +69,17 @@ test('Increment 7 allows exact MCP/CLI/shared-read-model files and the plugin/ma
   assertDirFiles(join(root, 'src', 'cli'), allowedCliFiles);
   assertDirFiles(join(root, 'src', 'room'), allowedRoomFiles);
 
-  // Increment 7 packaging boundary：安装一次的 shared Plugin 与 repository-local
-  // marketplace 是根目录唯一新增结构；plugin/skill 内部细节由 plugin-packaging.test.ts 锁定。
+  // Increment 7/8 packaging boundary：安装一次的 shared Plugin 与 repository-local
+  // marketplace 是根目录唯一新增结构；plugin 树恰好四个文件（Increment 8 新增
+  // Skill-owned setup helper），内部措辞细节由 plugin-packaging.test.ts 锁定。
   assertDirEntries(join(root, 'plugins'), allowedPluginEntries);
   assertDirEntries(join(root, '.agents'), allowedAgentsEntries);
   assertDirEntries(join(root, '.agents', 'plugins'), allowedMarketplaceEntries);
+  assert.deepEqual(
+    collectRelativeFiles(join(root, 'plugins', 'agent-room')),
+    [...allowedPluginFiles].sort(),
+    'plugin tree must contain exactly the manifest, Skill, setup reference and setup helper',
+  );
 
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
     dependencies: Record<string, string>;
