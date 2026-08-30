@@ -151,9 +151,9 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
 
 在Increment 5接受时，repository没有Room runtime database、Room initialization或Runner launcher command；该历史边界已由Increment 6的one-shot`room:run`替代。repository仍不内置runtime database，真实Claude smoke、push与其它Git写操作保持独立授权门禁。
 
-### 4.3 Increment 6 Current 运维流程
+### 4.3 Increment 6 Historical 运维流程
 
-[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 规划的以下显式operator flow已完成clean-baseline re-execution与Fix Task 1（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）、通过Codex Review、获用户接受并进入版本化`main`：
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 规划的以下显式operator flow已完成clean-baseline re-execution与Fix Task 1（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）、通过Codex Review、获用户接受并进入版本化`main`。这是v0.2历史流程，active v0.3操作见§4.6：
 
 1. operator先独立启动现有`room:serve`，使用实际`/mcp/codex`创建Room、推进planning并提交Task；Current surface新增四个tools：`room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`、`room_retry_run`。
 2. 每次需要Coding时显式运行一次：
@@ -168,9 +168,9 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
 
 re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiring与coordination-tool public evidence。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)又补齐missing/non-failed/non-terminal current-task source的Runner direct regression；旧Task failed Event对新current Task按无source的new Implementation处理，stale caller仍拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。operator现可在自行提供并启动本地Room runtime后显式使用`room:run`；本次版本化未执行runtime初始化或真实Claude smoke，push、stash删除和其它Git写操作继续分别授权。
 
-### 4.4 Increment 7 Plugin 与多项目配置
+### 4.4 Increment 7 Historical Plugin 与多项目配置
 
-用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下为已进入版本化 `main` 的Current runbook。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
+用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下为已进入版本化`main`的v0.2历史runbook，active v0.3 binding与route见§4.6。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
 
 1. Agent Room Plugin安装一次，只提供共享Skill。Project A/B各自保存project-scoped `.codex/config.toml`：
 
@@ -201,9 +201,9 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 
 实现状态（Current，2026-08-27）：Fix Task 1已修正marketplace、status、baseline、run identity、setup、approval与durable reread。Fix Task 2已正确加入answered `NEEDS_DECISION` continuation并报告packaging 18/18及全量261/261通过；Review 4独立标准YAML解析因`description`中的未引用`binding: validate`失败，证明局部parser未验证真实YAML scalar规则。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证标准YAML解析、packaging 18/18、two-project 1/1、scope 1/1、typecheck与全量261/261均通过，无finding，Decision为`approved`，用户已明确接受，已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`。manual Codex Desktop smoke保持pending，Plugin与多项目配置现为Current command。
 
-### 4.5 Increment 8 Current automatic setup
+### 4.5 Increment 8 Historical automatic setup
 
-> 状态：Current。以下是[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)的版本化runbook；§4.4保留为人工建立project prerequisite的fallback。
+> 状态：Historical / Superseded by §4.6。以下是[Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)的v0.2五字段版本化runbook，仅保留为迁移背景，不得用于当前project binding。
 
 1. operator对当前项目显式请求setup，并首次提供一次absolute `agent_room_root`。setup验证该runtime root与existing`room:serve`/`room:run`，自动解析当前`project_path`。
 2. setup自动生成`database_path=<project>/.agent-room/room.sqlite`、OS-assigned loopback `port`与`room_id=room-<UUID>`，保守建立五字段`.agent-room/runtime.json`、project-scoped `.codex/config.toml`与所需`.gitignore`条目。
@@ -212,32 +212,36 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。真实service/runtime setup smoke仍未运行；consumer routing evaluation不替代该operator-run smoke。
 6. 实现状态（Current，2026-08-28，`ACCEPTED`）：Fix Task 2已收窄top-level ownership判断并补public CLI regression；Fix Review 3 `review-increment-008-codex-003`确认代码无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过。用户授权后，candidate已从`agent-room-local`安装为`0.1.0`，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部通过，Decision为`approved`，且用户已明确最终接受；完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`。manual service/runtime setup smoke仍未运行，不影响Current automatic setup capability。
 
-### 4.6 Accepted v0.3 Stage 1 cutover preview
+### 4.6 Protocol v0.3 Stage 1 Current runtime
 
-> 状态：Accepted / 已进入版本化`main` / Room=`ACCEPTED`（2026-08-30，等待独立cutover授权）。以下不是active runtime runbook，不得现在执行。当前project setup、service、database与fixed route仍以§4.4–4.5为准。
+> 状态：Current。v0.3 source已进入版本化`main`并于2026-08-30完成独立授权的active project database/binding cutover；§4.4–4.5保留历史与通用setup背景，当前实际binding以本节为准。
 
-停止条件：v0.3 source虽已进入版本化`main`，但未获database/binding cutover授权，因此不能执行本节preview。Fix Review 5已确认固定`p~` framing全链路与`.`/`..`/`worker/2` direct regression通过，用户也已最终接受；这些事实不替代cutover的独立权限。existing v0.3 binding的`control_participant_id`非exact `codex-app`仍是独立cutover stop condition——setup public CLI在任何runtime/config/gitignore写入前失败且三份文件逐byte不变（Fix inc9-fr2-5）；config保留旧unframed candidate URL（如`/mcp/participants/codex-app`）同样按binding/config mismatch零写入拒绝，无auto-compat migration（Fix inc9-fr4）。
+当前project-local runtime：
 
-Stage 1 candidate实现已落地，cutover结果与失败动作按已实现语义确定：
-
-| 项目 | Candidate结果 | 失败动作 |
+| 项目 | Current值 | 验证与失败动作 |
 |---|---|---|
-| v0.2 database | 保持existing path/content，记录为`archived_database_path`，不再由v0.3 writable service打开；v0.3 service对缺失protocol metadata的v0.2 database与wrong exact metadata均在schema/state write前拒绝（`protocol_version_mismatch`），且database逐byte不变（Fix inc9-r6已由room:serve public open回归证明） | 任意内容变化或路径冲突时停止，不删除/重命名/重试覆盖 |
-| v0.3 database | 新建`<project>/.agent-room/room-v0.3.sqlite`，写exact `protocol_version=0.3-design` metadata并bootstrap default Participant/Assignment；复用既有`port`，创建new room_id | schema/version不exact时停止，不回落旧database |
-| runtime binding | 原五字段扩展为八字段：新增`protocol_version`（`0.3-design`）、`control_participant_id`（`codex-app`）、`archived_database_path`（v0.2 database路径；永不等于新`database_path`）；valid binding幂等复用 | existing/config mismatch在写入前停止 |
-| project MCP | 目标URL切换为`/mcp/participants/p~{encodeURIComponent(control_participant_id)}`；setup migration保守改写遗留`/mcp/codex` URL；v0.2 fixed routes与unframed candidate routes在v0.3 app不取得authority | Fix 4再次Review前停止；reload前不使用raw HTTP或旧project route绕过 |
-| Room | 创建new room_id并bootstrap codex-app→planner/reviewer/orchestrator（single control endpoint，capabilities含supervising）、claude-code-cli→worker、local-runner→executor；operator保留human profile但无active assignment（Fix inc9-r4） | identity/readback不一致时保持v0.2 binding并报告 |
-| migration/reuse | 要求operator再次显式提供`--agent-room-root`：stored v0.2 root指向v0.2代码路径，不能复用为v0.3 root（candidate实现的最小选择，见Coding Result deviation） | 缺失或invalid root在写入前停止，不猜测 |
+| v0.3 database | `D:\agent\case\codex-claudecode-room\.agent-room\room-v0.3.sqlite`，exact protocol metadata=`0.3-design` | schema/version不exact时停止，不回落或改写旧database |
+| archived v0.2 database | `D:\agent\case\codex-claudecode-room\.agent-room\room.sqlite`，由`archived_database_path`引用 | 只读保留；不迁移、不backfill、不删除、不由v0.3 writable service打开 |
+| runtime binding | exact八字段；`port=59665`、`room_id=room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`、`control_participant_id=codex-app` | extra/missing field、path/port/version/identity mismatch立即停止，不猜测替代值 |
+| project MCP | `http://127.0.0.1:59665/mcp/participants/p~codex-app` | 必须与runtime exact匹配；不得用raw HTTP、unframed route、v0.2 route或其它project MCP绕过 |
+| Room | `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，state=`DISCUSSION`，waiting actor=`planner` | `room_get_state`返回identity不一致或错误时停止；不得创建第二Room规避 |
+| default authority | codex-app→planner/reviewer/orchestrator；claude-code-cli→worker；local-runner→executor | Participant/Assignment缺失或不一致时停止，不推进workflow |
 
-Stage 1 candidate继续写入当前target main，但不从candidate路径重新加载launcher：固定planning baseline的detached v0.2 launcher worktree负责`room:serve`/`room:run`，当前Room/database/project path保持不变，Gitignored runtime binding只临时切换`agent_room_root`。launcher worktree创建、binding更新、documentation commit、最终cutover与cleanup是独立授权；任何一步未授权都停止。
+Cutover成功证据：八字段runtime与config URL通过exact校验，loopback service已监听，project-scoped MCP加载成功；`room_get_state`返回同一Room identity、完整默认Participant/Assignment，Task/Run/Review/Question均为空。setup未创建重复Room，未推进Architecture Review，未启动Claude Run，也未删除旧v0.2 database。
 
-candidate通过Review、用户明确接受并获得单独cutover授权后，本节才升级为Current runbook；在此之前v0.3命令、database与binding均为candidate，不得用于当前Room。
+Current操作边界：
 
-candidate迁移成功信号与停止/恢复边界（按已实现语义，cutover授权前不执行）：
+- Room service仍是operator控制的本地process，不新增service manager、自动重启或health scheduler。端口关闭时按Agent Room Skill的setup/normal-workflow门禁处理，不启动第二实例绕开冲突。
+- Room=`DISCUSSION`时，只有准备好Architecture Review artifact后才能调用`room_begin_architecture_review`；没有明确任务目标时保持当前状态。
+- `room:run`仍是one-shot、operator-approved边界；只有`PLAN_READY`、`FIX_PLAN_READY`或合法Decision continuation允许计划一次调用。cutover授权本身不授权Claude Run。当前command形态为：
 
-- 成功信号：`setup-project.ts --agent-room-root <v0.3-root>`（migration路径额外要求operator再提供一次root，见上表）在plan全部通过后写入`.agent-room/runtime.json`（八字段）与保守合并的config/gitignore，stdout输出deterministic JSON summary，其中`mode`为`created`、`migrated`或`reused`，并给出exact `serve_command`；migrated模式`archived_database_path`等于旧v0.2 database路径且`database_path`为新`room-v0.3.sqlite`，两者永不相等。Fix inc9-r6已证明旧database逐byte不变、port复用与identity稳定；Fix 4还必须直接证明config从legacy `/mcp/codex`写为`/mcp/participants/p~codex-app`，并证明existing unframed v0.3 config零写入拒绝。
-- 停止边界：invalid/mismatch binding（含existing v0.3 binding的`control_participant_id`非exact `codex-app`，Fix inc9-fr2-5）、`--agent-room-root`缺失（migration必需）、legacy URL rewrite计划无法构成、`archived_database_path`等于`database_path`、或任何plan失败都在写入前停止，stdout零写入并stderr输出原因；不delete/rename/原地改写v0.2 database，不换第二port绕开冲突。
-- 恢复边界：migration rerun幂等复用同一v0.3 identity（同一`room_id`/port/`archived_database_path`），不创建第二database/Room/profile/assignment；v0.2 archived database不迁移、不backfill、不改写历史actor/session，只读保留。binding回退/保留由operator决定：cutover未完成前保持v0.2 binding并报告，不自动回滚candidate写入。
+  ```text
+  npm --prefix "<AGENT_ROOM_ROOT>" run room:run -- --db "<DATABASE_PATH>" --project "<PROJECT_PATH>" --task-id "<TASK_ID>" --run-id "<RUN_ID>" --mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli" [--baseline-head "<OBSERVED_BASELINE_HEAD>"]
+  ```
+
+  `--baseline-head`只用于首次new Implementation，并且只能来自同一次首次成功`room_submit_task`返回的`observed_baseline_head`；Fix、retry与Decision resume省略该参数。
+- v0.3 binding、`.gitignore`和本次Current文档属于working-tree变更；stage、commit、push、旧database删除与detached v0.2 launcher cleanup继续分别授权。
+- binding/config mismatch、Room identity mismatch、service不可达或MCP error均停止并报告；不使用direct SQLite、raw HTTP、旧route、另一project binding或live Git HEAD作为fallback。
 
 ## 5. 人工操作命令
 

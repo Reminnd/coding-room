@@ -10,7 +10,7 @@
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
-> Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`（Room=`ACCEPTED` / active runtime等待独立cutover授权）
+> Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，新Room=`DISCUSSION`
 
 ## 1. 目标
 
@@ -249,7 +249,7 @@ Verification 检测：
 
 ### 增量 9 — Protocol v0.3 Participant / Role Foundation（Accepted）
 
-状态：[六阶段路线图](./AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)均已获用户明确确认。Implementation Review 1与Fix Review 2的finding已分别由[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)和[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)处理。Fix Review 3方案由[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)实现；Fix Review 4的dot-segment finding由[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)按固定`p~` framing闭合。Fix Review 5 `review-increment-009-codex-005`无finding、Decision为`approved`；用户已最终接受，Room=`ACCEPTED`，Fix验收经验回收已完成。Stage 1完整accepted scope已进入版本化`main`；active runtime仍等待独立cutover授权；Stage 2 entry gate（multi-Run/Executor scheduler）未满足，不提前交付。
+状态：[六阶段路线图](./AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)均已获用户明确确认。Implementation Review 1与Fix Review 2的finding已分别由[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)和[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)处理。Fix Review 3方案由[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)实现；Fix Review 4的dot-segment finding由[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)按固定`p~` framing闭合。Fix Review 5 `review-increment-009-codex-005`无finding、Decision为`approved`；用户已最终接受，历史Room=`ACCEPTED`，Fix验收经验回收已完成。Stage 1完整accepted scope已进入版本化`main`，active runtime已于2026-08-30完成独立授权的cutover；新Room=`DISCUSSION`。Stage 2 entry gate（multi-Run/Executor scheduler）未满足，不提前交付。
 
 实施事实（candidate implementation + Fix 1，2026-08-29）：
 
@@ -267,7 +267,7 @@ Verification 检测：
 - Fix Review 4：上述`worker/2` public paths正确且独立`typecheck`、full 314/314通过；但schema允许`.`/`..`，`encodeURIComponent`保留dot，WHATWG URL parser把participant path归一化为当前/父路径。finding `inc9-fr4-dot-segment-normalization`为high，Decision=`changes_requested`；用户确认解决方案前不生成下一Fix Task。
 - Fix Task 4方案已确认：所有v0.3 participant routes统一为`/mcp/participants/p~{encodeURIComponent(raw participant_id)}`；MCP只验证/移除一次固定prefix并恢复raw authority identity，Runner/CLI/setup/Plugin consumer同步切换，unframed old candidate route不提供compatibility fallback。Contract为`Accepted`，随后已获单独Fix Run授权并完成Coding（见下一条）。
 - Fix Task 4 Coding事实（2026-08-29，candidate，Fix Review 5 approved）：MCP POST route对framework解码后的segment只验证并移除恰好一次`p~` prefix，剩余值即raw authority identity，不二次percent-decode；unframed单segment POST返回404 JSON-RPC error、不注册tool、不进入authority，GET/DELETE仍对任何单segment 405。Runner/CLI从同一resolved worker assignment的raw identity独立构造framed route并exact compare，`p~`只存在于transport segment，claim/Event/Run保持raw。setup-project从validated `control_participant_id`生成framed control URL；既有config的旧unframed candidate URL按binding/config mismatch零写入拒绝（无auto-compat migration），Plugin SKILL/reference与packaging Oracle全部framed。direct regression（期望值均为测试侧literal）：MCP `.`/`..`经`p~.`/`p~..`调用实际tool成功且Event actor/Run冻结为raw identity，unframed `.../mcp/participants/.`/`.../mcp/participants/..` POST 404且Event list零变化；production `runClaude`以`.`/`..`穿过route gate与terminal settlement，unframed encoded mcpConfig零spawn/Run/Event/artifact拒绝；public `room:run` CLI以framed `p~.`/`p~..`完成fake-process Run，unframed URL preflight失败且完整durable read-model snapshot逐字段不变；setup三路径生成framed URL、unframed candidate config（section与frozen dotted形态）非零exit且三文件逐byte不变；`worker/2`回归更新为framed `p~worker%2F2`。验证：room-mcp/claude-runner/runner-cli 108/108、plugin-setup/plugin-packaging 35/35、e2e-workflow/multi-project-e2e/room-serve 12/12、scope 1/1、typecheck与full 321/321、`git diff --check`全部独立通过；schema/database/protocol version/Stage 2–6/dependency/source module未变。
-- v0.2 database/binding仍为active runtime authority；v0.3 source已进入版本化`main`，获得单独cutover授权前不切换、不删除、不迁移旧数据。
+- v0.3 database/binding已成为active runtime authority；v0.2 database不迁移、不backfill、不删除，通过`archived_database_path`只读保留。
 - Fix Review 5：未发现finding；独立typecheck、focused 108/108、35/35、12/12、scope 1/1与full 321/321全部通过，Decision=`approved`。用户已最终接受，Room=`ACCEPTED`；未授权stage、commit、push或database/binding cutover。
 
 目标：在保持Current串行lifecycle的前提下，以ParticipantProfile、RoleAssignment、generic actor/session和participant route替换固定`codex`/`claude`/`runner`identity；创建new v0.3 Room/database/binding，并把v0.2 database未改写地只读保留。
@@ -275,7 +275,7 @@ Verification 检测：
 范围：
 
 - protocol metadata、Participant/Profile/Assignment、history-frozen Task/Run/Review/Event identity；
-- `agent_session_ref`、`/mcp/participants/{participant_id}`、multi-entity snapshot与default Codex/Claude/local Runner profiles；
+- `agent_session_ref`、framed `/mcp/participants/p~{encodeURIComponent(raw participant_id)}`、multi-entity snapshot与default Codex/Claude/local Runner profiles；
 - v0.2五字段binding到v0.3binding的保守切换，旧database不迁移、不删除；
 - Current串行acceptance/failure/question/fix lifecycle等价回归；
 - breaking self-hosted实现使用detached v0.2 launcher worktree驱动当前target main/Room。
@@ -311,4 +311,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–9 Stage 1均已接受并进入版本化`main`。Agent Room v0.3 Stage 1已完成Implementation与Fix 1/2/3/4 Coding；Fix Review 5无finding、Decision为`approved`，用户已最终接受且Room=`ACCEPTED`。`main` source现为v0.3 Stage 1，active project Room继续使用v0.2 database/binding直到获得单独cutover授权；Stage 2–6 capability未混入本次提交。
+Increment 1–9 Stage 1均已接受并进入版本化`main`。Agent Room v0.3 Stage 1已完成Implementation与Fix 1/2/3/4 Coding；Fix Review 5无finding、Decision为`approved`，用户已最终接受。active project runtime已完成v0.3 database/binding cutover，新Room=`DISCUSSION`且没有Task；Stage 2–6 capability尚未交付。下一步先由用户明确实现目标，再按Architecture Review与Task Contract门禁决定是否进入Stage 2。

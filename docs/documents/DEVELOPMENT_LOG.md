@@ -3,15 +3,23 @@
 ## 当前状态
 
 - 日期：2026-08-30
-- 项目阶段：Increment 9 Stage 1已获用户最终接受、进入版本化`main`（Room=`ACCEPTED`）；active project Room仍为Increment 8 / protocol `0.2-design`，等待独立cutover授权
-- Room runtime state：project binding指向`room-4f175b12-3e18-417a-a0da-8fda8b002353`；Review `review-increment-009-codex-005`无finding、Decision为`approved`，用户确认后通过`review_accepted` Event sequence `217709`进入`ACCEPTED`
-- Architecture：用户已确认六阶段v0.3路线与[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)；它触发ADR-0001的parallel Run/worktree/UI重新评估条件并替换ADR-0002固定agent lifecycle的长期方向，但Current authority尚未改变
-- Implementation Task：[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)、[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)与[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)均为`Accepted`；Fix 3闭合confirmed route-segment finding（participant route的canonical single-segment encoding），Fix 4闭合dot-segment normalization finding（`p~` transport framing），两份Fix Coding均已完成；v0.3 database/binding继续保持candidate
+- 项目阶段：Increment 9 Stage 1已获用户最终接受、进入版本化`main`；active project runtime已完成protocol `0.3-design` database/binding cutover，当前Room=`DISCUSSION`
+- Room runtime state：project binding指向`room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`；project-scoped MCP已验证同一Room identity、默认Participant/Assignment、state=`DISCUSSION`，Task/Run/Review/Question均为空，waiting actor=`planner`
+- Architecture：用户已确认六阶段v0.3路线与[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)；Stage 1 Participant/Role authority、八字段binding、framed participant route与新SQLite现为active runtime，Stage 2–6仍未实现
+- Implementation Task：[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)、[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)与[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)均为`Accepted`；Fix 3闭合route-segment finding，Fix 4闭合dot-segment normalization finding；v0.3 database/binding已完成独立授权的active cutover
 - Previous Increment：Increment 1–8均已接受并进入版本化`main`
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`、`skills/agent-room/scripts/setup-project.ts`）与`.agents/plugins/marketplace.json`。本轮candidate在以上src/cli/mcp/protocol/room/runner与Plugin setup路径上实现v0.3 Participant/Role/assignment/participant-route/snapshot/binding migration语义，v0.2 runtime不再保留双协议branch
-- Git repository：branch=`main`；Increment 9完整accepted scope由同一版本化commit提交，包含v0.3 source/tests/Plugin consumer、Fix Task 1–4、acceptance文档与经验回收指南。未执行push、branch/worktree、reset、clean、checkout或其它额外Git写操作；v0.2 database/binding未切换
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner）、`src/mcp`（http/tools/serve）、`src/cli`（status/run）均为`main` Current v0.3 Stage 1 implementation；Current packaging为`plugins/agent-room/`与`.agents/plugins/marketplace.json`。active runtime使用Participant/Role/assignment/framed participant route/snapshot/八字段binding语义，不保留v0.2双协议runtime branch
+- Git repository：branch=`main`；Increment 9完整accepted source scope已版本化。当前cutover binding、`.gitignore`与本次状态文档仍是working-tree变更；未执行stage、commit、push、branch/worktree、reset、clean或checkout，旧v0.2 database未删除
 
 ## 已完成
+
+### 2026-08-30 — Active project runtime完成v0.3 database/binding cutover
+
+- 用户明确批准当前v0.3 database/binding切换，并随后明确授权Codex更新`PROJECT_RULES.md`及相关Current文档。
+- `.agent-room/runtime.json`已通过exact八字段校验：`protocol_version=0.3-design`、`control_participant_id=codex-app`、database=`room-v0.3.sqlite`、archived database=`room.sqlite`、Room ID=`room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`；project path、Agent Room root、port与database路径均匹配。
+- `.codex/config.toml`精确使用`http://127.0.0.1:59665/mcp/participants/p~codex-app`；service端口已监听，project-scoped MCP加载成功。
+- `room_get_state`确认exact Room identity、state=`DISCUSSION`、waiting actor=`planner`、三个default Participant及五条Room-scope Assignment完整，Task/Run/Review/Question为空；未创建重复Room、未推进Architecture Review、未启动Claude Run。
+- v0.2 database通过`archived_database_path`只读保留；未删除旧数据。cutover与文档同步未获得stage、commit或push授权。
 
 ### 2026-08-30 — Increment 9 accepted scope进入版本化main
 
@@ -1307,8 +1315,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 9没有未解决阻塞finding，Review Decision为`approved`、用户已最终接受且完整scope已进入版本化`main`；Room=`ACCEPTED`。active project Room仍为Increment 8 / protocol v0.2；未获push、database/binding cutover、旧数据删除或其它Git/runtime写操作授权。
+Increment 9没有未解决阻塞finding，Review Decision为`approved`、用户已最终接受且完整scope已进入版本化`main`。active project runtime的v0.3 database/binding cutover已完成；当前新Room=`DISCUSSION`且没有Task。未获push、旧v0.2 database删除、stage/commit、Claude Run或其它Git写操作授权。
 
 ## 下一步
 
-下一项可选动作是用户另行授权database/binding cutover；push继续是独立门禁。未获授权不得执行。
+下一步由用户明确下一项实现目标；Codex准备Architecture Review artifact后才能把Room从`DISCUSSION`推进。push、旧v0.2 database删除、stage/commit与Claude Run继续是独立门禁。
