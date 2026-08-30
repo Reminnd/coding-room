@@ -10,7 +10,7 @@
 > Increment 6：Review 3 `approved` / 用户已接受 / `ACCEPTED` / 已进入版本化 `main`
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
-> Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，新Room=`DISCUSSION`
+> Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，新Room=`WAITING_FOR_USER_CONFIRMATION`
 
 ## 1. 目标
 
@@ -286,6 +286,16 @@ Verification 检测：
 
 验收：default profiles完成现有串行end-to-end lifecycle；assignment变化只影响未来entity；历史participant/role不变；participant route role gate与跨Room隔离成立；v0.2database byte content不变且v0.3 writable service拒绝打开；Stage 2–6 capability未混入。
 
+### 增量 10 — Stage 2 Execution Core（Accepted Contract）
+
+状态：用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)三项设计方向及[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文；Contract为`Accepted`且`confirmed_by_user=true`。Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)记录Run/RunAttempt、atomic claim、worktree lease与fresh `0.4-design` cutover。durable Room已按授权推进到`WAITING_FOR_USER_CONFIRMATION`；Task submission未授权，尚未进入`PLAN_READY`。
+
+目标：交付one-shot multi-Run Execution Core，使同一Room内使用不同canonical worktree的logical Runs拥有独立RunAttempt、Question、failure、Review/Fix与acceptance lifecycle，并通过SQLite并发约束和唯一terminal settlement形成可验证闭环。
+
+非目标：Scheduler、TaskGraph/DAG、Git Controller、worktree creation、same-worktree parallel、第二provider adapter、running Claude live steer、automatic retry/review/acceptance及v0.3原地migration。
+
+进入Coding前门禁：完整Contract确认与planning Room transition已完成；当前授权只形成clean exact planning baseline并处理既有dirty config/plugin文件。随后仍须另行授权Current v0.3 Room的`room_submit_task`、按自托管隔离方案取得必要Git/worktree授权，并单独授权至多一次one-shot Run。v0.4 database/binding cutover仍需实现Review、用户接受后的独立授权。
+
 ## 5. Task Contract 规则
 
 每个 increment 只有满足以下条件后，才能转换为独立 Task Contract：
@@ -311,4 +321,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–9 Stage 1均已接受并进入版本化`main`。Agent Room v0.3 Stage 1已完成Implementation与Fix 1/2/3/4 Coding；Fix Review 5无finding、Decision为`approved`，用户已最终接受。active project runtime已完成v0.3 database/binding cutover，新Room=`DISCUSSION`且没有Task；Stage 2–6 capability尚未交付。下一步先由用户明确实现目标，再按Architecture Review与Task Contract门禁决定是否进入Stage 2。
+Increment 1–9 Stage 1均已接受并进入版本化`main`，active runtime已完成v0.3 database/binding cutover，新Room=`WAITING_FOR_USER_CONFIRMATION`且没有Task。Stage 2 Architecture Review与Increment 10完整Contract均已确认；本轮只形成clean planning baseline，下一步是用户另行授权`room_submit_task`及相关Git隔离动作。未获对应授权前不得提交Task、启动Claude Run或把`0.4-design`写成Current capability。

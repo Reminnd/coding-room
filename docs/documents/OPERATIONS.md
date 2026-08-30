@@ -224,15 +224,15 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 | archived v0.2 database | `D:\agent\case\codex-claudecode-room\.agent-room\room.sqlite`，由`archived_database_path`引用 | 只读保留；不迁移、不backfill、不删除、不由v0.3 writable service打开 |
 | runtime binding | exact八字段；`port=59665`、`room_id=room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`、`control_participant_id=codex-app` | extra/missing field、path/port/version/identity mismatch立即停止，不猜测替代值 |
 | project MCP | `http://127.0.0.1:59665/mcp/participants/p~codex-app` | 必须与runtime exact匹配；不得用raw HTTP、unframed route、v0.2 route或其它project MCP绕过 |
-| Room | `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，state=`DISCUSSION`，waiting actor=`planner` | `room_get_state`返回identity不一致或错误时停止；不得创建第二Room规避 |
+| Room | `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，state=`WAITING_FOR_USER_CONFIRMATION`，waiting actor=`user`，cursor=`3` | `room_get_state`返回identity不一致或错误时停止；不得创建第二Room规避 |
 | default authority | codex-app→planner/reviewer/orchestrator；claude-code-cli→worker；local-runner→executor | Participant/Assignment缺失或不一致时停止，不推进workflow |
 
-Cutover成功证据：八字段runtime与config URL通过exact校验，loopback service已监听，project-scoped MCP加载成功；`room_get_state`返回同一Room identity、完整默认Participant/Assignment，Task/Run/Review/Question均为空。setup未创建重复Room，未推进Architecture Review，未启动Claude Run，也未删除旧v0.2 database。
+Cutover成功证据：八字段runtime与config URL通过exact校验，loopback service已监听，project-scoped MCP加载成功；`room_get_state`返回同一Room identity、完整默认Participant/Assignment，Task/Run/Review/Question均为空。setup未创建重复Room，也未启动Claude Run或删除旧v0.2 database。随后经独立授权，Room由Event sequence 2/3推进到`ARCHITECTURE_REVIEW`与`WAITING_FOR_USER_CONFIRMATION`。
 
 Current操作边界：
 
 - Room service仍是operator控制的本地process，不新增service manager、自动重启或health scheduler。端口关闭时按Agent Room Skill的setup/normal-workflow门禁处理，不启动第二实例绕开冲突。
-- Room=`DISCUSSION`时，只有准备好Architecture Review artifact后才能调用`room_begin_architecture_review`；没有明确任务目标时保持当前状态。
+- Current Room=`WAITING_FOR_USER_CONFIRMATION`；只有用户另行授权提交已Accepted Contract时才能调用`room_submit_task`。当前clean planning baseline授权不包含该command。
 - `room:run`仍是one-shot、operator-approved边界；只有`PLAN_READY`、`FIX_PLAN_READY`或合法Decision continuation允许计划一次调用。cutover授权本身不授权Claude Run。当前command形态为：
 
   ```text

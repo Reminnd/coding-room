@@ -3,15 +3,37 @@
 ## 当前状态
 
 - 日期：2026-08-30
-- 项目阶段：Increment 9 Stage 1已获用户最终接受、进入版本化`main`；active project runtime已完成protocol `0.3-design` database/binding cutover，当前Room=`DISCUSSION`
-- Room runtime state：project binding指向`room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`；project-scoped MCP已验证同一Room identity、默认Participant/Assignment、state=`DISCUSSION`，Task/Run/Review/Question均为空，waiting actor=`planner`
-- Architecture：用户已确认六阶段v0.3路线与[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)；Stage 1 Participant/Role authority、八字段binding、framed participant route与新SQLite现为active runtime，Stage 2–6仍未实现
-- Implementation Task：[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)、[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)与[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)均为`Accepted`；Fix 3闭合route-segment finding，Fix 4闭合dot-segment normalization finding；v0.3 database/binding已完成独立授权的active cutover
+- 项目阶段：`WAITING_FOR_USER_CONFIRMATION`；Stage 2 Architecture Review为Approved，Increment 10 Contract为Accepted但尚未提交Task。active project runtime继续为protocol `0.3-design`
+- Room runtime state：project binding指向`room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`；project-scoped MCP已验证同一Room identity、默认Participant/Assignment、state=`WAITING_FOR_USER_CONFIRMATION`，Task/Run/Review/Question均为空，waiting actor=`user`，cursor=`3`
+- Architecture：用户已确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)与完整Contract；[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)为`Proposed / Decisions confirmed`。Run/RunAttempt、worktree隔离、target public commands、SQLite/Event与测试矩阵尚未实现
+- Implementation Task：[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)为`Accepted`、`confirmed_by_user=true`；未提交Task、未启动Claude Run。Increment 9 Contract与Fix 1–4均为`Accepted`且v0.3 cutover已完成
 - Previous Increment：Increment 1–8均已接受并进入版本化`main`
 - 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner）、`src/mcp`（http/tools/serve）、`src/cli`（status/run）均为`main` Current v0.3 Stage 1 implementation；Current packaging为`plugins/agent-room/`与`.agents/plugins/marketplace.json`。active runtime使用Participant/Role/assignment/framed participant route/snapshot/八字段binding语义，不保留v0.2双协议runtime branch
-- Git repository：branch=`main`；Increment 9完整accepted source scope已版本化。当前cutover binding、`.gitignore`与本次状态文档仍是working-tree变更；未执行stage、commit、push、branch/worktree、reset、clean或checkout，旧v0.2 database未删除
+- Git repository：branch=`main`；pre-baseline HEAD=`d7bf281c0ef4d40583ec972bcbe5440444665934`。用户已授权把project-local binding、Plugin安装元数据与Stage 2 planning文档按独立scope形成clean planning baseline；exact baseline以本轮提交后的live Git `HEAD`为准。未授权push、branch/worktree、reset、clean、checkout、Task submission或Claude Run，旧v0.2 database未删除
 
 ## 已完成
+
+### 2026-08-30 — Stage 2 planning Room transition与baseline授权
+
+- 用户授权仅把Current v0.3 Room推进到`WAITING_FOR_USER_CONFIRMATION`。project-scoped MCP依次完成`DISCUSSION → ARCHITECTURE_REVIEW → WAITING_FOR_USER_CONFIRMATION`，durable Event sequence 2/3与cursor 3确认结果；waiting actor=`user`，Task/Run/Review/Question仍为空。
+- 用户随后授权处理当前dirty worktree并形成clean planning baseline。变更按project-local v0.3 binding、Plugin安装元数据、Stage 2 planning文档三个scope独立审查和版本化，不使用`git add .`，不吸收`.agent-room` database/runtime数据。
+- 本轮授权不包含`room_submit_task`、Claude Run、push、v0.4 database/binding cutover或旧数据删除；Agent Room Skill因此停在confirmation gate，不执行Task command或launcher。
+
+### 2026-08-30 — Increment 10完整Task Contract确认
+
+- 用户明确确认[Increment 10 Task Contract](./INCREMENT_10_TASK_CONTRACT.md)全文；Contract更新为`Accepted`、`confirmed_by_user=true`，Architecture Review状态收口为Approved。
+- 用户明确不授权Git写操作、Task submission或Claude Run；因此project planning文档虽已批准，Current v0.3 Room仍为`DISCUSSION`且没有Task，未进入durable `PLAN_READY`。
+- ADR-0004依照其当前状态规则继续为Proposed，直到实现、Review、用户接受与v0.4 cutover证据成立；Contract acceptance不把target protocol提升为Current。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、MVP Plan与本日志；没有修改source、tests、config或runtime binding。
+- 未运行代码测试：本次仅更新Markdown确认状态，runtime输入未变化。未执行stage、commit、push、branch/worktree、Task submission、Claude Run或v0.4 cutover。
+
+### 2026-08-30 — Stage 2 Architecture Review三项决定确认
+
+- Codex完成[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)、Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)与[Increment 10 Draft Contract](./INCREMENT_10_TASK_CONTRACT.md)，明确Run/RunAttempt状态所有权、same-Room不同worktree隔离、atomic claim、public commands、SQLite/Event变化、failure semantics与direct verification matrix。
+- 用户确认三项设计：fresh `0.4-design` database/new Room与archive array；Stage 2只交付one-shot Execution Core且Scheduler/worktree creation留到Stage 3；guidance只在下一RunAttempt消费，running guidance拒绝。
+- 用户只授权同步Project Rules与相关Current文档，要求登记Draft/Proposed状态；Increment 10完整Contract尚未确认，active v0.3 runtime/Room/database/binding均未改变。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、MVP Plan与本日志；详细design继续由Architecture Review/ADR/Contract拥有，没有把target `0.4-design`写成Current implementation。
+- 未执行代码测试：本次仅修改Markdown，不改变source/test/config runtime behavior。未执行Task submission、Claude Run、stage、commit、push或v0.4 cutover。
 
 ### 2026-08-30 — Active project runtime完成v0.3 database/binding cutover
 
@@ -1315,8 +1337,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 9没有未解决阻塞finding，Review Decision为`approved`、用户已最终接受且完整scope已进入版本化`main`。active project runtime的v0.3 database/binding cutover已完成；当前新Room=`DISCUSSION`且没有Task。未获push、旧v0.2 database删除、stage/commit、Claude Run或其它Git写操作授权。
+Stage 2 Architecture Review与Increment 10完整Contract均已确认，当前工作正在形成clean exact planning baseline。active runtime仍为v0.3，Room=`WAITING_FOR_USER_CONFIRMATION`且没有Task。`room_submit_task`、detached launcher/worktree、Claude Run、push、旧v0.2 database删除与v0.4 cutover均需独立授权。
 
 ## 下一步
 
-下一步由用户明确下一项实现目标；Codex准备Architecture Review artifact后才能把Room从`DISCUSSION`推进。push、旧v0.2 database删除、stage/commit与Claude Run继续是独立门禁。
+clean planning baseline形成后，下一步仅等待用户另行授权Current v0.3 Room的`room_submit_task`；Task成功提交返回的`observed_baseline_head`才是首次Run command的baseline authority。detached launcher/worktree与一次one-shot Claude Run仍需后续独立授权；v0.4 cutover、push与旧数据删除继续是独立门禁。

@@ -321,9 +321,21 @@ Stage 1修改runtime自身，因此candidate开发执行由固定planning baseli
 - direct regression（期望值均为测试侧literal framed route，未从production导出framing helper/constant）：MCP public path注册并分配`.`/`..`后经`/mcp/participants/p~.`与`/mcp/participants/p~..`调用实际`room_ask_question`成功，Event actor与Run冻结均为raw identity；unframed `.../mcp/participants/.`/`.../mcp/participants/..`被WHATWG URL归一化出participant route，POST 404且Event list零变化。production `runClaude`以`.`/`..` Task-scope worker穿过route gate、claim与`run_completed` terminal settlement（Run冻结raw identity），unframed encoded mcpConfig在spawn/claim前`validation_failed`且零spawn/Run/Event/artifact。public `room:run` CLI以framed `p~.`/`p~..` mcp-url完成fake-process Run，unframed URL preflight失败且完整durable read-model snapshot逐字段不变。setup public CLI三路径生成framed URL；unframed candidate config（section与frozen dotted两种形态）非零exit且三文件逐byte不变。`worker/2`回归更新为framed `p~worker%2F2`。
 - 验证事实：typecheck exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；full 321/321；`git diff --check`无错误。未改变schema、database、protocol version、Stage 2–6、dependency或source module，未执行Git写操作；v0.3仍为candidate，Current v0.2 `/mcp/codex` authority不变。
 - Fix Review 5 `review-increment-009-codex-005`未发现architecture、authority、lifecycle或public-path finding，Decision为`approved`。用户已最终接受且Room=`ACCEPTED`；Fix验收经验回收完成，完整accepted scope已进入版本化`main`，未执行database/binding cutover或push。
-- 2026-08-30 cutover事实：用户另行批准后，project binding切换到`protocol_version=0.3-design`、`control_participant_id=codex-app`、database `room-v0.3.sqlite`与framed control endpoint；project-scoped MCP读取同一Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`为`DISCUSSION`，默认Participant/Assignment完整且无Task/Run/Review/Question。旧v0.2 database只读归档，push、旧数据删除与Claude Run仍未授权。
+- 2026-08-30 cutover事实：用户另行批准后，project binding切换到`protocol_version=0.3-design`、`control_participant_id=codex-app`、database `room-v0.3.sqlite`与framed control endpoint；project-scoped MCP读取同一Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，默认Participant/Assignment完整且无Task/Run/Review/Question。Room初始为`DISCUSSION`，随后经独立授权推进到`WAITING_FOR_USER_CONFIRMATION`；旧v0.2 database只读归档，push、旧数据删除、Task submission与Claude Run仍分别授权。
 
 
+
+### 3.14 Stage 2 confirmed design — Execution Core（尚未实现）
+
+用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)的三项方向；该确认不改变§3.13的Current v0.3 runtime：
+
+- target把logical `Run`与per-process `RunAttempt`分离，并把execution、Question、failure、Review与acceptance ownership下沉到per-Run lifecycle；
+- same-Room并发只允许不同canonical Git worktree，atomic claim与worktree lease由SQLite transaction及partial unique index共同保证；
+- Stage 2只交付显式one-shot Execution Core与唯一`ClaudeCodeWorkerAdapter`，不交付Scheduler、DAG、Git Controller、worktree creation或第二provider adapter；
+- target使用fresh `0.4-design` database/new Room与archive array；v0.3/v0.2只读保留，不原地migration；
+- guidance只在无active attempt时保存并由下一attempt消费，running guidance拒绝，不声明live steer能力。
+
+详细状态、entity、public command、SQLite/Event与verification matrix由Approved Architecture Review及Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)拥有。[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)已获用户全文确认，现为`Accepted`且`confirmed_by_user=true`；上述内容仍不是Current implementation，也未授权Task submission、Claude Run或v0.4 cutover。
 
 ## 4. 依赖方向
 

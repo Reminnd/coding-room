@@ -537,4 +537,17 @@ Fix Review 4证明§16.4的纯`encodeURIComponent`表示仍不能覆盖公开sch
 - direct regression（期望值均为测试侧literal framed route，未从production导出framing helper/constant）：MCP public path注册并分配`.`/`..`后经`/mcp/participants/p~.`与`/mcp/participants/p~..`调用实际`room_ask_question`成功，Event actor与Run冻结均为raw identity；unframed `.../mcp/participants/.`/`.../mcp/participants/..`被WHATWG URL归一化出participant route，POST 404且Event list零变化。production `runClaude`以`.`/`..` Task-scope worker穿过route gate、claim与`run_completed` terminal settlement（Run冻结raw identity），unframed encoded mcpConfig在spawn/claim前`validation_failed`且零spawn/Run/Event/artifact。public `room:run` CLI以framed `p~.`/`p~..` mcp-url完成fake-process Run，unframed URL preflight失败且完整durable read-model snapshot逐字段不变。setup public CLI三路径（fresh/migrated/reused）生成framed URL；unframed candidate config（section与frozen dotted两种形态）非零exit且三文件逐byte不变。`worker/2`回归更新为framed `p~worker%2F2`（raw多segment与unframed encoded仍拒绝）。
 - 验证事实：typecheck exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；full 321/321；`git diff --check`无错误。schema、database、protocol version、Room state、assignment/frozen authority、retry ordering与Event identity未变；全部Fix 1–3回归保持通过；v0.3仍为candidate，未执行cutover。
 - Fix Review 5 `review-increment-009-codex-005`无finding，Decision为`approved`；用户确认后Room通过`review_accepted` Event sequence `217709`进入`ACCEPTED`。Current v0.2 protocol、database与binding保持权威，未执行commit、push或cutover。
-- 2026-08-30 active cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、state=`DISCUSSION`、默认Participant/Assignment完整，Task/Run/Review/Question均为空。该新Room是active authority；历史v0.2 database只读保留。
+- 2026-08-30 active cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、默认Participant/Assignment完整，Task/Run/Review/Question均为空。Room初始为`DISCUSSION`，随后经授权由Event sequence 2/3推进到`ARCHITECTURE_REVIEW`与`WAITING_FOR_USER_CONFIRMATION`，waiting actor=`user`。该新Room是active authority；历史v0.2 database只读保留。
+
+## 17. Stage 2 target protocol boundary（confirmed design，尚未实现）
+
+用户于2026-08-30确认Stage 2三项Architecture Decision及完整Increment 10 Contract。Current exact protocol仍是§16的`0.3-design`；本节只登记已批准target `0.4-design` contract，不构成当前可调用contract、Task submission或migration授权。
+
+- `Room.state` target只拥有planning phase；每个logical `Run`拥有独立execution/review lifecycle，每个`RunAttempt`拥有一次process invocation及唯一terminal evidence。
+- `room_get_state` target返回planning state与稳定排序的`run_work_items`；单一`current_run/current_review/current_question`不再作为multi-Run execution authority。
+- target public commands按`run_id`/`attempt_id`定向操作，并新增cancel与next-attempt guidance；running guidance必须零写入拒绝。
+- SQLite target增加`run_attempts`、`run_guidance`及per-Run active-attempt、canonical worktree lease和attempt sequence约束；Event增加attempt/guidance reference与terminal/cancel evidence。
+- target使用fresh `0.4-design` database/new Room与有序archive array；不得原地改写v0.3/v0.2 database。
+- Stage 2仍是one-shot execution core，不包含Scheduler、TaskGraph、Git Controller或worktree creation。
+
+字段、transition、transaction、error、Event和测试矩阵的唯一详细权威是Approved [Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)与Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)；实现范围由Accepted [Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)冻结。

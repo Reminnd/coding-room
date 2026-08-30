@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 9 Stage 1已进入版本化`main`；active project runtime已完成protocol v0.3 database/binding cutover，Room处于`DISCUSSION`
+> 当前阶段：WAITING_FOR_USER_CONFIRMATION / Increment 10 Contract已Accepted但尚未提交Task；active runtime保持protocol v0.3
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -130,6 +130,8 @@ Increment 8 的用户已确认[完整Accepted Contract](./docs/documents/INCREME
 
 用户于2026-08-29确认[Agent Room v0.3六阶段路线](./docs/documents/AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./docs/documents/ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9完整Accepted Contract](./docs/documents/INCREMENT_9_TASK_CONTRACT.md)。Stage 1只交付Participant/Role/Assignment、generic actor/session/participant route、新v0.3 database与binding；`Plan`/`Approval`随Stage 3实际consumer交付。Implementation Review `review-increment-009-codex-001`的六项finding已由[Fix Task 1](./docs/documents/INCREMENT_9_FIX_TASK_1.md)处理；Fix Review 2的五项finding已由[Fix Task 2](./docs/documents/INCREMENT_9_FIX_TASK_2.md)处理。Fix Review 3 `review-increment-009-codex-003`确认上述五项修复与全部自动化验证通过，但公开schema允许包含URL path delimiter的`participant_id`，而Runner/CLI直接把identity拼入单一participant route segment，导致合法Participant不可达；用户确认方案后形成[Fix Task 3](./docs/documents/INCREMENT_9_FIX_TASK_3.md)。Fix Review 4 `review-increment-009-codex-004`确认`worker/2`路径已闭合，但`participant_id`仍允许`.`与`..`，`encodeURIComponent`不会编码dot，而WHATWG URL解析会把对应路径归一化为当前/父路径，任意opaque identity目标仍未满足；Decision为`changes_requested`。Increment 9 Stage 1现已通过Review、获用户最终接受并进入版本化`main`；用户于2026-08-30另行批准并完成active project runtime的v0.3 database/binding cutover，旧v0.2 database按设计只读归档。
 
+Stage 2的[Architecture Review](./docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)已完成，用户于2026-08-30确认三项设计方向：fresh `0.4-design` database/new Room与archive array；Stage 2只交付one-shot multi-Run Execution Core、不包含Scheduler/worktree creation；guidance只供下一RunAttempt消费。用户随后确认[Increment 10 Contract](./docs/documents/INCREMENT_10_TASK_CONTRACT.md)全文，Contract现为`Accepted`且`confirmed_by_user=true`；详细设计仍由Proposed [ADR-0004](./docs/documents/ADR/0004-execution-core-run-attempt-and-concurrency.md)拥有。以上不是Current implementation；active runtime、database与binding保持v0.3，durable Room已按授权推进到`WAITING_FOR_USER_CONFIRMATION`，仍未提交Task或启动Claude Run。
+
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
 ## 7. 工作流与门禁
@@ -249,6 +251,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
 | [docs/documents/MVP_PLAN.md](./docs/documents/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
 | [docs/documents/AGENT_ROOM_V03_ROADMAP.md](./docs/documents/AGENT_ROOM_V03_ROADMAP.md) | Agent Room v0.3六阶段路线、阶段门禁与人工控制点 | Codex | v0.3阶段规划与跨阶段架构校验 | Accepted |
+| [docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md) | Stage 2 Run/RunAttempt、并发隔离、public commands、SQLite/Event与测试矩阵Architecture Review | Codex | Stage 2架构、Contract与Review | Approved |
 | [docs/documents/OPERATIONS.md](./docs/documents/OPERATIONS.md) | 人工运维接口、架构/结构、命令、状态/制品与恢复视图 | Codex | 人工运维；每次 Review 后维护 | Current |
 | [docs/documents/INCREMENT_1_TASK_CONTRACT.md](./docs/documents/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
 | [docs/documents/INCREMENT_1_FIX_TASK_1.md](./docs/documents/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
@@ -286,10 +289,12 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_9_FIX_TASK_2.md](./docs/documents/INCREMENT_9_FIX_TASK_2.md) | Increment 9 frozen consumer authority、replacement-safe retry与binding identity最小Fix Task | Codex | Increment 9 Fix 2 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_9_FIX_TASK_3.md](./docs/documents/INCREMENT_9_FIX_TASK_3.md) | Increment 9 opaque participant route single-segment encoding最小Fix Task | Codex | Increment 9 Fix 3 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_9_FIX_TASK_4.md](./docs/documents/INCREMENT_9_FIX_TASK_4.md) | Increment 9 dot-segment-safe participant route framing最小Fix Task | Codex | Increment 9 Fix 4 Coding与再次Review | Accepted |
+| [docs/documents/INCREMENT_10_TASK_CONTRACT.md](./docs/documents/INCREMENT_10_TASK_CONTRACT.md) | Stage 2 Execution Core Implementation Task Contract | Codex | Increment 10 Coding与Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
 | [docs/documents/ADR/0003-participant-role-and-v03-evolution.md](./docs/documents/ADR/0003-participant-role-and-v03-evolution.md) | Participant/Role authority、v0.3新数据库与分阶段演进决策 | Codex | v0.3协议、binding、migration与阶段规划 | Accepted |
+| [docs/documents/ADR/0004-execution-core-run-attempt-and-concurrency.md](./docs/documents/ADR/0004-execution-core-run-attempt-and-concurrency.md) | Stage 2 Run/RunAttempt、atomic claim、worktree lease与0.4 cutover决策 | Codex | Stage 2协议、storage、Executor与并发 | Proposed / decisions confirmed |
 
 “会话必读”文档为：
 
@@ -332,7 +337,10 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-08-30：用户明确最终接受Increment 9 Implementation、Fix Task 1–4与Review `review-increment-009-codex-005`；Room通过`review_accepted` Event进入`ACCEPTED`。Fix验收经验回收已完成：opaque identity进入URI path时，Review与Coding必须区分percent-encoding和URL parser normalization，并在真实public boundary直接覆盖slash与dot-segment identity。此次确认不授权stage、commit、push、database/binding cutover、旧数据删除或其它Git/runtime写操作。
 - 2026-08-30：用户另行明确授权提交Increment 9完整accepted scope；v0.3 source、tests、Plugin consumer、Fix Task 1–4、acceptance文档与经验回收指南由同一版本化commit进入`main`。该授权不覆盖push、database/binding cutover、旧数据删除、detached v0.2 launcher或其它Git/runtime写操作；active project Room继续使用v0.2 binding。
 - 2026-08-30：用户另行明确批准active project runtime的v0.3 database/binding cutover。project-local八字段runtime binding现指向`room-v0.3.sqlite`与Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，project MCP使用framed participant route `p~codex-app`；旧`room.sqlite`通过`archived_database_path`只读保留。v0.3 service、binding和Room identity已通过project-scoped MCP验证一致，Room为`DISCUSSION`且尚无Task/Run/Review/Question。本次授权不包含push、旧数据删除、commit或Claude Run。
+- 2026-08-30：用户确认Stage 2三项Architecture Decision：fresh `0.4-design` database/new Room与archive array；Stage 2只交付one-shot multi-Run Execution Core，Scheduler/worktree creation留到Stage 3；guidance只在下一RunAttempt消费。用户授权同步Project Rules与相关Current文档，明确这些内容仍是Draft/Proposed而非Current implementation。Increment 10完整Contract未确认，未授权Task submission、Claude Run、stage、commit、push、database/binding cutover或旧数据删除。
+- 2026-08-30：用户明确确认Increment 10完整Task Contract，Contract更新为`Accepted`、`confirmed_by_user=true`。本次确认不授权Git写操作、Task submission或Claude Run，因此Current v0.3 Room继续为`DISCUSSION`且无Task，尚未进入durable `PLAN_READY`；v0.4 cutover、旧数据删除、push与其它操作仍是独立门禁。
+- 2026-08-30：用户授权仅把Current v0.3 Room依次推进到`ARCHITECTURE_REVIEW`与`WAITING_FOR_USER_CONFIRMATION`；durable Event sequence 2/3确认两次transition，waiting actor=`user`，Task/Run/Review/Question仍为空。用户随后授权处理dirty worktree并形成clean planning baseline；`room_submit_task`、Claude Run、push、v0.4 cutover与旧数据删除继续分别授权。
 
 ## 14. 当前阶段
 
-Increment 1–9 Stage 1均已完成、通过Review、获用户接受并进入版本化`main`；Increment 9历史Room=`ACCEPTED`，Fix验收经验回收已完成。active project runtime已切换到protocol v0.3 Stage 1：project-local binding、SQLite、participant-scoped MCP与Room identity一致，当前Room=`DISCUSSION`且等待planner定义下一项任务。未授权push、旧v0.2 database删除、commit或Claude Run。
+Increment 1–9 Stage 1均已完成、通过Review、获用户接受并进入版本化`main`；active project runtime继续是protocol v0.3 Stage 1，当前Room=`WAITING_FOR_USER_CONFIRMATION`、waiting actor=`user`且无Task。Stage 2 Architecture Review为`Approved`，ADR-0004仍为Proposed，Increment 10 Contract为`Accepted`且`confirmed_by_user=true`。本轮仅形成clean planning baseline；下一门禁是用户另行授权`room_submit_task`。Claude Run、push、v0.4 database/binding cutover与旧数据删除仍未授权。
