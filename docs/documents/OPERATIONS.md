@@ -2,8 +2,8 @@
 
 > 状态：Current
 > 维护者：Codex（项目文档编写者及维护者）
-> 最后维护日期：2026-08-29
-> Last maintained review：`review-increment-008-codex-003`
+> 最后维护日期：2026-08-30
+> Last maintained review：`review-increment-009-codex-005`
 
 本手册面向本机 operator，集中说明当前可用接口、组件结构、验证命令、状态与制品位置以及失败检查路径。协议字段和完整 transition 以 [ROOM_PROTOCOL.md](./ROOM_PROTOCOL.md) 为准，长期架构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准；本手册不建立平行权威。
 
@@ -212,23 +212,32 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。真实service/runtime setup smoke仍未运行；consumer routing evaluation不替代该operator-run smoke。
 6. 实现状态（Current，2026-08-28，`ACCEPTED`）：Fix Task 2已收窄top-level ownership判断并补public CLI regression；Fix Review 3 `review-increment-008-codex-003`确认代码无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过。用户授权后，candidate已从`agent-room-local`安装为`0.1.0`，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部通过，Decision为`approved`，且用户已明确最终接受；完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`。manual service/runtime setup smoke仍未运行，不影响Current automatic setup capability。
 
-### 4.6 Proposed v0.3 Stage 1 cutover
+### 4.6 Accepted v0.3 Stage 1 cutover preview
 
-> 状态：Proposed；以下不是Current runbook，不得现在执行。Current setup、service、database与fixed route仍以§4.4–4.5为准。
+> 状态：Accepted / 已进入版本化`main` / Room=`ACCEPTED`（2026-08-30，等待独立cutover授权）。以下不是active runtime runbook，不得现在执行。当前project setup、service、database与fixed route仍以§4.4–4.5为准。
 
-Stage 1验收后才允许形成cutover preview：
+停止条件：v0.3 source虽已进入版本化`main`，但未获database/binding cutover授权，因此不能执行本节preview。Fix Review 5已确认固定`p~` framing全链路与`.`/`..`/`worker/2` direct regression通过，用户也已最终接受；这些事实不替代cutover的独立权限。existing v0.3 binding的`control_participant_id`非exact `codex-app`仍是独立cutover stop condition——setup public CLI在任何runtime/config/gitignore写入前失败且三份文件逐byte不变（Fix inc9-fr2-5）；config保留旧unframed candidate URL（如`/mcp/participants/codex-app`）同样按binding/config mismatch零写入拒绝，无auto-compat migration（Fix inc9-fr4）。
 
-| 项目 | Proposed结果 | 失败动作 |
+Stage 1 candidate实现已落地，cutover结果与失败动作按已实现语义确定：
+
+| 项目 | Candidate结果 | 失败动作 |
 |---|---|---|
-| v0.2 database | 保持existing path/content，记录为`archived_database_path`，不再由v0.3 writable service打开 | 任意内容变化或路径冲突时停止，不删除/重命名/重试覆盖 |
-| v0.3 database | 新建`<project>/.agent-room/room-v0.3.sqlite`并写exact protocol metadata | schema/version不一致时停止，不回落旧database |
-| runtime binding | 原五字段增加`protocol_version`、`control_participant_id`、`archived_database_path` | existing/config mismatch在写入前停止 |
-| project MCP | URL切换为`/mcp/participants/{control_participant_id}` | reload前不使用raw HTTP或旧project route绕过 |
-| Room | 创建new room_id并bootstrap defaultParticipant/Assignment | identity/readback不一致时保持v0.2 binding并报告 |
+| v0.2 database | 保持existing path/content，记录为`archived_database_path`，不再由v0.3 writable service打开；v0.3 service对缺失protocol metadata的v0.2 database与wrong exact metadata均在schema/state write前拒绝（`protocol_version_mismatch`），且database逐byte不变（Fix inc9-r6已由room:serve public open回归证明） | 任意内容变化或路径冲突时停止，不删除/重命名/重试覆盖 |
+| v0.3 database | 新建`<project>/.agent-room/room-v0.3.sqlite`，写exact `protocol_version=0.3-design` metadata并bootstrap default Participant/Assignment；复用既有`port`，创建new room_id | schema/version不exact时停止，不回落旧database |
+| runtime binding | 原五字段扩展为八字段：新增`protocol_version`（`0.3-design`）、`control_participant_id`（`codex-app`）、`archived_database_path`（v0.2 database路径；永不等于新`database_path`）；valid binding幂等复用 | existing/config mismatch在写入前停止 |
+| project MCP | 目标URL切换为`/mcp/participants/p~{encodeURIComponent(control_participant_id)}`；setup migration保守改写遗留`/mcp/codex` URL；v0.2 fixed routes与unframed candidate routes在v0.3 app不取得authority | Fix 4再次Review前停止；reload前不使用raw HTTP或旧project route绕过 |
+| Room | 创建new room_id并bootstrap codex-app→planner/reviewer/orchestrator（single control endpoint，capabilities含supervising）、claude-code-cli→worker、local-runner→executor；operator保留human profile但无active assignment（Fix inc9-r4） | identity/readback不一致时保持v0.2 binding并报告 |
+| migration/reuse | 要求operator再次显式提供`--agent-room-root`：stored v0.2 root指向v0.2代码路径，不能复用为v0.3 root（candidate实现的最小选择，见Coding Result deviation） | 缺失或invalid root在写入前停止，不猜测 |
 
 Stage 1 candidate继续写入当前target main，但不从candidate路径重新加载launcher：固定planning baseline的detached v0.2 launcher worktree负责`room:serve`/`room:run`，当前Room/database/project path保持不变，Gitignored runtime binding只临时切换`agent_room_root`。launcher worktree创建、binding更新、documentation commit、最终cutover与cleanup是独立授权；任何一步未授权都停止。
 
-当前没有可执行v0.3命令。实际command、preview schema、成功信号和恢复步骤必须由Accepted Contract implementation与Review证据确定后再提升到Current runbook。
+candidate通过Review、用户明确接受并获得单独cutover授权后，本节才升级为Current runbook；在此之前v0.3命令、database与binding均为candidate，不得用于当前Room。
+
+candidate迁移成功信号与停止/恢复边界（按已实现语义，cutover授权前不执行）：
+
+- 成功信号：`setup-project.ts --agent-room-root <v0.3-root>`（migration路径额外要求operator再提供一次root，见上表）在plan全部通过后写入`.agent-room/runtime.json`（八字段）与保守合并的config/gitignore，stdout输出deterministic JSON summary，其中`mode`为`created`、`migrated`或`reused`，并给出exact `serve_command`；migrated模式`archived_database_path`等于旧v0.2 database路径且`database_path`为新`room-v0.3.sqlite`，两者永不相等。Fix inc9-r6已证明旧database逐byte不变、port复用与identity稳定；Fix 4还必须直接证明config从legacy `/mcp/codex`写为`/mcp/participants/p~codex-app`，并证明existing unframed v0.3 config零写入拒绝。
+- 停止边界：invalid/mismatch binding（含existing v0.3 binding的`control_participant_id`非exact `codex-app`，Fix inc9-fr2-5）、`--agent-room-root`缺失（migration必需）、legacy URL rewrite计划无法构成、`archived_database_path`等于`database_path`、或任何plan失败都在写入前停止，stdout零写入并stderr输出原因；不delete/rename/原地改写v0.2 database，不换第二port绕开冲突。
+- 恢复边界：migration rerun幂等复用同一v0.3 identity（同一`room_id`/port/`archived_database_path`），不创建第二database/Room/profile/assignment；v0.2 archived database不迁移、不backfill、不改写历史actor/session，只读保留。binding回退/保留由operator决定：cutover未完成前保持v0.2 binding并报告，不自动回滚candidate写入。
 
 ## 5. 人工操作命令
 
@@ -315,5 +324,10 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-008-codex-002` | `changes_requested` / 等待用户确认 | top-level冻结dotted-key回归已闭合；classifier丢失TOML table context，误把unrelated table内嵌套同名key当作project binding；actual installed-plugin consumer evaluation仍为`not_run` | 保持automatic setup candidate并进入`REVIEW_DISCUSSION`；确认方案前不生成Fix Task，consumer evaluation仍需单独授权 |
 | `review-increment-008-codex-002` solution | finding与方案已确认 | 运维目标不变；只收窄helper的top-level TOML ownership判断，actual consumer仍pending | [Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)已`Accepted`/`FIX_PLAN_READY`；等待人工派发或另行执行授权，不安装/reload Plugin |
 | `review-increment-008-codex-003` | `approved` / 用户已最终接受 / `ACCEPTED` | table-context修复与public CLI regression闭合，自动化验证全部通过；授权后的actual installed-plugin consumer evaluation覆盖direct/indirect/negative/boundary routing与bundled resource resolution并通过 | commit `8428046dded5f7542690735b3df8a5c5490e8090`已将automatic setup纳入Current；manual smoke、service/runtime setup、Claude与push仍未授权 |
+
+| `review-increment-009-codex-002` | `changes_requested` / solution confirmed / Fix Task 2 Accepted | Fix Run成功且既有tests为green；direct probes确认production Runner固定executor、Task-scope reviewer acceptance错误、replacement retry失效、historical orchestrator残留authority与control binding identity不一致 | [Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)已进入`FIX_PLAN_READY`；不cutover，本次未授权Run |
+| `review-increment-009-codex-003` | `changes_requested` / solution confirmed / Fix Task 3 Accepted，Fix Coding完成（candidate，`REVIEW_REQUIRED`） | Fix Task 2五项finding已闭合，独立验证全部通过；公开schema允许`worker/2`等opaque identity，但raw participant route为404，encoded route被Runner/CLI exact comparison拒绝 | [Fix Task 3](./INCREMENT_9_FIX_TASK_3.md) Fix Coding完成：canonical single-segment encoding + `worker/2`的MCP/Runner/CLI direct regression（claude-runner 49/49、runner-cli 15/15、room-mcp 38/38、scope 1/1、full 314/314）全部通过；等待Fix Review 4，不cutover、不accept、不执行Git write |
+| `review-increment-009-codex-004` | `changes_requested` / solution confirmed / Fix Task 4 Accepted，Fix Coding完成（candidate，`REVIEW_REQUIRED`） | Fix Task 3对`worker/2`的single-segment encoding与Runner/CLI gate正确；但schema允许`.`/`..`且`encodeURIComponent`保留dot，WHATWG URL parser把participant path归一化为当前/父路径，合法Participant不可达 | [Fix Task 4](./INCREMENT_9_FIX_TASK_4.md) Fix Coding完成：所有participant routes统一为`p~` + `encodeURIComponent(raw id)` framing，MCP只移除一次prefix恢复raw authority，unframed POST 404；`.`/`..`/`worker/2`的MCP/Runner/CLI/setup direct regression（room-mcp/claude-runner/runner-cli 108/108、plugin-setup/plugin-packaging 35/35、E2E 12/12、scope 1/1、full 321/321）全部通过；等待Fix Review 5，不cutover、不accept、不执行Git write |
+| `review-increment-009-codex-005` | `approved` / 无finding / 用户已最终接受 | Fix Task 4固定`p~` framing在MCP、Runner、CLI、setup与Plugin consumer中保持raw identity/authority；unframed route在副作用前拒绝 | 独立typecheck、focused 108/108、35/35、12/12、scope 1/1与full 321/321通过；Room=`ACCEPTED`，经验回收完成；不cutover、不执行Git write |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

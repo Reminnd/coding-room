@@ -8,6 +8,7 @@ export const protocolErrorCodeSchema = z.enum([
   'entity_not_found',
   'id_conflict',
   'validation_failed',
+  'protocol_version_mismatch',
   'git_repository_missing',
   'git_head_missing',
   'worktree_not_clean',

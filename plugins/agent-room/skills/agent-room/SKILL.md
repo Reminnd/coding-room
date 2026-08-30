@@ -9,7 +9,7 @@ Run the Agent Room workflow for the current project: validate the project-local 
 
 ## Overview
 
-The Agent Room coordinates user, Codex and Claude Code on a shared local Git worktree: Codex submits a Task Contract, Claude Code executes it via a one-shot Runner process, Codex reviews the actual Diff. Each project owns a local Room instance: a per-project Room service on a loopback port, a file-backed SQLite database, and a project-scoped MCP endpoint at `http://127.0.0.1:<PROJECT_PORT>/mcp/codex`. The one-shot launcher script (`room:run`) executes exactly one Claude Code run.
+The Agent Room coordinates user, Codex and Claude Code on a shared local Git worktree: Codex submits a Task Contract, Claude Code executes it via a one-shot Runner process, Codex reviews the actual Diff. Each project owns a local Room instance: a per-project Room service on a loopback port, a file-backed SQLite database, and a project-scoped MCP endpoint at `http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~<CONTROL_PARTICIPANT_ID>` (framed v0.3 participant route — `p~` plus the raw participant id; the control participant is `codex-app`, so the concrete URL is `http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~codex-app`). The one-shot launcher script (`room:run`) executes exactly one Claude Code run.
 
 Codex is the fixed caller of the one-shot launcher in this workflow. The host approval mode is the operator-configured UI "帮我批准" (`approvals_reviewer=auto_review`): one approval authorizes at most one launcher invocation; a rejection means zero invocations. The Skill never modifies the approval policy, never writes active permission rules, never asks for ad-hoc npm/shell allow rules, and never falls back to an operator-run command.
 
@@ -49,10 +49,11 @@ node "<AGENT_ROOM_ROOT>/plugins/agent-room/skills/agent-room/scripts/setup-proje
 ```
 
    The helper reads and validates every existing file before any write, then plans or stops:
-   - No runtime binding and no `[mcp_servers.agent_room]` in `.codex/config.toml` → create a fresh binding: `database_path` = `<PROJECT_PATH>/.agent-room/room.sqlite` (absolute), `port` = an OS-assigned ephemeral loopback port (JSON integer in `1..65535`), `room_id` = `room-<UUID>`; create or conservatively merge the three files.
-   - Valid existing binding → reuse its exact `agent_room_root`, `database_path`, `port` and `room_id`; only append missing matching config/gitignore entries; semantically identical files are never rewritten.
-   - Invalid binding, `agent_room_root` mismatch, missing runtime with an existing `[mcp_servers.agent_room]`, same-URL conflict or runtime/config mismatch → stop with zero writes and report; ask the operator how to proceed. Never overwrite, never rename a server, never pick a second port to dodge a conflict.
-   The helper prints one deterministic JSON summary: `mode` (`created`/`reused`), the five runtime values, config/gitignore change summary, the exact `room:serve` command inputs and `reload_required`. This stdout is informational only — the Room never treats it as durable state.
+   - No runtime binding and no `[mcp_servers.agent_room]` in `.codex/config.toml` → create a fresh v0.3 binding: `database_path` = `<PROJECT_PATH>/.agent-room/room.sqlite` (absolute), `port` = an OS-assigned ephemeral loopback port (JSON integer in `1..65535`), `room_id` = `room-<UUID>`, `protocol_version` = `0.3-design`, `control_participant_id` = `codex-app`, `archived_database_path` = `null`; create or conservatively merge the three files.
+   - Valid v0.3 binding → reuse its exact `agent_room_root`, `database_path`, `port`, `room_id` and identity fields; only append missing matching config/gitignore entries or conservatively update a leftover v0.2 `/mcp/codex` URL to the framed participant route; semantically identical files are never rewritten.
+   - Valid v0.2 binding (five fields, archive input) → migrate: keep the old database byte-unchanged at its original path (never delete, rename or rewrite it), create `<PROJECT_PATH>/.agent-room/room-v0.3.sqlite` with a new `room_id`, reuse the port, set `archived_database_path` to the old database path, and update the config URL to the participant route; `--agent-room-root` is required again because the stored v0.2 root points at v0.2 code. Migration reruns reuse the same v0.3 identity — no second database, Room, profile or assignment.
+   - Invalid binding, `agent_room_root` mismatch, missing runtime with an existing `[mcp_servers.agent_room]`, same-URL conflict, `archived_database_path` equal to `database_path`, a config URL that is neither the framed participant route nor the leftover v0.2 `/mcp/codex` URL (for example an unframed `.../mcp/participants/codex-app` candidate URL — rejected as a binding/config mismatch, never auto-migrated), or any other runtime/config mismatch → stop with zero writes and report; ask the operator how to proceed. Never overwrite, never rename a server, never pick a second port to dodge a conflict.
+   The helper prints one deterministic JSON summary: `mode` (`created`/`migrated`/`reused`), the eight runtime values, config/gitignore change summary, the exact `room:serve` command inputs and `reload_required`. This stdout is informational only — the Room never treats it as durable state.
 3. Probe the binding's loopback port:
 
 ```text
@@ -72,7 +73,7 @@ npm --prefix "<AGENT_ROOM_ROOT>" run room:serve -- --db "<DATABASE_PATH>" --proj
 
 The operator explicitly continues setup after the Codex Desktop reload:
 
-1. Re-validate per Step 1 and Step 2: the five runtime fields, the exact `http://127.0.0.1:<PROJECT_PORT>/mcp/codex` config URL and the service.
+1. Re-validate per Step 1 and Step 2: the eight runtime fields, the exact `http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~codex-app` config URL and the service.
 2. Call `room_get_state` with the exact generated `room_id`. If the Room does not exist yet, call `room_create` once with that exact `room_id` (setup mode only), then call `room_get_state` again: it must return the same Room with state `DISCUSSION`. If the same-id Room already exists, reuse it (idempotency). Any other MCP error stops and reports.
 3. Setup is complete when the binding is consistent, the service is reachable and the Room exists with readable identity and `DISCUSSION` state. Report the result and stop — do not begin an Architecture Review, do not submit a Task, do not invoke the launcher, do not start a Claude process and do not create the next turn.
 
@@ -80,7 +81,7 @@ The setup mode never enters the normal workflow: it uses only the existing `room
 
 ## Step 1 — Validate the project-local runtime binding
 
-Read the current project's `.agent-room/runtime.json`. It must be a JSON object containing exactly these five required fields and no others:
+Read the current project's `.agent-room/runtime.json`. A v0.3 binding is a JSON object containing exactly these eight required fields and no others:
 
 | Field | Required shape |
 |---|---|
@@ -89,23 +90,27 @@ Read the current project's `.agent-room/runtime.json`. It must be a JSON object 
 | `project_path` | absolute path string; after normal host path resolution must equal the current target project |
 | `port` | JSON integer in `1..65535` |
 | `room_id` | non-empty string |
+| `protocol_version` | exactly `0.3-design` |
+| `control_participant_id` | non-empty string; the project-scoped control participant (`codex-app`) |
+| `archived_database_path` | absolute path string or `null`; the archived v0.2 database path (never equal to `database_path`) |
 
 Validation rules — any violation stops the workflow and is reported; the Skill never guesses, scans or falls back to another project's configuration:
 
-- A missing field, an extra field, a wrong type, a non-absolute path, a non-integer or out-of-range `port`, or an empty `room_id` → stop and report.
+- A missing field, an extra field, a wrong type, a non-absolute path, a non-integer or out-of-range `port`, an empty `room_id`, a `protocol_version` other than `0.3-design`, an empty `control_participant_id`, an `archived_database_path` that is neither absolute nor `null`, or an `archived_database_path` equal to `database_path` → stop and report.
 - `project_path` must resolve (via the host's normal path resolution) to the current target project directory. If it resolves to any other directory → stop and report a project binding mismatch.
 - `agent_room_root` must contain the Agent Room `package.json` whose `scripts` define `room:run`. If not → stop and report; the target project does not need its own `room:run` script or package manifest.
 - `database_path` is the operator-chosen file-backed database of this project. It is not derived from any other file, and the Skill does not scan for or infer databases.
+- A v0.2 five-field binding is not a valid v0.3 binding: it is archive input for setup migration (see Setup mode). In the normal workflow a missing, v0.2 or invalid binding stops and reports; setup migration is never entered implicitly.
 
 ## Step 2 — Validate the project-scoped MCP binding
 
-Read the current project's `.codex/config.toml`. It must define `[mcp_servers.agent_room]` with a `url` that matches exactly `http://127.0.0.1:<runtime.port>/mcp/codex` (loopback host, the exact `port` from `runtime.json`, exact `/mcp/codex` route). A missing server, a different URL, or a mismatch with `runtime.port` → stop and report before any Task command or launcher invocation.
+Read the current project's `.codex/config.toml`. It must define `[mcp_servers.agent_room]` with a `url` that matches exactly `http://127.0.0.1:<runtime.port>/mcp/participants/p~<runtime.control_participant_id>` (loopback host, the exact `port` from `runtime.json`, the framed v0.3 participant route — `p~` prefix plus the raw participant id). A missing server, a different URL (including an unframed `.../mcp/participants/<id>` candidate URL), a leftover v0.2 `/mcp/codex` route, or a mismatch with `runtime.port` → stop and report before any Task command or launcher invocation (a leftover v0.2 URL is migrated only through setup mode, never fixed in the normal workflow).
 
 Then call `room_get_state` on the project-scoped MCP endpoint with `room_id = <ROOM_ID>` and confirm the returned Room identity equals `<ROOM_ID>`. A mismatch or an error → stop and report.
 
 ## Step 3 — Follow the durable Room state
 
-Read the Room with `room_get_state` (the project-scoped `/mcp/codex` endpoint is the workflow authority; `room:status` may be used only for manual CLI viewing). The Room state decides the only legal next action:
+Read the Room with `room_get_state` (the project-scoped `/mcp/participants/p~codex-app` endpoint is the workflow authority; `room:status` may be used only for manual CLI viewing). The Room state decides the only legal next action:
 
 | Room state | Required action |
 |---|---|
@@ -132,7 +137,7 @@ Only from `PLAN_READY`, `FIX_PLAN_READY`, or a `NEEDS_DECISION` Decision continu
 3. **Exact command** — run from the target project working directory, quoting every path/ID/URL value:
 
 ```text
-npm --prefix "<AGENT_ROOM_ROOT>" run room:run -- --db "<DATABASE_PATH>" --project "<PROJECT_PATH>" --task-id "<TASK_ID>" --run-id "<RUN_ID>" --mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/claude" [--baseline-head "<OBSERVED_BASELINE_HEAD>"]
+npm --prefix "<AGENT_ROOM_ROOT>" run room:run -- --db "<DATABASE_PATH>" --project "<PROJECT_PATH>" --task-id "<TASK_ID>" --run-id "<RUN_ID>" --mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli" [--baseline-head "<OBSERVED_BASELINE_HEAD>"]
 ```
 
 `--baseline-head` appears only in the first new Implementation invocation. The launcher is resolved against the validated `agent_room_root`; the target project does not need to expose any package manifest or `room:run` script.

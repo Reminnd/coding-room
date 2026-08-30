@@ -174,7 +174,7 @@ async function runCli(
     '--project', fixture,
     '--task-id', taskId,
     '--run-id', runId,
-    '--mcp-url', `${url}/mcp/claude`,
+    '--mcp-url', `${url}/mcp/participants/p~claude-code-cli`,
   ];
   if (baselineHead !== null) args.push('--baseline-head', baselineHead);
   const { io, out } = recordingIo();
@@ -188,7 +188,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
   const { url, close } = await startApp(service, repo);
-  const codex = await connect(url, '/mcp/codex');
+  const codex = await connect(url, '/mcp/participants/p~codex-app');
   try {
     // 1. Codex 创建 Room 并完成 planning gate。
     const created = await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
@@ -281,9 +281,9 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     const verify = new RoomService(verifyDb);
     const run1Row = verify.getRun('run-1')!;
     const run2Row = verify.getRun('run-2')!;
-    assert.equal(run1Row.claude_session_id, SESSION_ID);
+    assert.equal(run1Row.agent_session_ref, SESSION_ID);
     assert.equal(run1Row.baseline_head, baselineHead);
-    assert.equal(run2Row.claude_session_id, SESSION_ID, 'fix run must reuse the lineage session');
+    assert.equal(run2Row.agent_session_ref, SESSION_ID, 'fix run must reuse the lineage session');
     assert.equal(run2Row.baseline_head, baselineHead, 'fix run must inherit the source baseline');
     assert.deepEqual(run1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
     // run-2 的 completion evidence 在 run-1 已写 artifact 之后采集：.agent-room/ 是未版本化
@@ -320,7 +320,7 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
   const { url, close } = await startApp(service, repo);
-  const codex = await connect(url, '/mcp/codex');
+  const codex = await connect(url, '/mcp/participants/p~codex-app');
   try {
     await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
@@ -379,7 +379,7 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
     assert.equal(run1Row.status, 'failed');
     assert.equal(run1Row.baseline_head, baselineHead);
     assert.equal(run2Row.status, 'succeeded');
-    assert.equal(run2Row.claude_session_id, SESSION_ID);
+    assert.equal(run2Row.agent_session_ref, SESSION_ID);
     assert.equal(run2Row.baseline_head, baselineHead, 'retry must inherit the source run baseline');
     assert.deepEqual(run1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-wip.txt'] });
     // run-2 的 evidence 包含 run-1（失败 run 同样写 artifact）的 artifact 文件；run-2 自身的
@@ -413,7 +413,7 @@ test('retry with an empty source session creates a replacement session without -
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
   const { url, close } = await startApp(service, repo);
-  const codex = await connect(url, '/mcp/codex');
+  const codex = await connect(url, '/mcp/participants/p~codex-app');
   try {
     await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
@@ -432,8 +432,8 @@ test('retry with an empty source session creates a replacement session without -
     });
     const failed = await runCli(url, dbPath, repo, 'task-1', 'run-1', baselineHead, spawner1);
     assert.equal(failed.exitCode, 1);
-    const failedPayload = JSON.parse(failed.stdout) as { run: { claude_session_id: string | null } };
-    assert.equal(failedPayload.run.claude_session_id, null, 'failed run persists no session');
+    const failedPayload = JSON.parse(failed.stdout) as { run: { agent_session_ref: string | null } };
+    assert.equal(failedPayload.run.agent_session_ref, null, 'failed run persists no session');
 
     await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1' } });
 
@@ -455,7 +455,7 @@ test('retry with an empty source session creates a replacement session without -
     const verify = new RoomService(verifyDb);
     const run2Row = verify.getRun('run-2')!;
     assert.equal(run2Row.status, 'succeeded');
-    assert.equal(run2Row.claude_session_id, REPLACEMENT_SESSION);
+    assert.equal(run2Row.agent_session_ref, REPLACEMENT_SESSION);
     assert.equal(run2Row.baseline_head, baselineHead, 'replacement session still inherits the baseline');
     const state = await snapshot(codex, 'room-1');
     const events = state.events as { type: string }[];

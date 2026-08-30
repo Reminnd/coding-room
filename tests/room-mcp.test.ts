@@ -14,17 +14,34 @@ import {
   makeCodingResult,
   makeFinding,
   makeFixTask,
+  makeParticipant,
   makeQuestion,
   makeReview,
+  makeRoleAssignment,
   makeRun,
   makeTask,
   makeTerminalEvidence,
 } from './fixtures.ts';
 
-// actor-scoped Room MCP 的端到端测试：临时 git repository 提供 clean-baseline gate 的
+// v0.3 actor-scoped Room MCP 的端到端测试：临时 git repository 提供 clean-baseline gate 的
 // fixture，in-memory RoomService 挂在 createRoomMcpApp 上 listen 临时端口，再用 in-process
 // SDK Client + StreamableHTTPClientTransport 走真实 loopback HTTP 连接验证 tool surface、
-// Git gate、write tool 行为与 ProtocolError 稳定映射。
+// participant route 的 authority 映射、Git gate、write tool 行为与 ProtocolError 稳定映射。
+// 单一路由 /mcp/participants/p~{encodeURIComponent(participant_id)} 把 participant identity
+// 从 framed route 传入（`p~` transport framing，Fix inc9-fr4）；route 与测试侧 actor literal
+// 必须与 bootstrap assignment 一致。
+
+// v0.3 actor literal：与默认 bootstrap assignment 一致（测试侧独立 literal，不导入实现）。
+const PLANNER = { participant_id: 'codex-app', actor_role: 'planner' as const };
+const REVIEWER = { participant_id: 'codex-app', actor_role: 'reviewer' as const };
+const WORKER = { participant_id: 'claude-code-cli', actor_role: 'worker' as const };
+const EXECUTOR = { participant_id: 'local-runner', actor_role: 'executor' as const };
+const ORCHESTRATOR = { participant_id: 'codex-app', actor_role: 'orchestrator' as const };
+
+const CODEX_ROUTE = '/mcp/participants/p~codex-app';
+const CLAUDE_ROUTE = '/mcp/participants/p~claude-code-cli';
+const OPERATOR_ROUTE = '/mcp/participants/p~operator';
+
 function makeFixture(): string {
   return mkdtempSync(join(tmpdir(), 'agent-room-mcp-'));
 }
@@ -160,59 +177,59 @@ function resultText(result: unknown): string {
   return typeof text === 'string' ? text : '';
 }
 
-test('codex route exposes exactly the nine Codex tools; claude route exposes only room_ask_question', async () => {
+test('a participant route exposes exactly the thirteen v0.3 tools', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     assert.deepEqual(await toolNames(codex), [
       'room_accept_review',
       'room_answer_question',
+      'room_ask_question',
       'room_begin_architecture_review',
       'room_create',
+      'room_create_role_assignment',
       'room_get_state',
+      'room_register_participant',
       'room_request_user_confirmation',
       'room_retry_run',
+      'room_set_participant_enabled',
       'room_submit_review',
       'room_submit_task',
     ]);
     await codex.close();
-
-    const claude = await connect(url, '/mcp/claude');
-    assert.deepEqual(await toolNames(claude), ['room_ask_question']);
-    await claude.close();
   } finally {
     await close();
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test('each route rejects tools not registered on it', async () => {
+test('an unknown tool name on a participant route is rejected as not found', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const codexResult = await codex.callTool({
-      name: 'room_ask_question',
+      name: 'room_bogus',
       arguments: makeQuestion() as unknown as Record<string, unknown>,
     });
     assert.equal(codexResult.isError, true);
     assert.match(resultText(codexResult), /not found/);
     await codex.close();
 
-    const claude = await connect(url, '/mcp/claude');
+    const claude = await connect(url, CLAUDE_ROUTE);
     await claude.listTools();
     const claudeResult = await claude.callTool({
       name: 'room_get_state',
       arguments: { room_id: 'room-1' },
     });
+    // claude-code-cli 是已注册 participant，room_get_state 合法：需要先创建 Room。
     assert.equal(claudeResult.isError, true);
-    assert.match(resultText(claudeResult), /not found/);
     await claude.close();
   } finally {
     await close();
@@ -227,7 +244,7 @@ test('GET and DELETE on both routes return 405 with a JSON-RPC error body', asyn
   const { url, close } = await startApp(service, fixture);
   try {
     for (const method of ['GET', 'DELETE']) {
-      for (const route of ['/mcp/codex', '/mcp/claude']) {
+      for (const route of [CODEX_ROUTE, CLAUDE_ROUTE]) {
         const res = await fetch(url + route, { method });
         assert.equal(res.status, 405);
         const body = (await res.json()) as { error: { code: number } };
@@ -244,14 +261,14 @@ test('room_get_state returns the shared snapshot as structuredContent', async ()
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const result = await codex.callTool({ name: 'room_get_state', arguments: { room_id: 'room-1' } });
     assert.equal(result.isError, undefined);
@@ -262,7 +279,7 @@ test('room_get_state returns the shared snapshot as structuredContent', async ()
       current_run: { run_id: string } | null;
     };
     assert.equal(state.cursor, 5);
-    assert.equal(state.waiting_actor, 'claude');
+    assert.equal(state.waiting_actor, 'worker');
     assert.equal(state.current_task?.task_id, 'task-1');
     assert.equal(state.current_run?.run_id, 'run-1');
     await codex.close();
@@ -276,12 +293,12 @@ test('room_submit_task first implementation on a clean worktree returns the base
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const result = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
     assert.equal(result.isError, undefined);
@@ -305,12 +322,12 @@ test('room_submit_task first implementation on a dirty worktree fails with workt
   initRepo(fixture);
   writeFileSync(join(fixture, 'a.txt'), 'dirty');
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
@@ -331,12 +348,12 @@ test('room_submit_task same-content retry is idempotent and different-content co
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const first = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
     assert.equal((first.structuredContent as { created: boolean }).created, true);
@@ -362,17 +379,17 @@ test('room_submit_task fix task skips the clean-worktree gate and returns null b
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence());
-  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence(), EXECUTOR);
+  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   writeFileSync(join(fixture, 'dirty.txt'), 'x'); // fix 提交不应触发 clean gate
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const fixTask = makeFixTask({
       task_id: 'task-2',
@@ -401,14 +418,14 @@ test('room_ask_question on the claude route asks and moves the Room to NEEDS_DEC
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
   const { url, close } = await startApp(service, fixture);
   try {
-    const claude = await connect(url, '/mcp/claude');
+    const claude = await connect(url, CLAUDE_ROUTE);
     await claude.listTools();
     const result = await claude.callTool({ name: 'room_ask_question', arguments: makeQuestion() as unknown as Record<string, unknown> });
     assert.equal(result.isError, undefined);
@@ -427,26 +444,193 @@ test('room_ask_question on the claude route asks and moves the Room to NEEDS_DEC
   }
 });
 
-test('codex write tools (answer_question, submit_review, accept_review) round-trip through the adapter', async () => {
+// Fix inc9-fr3/fr4 direct regression：含斜杠的 participant_id 只有一个 raw identity，其 HTTP
+// route representation 是 canonical framed single segment（测试侧 literal
+// p~worker%2F2：`p~` transport framing + encodeURIComponent）。framed URL 必须命中单一
+// participant route、tool 调用成功且 service 收到的 actor identity 恢复为 raw worker/2
+//（Event 冻结 raw identity）；unframed candidate（encoded 单 segment worker%2F2、raw 双
+// segment worker/2、unframed default identity）都不是 participant route（404，无
+// wildcard/alias/多 segment fallback），且不产生任何 durable 副作用。
+test('a slash participant_id reaches its tool through the canonical framed route with raw authority identity', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.registerParticipant(
+    makeParticipant({
+      participant_id: 'worker/2',
+      display_name: 'Worker 2',
+      kind: 'agent',
+      provider: 'anthropic',
+      adapter_id: 'claude_code_cli',
+      capabilities: ['coding', 'questioning'],
+    }),
+    ORCHESTRATOR,
+  );
+  service.createRoleAssignment(
+    makeRoleAssignment({ assignment_id: 'a-w2', scope_type: 'task', scope_id: 'task-1', role: 'worker', participant_id: 'worker/2' }),
+    ORCHESTRATOR,
+  );
+  service.startRun(makeRun({ worker_participant_id: 'worker/2' }), EXECUTOR);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
-    await codex.listTools();
+    // 1) canonical framed single segment：tool 调用成功，authority 收到 raw worker/2。
+    const framed = await connect(url, '/mcp/participants/p~worker%2F2');
+    await framed.listTools();
+    const result = await framed.callTool({ name: 'room_ask_question', arguments: makeQuestion() as unknown as Record<string, unknown> });
+    assert.equal(result.isError, undefined);
+    const out = result.structuredContent as { question: { question_id: string }; room: { state: string } };
+    assert.equal(out.question.question_id, 'question-1');
+    assert.equal(out.room.state, 'NEEDS_DECISION');
+    const asked = service.listEvents('room-1').find((e) => e.type === 'question_asked');
+    assert.ok(asked, 'question_asked Event must exist');
+    assert.equal(asked.participant_id, 'worker/2');
+    assert.equal(asked.actor_role, 'worker');
+    await framed.close();
 
-    service.askQuestion(makeQuestion());
+    // 2) unframed candidate route 不是 participant route：全部 404，且 durable Event list 不变。
+    const eventsBefore = service.listEvents('room-1');
+    for (const unframed of ['/mcp/participants/worker%2F2', '/mcp/participants/worker/2', '/mcp/participants/codex-app', '/mcp/participants/claude-code-cli']) {
+      const res = await fetch(`${url}${unframed}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {} }),
+      });
+      assert.equal(res.status, 404, `${unframed} must not be a participant route`);
+      await res.text();
+    }
+    assert.deepEqual(service.listEvents('room-1'), eventsBefore, 'unframed routes must not reach any tool');
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// Fix inc9-fr4 direct regression：`.`/`..` 是 schema 允许的 raw opaque participant_id，其
+// canonical framed route 是测试侧 literal `p~.`/`p~..`（`p~` prefix 阻止 WHATWG URL 的
+// dot-segment normalization）。两个 participant 都注册并拿到 task-scope worker assignment，
+// 通过各自 framed route 调用实际 write tool，Event actor 与 Run 冻结 worker 都是 raw
+// identity；unframed `.`/`..` URL 被 URL parser 归一化出 participant route（404），且不
+// 产生任何 durable 副作用。
+test('dot participant_ids reach their tools through framed routes with raw authority identity', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  for (const [pid, name] of [['.', 'Dot'], ['..', 'Dotdot']] as const) {
+    service.registerParticipant(
+      makeParticipant({
+        participant_id: pid,
+        display_name: name,
+        kind: 'agent',
+        provider: 'anthropic',
+        adapter_id: 'claude_code_cli',
+        capabilities: ['coding', 'questioning'],
+      }),
+      ORCHESTRATOR,
+    );
+  }
+  service.createRoleAssignment(
+    makeRoleAssignment({ assignment_id: 'a-dot', scope_type: 'task', scope_id: 'task-1', role: 'worker', participant_id: '.' }),
+    ORCHESTRATOR,
+  );
+  service.startRun(makeRun({ worker_participant_id: '.' }), EXECUTOR);
+  const { url, close } = await startApp(service, fixture);
+  try {
+    // 1) `.` 的 framed route：实际 tool 调用成功，authority 收到 raw `.`。
+    const dot = await connect(url, '/mcp/participants/p~.');
+    await dot.listTools();
+    const askedDot = await dot.callTool({ name: 'room_ask_question', arguments: makeQuestion() as unknown as Record<string, unknown> });
+    assert.equal(askedDot.isError, undefined);
+    assert.equal((askedDot.structuredContent as { question: { question_id: string } }).question.question_id, 'question-1');
+    assert.equal((askedDot.structuredContent as { room: { state: string } }).room.state, 'NEEDS_DECISION');
+    const dotEvent = service.listEvents('room-1').find((e) => e.type === 'question_asked');
+    assert.ok(dotEvent, 'question_asked Event must exist');
+    assert.equal(dotEvent.participant_id, '.');
+    assert.equal(dotEvent.actor_role, 'worker');
+    assert.equal(service.getRun('run-1')!.worker_participant_id, '.');
+    await dot.close();
+
+    // 2) unframed `.`/`..` URL 被 WHATWG URL 归一化出 participant route：404，Event list 不变。
+    const eventsBefore = service.listEvents('room-1');
+    for (const unframed of ['/mcp/participants/.', '/mcp/participants/..']) {
+      const res = await fetch(`${url}${unframed}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {} }),
+      });
+      assert.equal(res.status, 404, `${unframed} must not be a participant route`);
+      await res.text();
+    }
+    assert.deepEqual(service.listEvents('room-1'), eventsBefore, 'unframed dot routes must not reach any tool');
+
+    // 3) `..` 的 framed route 走完整 continuation：answer/resume/review/fix 后由 task-2 的
+    // worker assignment 驱动，Event actor 冻结为 raw `..`。
     service.finalizeNeedsDecision(
       'run-1',
       makeCodingResult({ status: 'needs_decision' }),
       null,
-      makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+      makeTerminalEvidence({ agent_session_ref: 'sess-1' }),
+      EXECUTOR,
+    );
+    service.answerQuestion('question-1', 'pick a', false, PLANNER);
+    service.resumeRun(makeRun({ run_id: 'run-2', worker_participant_id: '.' }), EXECUTOR);
+    service.completeRun('run-2', makeCodingResult(), makeTerminalEvidence(), EXECUTOR);
+    service.submitReview(makeReview({ run_id: 'run-2', decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
+    service.submitTask(makeFixTask({ task_id: 'task-2', parent_task_id: 'task-1', based_on_review_id: 'review-1' }), PLANNER);
+    service.createRoleAssignment(
+      makeRoleAssignment({ assignment_id: 'a-dotdot', scope_type: 'task', scope_id: 'task-2', role: 'worker', participant_id: '..' }),
+      ORCHESTRATOR,
+    );
+    service.resumeRun(makeRun({ run_id: 'run-3', task_id: 'task-2', worker_participant_id: '..' }), EXECUTOR);
+
+    const dotdot = await connect(url, '/mcp/participants/p~..');
+    await dotdot.listTools();
+    const askedDotdot = await dotdot.callTool({
+      name: 'room_ask_question',
+      arguments: makeQuestion({ question_id: 'question-2', run_id: 'run-3', task_id: 'task-2' }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(askedDotdot.isError, undefined);
+    assert.equal((askedDotdot.structuredContent as { question: { question_id: string } }).question.question_id, 'question-2');
+    const dotdotEvent = service.listEvents('room-1').find((e) => e.type === 'question_asked' && e.entity_id === 'question-2');
+    assert.ok(dotdotEvent, 'second question_asked Event must exist');
+    assert.equal(dotdotEvent.participant_id, '..');
+    assert.equal(dotdotEvent.actor_role, 'worker');
+    assert.equal(service.getRun('run-3')!.worker_participant_id, '..');
+    await dotdot.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('codex write tools (answer_question, submit_review, accept_review) round-trip through the adapter', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, CODEX_ROUTE);
+    await codex.listTools();
+
+    service.askQuestion(makeQuestion(), WORKER);
+    service.finalizeNeedsDecision(
+      'run-1',
+      makeCodingResult({ status: 'needs_decision' }),
+      null,
+      makeTerminalEvidence({ agent_session_ref: 'sess-1' }),
+      EXECUTOR,
     );
     const answered = await codex.callTool({
       name: 'room_answer_question',
@@ -455,8 +639,8 @@ test('codex write tools (answer_question, submit_review, accept_review) round-tr
     assert.equal(answered.isError, undefined);
     assert.equal((answered.structuredContent as { question: { status: string } }).question.status, 'answered');
 
-    service.resumeRun(makeRun({ run_id: 'run-2' }));
-    service.completeRun('run-2', makeCodingResult(), makeTerminalEvidence());
+    service.resumeRun(makeRun({ run_id: 'run-2' }), EXECUTOR);
+    service.completeRun('run-2', makeCodingResult(), makeTerminalEvidence(), EXECUTOR);
 
     const reviewed = await codex.callTool({
       name: 'room_submit_review',
@@ -482,10 +666,10 @@ test('a ProtocolError from a write tool surfaces as a stable {code,message} tool
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1'); // DISCUSSION：submitTask 非法
+  service.createRoom('room-1', PLANNER); // DISCUSSION：submitTask 非法
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const result = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
     assert.equal(result.isError, true);
@@ -503,7 +687,7 @@ test('raw POST responses are application/json (initialize/tools-list/tools-call)
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
+  service.createRoom('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
     const post = (route: string, method: string, params: unknown) =>
@@ -513,7 +697,7 @@ test('raw POST responses are application/json (initialize/tools-list/tools-call)
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
       });
 
-    const init = await post('/mcp/codex', 'initialize', {
+    const init = await post(CODEX_ROUTE, 'initialize', {
       protocolVersion: '2025-06-18',
       capabilities: {},
       clientInfo: { name: 't', version: '1' },
@@ -523,12 +707,12 @@ test('raw POST responses are application/json (initialize/tools-list/tools-call)
     assert.doesNotMatch(init.headers.get('content-type') ?? '', /text\/event-stream/);
     await init.text();
 
-    const list = await post('/mcp/codex', 'tools/list', {});
+    const list = await post(CODEX_ROUTE, 'tools/list', {});
     assert.match(list.headers.get('content-type') ?? '', /^application\/json/);
     assert.doesNotMatch(list.headers.get('content-type') ?? '', /text\/event-stream/);
     await list.text();
 
-    const call = await post('/mcp/codex', 'tools/call', {
+    const call = await post(CODEX_ROUTE, 'tools/call', {
       name: 'room_get_state',
       arguments: { room_id: 'room-1' },
     });
@@ -546,11 +730,11 @@ test('each request closes its server and transport exactly once: success, Protoc
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1'); // DISCUSSION：submitTask 非法 → ProtocolError
+  service.createRoom('room-1', PLANNER); // DISCUSSION：submitTask 非法 → ProtocolError
   const spy = closeSpy();
   const { url, close } = await startApp(service, fixture, undefined, spy.observe);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     // connect(initialize) 与 listTools 各自产生 request-owned resource；等其 settle 后以相对
     // 计数为基线，避免依赖 SDK client 内部的具体请求次数。
@@ -602,12 +786,12 @@ test('a non-ProtocolError internal failure surfaces the raw error and closes the
   initRepo(fixture);
   const db = new DatabaseSync(':memory:');
   const service = new RoomService(db);
-  service.createRoom('room-1');
+  service.createRoom('room-1', PLANNER);
   db.close(); // 后续 room_get_state 的 SQLite prepare 抛 plain Error（非 ProtocolError）
   const spy = closeSpy();
   const { url, close } = await startApp(service, fixture, undefined, spy.observe);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     await waitFor(
       () => spy.serverCloses.length >= 2 && spy.transportCloses.length === spy.serverCloses.length,
@@ -638,7 +822,7 @@ test('client abort after request resource creation closes the server and transpo
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
+  service.createRoom('room-1', PLANNER);
   const spy = closeSpy();
   let signalCreated!: () => void;
   const createdSignal = new Promise<void>((resolve) => {
@@ -659,7 +843,7 @@ test('client abort after request resource creation closes the server and transpo
     });
     await new Promise<void>((resolve) => {
       const req = http.request(
-        url + '/mcp/codex',
+        url + CODEX_ROUTE,
         { method: 'POST', headers: { 'content-type': 'application/json' } },
         (res) => res.destroy(), // 若 response 先到也主动销毁，不消费 body
       );
@@ -685,12 +869,12 @@ test('client abort after request resource creation closes the server and transpo
 test('room_submit_task on a non-git project returns git_repository_missing and persists nothing', async () => {
   const fixture = makeFixture(); // 不 initRepo：非 git 目录
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -713,12 +897,12 @@ test('room_submit_task on a repo with unborn HEAD returns git_head_missing and p
   const fixture = makeFixture();
   git(fixture, 'init', '-q', '-b', 'main'); // 无 commit → unborn HEAD
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -741,12 +925,12 @@ test('room_submit_task with invalid input is rejected by the SDK and persists no
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({ name: 'room_submit_task', arguments: { room_id: 'room-1' } });
@@ -766,14 +950,14 @@ test('room_submit_review rejects a non-succeeded run, rolls back the insert and 
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun()); // CODING，run 仍 running
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR); // CODING，run 仍 running
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -796,22 +980,23 @@ test('room_answer_question rejects an already-answered question', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.askQuestion(makeQuestion());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.askQuestion(makeQuestion(), WORKER);
   service.finalizeNeedsDecision(
     'run-1',
     makeCodingResult({ status: 'needs_decision' }),
     null,
-    makeTerminalEvidence({ claude_session_id: 'sess-1' }),
+    makeTerminalEvidence({ agent_session_ref: 'sess-1' }),
+    EXECUTOR,
   );
-  service.answerQuestion('question-1', 'pick a', false);
+  service.answerQuestion('question-1', 'pick a', false, PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -833,15 +1018,15 @@ test('room_answer_question rejects before pause finalization with no partial wri
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.askQuestion(makeQuestion()); // run 仍 needs_decision，completed_at null
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.askQuestion(makeQuestion(), WORKER); // run 仍 needs_decision，completed_at null
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -864,16 +1049,16 @@ test('room_accept_review rejects a review that still has blocking findings', asy
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence());
-  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding({ severity: 'blocker' })] }));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence(), EXECUTOR);
+  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding({ severity: 'blocker' })] }), REVIEWER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -895,17 +1080,17 @@ test('room_ask_question rejects a question for a non-running run and rolls back 
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence()); // run 已 succeeded，非 running
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence(), EXECUTOR); // run 已 succeeded，非 running
   const { url, close } = await startApp(service, fixture);
   try {
-    const claude = await connect(url, '/mcp/claude');
+    const claude = await connect(url, CLAUDE_ROUTE);
     await claude.listTools();
-    const codex = await connect(url, '/mcp/codex'); // 仅用于 room_get_state 读 public snapshot
+    const codex = await connect(url, CODEX_ROUTE); // 仅用于 room_get_state 读 public snapshot
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await claude.callTool({
@@ -929,15 +1114,15 @@ test('room_submit_review same-content retry is idempotent and different-content 
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence(), EXECUTOR);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const first = await codex.callTool({
       name: 'room_submit_review',
@@ -975,21 +1160,21 @@ test('room_submit_review rejects a new review_id referencing a stale succeeded r
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask()); // task-1 → PLAN_READY
-  service.startRun(makeRun()); // run-1 → CODING
-  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence()); // run-1 succeeded → REVIEW_REQUIRED
-  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] })); // review-1 → REVIEW_DISCUSSION
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER); // task-1 → PLAN_READY
+  service.startRun(makeRun(), EXECUTOR); // run-1 → CODING
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence(), EXECUTOR); // run-1 succeeded → REVIEW_REQUIRED
+  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER); // review-1 → REVIEW_DISCUSSION
   // fix 路径提交 task-2、完成 run-2，使 Room 回到 REVIEW_REQUIRED 且 run-2 是 current completed Run。
-  service.submitTask(makeFixTask({ task_id: 'task-2' })); // task-2 → FIX_PLAN_READY
-  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' })); // run-2 → CODING
-  service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence()); // run-2 succeeded → REVIEW_REQUIRED
+  service.submitTask(makeFixTask({ task_id: 'task-2' }), PLANNER); // task-2 → FIX_PLAN_READY
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }), EXECUTOR); // run-2 → CODING
+  service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence(), EXECUTOR); // run-2 succeeded → REVIEW_REQUIRED
 
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
 
@@ -1024,16 +1209,16 @@ test('room_ask_question same-content retry is idempotent and different-content c
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun()); // CODING，run running
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR); // CODING，run running
   const { url, close } = await startApp(service, fixture);
   try {
-    const claude = await connect(url, '/mcp/claude');
+    const claude = await connect(url, CLAUDE_ROUTE);
     await claude.listTools();
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
 
     const first = await claude.callTool({
@@ -1071,27 +1256,27 @@ test('room_accept_review rejects a review that is no longer current', async () =
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence());
-  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.completeRun('run-1', makeCodingResult(), makeTerminalEvidence(), EXECUTOR);
+  service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   // fix 路径提交第二个 task/run/review，使 review-1 不再是 current review。
-  service.submitTask(makeFixTask({ task_id: 'task-2' }));
-  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }));
-  service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence());
+  service.submitTask(makeFixTask({ task_id: 'task-2' }), PLANNER);
+  service.resumeRun(makeRun({ run_id: 'run-2', task_id: 'task-2' }), EXECUTOR);
+  service.completeRun('run-2', makeCodingResult({ task_id: 'task-2' }), makeTerminalEvidence(), EXECUTOR);
   service.submitReview(makeReview({
     review_id: 'review-2',
     task_id: 'task-2',
     run_id: 'run-2',
     decision: 'changes_requested',
     findings: [makeFinding()],
-  }));
+  }), REVIEWER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     const result = await codex.callTool({
@@ -1116,18 +1301,18 @@ test('restart persistence: a fresh file-backed app reads the same Room state', a
 
   const db1 = new DatabaseSync(dbPath);
   const service1 = new RoomService(db1);
-  service1.createRoom('room-1');
-  service1.transitionToArchitectureReview('room-1');
-  service1.transitionToWaitingForUserConfirmation('room-1');
-  service1.submitTask(makeTask());
-  service1.startRun(makeRun());
+  service1.createRoom('room-1', PLANNER);
+  service1.transitionToArchitectureReview('room-1', PLANNER);
+  service1.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service1.submitTask(makeTask(), PLANNER);
+  service1.startRun(makeRun(), EXECUTOR);
   db1.close();
 
   const db2 = new DatabaseSync(dbPath);
   const service2 = new RoomService(db2);
   const { url, close } = await startApp(service2, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const result = await codex.callTool({ name: 'room_get_state', arguments: { room_id: 'room-1' } });
     assert.equal(result.isError, undefined);
@@ -1142,7 +1327,7 @@ test('restart persistence: a fresh file-backed app reads the same Room state', a
     assert.equal(state.current_task?.task_id, 'task-1');
     assert.equal(state.current_run?.run_id, 'run-1');
     assert.equal(state.cursor, 5);
-    assert.equal(state.waiting_actor, 'claude');
+    assert.equal(state.waiting_actor, 'worker');
     await codex.close();
   } finally {
     await close();
@@ -1157,7 +1342,7 @@ test('room_create round-trips created/false idempotency through the adapter', as
   const service = new RoomService(new DatabaseSync(':memory:'));
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const created = await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
     assert.equal(created.isError, undefined);
@@ -1182,10 +1367,10 @@ test('room_begin_architecture_review and room_request_user_confirmation move the
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1'); // DISCUSSION
+  service.createRoom('room-1', PLANNER); // DISCUSSION
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const arch = await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
     assert.equal(arch.isError, undefined);
@@ -1205,15 +1390,15 @@ test('room_retry_run returns a failed Run to PLAN_READY', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun());
-  service.failRun('run-1', { code: 'claude_exit_failed', message: 'boom' }, makeTerminalEvidence()); // RUN_FAILED
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  service.failRun('run-1', { code: 'claude_exit_failed', message: 'boom' }, makeTerminalEvidence(), EXECUTOR); // RUN_FAILED
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const result = await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1' } });
     assert.equal(result.isError, undefined);
@@ -1234,13 +1419,13 @@ test('the four coordination tools reject wrong-state transitions with a stable P
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask()); // PLAN_READY：planning transitions 全部非法
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER); // PLAN_READY：planning transitions 全部非法
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     for (const name of [
@@ -1266,10 +1451,10 @@ test('the four coordination tools reject missing or empty room_id with invalid-a
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
-  service.createRoom('room-1');
+  service.createRoom('room-1', PLANNER);
   const { url, close } = await startApp(service, fixture);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const before = await snapshot(codex, 'room-1');
     for (const name of [
@@ -1297,12 +1482,12 @@ test('a non-ProtocolError internal failure in each coordination tool surfaces th
   initRepo(fixture);
   const db = new DatabaseSync(':memory:');
   const service = new RoomService(db);
-  service.createRoom('room-1');
+  service.createRoom('room-1', PLANNER);
   db.close(); // 后续任何 write/prepare 抛 plain Error（非 ProtocolError）
   const spy = closeSpy();
   const { url, close } = await startApp(service, fixture, undefined, spy.observe);
   try {
-    const codex = await connect(url, '/mcp/codex');
+    const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     await waitFor(
       () => spy.serverCloses.length >= 2 && spy.transportCloses.length === spy.serverCloses.length,
@@ -1329,6 +1514,162 @@ test('a non-ProtocolError internal failure in each coordination tool surfaces th
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(spy.serverCloses.length, base);
     assert.equal(spy.transportCloses.length, base);
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// ---- v0.3 participant route / command authority ----
+
+test('participant commands on a route without the orchestrator assignment are rejected as actor_not_allowed', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  const { url, close } = await startApp(service, fixture);
+  try {
+    // operator 是 bootstrap human profile、无任何 active assignment（Fix inc9-r4）：
+    // orchestrator 命令必须被拒且不持久化。
+    const operator = await connect(url, OPERATOR_ROUTE);
+    await operator.listTools();
+    const denied = await operator.callTool({
+      name: 'room_register_participant',
+      arguments: makeParticipant({ participant_id: 'p2' }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(denied.isError, true);
+    assert.equal(errorPayload(denied).code, 'actor_not_allowed');
+    assert.equal(service.getParticipant('p2'), null);
+
+    const deniedEnabled = await operator.callTool({
+      name: 'room_set_participant_enabled',
+      arguments: { participant_id: 'claude-code-cli', enabled: false },
+    });
+    assert.equal(deniedEnabled.isError, true);
+    assert.equal(errorPayload(deniedEnabled).code, 'actor_not_allowed');
+    assert.equal(service.getParticipant('claude-code-cli')!.enabled, true);
+
+    const deniedAssign = await operator.callTool({
+      name: 'room_create_role_assignment',
+      arguments: makeRoleAssignment({ assignment_id: 'a-x' }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(deniedAssign.isError, true);
+    assert.equal(errorPayload(deniedAssign).code, 'actor_not_allowed');
+    assert.equal(service.getRoleAssignment('a-x'), null);
+    await operator.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('codex-app route registers participants, toggles enabled and creates role assignments; snapshot reflects them', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  const { url, close } = await startApp(service, fixture);
+  try {
+    // Fix inc9-r4：codex-app 是 single control endpoint，bootstrap 持有 orchestrator assignment。
+    const codex = await connect(url, CODEX_ROUTE);
+    await codex.listTools();
+
+    const registered = await codex.callTool({
+      name: 'room_register_participant',
+      arguments: makeParticipant({
+        participant_id: 'p2',
+        kind: 'agent',
+        provider: 'codex',
+        adapter_id: 'codex_app',
+        capabilities: ['planning'],
+      }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(registered.isError, undefined);
+    assert.equal((registered.structuredContent as { created: boolean }).created, true);
+
+    // disabled 的 participant 不能被 assign。
+    const disabled = await codex.callTool({
+      name: 'room_set_participant_enabled',
+      arguments: { participant_id: 'p2', enabled: false },
+    });
+    assert.equal(disabled.isError, undefined);
+    const deniedAssign = await codex.callTool({
+      name: 'room_create_role_assignment',
+      arguments: makeRoleAssignment({ assignment_id: 'a-p2', role: 'planner', participant_id: 'p2' }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(deniedAssign.isError, true);
+    assert.equal(errorPayload(deniedAssign).code, 'validation_failed');
+    assert.equal(service.getRoleAssignment('a-p2'), null);
+
+    // 重新 enable 后可 assign，snapshot 反映新 profile/assignment。
+    const enabled = await codex.callTool({
+      name: 'room_set_participant_enabled',
+      arguments: { participant_id: 'p2', enabled: true },
+    });
+    assert.equal(enabled.isError, undefined);
+    const assigned = await codex.callTool({
+      name: 'room_create_role_assignment',
+      arguments: makeRoleAssignment({ assignment_id: 'a-p2', role: 'planner', participant_id: 'p2' }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(assigned.isError, undefined);
+    assert.equal((assigned.structuredContent as { created: boolean }).created, true);
+
+    const state = await snapshot(codex, 'room-1');
+    const participants = state.participants as { participant_id: string; enabled: boolean }[];
+    const p2 = participants.find((p) => p.participant_id === 'p2');
+    assert.equal(p2?.enabled, true);
+    const assignments = state.role_assignments as { assignment_id: string; role: string; participant_id: string }[];
+    assert.ok(assignments.some((a) => a.assignment_id === 'a-p2' && a.role === 'planner' && a.participant_id === 'p2'));
+    assert.equal(assignments.length, 6);
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('a disabled participant loses new command authority through MCP but history stays readable', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR);
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, CODEX_ROUTE);
+    await codex.listTools();
+    const disabled = await codex.callTool({
+      name: 'room_set_participant_enabled',
+      arguments: { participant_id: 'claude-code-cli', enabled: false },
+    });
+    assert.equal(disabled.isError, undefined);
+
+    // disabled 后 worker 命令被拒；room_get_state（成员读）也因 disabled 拒绝。
+    const claude = await connect(url, CLAUDE_ROUTE);
+    await claude.listTools();
+    const asked = await claude.callTool({
+      name: 'room_ask_question',
+      arguments: makeQuestion() as unknown as Record<string, unknown>,
+    });
+    assert.equal(asked.isError, true);
+    assert.equal(errorPayload(asked).code, 'actor_not_allowed');
+    assert.equal(service.getQuestion('question-1'), null);
+    const read = await claude.callTool({ name: 'room_get_state', arguments: { room_id: 'room-1' } });
+    assert.equal(read.isError, true);
+    assert.equal(errorPayload(read).code, 'actor_not_allowed');
+    await claude.close();
+
+    // 历史 entity 仍可从 durable state 读取（codex route 读 snapshot 也正常）。
+    const state = await snapshot(codex, 'room-1');
+    assert.equal((state.current_task as { task_id: string }).task_id, 'task-1');
+    assert.equal((state.current_run as { run_id: string }).run_id, 'run-1');
+    const runs = state.runs as { run_id: string; worker_participant_id: string }[];
+    assert.equal(runs[0]?.worker_participant_id, 'claude-code-cli');
+    assert.equal(service.getRun('run-1')!.worker_participant_id, 'claude-code-cli');
     await codex.close();
   } finally {
     await close();

@@ -1,11 +1,30 @@
 import type {
   CodingResult,
+  ParticipantProfile,
   Question,
   Review,
+  Role,
+  RoleAssignment,
   Run,
   TaskContract,
 } from '../src/protocol/schema.ts';
 import type { RunTerminalEvidence } from '../src/room/room-service.ts';
+
+// v0.3 默认 bootstrap identity：与 room-service BOOTSTRAP_* 常量一致，测试 fixture 用
+// 独立 literal（Oracle 不导入被测实现）。
+export const BOOTSTRAP_PARTICIPANT_IDS = [
+  'operator',
+  'codex-app',
+  'claude-code-cli',
+  'local-runner',
+] as const;
+export const ROOM_SCOPE_DEFAULT_ROLES = [
+  'orchestrator',
+  'planner',
+  'reviewer',
+  'worker',
+  'executor',
+] as const;
 
 const T = '2026-08-23T00:00:00.000Z';
 
@@ -52,7 +71,10 @@ export function makeRun(overrides: Partial<Run> = {}): Run {
     task_id: 'task-1',
     status: 'running',
     baseline_head: 'deadbeef',
-    claude_session_id: null,
+    // claim 时固化的 resolved assignment：worker = claude-code-cli、executor = local-runner。
+    worker_participant_id: 'claude-code-cli',
+    executor_participant_id: 'local-runner',
+    agent_session_ref: null,
     process_exit_code: null,
     started_at: T,
     completed_at: null,
@@ -66,7 +88,7 @@ export function makeRun(overrides: Partial<Run> = {}): Run {
 
 export function makeTerminalEvidence(overrides: Partial<RunTerminalEvidence> = {}): RunTerminalEvidence {
   return {
-    claude_session_id: null,
+    agent_session_ref: null,
     process_exit_code: 0,
     git_evidence: { staged: [], unstaged: [], untracked: [] },
     artifact_refs: [],
@@ -100,7 +122,36 @@ export function makeReview(overrides: Partial<Review> = {}): Review {
     findings: [],
     open_questions: [],
     verification_summary: 'ok',
-    created_by: 'codex',
+    // 提交时固化的 resolved reviewer（codex-app 同时持 planner/reviewer）。
+    reviewer_participant_id: 'codex-app',
+    created_at: T,
+    ...overrides,
+  };
+}
+
+export function makeParticipant(overrides: Partial<ParticipantProfile> = {}): ParticipantProfile {
+  return {
+    participant_id: 'operator',
+    display_name: 'Operator',
+    kind: 'human',
+    provider: 'local',
+    adapter_id: 'human_console',
+    capabilities: ['supervising'],
+    config_ref: null,
+    enabled: true,
+    created_at: T,
+    ...overrides,
+  };
+}
+
+export function makeRoleAssignment(overrides: Partial<RoleAssignment> = {}): RoleAssignment {
+  return {
+    assignment_id: 'assignment-1',
+    room_id: 'room-1',
+    scope_type: 'room',
+    scope_id: null,
+    role: 'planner' satisfies Role,
+    participant_id: 'codex-app',
     created_at: T,
     ...overrides,
   };

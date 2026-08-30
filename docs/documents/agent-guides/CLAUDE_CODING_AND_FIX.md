@@ -185,3 +185,9 @@ leaf test 只负责 process/stream outcome；orchestrator test 负责 outcome �
 ### 12.3 正常 lifecycle 无法产生的 durable-state 损坏使用 test-owned mutation
 
 当 Accepted Contract 明确要求 public boundary 拒绝某类 persisted-state 损坏，而正常 public lifecycle 无法构造该状态时，只在 temporary test database 内对最窄 storage row/reference 做 test-owned mutation，再直接调用目标 public operation。mutation 后、operation 前保存完整 durable snapshot，并按 12.2 节证明拒绝零副作用。不得为测试新增 production mutation API、通用 corruption framework、schema/migration或第二套状态权威；若 direct regression 证明既有 production guard 正确，production source保持不变。
+
+## 13. Opaque Identity 的 URI Segment 表示
+
+当Contract要求任意非空opaque identity映射到单个URI path segment时，不要假设`encodeURIComponent`已经处理所有URL parser语义：它可编码slash，却保留`.`与`..`，WHATWG parser会在request到达route handler前执行dot-segment normalization。若Accepted方案冻结固定framing，应先拼接固定prefix，再对raw identity执行component encoding；framework完成标准percent-decode后，application只验证并移除一次prefix，剩余值直接作为raw identity，不做第二次decode。
+
+Regression期望必须使用测试侧literal，并分别覆盖slash、`.`与`..`经过真实MCP、production Runner和public CLI boundary的成功路径；同时证明unframed、raw multi-segment或旧candidate URL在spawn、Run、Event、artifact与config write前拒绝。framing只改变transport representation，不得进入Participant、Assignment、Run、Review或Event identity字段，也不得通过schema restriction、alias、wildcard或compatibility rewrite规避既有opaque identity contract。

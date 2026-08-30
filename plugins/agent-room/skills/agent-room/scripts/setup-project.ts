@@ -1,10 +1,19 @@
 // setup-project.ts — Agent Room Skill 的确定性项目 setup helper。
 //
-// 只使用 Node.js standard library。职责边界（Increment 8 Accepted Contract）：
-//   - 输入校验、现有 binding 分类、port/UUID 生成与三份文件的计划/写入；
+// 只使用 Node.js standard library。职责边界（Increment 8 + Increment 9 v0.3 Accepted）：
+//   - 输入校验、现有 binding 分类（v0.2 archive / v0.3 reuse / fresh）、v0.2→v0.3 migration、
+//     port/UUID 生成与三份文件的计划/写入；
 //   - 不写 SQLite schema（database schema 只由现有 room:serve 初始化）；
 //   - 不调用 Room MCP（reload 后的 Room 创建/读取由 Skill 拥有）；
 //   - 不启动 one-shot launcher/Claude process、不执行任何 Git mutation。
+//
+// v0.3 migration：读取 valid v0.2 五字段 binding 后，旧 database 保持原路径与内容不变
+// （archive），创建新的 <project>/.agent-room/room-v0.3.sqlite 与新 room_id/control
+// participant，并保守更新 project-scoped MCP URL 到 framed participant route（`p~`
+// transport framing，Fix inc9-fr4）；任何 conflict 在
+// 写入前拒绝；不 delete/rename/原地改写 v0.2 database。migration rerun 复用同一 v0.3
+// identity，不创建第二 database/Room/profile/assignment；v0.2 archived path 永不是新
+// service database_path。
 //
 // 安全顺序：先读取并验证全部相关现有文件（含 conflict/mismatch 判定），全部通过后才
 // mkdir/write；任何 invalid/conflict 都零写入并以非零 exit 报告。fresh binding 的 port
@@ -19,26 +28,37 @@ import { isAbsolute, join, resolve } from 'node:path';
 const RUNTIME_DIR = '.agent-room';
 const CONFIG_DIR = '.codex';
 const CONFIG_SECTION = '[mcp_servers.agent_room]';
-// .gitignore 必须补齐的 local runtime 条目（Contract 冻结顺序）。
+// v0.3 protocol version；setup 生成的 binding 必须使用该值。
+const PROTOCOL_VERSION = '0.3-design';
+// project-scoped control participant（Codex App）：MCP URL 与绑定都指向它。
+const CONTROL_PARTICIPANT_ID = 'codex-app';
+// .gitignore 必须补齐的 local runtime 条目（Contract 冻结顺序；v0.3 增加新 database 文件）。
 const GITIGNORE_ENTRIES = [
   '.agent-room/runtime.json',
   '.agent-room/room.sqlite',
   '.agent-room/room.sqlite-*',
+  '.agent-room/room-v0.3.sqlite',
+  '.agent-room/room-v0.3.sqlite-*',
   '.agent-room/artifacts/',
 ];
 
+// v0.3 binding：原五字段 + protocol_version + control_participant_id + archived_database_path
+//（旧 v0.2 database 路径或 null）。archived_database_path 永不能等于 database_path。
 interface RuntimeBinding {
   agent_room_root: string;
   database_path: string;
   project_path: string;
   port: number;
   room_id: string;
+  protocol_version: '0.3-design';
+  control_participant_id: string;
+  archived_database_path: string | null;
 }
 
 interface SetupSummary {
-  mode: 'created' | 'reused';
+  mode: 'created' | 'migrated' | 'reused';
   runtime: RuntimeBinding;
-  config: { action: 'created' | 'appended' | 'unchanged' };
+  config: { action: 'created' | 'appended' | 'updated' | 'unchanged' };
   gitignore: { action: 'created' | 'appended' | 'unchanged'; added: string[] };
   serve_command: string;
   reload_required: boolean;
@@ -101,13 +121,30 @@ function validateAgentRoomRoot(rootInput: string): string {
   return root;
 }
 
-// runtime.json 读取与严格分类：missing / valid / invalid（invalid 带具体 reason，任何
-// 越界形态都零写入停止）。valid 要求恰好五个字段、三个 absolute path、port 为 1..65535
-// JSON integer、room_id 非空，且 project_path 经 host normal path resolution 等于当前项目。
+// runtime.json 读取与严格分类：missing / valid-v02 / valid-v03 / invalid（invalid 带具体
+// reason，任何越界形态都零写入停止）。v0.2 五字段 binding 是 archive 输入（只迁移不复用）；
+// v0.3 八字段 binding 是 current identity（幂等复用）。两个版本都要求三个 absolute path、
+// port 为 1..65535 JSON integer、room_id 非空，且 project_path 经 host normal path
+// resolution 等于当前项目。v0.3 额外要求 protocol_version 精确为 0.3-design、control
+// participant 非空、archived_database_path 为 absolute path 或 null，且 archived path
+// 永不能等于 service database_path。
 type RuntimeParse =
   | { kind: 'missing' }
-  | { kind: 'valid'; binding: RuntimeBinding }
+  | { kind: 'valid-v02'; binding: RuntimeBinding }
+  | { kind: 'valid-v03'; binding: RuntimeBinding }
   | { kind: 'invalid'; reason: string };
+
+const V02_FIELDS = ['agent_room_root', 'database_path', 'port', 'project_path', 'room_id'];
+const V03_FIELDS = [
+  'agent_room_root',
+  'archived_database_path',
+  'control_participant_id',
+  'database_path',
+  'port',
+  'project_path',
+  'protocol_version',
+  'room_id',
+];
 
 function readRuntime(projectPath: string): RuntimeParse {
   const path = join(projectPath, RUNTIME_DIR, 'runtime.json');
@@ -129,9 +166,8 @@ function readRuntime(projectPath: string): RuntimeParse {
   }
   const obj = data as Record<string, unknown>;
   const keys = Object.keys(obj).sort();
-  const expected = ['agent_room_root', 'database_path', 'port', 'project_path', 'room_id'].sort();
-  if (keys.join(',') !== expected.join(',')) {
-    return { kind: 'invalid', reason: `runtime.json must contain exactly the five required fields (found: ${keys.join(', ')})` };
+  if (keys.join(',') !== V02_FIELDS.slice().sort().join(',') && keys.join(',') !== V03_FIELDS.slice().sort().join(',')) {
+    return { kind: 'invalid', reason: `runtime.json must contain exactly the v0.2 five fields or the v0.3 eight fields (found: ${keys.join(', ')})` };
   }
   const stringField = (name: string): string | null => {
     const v = obj[name];
@@ -160,14 +196,49 @@ function readRuntime(projectPath: string): RuntimeParse {
   if (roomId === null || roomId.length === 0) {
     return { kind: 'invalid', reason: 'room_id must be a non-empty string' };
   }
+  const base = {
+    agent_room_root: agentRoomRoot,
+    database_path: databasePath,
+    project_path: projectPathStored,
+    port: port as number,
+    room_id: roomId,
+  };
+  if (keys.join(',') === V02_FIELDS.slice().sort().join(',')) {
+    // v0.2 archive 输入：只读保留，不在这里补 v0.3 字段（migration 在 plan 阶段生成新 binding）。
+    return {
+      kind: 'valid-v02',
+      binding: {
+        ...base,
+        protocol_version: PROTOCOL_VERSION,
+        control_participant_id: CONTROL_PARTICIPANT_ID,
+        archived_database_path: null,
+      },
+    };
+  }
+  const protocolVersion = stringField('protocol_version');
+  const controlParticipantId = stringField('control_participant_id');
+  const archivedDatabasePath = obj.archived_database_path;
+  if (protocolVersion !== PROTOCOL_VERSION) {
+    return { kind: 'invalid', reason: `protocol_version must be ${PROTOCOL_VERSION}` };
+  }
+  // Review finding inc9-fr2-5：existing v0.3 binding 的 control identity 必须 exact 为
+  // codex-app；MCP URL 由同一 validated identity 构造，任何其它值在写入前按 invalid 拒绝。
+  if (controlParticipantId !== CONTROL_PARTICIPANT_ID) {
+    return { kind: 'invalid', reason: `control_participant_id must be ${CONTROL_PARTICIPANT_ID}` };
+  }
+  if (archivedDatabasePath !== null && (typeof archivedDatabasePath !== 'string' || !isAbsolute(archivedDatabasePath))) {
+    return { kind: 'invalid', reason: 'archived_database_path must be an absolute path string or null' };
+  }
+  if (archivedDatabasePath === databasePath) {
+    return { kind: 'invalid', reason: 'archived_database_path must not equal the service database_path' };
+  }
   return {
-    kind: 'valid',
+    kind: 'valid-v03',
     binding: {
-      agent_room_root: agentRoomRoot,
-      database_path: databasePath,
-      project_path: projectPathStored,
-      port: port as number,
-      room_id: roomId,
+      ...base,
+      protocol_version: PROTOCOL_VERSION,
+      control_participant_id: controlParticipantId,
+      archived_database_path: archivedDatabasePath as string | null,
     },
   };
 }
@@ -225,9 +296,11 @@ function detectEol(text: string): string {
 // 之前才按 top-level 分类，table header 后的嵌套同名 key 属于该 table（Review finding
 // inc8-r2）。已有 top-level agent_room 定义（section 或 dotted key）且 URL 不一致、无法
 // 保守判定、或相同 URL 被其它 server 占用时 fail（零写入）。追加时逐字保留原内容。
-type ConfigPlan = { action: 'created' | 'appended' | 'unchanged'; content: string | null };
+// v0.3：legacyUrl（v0.2 /mcp/codex URL）非空时，既有定义恰好为 legacyUrl 则改写为
+// expectedUrl（action 'updated'，行外逐字保留），实现 migration/reuse 的保守 URL 更新。
+type ConfigPlan = { action: 'created' | 'appended' | 'updated' | 'unchanged'; content: string | null };
 
-function planConfig(text: string | null, expectedUrl: string): ConfigPlan {
+function planConfig(text: string | null, expectedUrl: string, legacyUrl: string | null = null): ConfigPlan {
   const urlLine = `url = "${expectedUrl}"`;
   if (text === null) {
     return { action: 'created', content: `${CONFIG_SECTION}\n${urlLine}\n` };
@@ -251,21 +324,24 @@ function planConfig(text: string | null, expectedUrl: string): ConfigPlan {
       const m = /^url\s*=\s*"([^"]*)"\s*$/.exec(t);
       if (m) sectionUrls.push(m[1]);
     }
-    if (sectionUrls.length === 1 && sectionUrls[0] === expectedUrl) {
-      return { action: 'unchanged', content: null };
-    }
     if (sectionUrls.length === 1) {
+      if (sectionUrls[0] === expectedUrl) return { action: 'unchanged', content: null };
+      if (legacyUrl !== null && sectionUrls[0] === legacyUrl) {
+        return { action: 'updated', content: updateAgentRoomUrl(text, expectedUrl) };
+      }
       fail(`config conflict: [mcp_servers.agent_room] url is ${sectionUrls[0]}, expected ${expectedUrl}`);
     }
     fail('config conflict: cannot conservatively determine the [mcp_servers.agent_room] url');
   }
   if (dottedAgentRoomUrls.length > 0) {
     // 冻结 dotted key 的匹配分类：matching exact URL 视为已有匹配 binding（不追加 table）；
-    // 单一不同 URL 按 mismatch 拒绝；多个不同取值无法保守判定。
-    if (dottedAgentRoomUrls.length === 1 && dottedAgentRoomUrls[0] === expectedUrl) {
-      return { action: 'unchanged', content: null };
-    }
+    // 单一 legacy URL 改写为 participant route；其它单一不同 URL 按 mismatch 拒绝；
+    // 多个不同取值无法保守判定。
     if (dottedAgentRoomUrls.length === 1) {
+      if (dottedAgentRoomUrls[0] === expectedUrl) return { action: 'unchanged', content: null };
+      if (legacyUrl !== null && dottedAgentRoomUrls[0] === legacyUrl) {
+        return { action: 'updated', content: updateAgentRoomUrl(text, expectedUrl) };
+      }
       fail(`config conflict: mcp_servers.agent_room.url is ${dottedAgentRoomUrls[0]}, expected ${expectedUrl}`);
     }
     fail('config conflict: cannot conservatively determine the mcp_servers.agent_room.url');
@@ -293,6 +369,42 @@ function planConfig(text: string | null, expectedUrl: string): ConfigPlan {
   if (!out.endsWith(eol + eol)) out += eol;
   out += `${CONFIG_SECTION}${eol}${urlLine}${eol}`;
   return { action: 'appended', content: out };
+}
+
+// 改写既有 agent_room url 行（section 或冻结 dotted 形态）为 expectedUrl，其余行逐字保留
+//（含 eol 与行首缩进）。只供 planConfig 的 'updated' 分支使用：调用前必须已确认存在
+// 且恰有一个匹配 url 行。
+function updateAgentRoomUrl(text: string, expectedUrl: string): string {
+  const eol = detectEol(text);
+  const lines = text.split(/\r?\n/);
+  const trimmed = lines.map((l) => l.trim());
+  const sectionIndex = findAgentRoomSection(trimmed);
+  if (sectionIndex >= 0) {
+    for (let i = sectionIndex + 1; i < lines.length; i++) {
+      const t = trimmed[i];
+      if (t.startsWith('[') && t.endsWith(']')) break;
+      if (/^url\s*=\s*"[^"]*"\s*$/.test(t)) {
+        lines[i] = replaceUrlValue(lines[i], expectedUrl);
+        return lines.join(eol);
+      }
+    }
+    throw new Error('config update: no [mcp_servers.agent_room] url line to update');
+  }
+  for (let i = 0; i < lines.length; i++) {
+    for (const pattern of AGENT_ROOM_DOTTED_URL_PATTERNS) {
+      if (pattern.test(trimmed[i])) {
+        lines[i] = replaceUrlValue(lines[i], expectedUrl);
+        return lines.join(eol);
+      }
+    }
+  }
+  throw new Error('config update: no agent_room url line to update');
+}
+
+// 保留行首缩进与赋值符号两侧空白，只替换 double-quoted URL 值；调用方已确认该行匹配
+// 冻结的 agent_room url 形态（section 的 `url` 或三种 dotted server-name 表示）。
+function replaceUrlValue(line: string, expectedUrl: string): string {
+  return line.replace(/^(\s*\S+\s*=\s*)"[^"]*"(\s*)$/, `$1"${expectedUrl}"$2`);
 }
 
 // .gitignore 的保守计划：存在时逐字保留原内容，只追加缺失的 local runtime 条目；
@@ -380,8 +492,11 @@ async function main(): Promise<void> {
   const gitignoreText = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : null;
   const rt = readRuntime(projectPath);
 
-  let mode: 'created' | 'reused';
+  let mode: 'created' | 'migrated' | 'reused';
   let binding: RuntimeBinding;
+  // legacyUrl 是 v0.2 /mcp/codex URL：migration/reuse 下配置仍指向它时保守改写为
+  // participant route（expectedUrl）；fresh 模式为 null，任何既有 agent_room 定义都拒绝。
+  let legacyUrl: string | null = null;
   if (rt.kind === 'missing') {
     // fresh binding：operator 只提供一次 agent_room_root。
     if (parsed.agentRoomRoot === undefined) {
@@ -406,27 +521,61 @@ async function main(): Promise<void> {
       project_path: projectPath,
       port,
       room_id: `room-${randomUUID()}`,
+      protocol_version: PROTOCOL_VERSION,
+      control_participant_id: CONTROL_PARTICIPANT_ID,
+      archived_database_path: null,
     };
     mode = 'created';
   } else if (rt.kind === 'invalid') {
     fail(`invalid runtime binding: ${rt.reason}`);
+  } else if (rt.kind === 'valid-v02') {
+    // v0.2→v0.3 migration：stored agent_room_root 指向 v0.2 代码（如 detached launcher
+    // worktree），不能作为 v0.3 root，operator 必须再提供一次 --agent-room-root。旧
+    // database 保持原路径与字节不变（archive，不 delete/rename/原地改写）；创建新的
+    // room-v0.3.sqlite、新 room_id 与 control participant；复用 port。migration rerun
+    // 复用同一 v0.3 identity，不创建第二 database/Room/profile/assignment。
+    if (parsed.agentRoomRoot === undefined) {
+      fail('--agent-room-root is required to migrate an existing v0.2 runtime binding');
+    }
+    const root = validateAgentRoomRoot(parsed.agentRoomRoot);
+    binding = {
+      agent_room_root: root,
+      database_path: join(projectPath, RUNTIME_DIR, 'room-v0.3.sqlite'),
+      project_path: projectPath,
+      port: rt.binding.port,
+      room_id: `room-${randomUUID()}`,
+      protocol_version: PROTOCOL_VERSION,
+      control_participant_id: CONTROL_PARTICIPANT_ID,
+      archived_database_path: rt.binding.database_path,
+    };
+    legacyUrl = `http://127.0.0.1:${binding.port}/mcp/codex`;
+    mode = 'migrated';
   } else {
-    // valid binding 幂等复用：identity 以 stored 为准；operator 若另行提供 root 必须一致。
+    // valid v0.3 binding 幂等复用：identity 以 stored 为准；operator 若另行提供 root 必须一致。
     const storedRoot = rt.binding.agent_room_root;
     if (parsed.agentRoomRoot !== undefined && resolve(parsed.agentRoomRoot) !== resolve(storedRoot)) {
       fail(`agent_room_root mismatch: runtime stores ${storedRoot}, provided ${parsed.agentRoomRoot}`);
     }
     validateAgentRoomRoot(storedRoot);
     binding = rt.binding;
+    legacyUrl = `http://127.0.0.1:${binding.port}/mcp/codex`;
     mode = 'reused';
   }
 
-  const expectedUrl = `http://127.0.0.1:${binding.port}/mcp/codex`;
-  const configPlan = planConfig(configText, expectedUrl);
+  // MCP URL 从同一个 validated control identity 构造（Review finding inc9-fr2-5）：
+  // binding.control_participant_id 已在生成路径（created/migrated）或 readRuntime（reused）
+  // 校验为 exact codex-app，不分别使用 stored 任意值与 hardcoded route。route segment
+  // 使用 v0.3 canonical transport framing `p~` + encodeURIComponent(identity)（Fix
+  // inc9-fr4）；既有配置中的旧 unframed candidate URL（如 /mcp/participants/codex-app）
+  // 不是 expectedUrl 也不是 legacyUrl，由 planConfig 的 exact-match 分支按 conflict 在
+  // 任何写入前拒绝（无 auto-compat migration/rewrite）。
+  const expectedUrl = `http://127.0.0.1:${binding.port}/mcp/participants/p~${binding.control_participant_id}`;
+  const configPlan = planConfig(configText, expectedUrl, legacyUrl);
   const gitignorePlan = planGitignore(gitignoreText);
 
-  // —— write 阶段：plan 全部通过后才创建目录/写文件（created 模式才写 runtime）——
-  if (mode === 'created') {
+  // —— write 阶段：plan 全部通过后才创建目录/写文件（created/migrated 才写 runtime；
+  // reused 保留 stored identity，不重写）——
+  if (mode === 'created' || mode === 'migrated') {
     mkdirSync(join(projectPath, RUNTIME_DIR), { recursive: true });
     writeFileSync(join(projectPath, RUNTIME_DIR, 'runtime.json'), JSON.stringify(binding, null, 2) + '\n');
   }

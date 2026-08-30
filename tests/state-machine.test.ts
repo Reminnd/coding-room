@@ -1,32 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { roomStateSchema, type Actor, type RoomState } from '../src/protocol/schema.ts';
+import { roomStateSchema, type Role, type RoomState } from '../src/protocol/schema.ts';
 import { resolveTransition, TRANSITIONS } from '../src/room/state-machine.ts';
 
 const STATES = roomStateSchema.options as readonly RoomState[];
-const ACTORS: readonly Actor[] = ['user', 'codex', 'claude', 'runner', 'system'];
+const ROLES: readonly Role[] = [
+  'planner',
+  'worker',
+  'reviewer',
+  'executor',
+  'orchestrator',
+  'git_controller',
+];
 
-// 独立 oracle：直接从 ROOM_PROTOCOL.md 第 4 节逐条列出 14 条合法 transition 与 initiator，
-// 不 import 实现表来生成期望值。若实现表与协议表不一致，本测试会失败。
+// 独立 oracle：直接从 ROOM_PROTOCOL.md 第 4 节逐条列出 14 条合法 transition 与 initiator
+// role，不 import 实现表来生成期望值。若实现表与协议表不一致，本测试会失败。
 const PROTOCOL_TRANSITIONS: readonly {
   from: RoomState;
   to: RoomState;
-  initiators: readonly Actor[];
+  initiators: readonly Role[];
 }[] = [
-  { from: 'DISCUSSION', to: 'ARCHITECTURE_REVIEW', initiators: ['codex'] },
-  { from: 'ARCHITECTURE_REVIEW', to: 'WAITING_FOR_USER_CONFIRMATION', initiators: ['codex'] },
-  { from: 'WAITING_FOR_USER_CONFIRMATION', to: 'PLAN_READY', initiators: ['codex'] },
-  { from: 'PLAN_READY', to: 'CODING', initiators: ['runner'] },
-  { from: 'CODING', to: 'NEEDS_DECISION', initiators: ['claude', 'runner'] },
-  { from: 'NEEDS_DECISION', to: 'CODING', initiators: ['codex', 'runner'] },
-  { from: 'NEEDS_DECISION', to: 'WAITING_FOR_USER_CONFIRMATION', initiators: ['codex'] },
-  { from: 'CODING', to: 'RUN_FAILED', initiators: ['runner'] },
-  { from: 'RUN_FAILED', to: 'PLAN_READY', initiators: ['codex'] },
-  { from: 'CODING', to: 'REVIEW_REQUIRED', initiators: ['runner'] },
-  { from: 'REVIEW_REQUIRED', to: 'REVIEW_DISCUSSION', initiators: ['codex'] },
-  { from: 'REVIEW_DISCUSSION', to: 'FIX_PLAN_READY', initiators: ['codex'] },
-  { from: 'FIX_PLAN_READY', to: 'CODING', initiators: ['runner'] },
-  { from: 'REVIEW_DISCUSSION', to: 'ACCEPTED', initiators: ['codex'] },
+  { from: 'DISCUSSION', to: 'ARCHITECTURE_REVIEW', initiators: ['planner'] },
+  { from: 'ARCHITECTURE_REVIEW', to: 'WAITING_FOR_USER_CONFIRMATION', initiators: ['planner'] },
+  { from: 'WAITING_FOR_USER_CONFIRMATION', to: 'PLAN_READY', initiators: ['planner'] },
+  { from: 'PLAN_READY', to: 'CODING', initiators: ['executor'] },
+  { from: 'CODING', to: 'NEEDS_DECISION', initiators: ['worker', 'executor'] },
+  { from: 'NEEDS_DECISION', to: 'CODING', initiators: ['planner', 'executor'] },
+  { from: 'NEEDS_DECISION', to: 'WAITING_FOR_USER_CONFIRMATION', initiators: ['planner'] },
+  { from: 'CODING', to: 'RUN_FAILED', initiators: ['executor'] },
+  { from: 'RUN_FAILED', to: 'PLAN_READY', initiators: ['planner'] },
+  { from: 'CODING', to: 'REVIEW_REQUIRED', initiators: ['executor'] },
+  { from: 'REVIEW_REQUIRED', to: 'REVIEW_DISCUSSION', initiators: ['reviewer'] },
+  { from: 'REVIEW_DISCUSSION', to: 'FIX_PLAN_READY', initiators: ['planner'] },
+  { from: 'FIX_PLAN_READY', to: 'CODING', initiators: ['executor'] },
+  { from: 'REVIEW_DISCUSSION', to: 'ACCEPTED', initiators: ['reviewer'] },
 ];
 
 function errorCode(fn: () => unknown): string | null {
@@ -51,20 +58,20 @@ test('implementation transition table matches the protocol table exactly', () =>
   }
 });
 
-test('every protocol transition accepts its documented initiator and rejects other actors', () => {
+test('every protocol transition accepts its documented initiator role and rejects other roles', () => {
   for (const rule of PROTOCOL_TRANSITIONS) {
-    for (const actor of rule.initiators) {
+    for (const role of rule.initiators) {
       assert.doesNotThrow(
-        () => resolveTransition(rule.from, rule.to, actor),
-        `${rule.from} -> ${rule.to} should accept ${actor}`,
+        () => resolveTransition(rule.from, rule.to, role),
+        `${rule.from} -> ${rule.to} should accept ${role}`,
       );
     }
-    for (const actor of ACTORS) {
-      if (rule.initiators.includes(actor)) continue;
+    for (const role of ROLES) {
+      if (rule.initiators.includes(role)) continue;
       assert.equal(
-        errorCode(() => resolveTransition(rule.from, rule.to, actor)),
+        errorCode(() => resolveTransition(rule.from, rule.to, role)),
         'actor_not_allowed',
-        `${rule.from} -> ${rule.to} should reject ${actor} with actor_not_allowed`,
+        `${rule.from} -> ${rule.to} should reject ${role} with actor_not_allowed`,
       );
     }
   }
@@ -75,9 +82,9 @@ test('exhaustive matrix: every pair not in the protocol table returns invalid_tr
     for (const to of STATES) {
       const listed = PROTOCOL_TRANSITIONS.some((t) => t.from === from && t.to === to);
       if (listed) continue;
-      for (const actor of ACTORS) {
+      for (const role of ROLES) {
         assert.equal(
-          errorCode(() => resolveTransition(from, to, actor)),
+          errorCode(() => resolveTransition(from, to, role)),
           'invalid_transition',
           `${from} -> ${to} should return invalid_transition`,
         );

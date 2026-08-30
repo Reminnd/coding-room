@@ -3,11 +3,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { RoomService } from '../room/room-service.ts';
-import { registerClaudeTools, registerCodexTools } from './tools.ts';
+import { registerParticipantTools } from './tools.ts';
 
-// 单一 local process / 单一 RoomService 上的两个 stateless Streamable HTTP route。每个
-// request 创建独立 MCP server/transport，durable state 只属于 SQLite；request 完成或
+// 单一 local process / 单一 RoomService 上的 stateless Streamable HTTP participant route。
+// 每个 request 创建独立 MCP server/transport，durable state 只属于 SQLite；request 完成或
 // connection 关闭后关闭 request-owned resource，不积累 session/listener/transport。
+// v0.3 只暴露 framed participant route `/mcp/participants/p~{encodeURIComponent(participant_id)}`；
+// 不提供 /mcp/codex 或 /mcp/claude alias，也不接受 unframed candidate segment（Fix inc9-fr4）。
 
 export interface RoomMcpHttpDeps {
   service: RoomService;
@@ -103,34 +105,49 @@ function methodNotAllowed(_req: Request, res: Response): void {
   });
 }
 
+function routeNotFound(res: Response): void {
+  res.status(404).json({
+    jsonrpc: '2.0',
+    error: { code: -32000, message: 'Participant route not found.' },
+    id: null,
+  });
+}
+
+// v0.3 participant route 的 transport framing（Fix inc9-fr4）：canonical HTTP segment 是
+// `p~` + encodeURIComponent(raw participant_id)。`p~` prefix 保证合法 opaque identity
+// `.`/`..` 不被 WHATWG URL 的 dot-segment normalization 归并，并把 unframed candidate
+// route 与 framed route 严格区分。framework 对 path param 只做一次 percent-decode；
+// 应用只验证并移除恰好一次 `p~` prefix，其余部分即 raw participant_id（不二次
+// percent-decode）。unframed 单 segment POST 不是 participant route：404、不注册任何
+// tool、不进入 participant authority，无 legacy alias/wildcard/dual-route fallback。
+function parseParticipantSegment(param: string): string | null {
+  if (!param.startsWith('p~') || param.length <= 2) return null;
+  return param.slice(2);
+}
+
 export function createRoomMcpApp(deps: RoomMcpHttpDeps): Express {
   // createMcpExpressApp 对 127.0.0.1 自动启用 localhost host validation；不自行添加
   // generic auth wrapper，不直接信任 Host header。
   const app = createMcpExpressApp({ host: '127.0.0.1' });
 
-  app.post('/mcp/codex', (req, res) =>
+  // route 确定 participant identity；tool authority 由 service 按 RoleAssignment 校验。
+  app.post('/mcp/participants/:participantSegment', (req, res) => {
+    const participantId = parseParticipantSegment(req.params.participantSegment);
+    if (participantId === null) {
+      routeNotFound(res);
+      return;
+    }
     void handlePost(
       req,
       res,
-      (s) => registerCodexTools(s, deps),
+      (s) => registerParticipantTools(s, deps, participantId),
       deps.onRequestCleanedUp,
       deps.observeRequestResource,
-    ),
-  );
-  app.post('/mcp/claude', (req, res) =>
-    void handlePost(
-      req,
-      res,
-      (s) => registerClaudeTools(s, deps),
-      deps.onRequestCleanedUp,
-      deps.observeRequestResource,
-    ),
-  );
+    );
+  });
 
-  app.get('/mcp/codex', methodNotAllowed);
-  app.delete('/mcp/codex', methodNotAllowed);
-  app.get('/mcp/claude', methodNotAllowed);
-  app.delete('/mcp/claude', methodNotAllowed);
+  app.get('/mcp/participants/:participantId', methodNotAllowed);
+  app.delete('/mcp/participants/:participantId', methodNotAllowed);
 
   return app;
 }

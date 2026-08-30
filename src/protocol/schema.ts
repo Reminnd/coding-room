@@ -3,6 +3,11 @@ import { z } from 'zod';
 // 标识符是稳定的 opaque string。
 const id = z.string().min(1);
 
+// v0.3 protocol version：新 database 必须持久化并在 writable open 前校验 exact value；
+// 缺失 metadata 的 v0.2 database 分类为 archive，以 protocol_version_mismatch 拒绝。
+export const PROTOCOL_VERSION = '0.3-design';
+export const protocolVersionSchema = z.literal(PROTOCOL_VERSION);
+
 // 严格 UTC ISO 8601 timestamp：z.iso.datetime() 只接受以 Z 结尾的合法 UTC datetime，
 // 拒绝非 ISO 8601、非 UTC offset 与无效日期（如 2026-13-45）。输出与 Date.toISOString() 一致。
 export const utcTimestampSchema = z.iso.datetime();
@@ -25,9 +30,55 @@ export const roomStateSchema = z.enum([
 ]);
 export type RoomState = z.infer<typeof roomStateSchema>;
 
-// ---- Actor ----
-export const actorSchema = z.enum(['user', 'codex', 'claude', 'runner', 'system']);
-export type Actor = z.infer<typeof actorSchema>;
+// ---- Role / ParticipantProfile / RoleAssignment ----
+// Role 是 command authority；Participant 是 identity。v0.3 不再使用 fixed actor enum。
+export const roleSchema = z.enum([
+  'planner',
+  'worker',
+  'reviewer',
+  'executor',
+  'git_controller',
+  'orchestrator',
+]);
+export type Role = z.infer<typeof roleSchema>;
+
+export const participantKindSchema = z.enum(['human', 'agent', 'service']);
+
+// config_ref 是 opaque local reference（如 profile/config 路径），不存储 secret 或 provider credential。
+export const participantProfileSchema = z.object({
+  participant_id: id,
+  display_name: z.string().min(1),
+  kind: participantKindSchema,
+  provider: z.string().min(1),
+  adapter_id: z.string().min(1),
+  capabilities: z.array(z.string()),
+  config_ref: z.string().nullable(),
+  enabled: z.boolean(),
+  created_at: timestamp,
+});
+export type ParticipantProfile = z.infer<typeof participantProfileSchema>;
+
+// Stage 1 scope 收窄为 room|task（Review finding inc9-r2）：run|review scope 在出现真实
+// pre-creation consumer 前不进入 schema/public command，MCP boundary 直接拒绝。
+export const roleAssignmentScopeSchema = z.enum(['room', 'task']);
+
+export const roleAssignmentSchema = z.object({
+  assignment_id: id,
+  room_id: id,
+  scope_type: roleAssignmentScopeSchema,
+  scope_id: id.nullable(),
+  role: roleSchema,
+  participant_id: id,
+  created_at: timestamp,
+});
+export type RoleAssignment = z.infer<typeof roleAssignmentSchema>;
+
+// Event 与 lifecycle entity 记录 actor 时的形状：required role + participant identity。
+export const eventActorSchema = z.object({
+  participant_id: id,
+  actor_role: roleSchema,
+});
+export type EventActor = z.infer<typeof eventActorSchema>;
 
 // ---- TaskContract ----
 const verificationStepSchema = z.object({
@@ -102,6 +153,14 @@ export const taskContractSchema = z
   });
 export type TaskContract = z.infer<typeof taskContractSchema>;
 
+// 持久化 Task 在 TaskContract 基础上固化提交时 resolved 的 planner/orchestrator identity；
+// 提交后 assignment 变化不改写既有 Task。
+export const persistedTaskSchema = taskContractSchema.extend({
+  planner_participant_id: id,
+  orchestrator_participant_id: id,
+});
+export type PersistedTask = z.infer<typeof persistedTaskSchema>;
+
 // ---- CodingResult ----
 const changedFileSchema = z.object({
   path: z.string(),
@@ -171,7 +230,11 @@ export const runSchema = z.object({
   task_id: id,
   status: runStatusSchema,
   baseline_head: z.string(),
-  claude_session_id: z.string().nullable(),
+  // Run claim 时固化的 worker/executor participant（来自当时 resolved assignment）。
+  worker_participant_id: id,
+  executor_participant_id: id,
+  // opaque adapter session reference，只由 assigned WorkerAdapter 写入与解释。
+  agent_session_ref: z.string().nullable(),
   process_exit_code: z.number().int().nullable(),
   started_at: timestamp,
   completed_at: timestamp.nullable(),
@@ -207,7 +270,8 @@ export const reviewSchema = z.object({
   findings: z.array(findingSchema),
   open_questions: z.array(z.string()),
   verification_summary: z.string(),
-  created_by: z.literal('codex'),
+  // 提交 Review 时固化的 reviewer participant identity。
+  reviewer_participant_id: id,
   created_at: timestamp,
 });
 export type Review = z.infer<typeof reviewSchema>;
@@ -242,7 +306,8 @@ export const eventSchema = z.object({
   room_id: id,
   sequence: z.number().int().positive(),
   type: z.string().min(1),
-  actor: actorSchema,
+  actor_role: roleSchema,
+  participant_id: id,
   entity_type: entityTypeSchema,
   entity_id: id,
   summary: z.string(),

@@ -4,9 +4,13 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { establishCleanBaseline } from '../git/git-observer.ts';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
+  participantProfileSchema,
+  persistedTaskSchema,
   questionSchema,
   reviewSchema,
+  roleAssignmentSchema,
   taskContractSchema,
+  type EventActor,
   type TaskContract,
 } from '../protocol/schema.ts';
 import type { RoomService } from '../room/room-service.ts';
@@ -17,9 +21,11 @@ import {
   roomStateSnapshotSchema,
 } from '../room/state-snapshot.ts';
 
-// actor-scoped tool surface 的注册层。actor authority 由 route 的 exact registration 决定，
-// 不信任 caller 传入的 actor string/header；write tool 只映射 RoomService application
-// operation，不直接访问 repository/SQLite，不复制 state transition 或 idempotency logic。
+// v0.3 tool surface 的注册层：单一路由 /mcp/participants/:participantId 把 participant
+// identity 从 route 传入，每个 tool 映射到 frozen required role，service 层按该 role 的
+// RoleAssignment 校验 authority。不信任 caller 传入的 actor string/header；write tool 只
+// 映射 RoomService application operation，不直接访问 repository/SQLite，不复制 state
+// transition 或 idempotency logic。
 
 export interface RoomMcpDependencies {
   service: RoomService;
@@ -57,20 +63,24 @@ async function runTool(fn: () => Promise<unknown>): Promise<CallToolResult> {
 // room_submit_task 的 Git gate 顺序：先查 existing Task，命中则直接委托 RoomService 保留
 // same-content idempotent retry 与 different-content id_conflict；仅首次 type=implementation
 // 提交才调用 establishCleanBaseline。fix 不重新要求 clean baseline。
-async function submitTask(deps: RoomMcpDependencies, task: TaskContract): Promise<unknown> {
+async function submitTask(
+  deps: RoomMcpDependencies,
+  actor: EventActor,
+  task: TaskContract,
+): Promise<unknown> {
   const existing = deps.service.getTask(task.task_id);
   if (!existing && task.type === 'implementation') {
     const baseline = await establishCleanBaseline(deps.projectPath);
-    const result = deps.service.submitTask(task);
+    const result = deps.service.submitTask(task, actor);
     return { ...result, observed_baseline_head: baseline.baselineHead };
   }
-  const result = deps.service.submitTask(task);
+  const result = deps.service.submitTask(task, actor);
   return { ...result, observed_baseline_head: null };
 }
 
 const submitTaskOutputSchema = z.object({
   room: roomRecordSchema,
-  task: taskContractSchema,
+  task: persistedTaskSchema,
   created: z.boolean(),
   observed_baseline_head: z.string().nullable(),
 });
@@ -121,17 +131,48 @@ const roomOnlyOutputSchema = z.object({
   room: roomRecordSchema,
 });
 
-// /mcp/codex 只能列出并调用这九个 Codex tool。
-export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies): void {
+const setParticipantEnabledInputSchema = z.object({
+  participant_id: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+const participantProfileOutputSchema = z.object({
+  profile: participantProfileSchema,
+  created: z.boolean(),
+});
+
+const setParticipantEnabledOutputSchema = z.object({
+  profile: participantProfileSchema,
+});
+
+const roleAssignmentOutputSchema = z.object({
+  assignment: roleAssignmentSchema,
+  created: z.boolean(),
+});
+
+// tool → frozen required role（与 ROOM_PROTOCOL v0.3 candidate 一致）：
+// planner = create/planning/submit/answer；reviewer = review/accept；
+// worker = ask_question；orchestrator = participant/assignment 管理；
+// room_get_state 是 reader，任意 room member 可读。
+export function registerParticipantTools(
+  server: McpServer,
+  deps: RoomMcpDependencies,
+  participantId: string,
+): void {
+  const planner: EventActor = { participant_id: participantId, actor_role: 'planner' };
+  const reviewer: EventActor = { participant_id: participantId, actor_role: 'reviewer' };
+  const worker: EventActor = { participant_id: participantId, actor_role: 'worker' };
+  const orchestrator: EventActor = { participant_id: participantId, actor_role: 'orchestrator' };
+
   server.registerTool(
     'room_create',
     {
       description:
-        'Create a Room, or return the existing Room with created=false when the ID already exists.',
+        'Create a Room with bootstrap participant profiles and room-scope role assignments, or return the existing Room with created=false when the ID already exists.',
       inputSchema: roomIdInputSchema,
       outputSchema: createRoomOutputSchema,
     },
-    (args) => runTool(async () => deps.service.createRoom(args.room_id)),
+    (args) => runTool(async () => deps.service.createRoom(args.room_id, planner)),
   );
 
   server.registerTool(
@@ -141,7 +182,8 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
       inputSchema: roomIdInputSchema,
       outputSchema: roomOnlyOutputSchema,
     },
-    (args) => runTool(async () => ({ room: deps.service.transitionToArchitectureReview(args.room_id) })),
+    (args) =>
+      runTool(async () => ({ room: deps.service.transitionToArchitectureReview(args.room_id, planner) })),
   );
 
   server.registerTool(
@@ -152,7 +194,9 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
       outputSchema: roomOnlyOutputSchema,
     },
     (args) =>
-      runTool(async () => ({ room: deps.service.transitionToWaitingForUserConfirmation(args.room_id) })),
+      runTool(async () => ({
+        room: deps.service.transitionToWaitingForUserConfirmation(args.room_id, planner),
+      })),
   );
 
   server.registerTool(
@@ -162,24 +206,25 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
       inputSchema: roomIdInputSchema,
       outputSchema: roomOnlyOutputSchema,
     },
-    (args) => runTool(async () => ({ room: deps.service.retryAfterFailure(args.room_id) })),
+    (args) => runTool(async () => ({ room: deps.service.retryAfterFailure(args.room_id, planner) })),
   );
 
   server.registerTool(
     'room_get_state',
     {
       description:
-        'Read the current Room state snapshot: room state, current task/run/review/open question, waiting actor, event cursor, and events after the given sequence.',
+        'Read the current Room state snapshot: room, participants, role assignments, all tasks/runs/reviews/questions, current task/run/review/open question, waiting actor, event cursor, and events after the given sequence.',
       inputSchema: roomStateSnapshotInputSchema,
       outputSchema: roomStateSnapshotSchema,
     },
     (args) =>
-      runTool(async () =>
-        getRoomStateSnapshot(deps.service, {
+      runTool(async () => {
+        deps.service.assertRoomParticipant(args.room_id, participantId);
+        return getRoomStateSnapshot(deps.service, {
           room_id: args.room_id,
           after_sequence: args.after_sequence ?? null,
-        }),
-      ),
+        });
+      }),
   );
 
   server.registerTool(
@@ -190,7 +235,7 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
       inputSchema: taskContractSchema,
       outputSchema: submitTaskOutputSchema,
     },
-    (args) => runTool(async () => submitTask(deps, args)),
+    (args) => runTool(async () => submitTask(deps, planner, args)),
   );
 
   server.registerTool(
@@ -200,7 +245,7 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
       inputSchema: reviewSchema,
       outputSchema: submitReviewOutputSchema,
     },
-    (args) => runTool(async () => deps.service.submitReview(args)),
+    (args) => runTool(async () => deps.service.submitReview(args, reviewer)),
   );
 
   server.registerTool(
@@ -212,7 +257,7 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
     },
     (args) =>
       runTool(async () =>
-        deps.service.answerQuestion(args.question_id, args.answer, args.answer_changes_contract),
+        deps.service.answerQuestion(args.question_id, args.answer, args.answer_changes_contract, planner),
       ),
   );
 
@@ -224,13 +269,9 @@ export function registerCodexTools(server: McpServer, deps: RoomMcpDependencies)
       outputSchema: acceptReviewOutputSchema,
     },
     (args) =>
-      runTool(async () => deps.service.acceptReview(args.review_id, args.confirmed_by_user)),
+      runTool(async () => deps.service.acceptReview(args.review_id, args.confirmed_by_user, reviewer)),
   );
-}
 
-// /mcp/claude 只能列出并调用 room_ask_question；保持 Runner 已冻结的
-// mcp__agent_room__room_ask_question required tool authority。
-export function registerClaudeTools(server: McpServer, deps: RoomMcpDependencies): void {
   server.registerTool(
     'room_ask_question',
     {
@@ -238,6 +279,37 @@ export function registerClaudeTools(server: McpServer, deps: RoomMcpDependencies
       inputSchema: questionSchema,
       outputSchema: askQuestionOutputSchema,
     },
-    (args) => runTool(async () => deps.service.askQuestion(args)),
+    (args) => runTool(async () => deps.service.askQuestion(args, worker)),
+  );
+
+  server.registerTool(
+    'room_register_participant',
+    {
+      description: 'Register a new ParticipantProfile (identity). The participant has no command authority until assigned a role.',
+      inputSchema: participantProfileSchema,
+      outputSchema: participantProfileOutputSchema,
+    },
+    (args) => runTool(async () => deps.service.registerParticipant(args, orchestrator)),
+  );
+
+  server.registerTool(
+    'room_set_participant_enabled',
+    {
+      description: 'Enable or disable a participant. Disabled participants keep readable history but lose new command authority.',
+      inputSchema: setParticipantEnabledInputSchema,
+      outputSchema: setParticipantEnabledOutputSchema,
+    },
+    (args) =>
+      runTool(async () => deps.service.setParticipantEnabled(args.participant_id, args.enabled, orchestrator)),
+  );
+
+  server.registerTool(
+    'room_create_role_assignment',
+    {
+      description: 'Create or replace a RoleAssignment. Exact entity scope resolves before the Room default; the latest assignment for a scope/role is active.',
+      inputSchema: roleAssignmentSchema,
+      outputSchema: roleAssignmentOutputSchema,
+    },
+    (args) => runTool(async () => deps.service.createRoleAssignment(args, orchestrator)),
   );
 }

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 
 // room:serve runtime entry 的黑盒回归：以独立 child process 运行 `node src/mcp/serve.ts`，
 // 验证 startup validation 边界 —— project shape 先于 database open 校验、invalid args、
@@ -99,6 +100,53 @@ test('room:serve exits non-zero on a corrupt database and does not print listeni
   rmSync(dir, { recursive: true, force: true });
 });
 
+// Fix inc9-r6：v0.3 writable open 门禁。缺 protocol_metadata 的 v0.2 archive 与 wrong
+// exact metadata 都必须在任何 schema/state write 前以 protocol_version_mismatch 拒绝，
+// 且旧 database 逐 byte 不变。
+test('room:serve refuses a v0.2 archive without protocol metadata and leaves it byte-identical', () => {
+  const dir = makeDir();
+  const project = join(dir, 'proj');
+  mkdirSync(project);
+  const dbPath = join(dir, 'room.db');
+  // 测试侧 literal 建立真实 v0.2 archive：rooms 表存在、无 protocol_metadata 表。
+  const archive = new DatabaseSync(dbPath);
+  archive.exec(
+    'CREATE TABLE rooms (room_id TEXT PRIMARY KEY, state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);',
+  );
+  archive
+    .prepare('INSERT INTO rooms (room_id, state, created_at, updated_at) VALUES (?, ?, ?, ?)')
+    .run('room-old', 'ACCEPTED', '2026-08-29T00:00:00.000Z', '2026-08-29T00:00:00.000Z');
+  archive.close();
+  const before = readFileSync(dbPath);
+  const r = runServe(['--db', dbPath, '--project', project, '--port', '7777']);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /protocol_version_mismatch/);
+  assert.equal(r.stdout, '');
+  assert.deepEqual(readFileSync(dbPath), before, 'v0.2 archive must be preserved byte-for-byte');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('room:serve refuses wrong exact protocol metadata and leaves the database byte-identical', () => {
+  const dir = makeDir();
+  const project = join(dir, 'proj');
+  mkdirSync(project);
+  const dbPath = join(dir, 'room.db');
+  const archive = new DatabaseSync(dbPath);
+  archive.exec(
+    'CREATE TABLE rooms (room_id TEXT PRIMARY KEY, state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);' +
+      'CREATE TABLE protocol_metadata (protocol_version TEXT NOT NULL);' +
+      "INSERT INTO protocol_metadata (protocol_version) VALUES ('0.2');",
+  );
+  archive.close();
+  const before = readFileSync(dbPath);
+  const r = runServe(['--db', dbPath, '--project', project, '--port', '7777']);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /protocol_version_mismatch/);
+  assert.equal(r.stdout, '');
+  assert.deepEqual(readFileSync(dbPath), before, 'wrong-version database must be preserved byte-for-byte');
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('room:serve exits non-zero when the port is already bound', async () => {
   const dir = makeDir();
   const project = join(dir, 'proj');
@@ -171,8 +219,8 @@ test('room:serve with a valid config starts and listens on 127.0.0.1', async () 
     assert.match(stdout, /Room MCP listening on http:\/\/127\.0\.0\.1:/);
     assert.equal(existsSync(dbPath), true);
 
-    // 真实监听：GET 走 405 而非连接失败。
-    const res = await fetch(`http://127.0.0.1:${port}/mcp/codex`, { method: 'GET' });
+    // 真实监听：framed participant route 上 GET 走 405 而非连接失败；v0.2 alias 已废弃。
+    const res = await fetch(`http://127.0.0.1:${port}/mcp/participants/p~codex-app`, { method: 'GET' });
     assert.equal(res.status, 405);
   } finally {
     child.kill('SIGTERM');

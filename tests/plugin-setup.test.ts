@@ -6,6 +6,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
@@ -24,6 +25,8 @@ const GITIGNORE_ENTRIES = [
   '.agent-room/runtime.json',
   '.agent-room/room.sqlite',
   '.agent-room/room.sqlite-*',
+  '.agent-room/room-v0.3.sqlite',
+  '.agent-room/room-v0.3.sqlite-*',
   '.agent-room/artifacts/',
 ];
 
@@ -128,7 +131,7 @@ function stopChild(child: ChildProcess | undefined): Promise<void> {
   });
 }
 
-test('fresh setup creates the exact five-field binding, project config and ignore rules from an operator-provided root', () => {
+test('fresh setup creates the exact eight-field v0.3 binding, project config and ignore rules from an operator-provided root', () => {
   const fixture = makeProject();
   try {
     const r = runHelper(fixture, ['--agent-room-root', root]);
@@ -148,6 +151,10 @@ test('fresh setup creates the exact five-field binding, project config and ignor
     assert.equal(rt.project_path, fixture);
     assert.ok(Number.isInteger(rt.port) && (rt.port as number) >= 1 && (rt.port as number) <= 65535);
     assert.match(rt.room_id as string, /^room-[0-9a-f-]{36}$/);
+    // v0.3 binding 额外三字段：frozen protocol version、control participant 与 archive 指针。
+    assert.equal(rt.protocol_version, '0.3-design');
+    assert.equal(rt.control_participant_id, 'codex-app');
+    assert.equal(rt.archived_database_path, null);
     assert.equal(summary.config.action, 'created');
     assert.equal(summary.gitignore.action, 'created');
     assert.deepEqual(summary.gitignore.added, GITIGNORE_ENTRIES);
@@ -157,20 +164,23 @@ test('fresh setup creates the exact five-field binding, project config and ignor
     assert.ok(summary.serve_command.includes(`--project "${rt.project_path}"`));
     assert.ok(summary.serve_command.includes(`--port ${rt.port}`));
 
-    // 磁盘证据：runtime.json 恰好五个字段且与 summary 一致；config/gitignore 为生成内容。
+    // 磁盘证据：runtime.json 恰好八个字段且与 summary 一致；config/gitignore 为生成内容。
     const runtimeOnDisk = JSON.parse(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'));
     assert.deepEqual(runtimeOnDisk, rt);
     assert.deepEqual(Object.keys(runtimeOnDisk).sort(), [
       'agent_room_root',
+      'archived_database_path',
+      'control_participant_id',
       'database_path',
       'port',
       'project_path',
+      'protocol_version',
       'room_id',
     ]);
     const configText = readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8');
     assert.equal(
       configText,
-      `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${rt.port}/mcp/codex"\n`,
+      `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${rt.port}/mcp/participants/p~codex-app"\n`,
     );
     const gitignoreText = readFileSync(join(fixture, '.gitignore'), 'utf8');
     assert.equal(gitignoreText, GITIGNORE_ENTRIES.join('\n') + '\n');
@@ -228,7 +238,7 @@ test('existing unrelated config and gitignore content is preserved verbatim and 
     const configOut = readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8');
     assert.equal(
       configOut,
-      `${configOriginal}\r\n[mcp_servers.agent_room]\r\nurl = "http://127.0.0.1:${port}/mcp/codex"\r\n`,
+      `${configOriginal}\r\n[mcp_servers.agent_room]\r\nurl = "http://127.0.0.1:${port}/mcp/participants/p~codex-app"\r\n`,
       'original config content must be preserved verbatim',
     );
     const gitignoreOut = readFileSync(join(fixture, '.gitignore'), 'utf8');
@@ -353,7 +363,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
       const port = first.runtime.port as number;
       writeFileSync(
         join(fixture, '.codex', 'config.toml'),
-        `[mcp_servers.other]\nurl = "http://127.0.0.1:${port}/mcp/codex"\n`,
+        `[mcp_servers.other]\nurl = "http://127.0.0.1:${port}/mcp/participants/p~codex-app"\n`,
       );
       const before = snapshotFiles(fixture);
       const r = runHelper(fixture, ['--agent-room-root', root]);
@@ -364,7 +374,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
       rmSync(fixture, { recursive: true, force: true });
     }
   }
-  // (c) runtime 出现第六个字段：invalid binding，零写入。
+  // (c) runtime 出现第九个字段：invalid binding，零写入。
   {
     const fixture = makeProject();
     try {
@@ -377,7 +387,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
       const configBefore = readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8');
       const r = runHelper(fixture, ['--agent-room-root', root]);
       assert.notEqual(r.status, 0);
-      assert.match(r.stderr, /exactly the five required fields/);
+      assert.match(r.stderr, /must contain exactly the v0\.2 five fields or the v0\.3 eight fields/);
       assert.equal(readFileSync(runtimePath, 'utf8'), JSON.stringify(extended, null, 2) + '\n');
       assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), configBefore);
     } finally {
@@ -435,7 +445,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
       const port = first.runtime.port as number;
       writeFileSync(
         join(fixture, '.codex', 'config.toml'),
-        `mcp_servers.other.url = "http://127.0.0.1:${port}/mcp/codex"\n`,
+        `mcp_servers.other.url = "http://127.0.0.1:${port}/mcp/participants/p~codex-app"\n`,
       );
       const before = snapshotFiles(fixture);
       const r = runHelper(fixture, ['--agent-room-root', root]);
@@ -448,21 +458,92 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
   }
 });
 
+test('existing v0.3 binding with a non-codex-app control identity fails before any write with all three files byte-identical', () => {
+  // Fix inc9-fr2-5：existing binding 只在 control_participant_id exact 为 codex-app 时复用；
+  // mismatch 必须在 runtime/config/gitignore 任何 write 前失败。tamper 只改 runtime.json
+  // 的 control_participant_id 值（仍为八字段），public CLI 必须以非零 exit 拒绝且逐 byte 零写入。
+  const fixture = makeProject();
+  try {
+    runHelper(fixture, ['--agent-room-root', root]);
+    const runtimePath = join(fixture, '.agent-room', 'runtime.json');
+    const configPath = join(fixture, '.codex', 'config.toml');
+    const gitignorePath = join(fixture, '.gitignore');
+    const tampered = JSON.parse(readFileSync(runtimePath, 'utf8')) as Record<string, unknown>;
+    tampered.control_participant_id = 'attacker-app';
+    writeFileSync(runtimePath, JSON.stringify(tampered, null, 2) + '\n');
+    const before = {
+      runtime: readFileSync(runtimePath, 'utf8'),
+      config: readFileSync(configPath, 'utf8'),
+      gitignore: readFileSync(gitignorePath, 'utf8'),
+    };
+    const r = runHelper(fixture, ['--agent-room-root', root]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /control_participant_id must be codex-app/);
+    assert.equal(readFileSync(runtimePath, 'utf8'), before.runtime);
+    assert.equal(readFileSync(configPath, 'utf8'), before.config);
+    assert.equal(readFileSync(gitignorePath, 'utf8'), before.gitignore);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('existing v0.3 binding with an unframed candidate config URL fails as a binding/config mismatch with zero writes and no auto-migration', () => {
+  // Fix inc9-fr4：既有 v0.3 binding 的 config 若保留旧 unframed candidate URL（如
+  // .../mcp/participants/codex-app），它既不是 framed participant route 也不是 leftover
+  // v0.2 /mcp/codex URL，helper 必须按 binding/config mismatch 在任何写入前拒绝
+  // （无 auto-compat migration/rewrite），三份文件逐 byte 不变。section 与 frozen dotted
+  // 两种定义形态走不同 planConfig 分支，都验证。
+  const unframedCases: Array<{ name: string; line: (url: string) => string; conflict: RegExp }> = [
+    {
+      name: 'section form',
+      line: (url) => `[mcp_servers.agent_room]\nurl = "${url}"\n`,
+      conflict: /config conflict: \[mcp_servers\.agent_room\] url is/,
+    },
+    {
+      name: 'frozen dotted form',
+      line: (url) => `mcp_servers.agent_room.url = "${url}"\n`,
+      conflict: /config conflict: mcp_servers\.agent_room\.url is/,
+    },
+  ];
+  for (const c of unframedCases) {
+    const fixture = makeProject();
+    try {
+      const first = JSON.parse(runHelper(fixture, ['--agent-room-root', root]).stdout);
+      const port = first.runtime.port as number;
+      const unframedUrl = `http://127.0.0.1:${port}/mcp/participants/codex-app`;
+      writeFileSync(join(fixture, '.codex', 'config.toml'), c.line(unframedUrl));
+      const before = {
+        runtime: readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'),
+        config: readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'),
+        gitignore: readFileSync(join(fixture, '.gitignore'), 'utf8'),
+      };
+      const r = runHelper(fixture, []);
+      assert.notEqual(r.status, 0, `${c.name}: unframed candidate URL must be rejected`);
+      assert.match(r.stderr, c.conflict);
+      assert.equal(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'), before.runtime);
+      assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), before.config);
+      assert.equal(readFileSync(join(fixture, '.gitignore'), 'utf8'), before.gitignore);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  }
+});
+
 test('valid runtime with a matching frozen dotted agent_room URL reuses the exact identity without appending a table', () => {
   const fixture = makeProject();
   try {
     const first = JSON.parse(runHelper(fixture, ['--agent-room-root', root]).stdout);
     const port = first.runtime.port as number;
     // 把生成的 section 形态改写为冻结的 direct dotted URL assignment；matching exact URL
-    // 必须视为已有匹配 binding：幂等复用五字段 identity、不追加 [mcp_servers.agent_room]。
-    const configDotted = `mcp_servers.agent_room.url = "http://127.0.0.1:${port}/mcp/codex"\n`;
+    // 必须视为已有匹配 binding：幂等复用八字段 identity、不追加 [mcp_servers.agent_room]。
+    const configDotted = `mcp_servers.agent_room.url = "http://127.0.0.1:${port}/mcp/participants/p~codex-app"\n`;
     writeFileSync(join(fixture, '.codex', 'config.toml'), configDotted);
 
     const r = runHelper(fixture, []);
     assert.equal(r.status, 0, r.stderr);
     const second = JSON.parse(r.stdout);
     assert.equal(second.mode, 'reused');
-    assert.deepEqual(second.runtime, first.runtime, 'exact five-field identity must be reused');
+    assert.deepEqual(second.runtime, first.runtime, 'exact eight-field identity must be reused');
     assert.equal(second.config.action, 'unchanged');
     assert.equal(second.reload_required, false);
     assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), configDotted);
@@ -501,14 +582,17 @@ test('missing runtime with dotted agent_room keys nested inside an unrelated tab
         1,
         'exactly one top-level agent_room section must be appended',
       );
-      assert.ok(configOut.includes(`url = "http://127.0.0.1:${summary.runtime.port}/mcp/codex"`));
+      assert.ok(configOut.includes(`url = "http://127.0.0.1:${summary.runtime.port}/mcp/participants/p~codex-app"`));
 
       const runtimeOnDisk = JSON.parse(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'));
       assert.deepEqual(Object.keys(runtimeOnDisk).sort(), [
         'agent_room_root',
+        'archived_database_path',
+        'control_participant_id',
         'database_path',
         'port',
         'project_path',
+        'protocol_version',
         'room_id',
       ]);
       assert.equal(readFileSync(join(fixture, '.gitignore'), 'utf8'), GITIGNORE_ENTRIES.join('\n') + '\n');
@@ -521,7 +605,7 @@ test('missing runtime with dotted agent_room keys nested inside an unrelated tab
 test('valid runtime with dotted agent_room/other keys nested inside an unrelated table appends the matching top-level section without identity drift', () => {
   // Review finding inc8-r2：table header 后的嵌套同名 dotted key 不得被当作 matching
   // binding、mismatch 或 other-server ownership conflict。三个子场景都必须逐字保留
-  // unrelated table、追加唯一 matching top-level section，且五字段 runtime identity 不漂移。
+  // unrelated table、追加唯一 matching top-level section，且八字段 runtime identity 不漂移。
   const nestedCases: Array<{ name: string; line: (url: string) => string }> = [
     {
       name: 'nested agent_room url equal to expected',
@@ -541,7 +625,7 @@ test('valid runtime with dotted agent_room/other keys nested inside an unrelated
     try {
       const first = JSON.parse(runHelper(fixture, ['--agent-room-root', root]).stdout);
       const port = first.runtime.port as number;
-      const expectedUrl = `http://127.0.0.1:${port}/mcp/codex`;
+      const expectedUrl = `http://127.0.0.1:${port}/mcp/participants/p~codex-app`;
       const configOriginal = `[unrelated]\n${c.line(expectedUrl)}\n`;
       writeFileSync(join(fixture, '.codex', 'config.toml'), configOriginal);
       const gitignoreBefore = readFileSync(join(fixture, '.gitignore'), 'utf8');
@@ -550,7 +634,7 @@ test('valid runtime with dotted agent_room/other keys nested inside an unrelated
       assert.equal(r.status, 0, r.stderr);
       const second = JSON.parse(r.stdout);
       assert.equal(second.mode, 'reused');
-      assert.deepEqual(second.runtime, first.runtime, `exact five-field identity must not drift (${c.name})`);
+      assert.deepEqual(second.runtime, first.runtime, `exact eight-field identity must not drift (${c.name})`);
       assert.equal(second.config.action, 'appended');
       assert.equal(second.reload_required, true);
 
@@ -567,6 +651,129 @@ test('valid runtime with dotted agent_room/other keys nested inside an unrelated
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
+  }
+});
+
+// Fix inc9-r6：valid v0.2 binding 的 migration public CLI。旧 database 保持原路径与逐
+// byte 内容不变（archive），生成独立 v0.3 identity；migration rerun 复用同一 identity
+// 且 mode=reused；conflict 零写入。
+test('v0.2 binding migration preserves the old database byte-for-byte, creates an independent v0.3 identity and is idempotent', () => {
+  const fixture = makeProject();
+  try {
+    // 测试侧 literal 建立 valid v0.2 五字段 binding 与真实 v0.2 SQLite archive。
+    const oldDb = join(fixture, '.agent-room', 'room.sqlite');
+    mkdirSync(join(fixture, '.agent-room'), { recursive: true });
+    const archive = new DatabaseSync(oldDb);
+    archive.exec(
+      'CREATE TABLE rooms (room_id TEXT PRIMARY KEY, state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);',
+    );
+    archive
+      .prepare('INSERT INTO rooms (room_id, state, created_at, updated_at) VALUES (?, ?, ?, ?)')
+      .run('room-v02-1', 'ACCEPTED', '2026-08-29T00:00:00.000Z', '2026-08-29T00:00:00.000Z');
+    archive.close();
+    const oldDbBytes = readFileSync(oldDb);
+
+    const legacyPort = 43210;
+    writeFileSync(
+      join(fixture, '.agent-room', 'runtime.json'),
+      JSON.stringify(
+        {
+          agent_room_root: 'D:/agent/room-v02-launcher',
+          database_path: oldDb,
+          project_path: fixture,
+          port: legacyPort,
+          room_id: 'room-v02-1',
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    // 旧 v0.2 config 指向 legacy /mcp/codex URL，migration 必须保守改写为 participant route。
+    mkdirSync(join(fixture, '.codex'), { recursive: true });
+    const legacyConfig = `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/codex"\n`;
+    writeFileSync(join(fixture, '.codex', 'config.toml'), legacyConfig);
+
+    // migration 要求 operator 再提供一次 --agent-room-root；缺失时零写入。
+    const withoutRoot = runHelper(fixture, []);
+    assert.notEqual(withoutRoot.status, 0);
+    assert.match(withoutRoot.stderr, /--agent-room-root is required to migrate/);
+    assert.deepEqual(readFileSync(oldDb), oldDbBytes);
+    assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), legacyConfig);
+
+    const r = runHelper(fixture, ['--agent-room-root', root]);
+    assert.equal(r.status, 0, r.stderr);
+    const summary = JSON.parse(r.stdout) as {
+      mode: string;
+      runtime: Record<string, unknown>;
+      config: { action: string };
+      gitignore: { action: string };
+      reload_required: boolean;
+    };
+    assert.equal(summary.mode, 'migrated');
+    const rt = summary.runtime;
+    assert.equal(rt.agent_room_root, root);
+    assert.equal(rt.database_path, join(fixture, '.agent-room', 'room-v0.3.sqlite'));
+    assert.equal(rt.project_path, fixture);
+    assert.equal(rt.port, legacyPort, 'migration must reuse the v0.2 port');
+    assert.match(rt.room_id as string, /^room-[0-9a-f-]{36}$/);
+    assert.notEqual(rt.room_id, 'room-v02-1', 'migration must generate a new room_id');
+    assert.equal(rt.protocol_version, '0.3-design');
+    assert.equal(rt.control_participant_id, 'codex-app');
+    assert.equal(rt.archived_database_path, oldDb, 'old database path becomes the archive pointer');
+    assert.equal(summary.config.action, 'updated');
+    assert.equal(summary.gitignore.action, 'created');
+    assert.equal(summary.reload_required, true);
+
+    // 磁盘证据：旧 database 逐 byte 不变（helper 从不打开旧 database）；runtime 为恰好
+    // 八字段 v0.3 binding；config 指向 participant route；新 v0.3 database 只由 serve 初始化。
+    assert.deepEqual(readFileSync(oldDb), oldDbBytes, 'v0.2 archive must be preserved byte-for-byte');
+    const runtimeOnDisk = JSON.parse(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'));
+    assert.deepEqual(runtimeOnDisk, rt);
+    assert.deepEqual(Object.keys(runtimeOnDisk).sort(), [
+      'agent_room_root',
+      'archived_database_path',
+      'control_participant_id',
+      'database_path',
+      'port',
+      'project_path',
+      'protocol_version',
+      'room_id',
+    ]);
+    assert.equal(
+      readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'),
+      `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/participants/p~codex-app"\n`,
+    );
+    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.3.sqlite')), false);
+
+    // migration rerun：mode=reused、identity 稳定、三文件 byte-identical、旧 database 不变。
+    const runtimeBefore = readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8');
+    const configBefore = readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8');
+    const gitignoreBefore = readFileSync(join(fixture, '.gitignore'), 'utf8');
+    const r2 = runHelper(fixture, []);
+    assert.equal(r2.status, 0, r2.stderr);
+    const second = JSON.parse(r2.stdout);
+    assert.equal(second.mode, 'reused');
+    assert.deepEqual(second.runtime, rt, 'migration rerun must reuse the exact v0.3 identity');
+    assert.equal(second.config.action, 'unchanged');
+    assert.equal(second.reload_required, false);
+    assert.deepEqual(readFileSync(oldDb), oldDbBytes);
+    assert.equal(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'), runtimeBefore);
+    assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), configBefore);
+    assert.equal(readFileSync(join(fixture, '.gitignore'), 'utf8'), gitignoreBefore);
+
+    // conflict（config URL 被改成其它值）：零写入，四份文件 byte-identical，不生成新 database。
+    const conflictConfig = `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/other"\n`;
+    writeFileSync(join(fixture, '.codex', 'config.toml'), conflictConfig);
+    const r3 = runHelper(fixture, []);
+    assert.notEqual(r3.status, 0);
+    assert.match(r3.stderr, /config conflict: \[mcp_servers\.agent_room\] url is/);
+    assert.deepEqual(readFileSync(oldDb), oldDbBytes);
+    assert.equal(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'), runtimeBefore);
+    assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), conflictConfig);
+    assert.equal(readFileSync(join(fixture, '.gitignore'), 'utf8'), gitignoreBefore);
+    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.3.sqlite')), false);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
   }
 });
 
@@ -613,7 +820,7 @@ test('actual loopback setup E2E: serve boundary plus reload continuation room_cr
 
     // 第二段（模拟 Codex Desktop reload 后）：project-scoped MCP continuation。
     client = new Client({ name: 'setup-e2e-client', version: '1.0.0' });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp/codex`));
+    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp/participants/p~codex-app`));
     await client.connect(transport);
 
     // Room 尚不存在 → room_get_state 返回 entity_not_found tool error。

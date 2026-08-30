@@ -7,7 +7,16 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { runCliMain, type RunCliIo } from '../src/cli/run.ts';
 import { RoomService } from '../src/room/room-service.ts';
-import { makeCodingResult, makeQuestion, makeRun, makeTask, makeTerminalEvidence } from './fixtures.ts';
+import { getRoomStateSnapshot } from '../src/room/state-snapshot.ts';
+import {
+  makeCodingResult,
+  makeParticipant,
+  makeQuestion,
+  makeRoleAssignment,
+  makeRun,
+  makeTask,
+  makeTerminalEvidence,
+} from './fixtures.ts';
 import {
   FakeClaudeProcess,
   makeSpawner,
@@ -19,7 +28,13 @@ import {
 // recording io（stdout/stderr/exit）与 fake spawner，证明 stdout {room,run}、exit 0/1 契约、
 // preflight 拒绝与零副作用，而不调用真实 Claude CLI 或 process.exit。
 const SESSION_ID = 'sess-00000000-0000-4000-8000-000000000001';
-const MCP_URL = 'http://127.0.0.1:8080/mcp/claude';
+const MCP_URL = 'http://127.0.0.1:8080/mcp/participants/p~claude-code-cli';
+
+// v0.3 actor literal：与默认 bootstrap assignment 一致（测试侧独立 literal，不导入实现）。
+const PLANNER = { participant_id: 'codex-app', actor_role: 'planner' as const };
+const WORKER = { participant_id: 'claude-code-cli', actor_role: 'worker' as const };
+const EXECUTOR = { participant_id: 'local-runner', actor_role: 'executor' as const };
+const ORCHESTRATOR = { participant_id: 'codex-app', actor_role: 'orchestrator' as const };
 
 function git(fixture: string, ...args: string[]): string {
   return execFileSync('git', args, {
@@ -58,10 +73,69 @@ function makeReadyDb(fixture: string): { dbPath: string; repo: string; baselineH
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  db.close();
+  return { dbPath, repo, baselineHead };
+}
+
+// Fix inc9-fr3/fr4 fixture：bootstrap 后注册含斜杠 worker identity worker/2 并创建 Task-scope
+// worker assignment，使 resolved worker 为 raw worker/2 而不是默认 claude-code-cli。
+function makeSlashWorkerDb(fixture: string): { dbPath: string; repo: string; baselineHead: string } {
+  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
+  const db = new DatabaseSync(dbPath);
+  const service = new RoomService(db);
+  service.registerParticipant(
+    makeParticipant({
+      participant_id: 'worker/2',
+      display_name: 'Worker 2',
+      kind: 'agent',
+      provider: 'anthropic',
+      adapter_id: 'claude_code_cli',
+      capabilities: ['coding', 'questioning'],
+    }),
+    ORCHESTRATOR,
+  );
+  service.createRoleAssignment(
+    makeRoleAssignment({ assignment_id: 'a-w2', scope_type: 'task', scope_id: 'task-1', role: 'worker', participant_id: 'worker/2' }),
+    ORCHESTRATOR,
+  );
+  db.close();
+  return { dbPath, repo, baselineHead };
+}
+
+// Fix inc9-fr4 fixture：bootstrap 后注册 `.`/`..` worker identity 并创建 Task-scope worker
+// assignment；两者都是 schema 允许的 raw opaque id，resolved worker 不再指向默认 bootstrap。
+function makeDotWorkerDb(
+  fixture: string,
+  participantId: '.' | '..',
+): { dbPath: string; repo: string; baselineHead: string } {
+  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
+  const db = new DatabaseSync(dbPath);
+  const service = new RoomService(db);
+  service.registerParticipant(
+    makeParticipant({
+      participant_id: participantId,
+      display_name: participantId,
+      kind: 'agent',
+      provider: 'anthropic',
+      adapter_id: 'claude_code_cli',
+      capabilities: ['coding', 'questioning'],
+    }),
+    ORCHESTRATOR,
+  );
+  service.createRoleAssignment(
+    makeRoleAssignment({
+      assignment_id: `a-${participantId}`,
+      scope_type: 'task',
+      scope_id: 'task-1',
+      role: 'worker',
+      participant_id: participantId,
+    }),
+    ORCHESTRATOR,
+  );
   db.close();
   return { dbPath, repo, baselineHead };
 }
@@ -159,12 +233,12 @@ test('successful run prints deterministic {room,run} JSON to stdout and exits 0'
     assert.equal(out.stderr, '');
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
-      run: { status: string; run_id: string; claude_session_id: string | null };
+      run: { status: string; run_id: string; agent_session_ref: string | null };
     };
     assert.equal(payload.room.state, 'REVIEW_REQUIRED');
     assert.equal(payload.run.status, 'succeeded');
     assert.equal(payload.run.run_id, 'run-1');
-    assert.equal(payload.run.claude_session_id, SESSION_ID);
+    assert.equal(payload.run.agent_session_ref, SESSION_ID);
 
     // 首次 Implementation：无 --resume；exact MCP config 原样传给 process。
     const args = invocations[0].args;
@@ -224,7 +298,7 @@ test('paused needs-decision run prints {room,run} to stdout and exits 0', async 
     // 与 Runner 测试中 in-memory 共享 service 等价，走真实 SQLite 持久化。
     const db = new DatabaseSync(dbPath);
     const service = new RoomService(db);
-    service.askQuestion(makeQuestion());
+    service.askQuestion(makeQuestion(), WORKER);
     db.close();
     child.stdout.write(`${initLine()}\n${resultLine(SESSION_ID, makeCodingResult({ status: 'needs_decision' }))}\n`);
     child.stdout.end();
@@ -257,17 +331,18 @@ test('retry continuation succeeds without --baseline-head because the source run
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun({ baseline_head: baselineHead }));
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun({ baseline_head: baselineHead }), EXECUTOR);
   service.failRun(
     'run-1',
     { code: 'claude_exit_failed', message: 'boom' },
-    makeTerminalEvidence({ claude_session_id: SESSION_ID, process_exit_code: 1 }),
+    makeTerminalEvidence({ agent_session_ref: SESSION_ID, process_exit_code: 1 }),
+    EXECUTOR,
   );
-  service.retryAfterFailure('room-1'); // PLAN_READY
+  service.retryAfterFailure('room-1', PLANNER); // PLAN_READY
   db.close();
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
@@ -410,11 +485,13 @@ test('invalid MCP URLs write stderr and exit 1 before any spawn', async () => {
   try {
     const urls = [
       'http://example.com/mcp/claude', // 非 loopback
-      'http://127.0.0.1:8080/mcp/codex', // 错误 route
+      'http://127.0.0.1:8080/mcp/codex', // 错误 route（v0.2 route 已废弃）
       'http://127.0.0.1:8080/other', // 任意 path
-      'http://127.0.0.1:8080/mcp/claude/', // 尾斜杠 ≠ 精确 route
+      'http://127.0.0.1:8080/mcp/participants/p~claude-code-cli/', // 尾斜杠 ≠ 精确 route
+      'http://127.0.0.1:8080/mcp/participants/claude-code-cli', // unframed candidate（Fix inc9-fr4）
       'ftp://127.0.0.1/mcp/claude', // 非 http(s)
-      'http://127.0.0.1:8080/mcp/claude?x=1', // query 不允许
+      'http://127.0.0.1:8080/mcp/participants/p~claude-code-cli?x=1', // query 不允许
+      'http://127.0.0.1:8080/mcp/participants/p~claude-code-cli#frag', // fragment 不允许
       'not-a-url', // 不可解析
     ];
     for (const mcpUrl of urls) {
@@ -428,6 +505,228 @@ test('invalid MCP URLs write stderr and exit 1 before any spawn', async () => {
       assert.ok(out.stderr.length > 0, `URL ${mcpUrl} must write stderr`);
     }
     assert.equal(invocations.length, 0, 'URL preflight failure must never spawn');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// Fix inc9-fr3/fr4 direct regression：resolved worker 为含斜杠的 worker/2 时，public room:run
+// CLI 必须接受 canonical framed single-segment mcp-url（期望值 p~worker%2F2 是测试侧 literal，
+// 不从 production route builder 导出）并完成 fake-process Run 与 terminal settlement；Run
+// 持久化的 worker identity 保持 raw worker/2。
+test('a slash worker identity accepts the canonical framed MCP URL and completes a run', async () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-slash-ok-'));
+  const { dbPath, repo, baselineHead } = makeSlashWorkerDb(fixture);
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    child.stdout.write(`${initLine()}\n${resultLine()}\n`);
+    child.stdout.end();
+    child.stderr.end();
+    child.emit('close', 0, null);
+  });
+  const { io, out } = recordingIo();
+  try {
+    await runCliMain(
+      runArgs(dbPath, repo, [
+        '--baseline-head', baselineHead,
+        '--mcp-url', 'http://127.0.0.1:8080/mcp/participants/p~worker%2F2',
+      ]),
+      { spawnProcess: spawner },
+      io,
+    );
+    assert.equal(out.exitCode, 0);
+    assert.equal(out.stderr, '');
+    const payload = JSON.parse(out.stdout) as {
+      room: { state: string };
+      run: { status: string; worker_participant_id: string };
+    };
+    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
+    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.run.worker_participant_id, 'worker/2');
+    // process 收到的 exact MCP config 使用 canonical framed URL。
+    const args = invocations[0].args;
+    const mcpIndex = args.indexOf('--mcp-config');
+    assert.ok(mcpIndex >= 0, 'mcp config must be passed');
+    const mcpConfig = JSON.parse(args[mcpIndex + 1]) as {
+      mcpServers: Record<string, { url: string }>;
+    };
+    assert.equal(mcpConfig.mcpServers.agent_room.url, 'http://127.0.0.1:8080/mcp/participants/p~worker%2F2');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// Fix inc9-fr3/fr4 direct regression：raw 多 segment（/mcp/participants/worker/2）与 unframed
+// encoded 单 segment（/mcp/participants/worker%2F2）都不是 canonical framed route，必须在
+// spawn、Run claim、Event/cursor 与 artifact 写入前失败；完整 durable read-model snapshot
+// 逐字段不变，artifact owner path 不存在。
+test('raw multi-segment and unframed encoded worker URLs fail the CLI preflight with zero side effects', async () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-slash-raw-'));
+  const { dbPath, repo, baselineHead } = makeSlashWorkerDb(fixture);
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const { io, out } = recordingIo();
+  try {
+    const probe = new DatabaseSync(dbPath);
+    const probeService = new RoomService(probe);
+    const before = getRoomStateSnapshot(probeService, { room_id: 'room-1' });
+    probe.close();
+    for (const mcpUrl of [
+      'http://127.0.0.1:8080/mcp/participants/worker/2',
+      'http://127.0.0.1:8080/mcp/participants/worker%2F2',
+    ]) {
+      await runCliMain(
+        runArgs(dbPath, repo, [
+          '--baseline-head', baselineHead,
+          '--mcp-url', mcpUrl,
+        ]),
+        { spawnProcess: spawner },
+        io,
+      );
+      assert.equal(out.exitCode, 1, `URL ${mcpUrl} must be rejected`);
+      assert.equal(out.stdout, '');
+      assert.match(out.stderr, /exact .* route/);
+    }
+    assert.equal(invocations.length, 0, 'URL preflight failure must never spawn');
+    const afterDb = new DatabaseSync(dbPath);
+    const afterService = new RoomService(afterDb);
+    assert.deepEqual(
+      getRoomStateSnapshot(afterService, { room_id: 'room-1' }),
+      before,
+      'durable read-model snapshot must stay unchanged',
+    );
+    assert.equal(afterService.getRun('run-1'), null, 'no Run may be claimed');
+    afterDb.close();
+    assert.equal(existsSync(join(repo, '.agent-room')), false, 'no artifact owner path');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// Fix inc9-fr4 direct regression：`.`/`..` worker identity 的 canonical framed mcp-url（测试侧
+// literal `p~.`/`p~..`）必须被 public room:run CLI 接受并完成 terminal settlement；Run 持久化
+// 的 worker identity 保持 raw `.`/`..`，传给 process 的 exact MCP config 保持 framed URL。
+test('a dot worker identity accepts the canonical framed MCP URL and completes a run', async () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-dot-ok-'));
+  const { dbPath, repo, baselineHead } = makeDotWorkerDb(fixture, '.');
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    child.stdout.write(`${initLine()}\n${resultLine()}\n`);
+    child.stdout.end();
+    child.stderr.end();
+    child.emit('close', 0, null);
+  });
+  const { io, out } = recordingIo();
+  try {
+    await runCliMain(
+      runArgs(dbPath, repo, [
+        '--baseline-head', baselineHead,
+        '--mcp-url', 'http://127.0.0.1:8080/mcp/participants/p~.',
+      ]),
+      { spawnProcess: spawner },
+      io,
+    );
+    assert.equal(out.exitCode, 0);
+    assert.equal(out.stderr, '');
+    const payload = JSON.parse(out.stdout) as {
+      room: { state: string };
+      run: { status: string; worker_participant_id: string };
+    };
+    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
+    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.run.worker_participant_id, '.');
+    const args = invocations[0].args;
+    const mcpIndex = args.indexOf('--mcp-config');
+    assert.ok(mcpIndex >= 0, 'mcp config must be passed');
+    const mcpConfig = JSON.parse(args[mcpIndex + 1]) as {
+      mcpServers: Record<string, { url: string }>;
+    };
+    assert.equal(mcpConfig.mcpServers.agent_room.url, 'http://127.0.0.1:8080/mcp/participants/p~.');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('a dotdot worker identity accepts the canonical framed MCP URL and completes a run', async () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-dotdot-ok-'));
+  const { dbPath, repo, baselineHead } = makeDotWorkerDb(fixture, '..');
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    child.stdout.write(`${initLine()}\n${resultLine()}\n`);
+    child.stdout.end();
+    child.stderr.end();
+    child.emit('close', 0, null);
+  });
+  const { io, out } = recordingIo();
+  try {
+    await runCliMain(
+      runArgs(dbPath, repo, [
+        '--baseline-head', baselineHead,
+        '--mcp-url', 'http://127.0.0.1:8080/mcp/participants/p~..',
+      ]),
+      { spawnProcess: spawner },
+      io,
+    );
+    assert.equal(out.exitCode, 0);
+    assert.equal(out.stderr, '');
+    const payload = JSON.parse(out.stdout) as {
+      room: { state: string };
+      run: { status: string; worker_participant_id: string };
+    };
+    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
+    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.run.worker_participant_id, '..');
+    const args = invocations[0].args;
+    const mcpIndex = args.indexOf('--mcp-config');
+    assert.ok(mcpIndex >= 0, 'mcp config must be passed');
+    const mcpConfig = JSON.parse(args[mcpIndex + 1]) as {
+      mcpServers: Record<string, { url: string }>;
+    };
+    assert.equal(mcpConfig.mcpServers.agent_room.url, 'http://127.0.0.1:8080/mcp/participants/p~..');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// Fix inc9-fr4 direct regression：unframed `.`/`..` mcp-url 被 WHATWG URL 归一化出
+// participant route（/mcp/participants/ 与 /mcp/），不是 framed exact route，必须在 spawn、
+// Run claim、Event/cursor 与 artifact 写入前失败，durable snapshot 逐字段不变。
+test('unframed dot worker URLs fail the CLI preflight with zero side effects', async () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-dot-raw-'));
+  const { dbPath, repo, baselineHead } = makeDotWorkerDb(fixture, '.');
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const { io, out } = recordingIo();
+  try {
+    const probe = new DatabaseSync(dbPath);
+    const probeService = new RoomService(probe);
+    const before = getRoomStateSnapshot(probeService, { room_id: 'room-1' });
+    probe.close();
+    for (const mcpUrl of [
+      'http://127.0.0.1:8080/mcp/participants/.',
+      'http://127.0.0.1:8080/mcp/participants/..',
+    ]) {
+      await runCliMain(
+        runArgs(dbPath, repo, [
+          '--baseline-head', baselineHead,
+          '--mcp-url', mcpUrl,
+        ]),
+        { spawnProcess: spawner },
+        io,
+      );
+      assert.equal(out.exitCode, 1, `URL ${mcpUrl} must be rejected`);
+      assert.equal(out.stdout, '');
+      assert.match(out.stderr, /exact .* route/);
+    }
+    assert.equal(invocations.length, 0, 'URL preflight failure must never spawn');
+    const afterDb = new DatabaseSync(dbPath);
+    const afterService = new RoomService(afterDb);
+    assert.deepEqual(
+      getRoomStateSnapshot(afterService, { room_id: 'room-1' }),
+      before,
+      'durable read-model snapshot must stay unchanged',
+    );
+    assert.equal(afterService.getRun('run-1'), null, 'no Run may be claimed');
+    afterDb.close();
+    assert.equal(existsSync(join(repo, '.agent-room')), false, 'no artifact owner path');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -467,10 +766,10 @@ test('a non-repository project writes stderr and exits 1 before creating a Run',
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
   db.close();
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
@@ -500,11 +799,11 @@ test('a Room in an unstartable state writes stderr and exits 1 without spawning'
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun({ baseline_head: baselineHead })); // CODING
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun({ baseline_head: baselineHead }), EXECUTOR); // CODING
   db.close();
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();

@@ -464,7 +464,9 @@ Codex Review 读取实时 repository。已保存 Git evidence 用于导航和检
 
 ## 16. Protocol v0.3 Candidate boundary
 
-> 状态：Proposed；不覆盖本文件1–15节的Current `0.2-design`。完整字段和验收以[Increment 9 Draft Contract](./INCREMENT_9_TASK_CONTRACT.md)为准。
+> 状态：Accepted / 已进入版本化`main` / Room=`ACCEPTED`，等待独立cutover授权；本文件1–15节的`0.2-design`仍描述active project runtime，§16描述`main`中的v0.3 Stage 1 source contract。完整字段和验收以Increment 9 Accepted Contract及四份Fix Contract为准。
+
+Fix Review 2确认§16.1的五项candidate偏差：Runner executor actor未使用resolved participant；Review acceptance未使用Task-scope/frozen reviewer；Task/Run/Review replacement后的same-ID retry无合法authority路径；historical orchestrator仍可执行Participant管理；binding validation未强制control identity与`codex-app` route一致。用户确认后，Fix Task 2按§16.2完成Coding；Fix Review 3已确认这五项闭合，remaining finding仅为§16.3的participant route segment encoding，Fix Task 3 Fix Coding已按§16.4完成。用户现已接受完整Stage 1 scope且它已进入版本化`main`；获得单独cutover授权前仍不得视为active project runtime behavior。
 
 v0.3候选不再使用fixed `Actor`作为authority：
 
@@ -475,14 +477,63 @@ ParticipantProfile
   → frozen Task / Run / Review / Event identity
 ```
 
-候选变化：
+### 16.1 Candidate exact contract（Increment 9 实现已落地，2026-08-29）
 
 - `Role = planner | worker | reviewer | executor | git_controller | orchestrator`。
-- `Event.actor`替换为required `actor_role + participant_id`。
-- `Run.claude_session_id`替换为nullable opaque `agent_session_ref`。
-- v0.3 route为`/mcp/participants/{participant_id}`；tool operation映射固定required role并校验assignment。
-- snapshot返回Room内全部Participant、Assignment、Task、Run、Review、Question与Event，同时保留由Event推导的current reference。
-- new v0.3 database持久化exact protocol metadata；v0.3 writable service对缺失metadata的v0.2 database在schema write前返回`protocol_version_mismatch`。
-- v0.2 database不迁移、不backfill、不改写历史actor/session；binding切换后只读保留。
+- `ParticipantProfile`字段冻结为`participant_id`、`display_name`、`kind=human|agent|service`、`provider`、`adapter_id`、`capabilities`、`config_ref`（opaque，不存secret）、`enabled`、`created_at`。
+- `RoleAssignment`字段为`assignment_id`、`room_id`、`scope_type=room|task`、nullable`scope_id`、`role`、`participant_id`、`created_at`（Review finding inc9-r2收窄Stage 1 scope；run/review scope在schema/MCP boundary拒绝且零写入）。resolution：exact entity scope优先于room default；同scope/role active只由成功insert的rowid顺序（rowid DESC）决定，不信任caller `created_at`，same-ID retry不产生新row、不提升旧assignment；room scope必须`scope_id=null`，task scope必须引用同Room已存在Task；participant必须存在、enabled且adapter/capability与role兼容，否则在entity/Event创建前拒绝且durable state不变（Review finding inc9-r5）。
+- `Event.actor`替换为required `actor_role + participant_id`（`EventActor`）。
+- `Run.claude_session_id`替换为nullable opaque `agent_session_ref`；Claude exact `--resume` lineage语义不变。
+- bootstrap profiles/assignments：codex-app→planner/reviewer/orchestrator（capabilities含supervising，是project single control endpoint participant）；claude-code-cli→worker；local-runner→executor；operator保留human profile但无active assignment（Review finding inc9-r4）。binding的`control_participant_id`与MCP URL直接指向codex-app。`git_controller`兼容规则冻结为adapter_id=local_runner且capability=git_control的enabled participant，bootstrap不创建git_controller assignment，Stage 1不执行Git command write（Review finding inc9-r5）。
+- Task提交时固化planner/orchestrator identity；Run claim时固化worker与executor；Review提交时固化reviewer。历史identity来自当时resolved assignment，register/enable-disable/replace不改写既有Run/Review/Event；disabled participant历史仍可读，但失去新command authority。
+- Run claim的worker/executor按run.task_id的Task scope优先、Room default fallback解析；Review首次提交按review.task_id的Task scope优先、Room fallback解析reviewer；Task提交继续使用Room planner/orchestrator（Review finding inc9-r2）。已创建Run的askQuestion/progress/pause finalization/complete/fail先校验route actor存在、enabled、actor_role正确，再只对照Run冻结的worker/executor identity，不要求仍持有current assignment；replacement actor对旧Run返回`actor_not_allowed`，disabled冻结actor必须re-enable后恢复（Review finding inc9-r1）。
+- 所有same-ID retry（createRoom/Task/Run/Review/Question/Participant/RoleAssignment）在返回existing entity之前执行authority校验：route Participant必须存在、enabled、required role正确且与existing entity冻结identity（或合法control authority）一致。authorized same-content retry返回created=false且不新增Event；different content仍为`id_conflict`；unknown/disabled/wrong-role返回`actor_not_allowed`且durable snapshot不变（Review finding inc9-r3）。
+- v0.3 route为`/mcp/participants/{participant_id}`；tool operation映射固定required role并校验assignment；unknown/disabled/unassigned/role-incompatible caller拒绝且完整snapshot前后不变。v0.2固定routes（`/mcp/codex`、`/mcp/claude`）在v0.3 app中返回not found。
+- snapshot返回Room内全部Participant、Assignment、Task、Run、Review、Question与Event，同时保留由Event推导的current reference；entity按room membership过滤，跨Room不泄漏。
+- transition authority由Role表达：`REVIEW_DISCUSSION → FIX_PLAN_READY`由planner发起（fix Task经planner role的`room_submit_task`提交）；其余transition与v0.2语义一致。
+- new v0.3 database持久化exact protocol metadata（`0.3-design`）；全空表fresh建schema并写metadata；已有表但无metadata的v0.2 archive在schema write前返回`protocol_version_mismatch`；version不exact同样拒绝。Review finding inc9-r6已增加repository/service与room:serve public open路径的direct regression：缺metadata的v0.2 database与wrong exact metadata均在schema/state write前以`protocol_version_mismatch`拒绝且database逐byte不变。
+- v0.2 database不迁移、不backfill、不改写历史actor/session；binding切换后只读保留。setup migration创建`room-v0.3.sqlite`与新room_id，复用port，保守改写遗留`/mcp/codex` URL到participant route；migration rerun幂等复用同一v0.3 identity，`archived_database_path`永不等于新`database_path`。Review finding inc9-r6已增加setup helper public CLI direct regression：mode=migrated时旧database逐byte不变、conflict零写入、rerun mode=reused且identity稳定。
+- v0.2 `agent_room_root`（stored指向v0.2代码）不能复用为v0.3 root：migration/reuse要求operator再提供一次`--agent-room-root`（candidate实现的最小选择，记录在Coding Result deviation）。
 
-Stage 1仍只允许single active Run；Plan-scope Assignment和Approval snapshot在Stage 3出现真实TaskGraph/Git action consumer时定义。该延后项与new binding exact字段均待用户确认，确认前不实现或派发。
+Stage 1仍只允许single active Run；Plan-scope Assignment和Approval snapshot在Stage 3出现真实TaskGraph/Git action consumer时定义。v0.3 source现已通过Review、获用户接受并进入版本化`main`，但获得单独cutover授权前仍不切换project v0.2 database/binding。
+
+### 16.2 Fix Task 2 candidate contract 细化（Fix Coding与Fix Review 3确认已完成，2026-08-29）
+
+- Run claim与整个lifecycle（progress、pause finalization、complete、fail）的command actor来自resolved executor assignment（Task scope优先、Room default fallback），service校验并冻结该identity；production Runner不得回退固定`local-runner`（inc9-fr2-1）。
+- Review acceptance与Review same-ID retry共享Review提交时冻结的`reviewer_participant_id`：先校验route Participant存在、enabled、actor_role=reviewer，再对照冻结identity；不要求仍持有current assignment，replacement不转移既有Review ownership（inc9-fr2-2/3）。
+- Task/Run/Review same-ID retry按stored entity冻结的提交actor/role认证：caller-owned contract与stored server-resolved identity分层比较；authorized same-content返回existing、`created=false`且Event/cursor/durable snapshot不变；different caller-owned content返回`id_conflict`且零写入；unknown/disabled/wrong-role/replacement返回`actor_not_allowed`且零写入。new Task/Run/Review继续消费current active assignment并固化resolved identity（inc9-fr2-3）。
+- Participant管理的orchestrator authority由active latest assignment表达：同scope/role只有rowid最新assignment授权，被替换的historical orchestrator的registerParticipant/setParticipantEnabled/createRoleAssignment全部被拒且零写入；重新成为active后恢复（inc9-fr2-4）。
+- existing v0.3 binding只在`control_participant_id` exact为`codex-app`时复用；expected MCP URL从该validated identity构造，不分别使用stored任意值与hardcoded route；mismatch按invalid binding在runtime.json/.codex/config.toml/.gitignore任何写入前失败且三份文件逐byte不变（inc9-fr2-5）。
+- direct regression（public path）：非默认Task-scope executor经真实`runClaude`完成claim与terminal settlement；frozen reviewer接受/被拒矩阵；三类replacement-safe same-ID retry矩阵；historical orchestrator三管理命令拒绝零写入；control identity mismatch public CLI零写入。全量309/309与typecheck、`git diff --check`通过；v0.3仍为candidate，未执行cutover。
+
+### 16.3 Fix Review 3 confirmed finding 与 Fix Task 3 contract
+
+- `participant_id`仍按公开schema作为任意非空opaque string；动态route必须把该identity编码为一个URI path segment。candidate当前在Runner/CLI中直接拼接raw identity并按raw pathname比较，因此`worker/2`等合法identity无法到达其participant route：raw path被Express解释为额外segment而404，percent-encoded path虽能命中route却被current exact comparison拒绝。
+- 用户已确认最小方案并形成Accepted [Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)：不得收窄已冻结identity contract；raw `participant_id`继续写入Participant/Assignment/Run/Review/Event，完整identity仅在HTTP URL中canonical percent-encode为一个segment；MCP framework匹配后向application提供raw route param，application不得二次decode。含`/`的Participant必须通过MCP、production Runner与public CLI direct regression，raw extra-segment route必须在副作用前拒绝。v0.3仍不可cutover或接受，本次未授权Run。
+
+### 16.4 Fix Task 3 Fix Coding 细化（Fix Coding完成，2026-08-29，待 Fix Review 4）
+
+- participant route的URL representation：`/mcp/participants/{encodeURIComponent(participant_id)}`。完整raw identity折叠为恰好一个canonical URI segment（`worker/2`→`worker%2F2`）；不逐部分编码、不保留raw slash、不double-encode。encoded segment是transport encoding，不是新identifier或authority source；Room authority继续比较raw `participant_id`。
+- `runClaude`与`room:run` CLI各自从同一resolved worker assignment的raw identity独立构造同一canonical representation（不在新模块共享helper），并用`new URL(...).pathname`的exact comparison验证mcpConfig/mcp-url；raw多segment、未编码、错误participant、尾斜杠、query与fragment在spawn/claim前拒绝。MCP Express route把匹配到的encoded segment解码回raw param；application不做第二次decode，route保持单一`/mcp/participants/:participantId`，无wildcard/catch-all或legacy alias。
+- direct regression（期望值均为测试侧literal，未从production route builder导出）：MCP public path经`/mcp/participants/worker%2F2`调用`room_ask_question`成功且`question_asked` Event actor为raw `worker/2`/worker，raw `/mcp/participants/worker/2`返回404且Event list零变化；production `runClaude`以`worker/2` Task-scope worker穿过route gate、claim与`run_completed` terminal settlement（Run冻结raw identity），raw多segment mcpConfig在spawn/claim前`validation_failed`且零spawn/Run/Event/artifact；public `room:run` CLI以canonical encoded mcp-url完成fake-process Run，raw多segment URL preflight失败且完整durable read-model snapshot逐字段不变。
+- 验证事实：typecheck exit 0；claude-runner 49/49；runner-cli 15/15；room-mcp 38/38；scope 1/1；full 314/314；`git diff --check`无错误。schema、database、protocol version、assignment/frozen authority、retry ordering与Event identity未变；默认`codex-app`/`claude-code-cli`/`local-runner` route与全部Fix 1/2回归保持通过。
+
+### 16.5 Fix Review 4 confirmed framing（Accepted Fix Task 4，2026-08-29）
+
+Fix Review 4证明§16.4的纯`encodeURIComponent`表示仍不能覆盖公开schema允许的`.`与`..`：URL parser在MCP handler前执行dot-segment normalization。用户确认以下candidate protocol修正：
+
+- canonical participant route segment MUST exact为`p~` + `encodeURIComponent(raw participant_id)`；完整route为`/mcp/participants/p~{encoded_participant_id}`。
+- `p~`只属于transport framing，不写入任何durable identity。MCP framework完成标准URI decode后，application MUST验证并只移除一次prefix；剩余值直接作为raw `participant_id`参与assignment/authority校验，不得二次percent-decode。
+- 该语法对所有Participant一致：`.`→`p~.`、`..`→`p~..`、`worker/2`→`p~worker%2F2`、default control/worker→`p~codex-app`/`p~claude-code-cli`。
+- unframed participant route不属于v0.3 public contract；MCP/Runner/CLI/setup/Plugin MUST拒绝或分类为mismatch，且不得增加alias、wildcard、dual route或compatibility rewrite。
+- schema、database、protocol version、Room state、RoleAssignment与history-frozen identity不变。当前仅为[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md) Accepted contract；Coding与再次Review尚未发生，Current v0.2协议不变。
+
+### 16.6 Fix Task 4 Fix Coding 细化（Fix Coding完成，2026-08-29，Fix Review 5 approved）
+
+- MCP实现：POST route匹配单segment后，application只验证并移除恰好一次`p~` prefix（剩余值即raw `participant_id`），不二次percent-decode；unframed单segment POST返回404 JSON-RPC error（code -32000、message `Participant route not found.`），不注册任何tool、不进入participant authority，无legacy alias/wildcard/catch-all/dual-route fallback。GET/DELETE维持对任何单segment一律405，从不进入authority。
+- production `runClaude`与public `room:run` CLI各自从同一resolved worker assignment的raw identity独立构造`/mcp/participants/p~{encodeURIComponent(worker_participant_id)}`，并以`new URL(url).pathname` exact comparison验证mcpConfig/mcp-url；`p~`只存在于transport segment，claim/Event/Run的`participant_id`/`worker_participant_id`字段保持raw。raw多segment、unframed encoded、错误participant、尾斜杠、query与fragment在spawn/claim/Event/artifact前拒绝。
+- setup-project从validated `control_participant_id`生成framed control URL（`p~codex-app`）；既有config的旧unframed candidate URL（如`/mcp/participants/codex-app`）既非framed expected URL也非v0.2 `/mcp/codex` legacy URL，由planConfig既有exact-match分支按`config conflict`在任何写入前拒绝——binding/config mismatch，无auto-compat migration/rewrite。runtime.json的`control_participant_id`保持raw `codex-app`。
+- Plugin consumer：SKILL/reference的config URL、re-validate URL、one-shot `--mcp-url`模板与packaging Oracle全部使用framed route；multi-project E2E与setup loopback E2E经framed route完成并行Run与DISCUSSION continuation。
+- direct regression（期望值均为测试侧literal framed route，未从production导出framing helper/constant）：MCP public path注册并分配`.`/`..`后经`/mcp/participants/p~.`与`/mcp/participants/p~..`调用实际`room_ask_question`成功，Event actor与Run冻结均为raw identity；unframed `.../mcp/participants/.`/`.../mcp/participants/..`被WHATWG URL归一化出participant route，POST 404且Event list零变化。production `runClaude`以`.`/`..` Task-scope worker穿过route gate、claim与`run_completed` terminal settlement（Run冻结raw identity），unframed encoded mcpConfig在spawn/claim前`validation_failed`且零spawn/Run/Event/artifact。public `room:run` CLI以framed `p~.`/`p~..` mcp-url完成fake-process Run，unframed URL preflight失败且完整durable read-model snapshot逐字段不变。setup public CLI三路径（fresh/migrated/reused）生成framed URL；unframed candidate config（section与frozen dotted两种形态）非零exit且三文件逐byte不变。`worker/2`回归更新为framed `p~worker%2F2`（raw多segment与unframed encoded仍拒绝）。
+- 验证事实：typecheck exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；full 321/321；`git diff --check`无错误。schema、database、protocol version、Room state、assignment/frozen authority、retry ordering与Event identity未变；全部Fix 1–3回归保持通过；v0.3仍为candidate，未执行cutover。
+- Fix Review 5 `review-increment-009-codex-005`无finding，Decision为`approved`；用户确认后Room通过`review_accepted` Event sequence `217709`进入`ACCEPTED`。Current v0.2 protocol、database与binding保持权威，未执行commit、push或cutover。

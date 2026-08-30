@@ -9,13 +9,13 @@ import { RoomService } from '../room/room-service.ts';
 import type { ClaudeProcessSpawn } from '../runner/claude-process.ts';
 import { runClaude, type ClaudeRunnerInput } from '../runner/claude-runner.ts';
 
-// one-shot room:run CLI：打开既有 file-backed Room database、连接 loopback /mcp/claude 并执行
-// 恰好一个 Run，然后退出。不启动 daemon/server/scheduler，不隐式创建 Room 或推进 planning。
-// 所有 preflight 在 spawn/claim/Event 前完成且零副作用；argument/preflight/ProtocolError 与未
-// settle 异常写 stderr 并 non-zero exit；succeeded/needs_decision 写 deterministic JSON
-// {room,run} 并 exit 0，failed 输出相同 JSON 但 exit 1。--baseline-head 仅首次 new
-// Implementation 必需；continuation/retry 的 baseline 由 persisted source Run 拥有，caller
-// 无法覆盖。
+// one-shot room:run CLI：打开既有 file-backed Room database、连接 loopback worker participant
+// route（/mcp/participants/{worker}）并执行恰好一个 Run，然后退出。不启动 daemon/server/
+// scheduler，不隐式创建 Room 或推进 planning。所有 preflight 在 spawn/claim/Event 前完成且
+// 零副作用；argument/preflight/ProtocolError 与未 settle 异常写 stderr 并 non-zero exit；
+// succeeded/needs_decision 写 deterministic JSON {room,run} 并 exit 0，failed 输出相同 JSON
+// 但 exit 1。--baseline-head 仅首次 new Implementation 必需；continuation/retry 的 baseline
+// 由 persisted source Run 拥有，caller 无法覆盖。
 
 export interface RunCliConfig {
   db: string;
@@ -78,7 +78,7 @@ function parseRunConfig(argv: string[]): RunCliConfig {
   if (typeof taskId !== 'string' || taskId === '') throw new Error('--task-id <id> is required');
   if (typeof runId !== 'string' || runId === '') throw new Error('--run-id <id> is required');
   if (typeof mcpUrl !== 'string' || mcpUrl === '') {
-    throw new Error('--mcp-url <loopback http(s) /mcp/claude URL> is required');
+    throw new Error('--mcp-url <loopback http(s) /mcp/participants/{worker} URL> is required');
   }
   if (baselineHead !== undefined && typeof baselineHead !== 'string') {
     throw new Error('--baseline-head must be a string');
@@ -117,9 +117,15 @@ function requireDirectory(path: string): void {
   }
 }
 
-// MCP URL preflight：必须 http/https loopback 且 pathname 精确为 /mcp/claude，不允许 search
-// 或 hash。错误 URL 在打开 database 前拒绝，不创建任何文件。
-function parseMcpUrlOrThrow(value: string): URL {
+// MCP URL preflight：必须 http/https loopback 且 pathname 精确为 resolved worker participant
+// 的 canonical framed route（/mcp/participants/p~{encodeURIComponent(worker_participant_id)}），
+// 不允许 search 或 hash。完整 raw identity 折叠为恰好一个 `p~`-framed URI segment
+// （Fix inc9-fr4，`.`/`..`/斜杠 identity 不被 WHATWG URL dot-segment normalization 归并；
+// Fix inc9-fr3 的 encoded 单 segment 语义保留）：raw 多 segment、未编码、unframed 或错误
+// participant 的 URL 都不匹配 exact route。worker 按 Task scope 优先、Room default
+// fallback 解析（Review finding inc9-r2），与 Runner claim 的解析口径一致。错误 URL 在
+// spawn/claim 前拒绝，不创建任何文件。
+function parseMcpUrlOrThrow(value: string, service: RoomService, roomId: string, taskId: string): URL {
   let url: URL;
   try {
     url = new URL(value);
@@ -132,8 +138,13 @@ function parseMcpUrlOrThrow(value: string): URL {
   if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
     throw new Error(`MCP URL must target a loopback host: ${value}`);
   }
-  if (url.pathname !== '/mcp/claude') {
-    throw new Error(`MCP URL must target the exact /mcp/claude route: ${value}`);
+  const worker = service.resolveAssignment(roomId, 'task', taskId, 'worker');
+  if (!worker) {
+    throw new Error(`no worker assignment for task ${taskId} in room ${roomId}`);
+  }
+  const expectedPath = `/mcp/participants/p~${encodeURIComponent(worker.participant_id)}`;
+  if (url.pathname !== expectedPath) {
+    throw new Error(`MCP URL must target the exact ${expectedPath} route: ${value}`);
   }
   if (url.search !== '' || url.hash !== '') {
     throw new Error(`MCP URL must not contain query or fragment: ${value}`);
@@ -165,7 +176,6 @@ export async function runRoomRun(
 ): Promise<RunCliResult> {
   requireExistingFile(config.db, 'database file');
   requireDirectory(config.project);
-  const mcpUrl = parseMcpUrlOrThrow(config.mcpUrl);
   const db = openRoomDatabaseOrThrow(config.db);
   try {
     const service = new RoomService(db);
@@ -176,6 +186,7 @@ export async function runRoomRun(
     // continuation kind 决定 --baseline-head 是否必需：仅首次 new Implementation 要求 caller
     // 提供 exact baseline；retry/decision/fix 的 baseline 由 persisted source Run 拥有。
     const context = service.getContinuationContext(task.room_id, task.task_id);
+    const mcpUrl = parseMcpUrlOrThrow(config.mcpUrl, service, task.room_id, task.task_id);
     if (context.kind === 'new_implementation' && (config.baselineHead === null || config.baselineHead === '')) {
       throw new Error('--baseline-head <full HEAD> is required for a new implementation');
     }

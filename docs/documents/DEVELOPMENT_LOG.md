@@ -2,16 +2,174 @@
 
 ## 当前状态
 
-- 日期：2026-08-29
-- 项目阶段：`WAITING_FOR_USER_CONFIRMATION / Agent Room v0.3 Stage 1 Accepted Contract pending submission`；Current implementation仍为Increment 8 / protocol `0.2-design`
-- Room runtime state：project binding指向`room-4f175b12-3e18-417a-a0da-8fda8b002353`；本轮已按workflow从`DISCUSSION`推进至`ARCHITECTURE_REVIEW`再到`WAITING_FOR_USER_CONFIRMATION`，无current Task/Run/Review/Question
+- 日期：2026-08-30
+- 项目阶段：Increment 9 Stage 1已获用户最终接受、进入版本化`main`（Room=`ACCEPTED`）；active project Room仍为Increment 8 / protocol `0.2-design`，等待独立cutover授权
+- Room runtime state：project binding指向`room-4f175b12-3e18-417a-a0da-8fda8b002353`；Review `review-increment-009-codex-005`无finding、Decision为`approved`，用户确认后通过`review_accepted` Event sequence `217709`进入`ACCEPTED`
 - Architecture：用户已确认六阶段v0.3路线与[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)；它触发ADR-0001的parallel Run/worktree/UI重新评估条件并替换ADR-0002固定agent lifecycle的长期方向，但Current authority尚未改变
-- Implementation Task：[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)为`Accepted`、`confirmed_by_user=true`；Plan/Approval延后、v0.3binding exact字段和detached v0.2 launcher worktree均已确认，等待授权范围提交与clean baseline后调用`room_submit_task`
-- Previous Increment：Increment 4 Fix 1/2/3 已完成；Review `review-increment-004-codex-004` 无 finding、Decision 为 `approved`；用户已明确接受并完成版本化提交
-- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`、Increment 8 coding candidate `skills/agent-room/scripts/setup-project.ts`）与`.agents/plugins/marketplace.json`
-- Git repository：branch=`main`、planning `HEAD=7b6d034bf2a9b44656d5ae7209b228071478b645`、0 staged；本轮开始前已有automatic setup生成的`.gitignore`修改与untracked`.codex/config.toml`，两者归属既有setup而非Stage 1。当前另有本轮Codex-owned v0.3规划文档Diff。未执行stage、commit、push、branch/worktree、Claude、`room:run`、database切换或其它Git写操作
+- Implementation Task：[Increment 9 Contract](./INCREMENT_9_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)、[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)与[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)均为`Accepted`；Fix 3闭合confirmed route-segment finding（participant route的canonical single-segment encoding），Fix 4闭合dot-segment normalization finding（`p~` transport framing），两份Fix Coding均已完成；v0.3 database/binding继续保持candidate
+- Previous Increment：Increment 1–8均已接受并进入版本化`main`
+- 业务代码：`src/protocol`（schema/types/errors）、`src/room`（repository/state-machine/room-service/state-snapshot）、`src/git`（git-process/git-observer）、`src/runner`（claude-process/claude-stream/claude-runner；`main` Current implementation）、`src/mcp`（http/tools/serve；`main` Current implementation）、`src/cli`（status/run；均为`main` Current implementation）；Current packaging：`plugins/agent-room/`（`.codex-plugin/plugin.json`、`skills/agent-room/SKILL.md`、`references/project-setup.md`、`skills/agent-room/scripts/setup-project.ts`）与`.agents/plugins/marketplace.json`。本轮candidate在以上src/cli/mcp/protocol/room/runner与Plugin setup路径上实现v0.3 Participant/Role/assignment/participant-route/snapshot/binding migration语义，v0.2 runtime不再保留双协议branch
+- Git repository：branch=`main`；Increment 9完整accepted scope由同一版本化commit提交，包含v0.3 source/tests/Plugin consumer、Fix Task 1–4、acceptance文档与经验回收指南。未执行push、branch/worktree、reset、clean、checkout或其它额外Git写操作；v0.2 database/binding未切换
 
 ## 已完成
+
+### 2026-08-30 — Increment 9 accepted scope进入版本化main
+
+- 用户在最终接受后另行明确授权提交Increment 9完整accepted scope；提交范围精确包含已Review的v0.3 implementation、Fix 1–4、测试、Plugin consumer、四份Fix Contract、acceptance状态文档与Codex/Claude经验回收指南，不包含AGENTS.md、CLAUDE.md、`.agent-room/` runtime、detached v0.2 launcher或任何下一Increment文件。
+- 同一版本化commit使`main` source implementation进入protocol v0.3 Stage 1；active project Room仍使用detached v0.2 launcher、原v0.2 SQLite与binding，database/binding cutover、旧数据删除和push继续需要独立授权。
+- Pre-commit gate：Room=`ACCEPTED`、Review `review-increment-009-codex-005`=`approved`且无finding；branch=`main`、HEAD=lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、0 staged；typecheck、focused与full 321/321证据未因文档收口改变，未重复运行昂贵测试。
+
+### 2026-08-30 — Increment 9 用户最终接受与 Fix 验收经验回收
+
+- 用户明确最终接受Increment 9 Implementation、Fix Task 1–4与Review `review-increment-009-codex-005`；正式Room MCP在preflight确认`REVIEW_DISCUSSION`、current Review=`approved`、findings为空后执行`room_accept_review(confirmed_by_user=true)`，原子追加`review_accepted` Event sequence `217709`并进入`ACCEPTED`，`waiting_actor=null`。
+- 经验回收：Fix Review 3/4组合证明opaque identity进入URI path时，percent-encoding只解决delimiter分段，不自动解决WHATWG dot-segment normalization。可复用规则已按职责写入Codex Review与Claude Coding指南：从公开identity schema推导`.`、`..`、slash等真实输入，经实际URL parser、MCP/CLI/Runner public boundary验证；需要framing时只改变transport representation，raw identity与authority保持不变，application不得二次decode。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、ADR-0003、MVP Plan、Operations、角色细分指南与本日志；Increment 9只标记为accepted candidate，未提升为Current implementation。
+- 本次接受不授权stage、commit、push、database/binding cutover、旧数据删除或其它Git/runtime写操作；v0.2 database/binding继续保持Current authority。
+
+### 2026-08-30 — Increment 9 Fix Review 5（approved）
+
+- Review输入：Accepted Implementation/Fix 1/2/3/4 Contract、lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、Run `run-increment-009-fix-006`的durable succeeded/Coding Result、baseline至当前完整task-owned Diff；branch=`main`、HEAD等于baseline、0 staged。
+- Findings：无。Fix Task 4按已确认方案把所有v0.3 participant route固定为`p~` + `encodeURIComponent(raw participant_id)`；MCP只移除一次prefix且不二次percent-decode，Runner/CLI从resolved raw worker identity独立构造并exact校验，setup与Plugin consumer同步使用framed route。`.`、`..`与`worker/2`均保持raw Room identity与role authority，unframed route在副作用前拒绝。
+- 独立验证：`npm run typecheck` exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；`npm test`全量321/321 exit 0；`git diff --check`无错误。
+- Review Decision：`approved`；Room进入`REVIEW_DISCUSSION`，等待用户最终接受。Documentation impact audit：`documentation: updated`。未accept、stage、commit、push、database/binding cutover、删除旧数据或修改业务实现。
+
+### 2026-08-29 — Increment 9 Fix Review 4 方案确认与 Fix Task 4
+
+- 用户确认finding `inc9-fr4-dot-segment-normalization`与推荐方案：保留任意非空opaque `participant_id`，canonical participant segment统一为`p~` + `encodeURIComponent(raw participant_id)`；`.`→`p~.`、`..`→`p~..`、`worker/2`→`p~worker%2F2`。
+- MCP framework完成标准URI decode后，application只验证并移除一次固定prefix，剩余值直接作为raw authority identity；不二次percent-decode，不建立route ID、alias、wildcard或compatibility route。
+- consumer枚举确认必要scope同时覆盖MCP/Runner/CLI、setup-generated control URL、Plugin Skill/reference及setup/packaging/E2E tests；default control/worker routes切换为`p~codex-app`/`p~claude-code-cli`，unframed old candidate config作为mismatch零写入拒绝。Current v0.2 `/mcp/codex` binding与detached launcher不修改。
+- [Increment 9 Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)已创建为`Accepted`，`review_fixes_only=true`、`confirmed_by_user=true`，直接引用current Review 4并继承lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`。
+- Contract通过Current v0.2 `room_submit_task`完整提交后Room进入`FIX_PLAN_READY`。本次确认不授权one-shot Run、accept、stage、commit、push、database/binding cutover、旧数据删除或其它Git write。
+
+### 2026-08-29 — Increment 9 Fix Task 4 Fix Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-009-protocol-v03-participant-role-foundation-fix-004`；`confirmed_by_user=true`、`review_fixes_only=true`、`based_on_review=review-increment-009-codex-004`、parent=Fix Task 3。dispatch gate：branch=`main`、HEAD=lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、0 staged；未修改AGENTS.md/CLAUDE.md/PROJECT_RULES.md/README.md/四份Fix Contract、host approval/global config、detached v0.2 launcher worktree与当前v0.2 binding；未新增dependency/package script/source module/generic abstraction。
+- 修复实现（仅confirmed finding `inc9-fr4-dot-segment-normalization`）：`participant_id`保持任意非空opaque identity与公开schema；所有v0.3 participant route统一为canonical single transport segment `p~` + `encodeURIComponent(raw participant_id)`（`.`→`p~.`、`..`→`p~..`、`worker/2`→`p~worker%2F2`）。MCP Express route对匹配segment只做一次framework percent-decode，application只验证并移除恰好一次`p~` prefix，剩余值直接作为raw authority identity（不二次percent-decode）；unframed单segment POST不是participant route：404 JSON-RPC error、不注册tool、不进入participant authority，无legacy alias/wildcard/catch-all/dual-route fallback；GET/DELETE维持任何单segment一律405。production `runClaude`与public `room:run` CLI从同一resolved worker assignment的raw identity独立构造framed route并exact compare，`p~`只存在于transport segment、不进入claim/Event/Run任何identity字段。setup-project从validated `control_participant_id`生成framed control URL；既有config的旧unframed candidate URL（如`/mcp/participants/codex-app`）既非framed expected URL也非v0.2 `/mcp/codex` legacy URL，由planConfig现有exact-match分支按binding/config mismatch在任何写入前拒绝（无auto-compat migration/rewrite）。修改文件：`src/mcp/http.ts`、`src/runner/claude-runner.ts`、`src/cli/run.ts`、`plugins/agent-room/skills/agent-room/scripts/setup-project.ts`、`SKILL.md`、`references/project-setup.md`。
+- Direct regression（期望值均为测试侧literal framed route，未从production导出framing helper/constant）：
+  - MCP public path：注册并分配`.`与`..`后经`/mcp/participants/p~.`与`/mcp/participants/p~..`调用实际`room_ask_question`成功，`question_asked` Event actor为raw `.`/`..`/worker，Run冻结raw worker；unframed `/mcp/participants/.`与`/mcp/participants/..`被WHATWG URL归一化出participant route，POST 404且Event list零变化。`worker/2`回归更新为framed `p~worker%2F2`，raw多segment与unframed encoded仍然404。
+  - production `runClaude`：`.`与`..`Task-scope worker + framed mcpConfig穿过route gate、claim与`run_completed` terminal settlement，Run冻结raw `worker_participant_id`；unframed encoded mcpConfig在spawn/claim前以`validation_failed`拒绝，0 spawn、Run不存在、Event list不变、无artifact owner path。
+  - public `room:run` CLI：framed `p~.`/`p~..` mcp-url完成fake-process Run（REVIEW_REQUIRED/succeeded、Run冻结raw worker、process收到exact framed URL）；unframed `.../mcp/participants/.`与`.../mcp/participants/..` preflight失败，完整durable read-model snapshot逐字段不变、0 spawn、无Run、无artifact；unframed `claude-code-cli`、query、fragment同样拒绝。
+  - setup public CLI：fresh/v0.2-migrated/v0.3-reused三路径生成的config URL均为framed `p~codex-app`；existing v0.3 binding的config被改成unframed candidate URL（section与frozen dotted两种形态）时非零exit、`config conflict`且runtime/config/gitignore三文件逐byte不变。
+  - Plugin consumer：SKILL/reference模板与packaging Oracle使用`p~codex-app`/`p~claude-code-cli`；multi-project E2E与setup loopback E2E经framed route完成并行Run与DISCUSSION continuation。
+- Verification（live，全部独立通过）：`npm run typecheck` exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；`npm test`全量321/321 exit 0；`git diff --check`无错误。
+- Diff：0 staged；Fix修改上述四份production/plugin文件与room-mcp/claude-runner/runner-cli/plugin-setup/plugin-packaging/e2e-workflow/multi-project-e2e/room-serve regression tests；candidate文档ARCHITECTURE/ROOM_PROTOCOL/MVP_PLAN/OPERATIONS/DEVELOPMENT_LOG/ADR-0003已按Fix事实同步，v0.3未写成Current。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Fix为candidate、`REVIEW_REQUIRED`，等待Codex Fix Review；Claude未commit、未stage、未执行任何Git写操作，未把v0.3写成Current，v0.2 database/binding保持权威。
+
+### 2026-08-29 — Increment 9 Fix Review 4（changes_requested）
+
+- Review输入：Accepted Implementation/Fix 1/2/3 Contract、lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、Run `run-increment-009-fix-005`的durable succeeded/Coding Result、baseline至当前完整36-path Diff与三份untracked Fix Contract；branch=`main`、HEAD等于baseline、0 staged。
+- Fix Task 3对`worker/2`的confirmed finding闭合正确：MCP encoded route恢复raw authority identity，production `runClaude`与public `room:run` CLI接受`worker%2F2`，raw双segment路径在spawn/Room write前拒绝。
+- 新finding `inc9-fr4-dot-segment-normalization`（high）：public schema把`participant_id`定义为任意非空opaque string，因此`.`与`..`均合法；`encodeURIComponent`不会编码dot，production CLI的`new URL(...).pathname`分别把`/mcp/participants/.`归一化为`/mcp/participants/`、把`/mcp/participants/..`归一化为`/mcp/`，均不再是participant route。结果是可注册、可assignment且adapter/capability兼容的Participant仍没有可达command route。
+- 最小方向：先在用户确认后冻结一种对dot-segment安全、且MCP boundary可无歧义恢复raw identity的单segment transport representation；Runner、CLI与MCP必须共享同一规范，并以`.`/`..`增加schema→MCP→Runner/CLI direct public-path regression。不得通过静默收窄schema或application double-decode绕过opaque identity contract。
+- 独立验证：`npm run typecheck` exit 0；`npm test` 314/314 exit 0；schema + production algorithm直接复现显示`.`/`..`均`schemaAccepted=true`而parsed pathname与expected path不相等。现有绿灯只覆盖slash identity，不包含dot-segment normalization。
+- Review Decision：`changes_requested`；Room进入`REVIEW_DISCUSSION`。Documentation impact audit：`documentation: updated`。未accept、stage、commit、push、cutover、删除旧数据或修改业务实现。
+
+### 2026-08-29 — Increment 9 Fix Review 3 方案确认与 Fix Task 3
+
+- 用户确认finding `inc9-fr3-participant-route-segment`与最小方案：保留raw opaque `participant_id`；完整identity仅在HTTP participant route boundary使用canonical URI component encoding表示为单一segment，MCP application authority继续接收raw identity，不增加route ID、schema restriction、wildcard或compatibility route。
+- [Increment 9 Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)已创建为`Accepted`，`review_fixes_only=true`、`confirmed_by_user=true`，直接引用current reviewed Fix Task 2并继承lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`。
+- Contract要求以`worker/2`补MCP encoded route、production `runClaude`与public `room:run` CLI direct regression，并证明raw extra-segment URL在spawn/Room write前拒绝；不改变schema、assignment/frozen authority、protocol version或Stage 2–6。
+- Contract通过Current v0.2 `room_submit_task`提交后Room进入`FIX_PLAN_READY`。本次确认不授权one-shot Run、accept、stage、commit、push、database/binding cutover、旧数据删除或其它Git write。
+
+### 2026-08-29 — Increment 9 Fix Task 3 Fix Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-009-protocol-v03-participant-role-foundation-fix-003`；`confirmed_by_user=true`、`review_fixes_only=true`、`based_on_review=review-increment-009-codex-003`、parent=Fix Task 2。dispatch gate：branch=`main`、HEAD=lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、0 staged；未修改AGENTS.md/CLAUDE.md/PROJECT_RULES.md/README.md/三份Fix Contract、host approval/global config、detached v0.2 launcher worktree与当前v0.2 binding；未新增dependency/package script/source module/generic abstraction。
+- 修复实现（仅confirmed finding `inc9-fr3-participant-route-segment`）：`participant_id`保持raw opaque identity与公开schema；Runner与CLI各自从同一resolved worker assignment的raw identity用`encodeURIComponent`独立构造canonical single-segment route（`worker/2`→`worker%2F2`），`new URL(...).pathname`的exact comparison继续拒绝raw多segment、未编码、错误participant、尾斜杠、query与fragment；MCP Express route把匹配到的encoded segment解码回raw identity，application authority不做第二次decode。修改仅限`src/runner/claude-runner.ts`与`src/cli/run.ts`的route construction/comparison；schema、database、protocol version、assignment/frozen authority、retry ordering与Event identity未变。
+- Direct regression（期望值均为测试侧literal，未从production route builder导出）：
+  - MCP public path：注册并Task-scope分配`worker/2`后，经`/mcp/participants/worker%2F2`调用`room_ask_question`成功，`question_asked` Event actor为raw `worker/2`/worker，Room进入`NEEDS_DECISION`；raw `/mcp/participants/worker/2` POST返回404（无wildcard/多segment fallback）且Event list零变化。
+  - production `runClaude`：`worker/2` Task-scope worker + encoded mcpConfig穿过route gate、claim与`run_completed` terminal settlement，Run冻结`worker_participant_id=worker/2`；raw多segment mcpConfig在spawn/claim前以`validation_failed`拒绝，0 spawn、Run不存在、Event list不变、无artifact owner path。
+  - public `room:run` CLI：canonical encoded mcp-url完成fake-process Run（REVIEW_REQUIRED/succeeded、Run冻结raw `worker/2`、process收到exact encoded URL）；raw多segment URL preflight失败，完整durable read-model snapshot逐字段不变、0 spawn、无Run、无artifact。
+- Verification（live，全部独立通过）：`npm run typecheck` exit 0；claude-runner 49/49；runner-cli 15/15；room-mcp 38/38；scope 1/1；`npm test`全量314/314 exit 0；`git diff --check`无错误。
+- Diff：0 staged；Fix修改`src/runner/claude-runner.ts`、`src/cli/run.ts`与claude-runner/runner-cli/room-mcp三份regression tests；candidate文档ARCHITECTURE/ROOM_PROTOCOL/MVP_PLAN/OPERATIONS/DEVELOPMENT_LOG/ADR-0003已按Fix事实同步，v0.3未写成Current。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Fix为candidate、`REVIEW_REQUIRED`，等待Codex Fix Review；Claude未commit、未stage、未执行任何Git写操作，未把v0.3写成Current，v0.2 database/binding保持权威。
+
+### 2026-08-29 — Increment 9 Fix Review 3（changes_requested）
+
+- Review输入：Accepted Implementation/Fix 1/Fix 2 Contract、lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、Run `run-increment-009-fix-004`的durable succeeded/Coding Result、baseline至当前完整36-path Diff与两份untracked Fix Contract；branch=`main`、HEAD等于baseline、0 staged。
+- Fix Task 2五项confirmed finding均已闭合：resolved executor贯穿Runner lifecycle；acceptReview使用冻结reviewer；Task/Run/Review replacement-safe retry使用冻结identity；Participant管理只认可active latest orchestrator；existing binding exact验证`codex-app`且mismatch零写入。
+- 新finding `inc9-fr3-participant-route-segment`（high）：`participant_id` schema仅要求非空，允许`worker/2`；MCP route只匹配一个segment，Runner/CLI却raw拼接identity。实际local HTTP probe显示raw `/mcp/participants/worker/2`返回404；encoded `/mcp/participants/worker%2F2`命中route，但`new URL(...).pathname`保留`%2F`，current raw expected-path comparison仍拒绝。结果是可注册、可assignment且adapter/capability兼容的Participant没有可达command route。
+- 最小方向：不收窄opaque identity contract；在participant route construction与exact comparison统一使用percent-encoded单一segment，并增加含`/` identity的MCP与production Runner/CLI direct regression。用户随后已确认并形成Accepted Fix Task 3。
+- 独立验证：`npm run typecheck`通过；claude-runner/room-service 114/114、room-mcp/plugin-setup 51/51、scope 1/1、full 309/309、`git diff --check`通过。绿灯未包含上述route-reserved-character public input，direct probe提供反例。
+- Review Decision：`changes_requested`；Room进入`REVIEW_DISCUSSION`。Documentation impact audit：`documentation: updated`。未accept、stage、commit、push、cutover、删除旧数据或修改业务实现。
+
+### 2026-08-29 — Increment 9 Fix Review 2 方案确认与 Fix Task 2
+
+- 用户明确确认`review-increment-009-codex-002`的五项finding与最小方案：production Runner贯穿使用resolved Task-scope executor；Review acceptance使用Review冻结reviewer；Task/Run/Review在assignment replacement后按existing冻结command identity执行same-ID retry；Participant管理只认可active latest orchestrator；existing v0.3 binding exact验证`control_participant_id=codex-app`并从同一identity生成URL。
+- [Increment 9 Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)已创建为`Accepted`，`review_fixes_only=true`、`confirmed_by_user=true`，继承lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`。Room validator要求Fix 2的`parent_task_id`直接引用Review所审查的Fix Task 1；首次错误parent提交以`validation_failed`拒绝且durable state不变，修正后同一Task ID成功提交。
+- Room durable结果：Task=`increment-009-protocol-v03-participant-role-foundation-fix-002`，parent=`increment-009-protocol-v03-participant-role-foundation-fix-001`，based_on_review=`review-increment-009-codex-002`，Room=`FIX_PLAN_READY`。Fix继承reviewed Run的baseline/session，不重新执行clean-worktree gate。
+- 本次确认只授权生成并提交Accepted Contract，不授权one-shot `room:run`；未生成run_id，未启动Runner/Claude，未accept、stage、commit、push、切换database/binding、删除旧数据或执行其它Git write。
+- Documentation impact audit：`documentation: updated`。新增Fix Task 2并同步Project Rules、文档中心、Architecture、Protocol、MVP、Operations、ADR与本日志；v0.3仍为candidate，Current继续为Increment 8/protocol v0.2。
+
+### 2026-08-29 — Increment 9 Fix Task 2 Fix Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-009-protocol-v03-participant-role-foundation-fix-002`；`confirmed_by_user=true`、`review_fixes_only=true`、`based_on_review=review-increment-009-codex-002`。dispatch gate：branch=`main`、HEAD=lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、0 staged；未修改AGENTS.md/CLAUDE.md/PROJECT_RULES.md/README.md/两份Fix Contract、host approval/global config、detached v0.2 launcher worktree与当前v0.2 binding；未新增dependency/package script/source module/generic abstraction。
+- 修复实现（仅五项confirmed findings）：
+  - `inc9-fr2-1`：production Runner从resolved executor assignment取得`executorActor`并贯穿claim（startRun/resumeRun）、progress、pause finalization、complete与fail，service claim校验与整个lifecycle一致使用该actor，不回退固定`local-runner`；bootstrap Room default executor仅在无Task override时fallback。direct regression：非默认Task-scope executor `runner-2`穿过真实`runClaude`完成claim、run_progress与`run_completed` terminal settlement，Event actor全部为`runner-2/executor`。
+  - `inc9-fr2-2`：`acceptReview`先校验route Participant存在、enabled、actor_role=reviewer，再对照Review冻结的`reviewer_participant_id`；不要求仍持有current assignment。direct regression：Task-scope冻结reviewer-2可接受其Review，replacement reviewer-3与Room default codex-app均`actor_not_allowed`且Review/Room/Event零变化；disabled冻结reviewer re-enable后恢复。
+  - `inc9-fr2-3`：Task/Run/Review same-ID retry先识别existing entity，再按stored冻结的planner/executor/reviewer identity认证；caller-owned contract与stored server-resolved身份分层比较，不重新augment existing content。authorized same-content retry返回`created=false`且零Event、Room state不变；replacement actor返回`actor_not_allowed`；different content保持`id_conflict`；new entity继续解析current assignment并固化identity，历史identity不被改写。direct regression：planner/worker/executor/reviewer全部替换后，冻结actor对三类retry全部授权、replacement全部被拒，新fix Task由replacement planner-2提交并固化。
+  - `inc9-fr2-4`：Participant管理的orchestrator检查使用repository `isActiveLatestAssignment`（同scope/role组内rowid最新assignment才授权），不再匹配任意历史row。direct regression：historical codex-app被human-2替换后，registerParticipant/setParticipantEnabled/createRoleAssignment全部`actor_not_allowed`且零写入；human-2继续成功；human-2被human-3替换后同样失去authority，重新成为active后恢复。
+  - `inc9-fr2-5`：existing v0.3 binding只在`control_participant_id` exact为`codex-app`时复用，expected MCP URL由同一validated identity构造；mismatch按invalid binding在任何runtime/config/gitignore写入前失败。direct regression：public CLI tamper `control_participant_id=attacker-app`后非零exit且三份文件逐byte不变。
+- Verification（live，全部独立通过）：`npm run typecheck` exit 0；claude-runner/room-service 114/114；room-mcp/plugin-setup 51/51（含新增fr2-5 control identity mismatch public CLI regression）；scope 1/1；`npm test`全量309/309 exit 0；`git diff --check`无错误。
+- Diff：0 staged；Fix修改`src/runner/claude-runner.ts`、`src/room/room-service.ts`、`src/room/repository.ts`、`plugins/agent-room/skills/agent-room/scripts/setup-project.ts`与claude-runner/room-service/plugin-setup regression tests；candidate文档ARCHITECTURE/ROOM_PROTOCOL/MVP_PLAN/OPERATIONS/DEVELOPMENT_LOG/ADR-0003已按Fix事实同步，v0.3未写成Current。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Fix为candidate、`REVIEW_REQUIRED`，等待Codex Review；Claude未commit、未stage、未执行任何Git写操作，未把v0.3写成Current，v0.2 database/binding保持权威。
+
+### 2026-08-29 — Increment 9 Fix Review 2（changes_requested）
+
+- 用户授权`room_retry_run`后，Room从`RUN_FAILED`回到`PLAN_READY`；Codex仅从detached v0.2 launcher发起一次授权的one-shot Run `run-increment-009-fix-002`，未传`--baseline-head`。Runner沿用baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`与Claude session `543440d4-c6b5-43c1-bee4-b5c741f88983`，最终durable succeeded、process exit 0，Room进入`REVIEW_REQUIRED`。
+- `inc9-fr2-1`（high）：production Runner虽解析Task-scope executor，却仍用固定`local-runner`执行claim/progress/terminal command；直接`runClaude`复现非默认executor在spawn前返回`actor_not_allowed`。
+- `inc9-fr2-2`（high）：`acceptReview`只按Room默认reviewer鉴权；直接复现提交Review的Task-scope reviewer被拒，而Room默认`codex-app`可接管该Review。
+- `inc9-fr2-3`（high）：assignment replacement后，Task/Run/Review same-ID same-content retry无法得到授权的`created=false`；直接复现Task为`id_conflict`，Run与Review在旧、新actor之间分别落入`actor_not_allowed`、`validation_failed`或`id_conflict`。
+- `inc9-fr2-4`（medium）：Participant管理的database-level orchestrator检查匹配任意历史assignment；直接复现已被替换的旧orchestrator仍可注册Participant。
+- `inc9-fr2-5`（medium）：existing v0.3 binding只要求`control_participant_id`非空，却始终生成`codex-app` URL；非`codex-app`值可被复用为内部不一致binding。
+- Verification：Codex独立执行`npm run typecheck`、focused room-service/claude-runner/plugin-setup suites（123/123）与`git diff --check`均通过；Claude报告全量304/304通过。绿灯未覆盖上述五条public-path authority/idempotency/binding失败，直接probe已形成独立反例。
+- Review `review-increment-009-codex-002`以`changes_requested`写入v0.2 Room；Room=`REVIEW_DISCUSSION`、waiting actor=`user`。Documentation impact audit：`documentation: updated`；同步Project Rules、Architecture、Protocol、MVP、Operations、ADR、文档中心与本日志。未生成Fix Task，未accept、stage、commit、push、切换database/binding、删除旧数据或启动额外Run。
+
+### 2026-08-29 — Increment 9 Fix Task 1 Fix Coding 完成（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-009-protocol-v03-participant-role-foundation-fix-001`；`continuation_kind=retry`、`confirmed_by_user=true`、`review_fixes_only=true`。dispatch gate：branch=`main`、0 staged；未修改AGENTS.md/CLAUDE.md/PROJECT_RULES.md/README.md/INCREMENT_9_FIX_TASK_1.md、host approval/global config、detached v0.2 launcher worktree与当前v0.2 binding；未新增dependency/package script/source module/generic abstraction；guard顺序调整保持同一transaction rollback。
+- 修复实现（仅六项confirmed findings）：
+  - `inc9-r1`：已创建Run的askQuestion/progress/pause finalization/complete/fail先校验route actor存在、enabled、actor_role正确，再只对照Run冻结的worker/executor identity（`assertRunCommandAuthority`），不要求仍持有current assignment；replacement actor对旧Run返回`actor_not_allowed`；disabled冻结actor re-enable后恢复。public regression：active Run替换worker/executor后冻结actor仍可ask/progress/pause/complete/fail，replacement被拒，单一terminal Event。
+  - `inc9-r2`：Stage 1 scope收窄为room|task（schema拒绝run/review scope）；Run claim与Review首次提交按task_id的Task scope优先、Room fallback解析worker/executor/reviewer；Task提交继续用Room planner/orchestrator。public regression：task-scope worker/executor/reviewer被下一Run/Review首次创建消费并固化，之后替换assignment不回填、不改写历史。
+  - `inc9-r3`：所有same-ID retry在返回existing entity前执行authority校验（route Participant存在、enabled、required role、与existing冻结identity一致）；authorized same-content retry返回created=false且零Event；different content仍`id_conflict`；unknown/disabled/wrong-role返回`actor_not_allowed`且durable snapshot不变。Question retry的running/room-task guard移至newly inserted路径，guard失败仍由transaction整体rollback。
+  - `inc9-r4`：bootstrap为codex-app增加supervising capability与Room-scope orchestrator assignment；operator保留human profile但无active assignment；binding的`control_participant_id`与MCP URL继续指向codex-app single control endpoint。
+  - `inc9-r5`：active assignment只由成功insert的rowid顺序（rowid DESC）决定，不信任caller `created_at`；same-ID retry不产生新row、不提升旧assignment；room scope必须scope_id=null，task scope必须引用同Room已存在Task；git_controller兼容规则冻结为adapter_id=local_runner且capability=git_control，bootstrap不创建assignment。
+  - `inc9-r6`：新增setup helper public CLI与room:serve/public open direct regression——valid v0.2 binding migration返回mode=migrated、旧database逐byte不变（helper从不打开旧database）、生成独立v0.3 identity、legacy `/mcp/codex` URL保守改写、port复用；rerun identity稳定且mode=reused；config conflict零写入。缺metadata的v0.2 database与wrong exact metadata在schema/state write前以`protocol_version_mismatch`拒绝且database逐byte不变。
+- Verification（live，全部独立通过）：`npm run typecheck` exit 0；protocol/room-service/room-state-snapshot 93/93；room-mcp/room-serve/status-cli 52/52；claude-process/claude-stream/claude-runner/runner-cli/e2e-workflow 105/105；plugin-setup/plugin-packaging/multi-project-e2e 34/34；scope 1/1；`npm test`全量304/304 exit 0；`git diff --check`无错误。
+- Diff：0 staged；Fix修改`src/protocol/schema.ts`、`src/room/repository.ts`、`src/room/room-service.ts`、`src/runner/claude-runner.ts`、`src/cli/run.ts`与protocol/room-service/room-state-snapshot/room-mcp/room-serve/plugin-setup regression tests；candidate文档ARCHITECTURE/ROOM_PROTOCOL/MVP_PLAN/OPERATIONS/DEVELOPMENT_LOG/ADR-0003已按Fix事实同步，v0.3未写成Current。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Fix为candidate、`REVIEW_REQUIRED`，等待Codex Review；Claude未commit、未stage、未执行任何Git写操作，未把v0.3写成Current，v0.2 database/binding保持权威。
+
+### 2026-08-29 — Increment 9 Fix Run 1 orphan 原子结算（RUN_FAILED）
+
+- Accepted [Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)通过v0.2 `room_submit_task`完整提交，Room从`REVIEW_DISCUSSION`原子进入`FIX_PLAN_READY`；current Task正确指向`increment-009-protocol-v03-participant-role-foundation-fix-001`。
+- 依照一次授权从detached v0.2 launcher发起唯一 `room:run`，Run ID=`run-increment-009-fix-001`，未传`--baseline-head`，继承lineage baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`与session `543440d4-c6b5-43c1-bee4-b5c741f88983`。
+- Runner与Claude在执行期间持续产生progress，durable cursor从`35571`增长到`78156`；随后两进程与Room service均不再存活，Run仍为`CODING/running`，无Coding Result、process exit code或该Run artifact。现有证据不能判定实现成功。
+- Codex从detached v0.2 launcher恢复同一database/port的Room service，只读确认orphan事实；再通过Current `RoomService.failRun`单transaction结算`runner_internal_error`，message为“Runner and Claude processes exited before terminal settlement; no process exit code or run artifact was available.”。
+- durable结果：Room=`RUN_FAILED`、Run=`failed`、`completed_at=2026-08-29T07:58:12.691Z`、`process_exit_code=null`、artifact refs为空；保留可靠source session及0 staged/36 unstaged/1 untracked Git evidence，新增且仅新增sequence `78157`的`run_failed` Event。
+- 未调用`room_retry_run`，未启动第二个Run，未执行Review/accept、database/binding cutover、旧数据删除、stage、commit、push或其它Git write。Fix candidate文件保留原位，等待用户决定。
+- Documentation impact audit：`documentation: updated`。同步Project Rules与本日志的真实`RUN_FAILED`状态；candidate architecture/protocol文档仍由下一次成功Fix Coding修正，v0.3未提升为Current。
+
+### 2026-08-29 — Increment 9 Review 1 与 Fix Task 1 确认
+
+- Codex对baseline `b6df9269dae9bf417abc4aa95f78ae22a6026ea7`后的34个candidate paths完成完整Review；独立验证typecheck、focused suites、scope、full 297/297与`git diff --check`均通过，但public-path probes确认六项真实finding。
+- `inc9-r1`：assignment replacement后，旧冻结worker/executor与新current assignment都无法同时满足authority与frozen identity，active Run无法Question或terminal settlement。
+- `inc9-r2`：Run/Review creation只解析Room assignment，Task-scope worker/executor/reviewer未被真实consumer使用；pre-created run/review scope没有可达的creation consumer。
+- `inc9-r3`：createRoom、Question、Run/Review等same-ID retry在authority check前返回existing，unknown actor可获得成功响应。
+- `inc9-r4`：project binding固定`control_participant_id=codex-app`，但bootstrap只把orchestrator分配给未绑定operator，control endpoint不能执行Participant/Assignment管理command。
+- `inc9-r5`：active assignment信任caller `created_at`，room scope允许非null `scope_id`，且`git_controller`没有adapter/capability compatibility，因此可持久化inert或不兼容assignment。
+- `inc9-r6`：现有setup/serve tests没有直接覆盖`mode=migrated`、old database byte preservation、rerun identity、legacy URL rewrite或`protocol_version_mismatch` public open boundary；297/297绿灯不能证明核心archive/cutover门禁。
+- Review Decision：`needs_discussion`；Review已作为`review-increment-009-codex-001`写入v0.2 Room，Room进入`REVIEW_DISCUSSION`。
+- 用户确认全部finding与最小方案：`codex-app`成为single project control endpoint的active orchestrator；Stage 1仅支持`room|task` assignment，Task scope选择下一Run/Review；existing Run由冻结identity推进，disabled participant仍需re-enable；assignment authority使用server insert order；补齐public migration/version证据。
+- 已创建[Increment 9 Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)，`review_fixes_only=true`、`confirmed_by_user=true`，阶段进入`FIX_PLAN_READY`。只授权一次one-shot Fix Run；不授权commit、push、database/binding cutover、旧数据删除或第二次Run。
+- Documentation impact audit：`documentation: updated`。新增Accepted Fix Contract并同步Project Rules、文档中心与当前开发状态；六份candidate implementation文档中与finding冲突的描述由Fix Coding按Contract修正，v0.3未提升为Current。
+
+### 2026-08-29 — Increment 9 Protocol v0.3 Participant / Role Foundation Implementation Coding（candidate，REVIEW_REQUIRED）
+
+- task_id：`increment-009-protocol-v03-participant-role-foundation`；`continuation_kind=retry`、`confirmed_by_user=true`。dispatch gate：branch=`main`、baseline exact `HEAD=b6df9269dae9bf417abc4aa95f78ae22a6026ea7`、0 staged；`agent_room_root`临时指向用户授权创建的detached v0.2 launcher worktree（Claude未修改该worktree），`project_path`仍指向target main。
+- 实现（v0.3 candidate，不保留双协议runtime branch）：`protocol_version`=`0.3-design`写入v0.3 database protocol metadata，空表fresh建schema、有表但无metadata的v0.2 database在schema write前以`protocol_version_mismatch`拒绝；`ParticipantProfile`冻结字段（kind=human|agent|service、opaque `config_ref`等）；`RoleAssignment`四种scope（room/task/run/review），resolution exact entity scope优先于room default、最新`created_at`（rowid DESC）为active；createRoom bootstrap operator→orchestrator、codex-app→planner/reviewer、claude-code-cli→worker、local-runner→executor；Task提交固化planner/orchestrator、Run claim固化worker/executor、Review提交固化reviewer，disable/replace不改写历史identity；`Event.actor`→`actor_role+participant_id`；`Run.claude_session_id`→`agent_session_ref`（CLI exact `--resume` lineage语义不变）；MCP收敛为单一`/mcp/participants/{participant_id}` route与13个role-gated tools，v0.2固定routes返回not found，Runner经`assertWorkerMcpRoute`固定worker route；snapshot扩展为全部Participant/Assignment/Task/Run/Review/Question/Event并按room过滤；waiting_actor按role映射（planner/executor/worker/user/reviewer/null）；`REVIEW_DISCUSSION → FIX_PLAN_READY`由planner发起（fix Task经planner role的`room_submit_task`提交）；binding扩展为八字段（`protocol_version`、`control_participant_id`、`archived_database_path`），setup helper支持fresh/migrated/reused三模式，migration创建`room-v0.3.sqlite`、新room_id、复用port、保守改写遗留`/mcp/codex` URL、rerun幂等复用同一v0.3 identity，`archived_database_path`永不等于`database_path`；`.gitignore`新增两条v0.3 database条目。
+- 未实现Stage 2–6 capability（无multi-Run/Executor scheduler、Plan/Approval/DAG/Git write、Chat、SSE/VS Code、GitHub、新provider adapter或v0.2原地migration）。
+- Deviations（question_policy允许的最小选择）：migration/reuse要求operator再次显式提供`--agent-room-root`——stored v0.2 root指向v0.2代码（如detached launcher worktree），不能复用为v0.3 root；v0.2 route与`/mcp/claude`错误route的runner-cli回归改为断言not found（不再存在v0.2 route）；test fixture与temporary database路径由Coding按既有style作最小选择。
+- Verification（live，全部独立通过）：`npm run typecheck` exit 0；`node --test tests/protocol.test.ts tests/room-service.test.ts tests/room-state-snapshot.test.ts` 89/89；`node --test tests/room-mcp.test.ts tests/room-serve.test.ts tests/status-cli.test.ts` 50/50；`node --test tests/claude-process.test.ts tests/claude-stream.test.ts` 43/43；`node --test tests/claude-runner.test.ts` 46/46；`node --test tests/runner-cli.test.ts` 13/13；`node --test tests/e2e-workflow.test.ts` 3/3；`node --test tests/plugin-setup.test.ts` 12/12；`node --test tests/plugin-packaging.test.ts` 20/20；`node --test tests/multi-project-e2e.test.ts` 1/1；`node --test tests/scope.test.ts` 1/1；`npm test`全量297/297通过 exit 0。
+- 状态：`completed`（Coding Result按ROOM_PROTOCOL契约返回）。Implementation为candidate、`REVIEW_REQUIRED`，等待Codex Review；Claude未commit、未stage、未执行任何Git写操作，未把v0.3写成Current，未把ADR-0001/0002标记Superseded，v0.2 database/binding保持权威。
 
 ### 2026-08-29 — Agent Room v0.3 Stage 1 Architecture Review Draft
 
@@ -1149,8 +1307,8 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 8没有未解决阻塞finding，Review Decision为`approved`且用户已最终接受；implementation commit已进入版本化`main`。未获Codex启动Claude/service、runtime初始化、push、branch/worktree、stash删除或其它清理授权。
+Increment 9没有未解决阻塞finding，Review Decision为`approved`、用户已最终接受且完整scope已进入版本化`main`；Room=`ACCEPTED`。active project Room仍为Increment 8 / protocol v0.2；未获push、database/binding cutover、旧数据删除或其它Git/runtime写操作授权。
 
 ## 下一步
 
-Increment 8没有必需的后续实现工作。manual service/runtime setup smoke与push均为独立可选门禁；未获授权不得执行。
+下一项可选动作是用户另行授权database/binding cutover；push继续是独立门禁。未获授权不得执行。

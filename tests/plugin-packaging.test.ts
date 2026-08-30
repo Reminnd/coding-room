@@ -249,7 +249,7 @@ test('skill front matter satisfies the frozen metadata subset: exact name, froze
   }
 });
 
-test('runtime.json template has exactly five fields and its port placeholder becomes a JSON integer', () => {
+test('runtime.json template has exactly the eight v0.3 fields and its port placeholder becomes a JSON integer', () => {
   const setup = readText(projectSetupPath);
   const template = codeFenceBlocks(setup).find((b) => b.includes('agent_room_root'));
   assert.ok(template, 'runtime.json template must be a fenced block');
@@ -267,15 +267,21 @@ test('runtime.json template has exactly five fields and its port placeholder bec
   const parsed = JSON.parse(substituted) as Record<string, unknown>;
   assert.deepEqual(Object.keys(parsed).sort(), [
     'agent_room_root',
+    'archived_database_path',
+    'control_participant_id',
     'database_path',
     'port',
     'project_path',
+    'protocol_version',
     'room_id',
   ]);
   assert.equal(parsed.agent_room_root, 'C:/agent-room');
   assert.equal(parsed.database_path, 'C:/room.db');
   assert.equal(parsed.project_path, 'C:/project');
   assert.equal(parsed.room_id, 'room-a');
+  assert.equal(parsed.protocol_version, '0.3-design');
+  assert.equal(parsed.control_participant_id, 'codex-app');
+  assert.equal(parsed.archived_database_path, null);
   assert.ok(Number.isInteger(parsed.port), 'port must be a JSON integer after substitution');
   assert.ok(
     (parsed.port as number) >= 1 && (parsed.port as number) <= 65535,
@@ -283,13 +289,16 @@ test('runtime.json template has exactly five fields and its port placeholder bec
   );
 });
 
-test('config.toml template defines the exact project-scoped agent_room MCP URL', () => {
+test('config.toml template defines the exact project-scoped agent_room participant MCP URL', () => {
   const setup = readText(projectSetupPath);
   const block = codeFenceBlocks(setup).find((b) => b.includes('mcp_servers.agent_room'));
   assert.ok(block, 'config.toml template must be a fenced block');
   assert.ok(block.includes('[mcp_servers.agent_room]'));
-  assert.ok(block.includes('url = "http://127.0.0.1:<PROJECT_PORT>/mcp/codex"'));
-  // 不得内嵌硬编码端口或非 loopback / 非 /mcp/codex URL（占位符无数字端口）。
+  assert.ok(
+    block.includes('url = "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~codex-app"'),
+    'URL must be the exact framed control-participant route',
+  );
+  // 不得内嵌硬编码端口或非 loopback / 非 participant route URL（占位符无数字端口）。
   assert.ok(!/:\d+/.test(block), 'template must not contain a hardcoded port');
 });
 
@@ -459,7 +468,10 @@ test('one-shot command quotes every path/ID/URL placeholder and resolves via the
   assert.ok(commandBlock.includes('--project "<PROJECT_PATH>"'));
   assert.ok(commandBlock.includes('--task-id "<TASK_ID>"'));
   assert.ok(commandBlock.includes('--run-id "<RUN_ID>"'));
-  assert.ok(commandBlock.includes('--mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/claude"'));
+  assert.ok(
+    commandBlock.includes('--mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli"'),
+    'launcher must target the exact framed worker participant route',
+  );
   assert.ok(commandBlock.includes('[--baseline-head "<OBSERVED_BASELINE_HEAD>"]'));
   assert.ok(!commandBlock.includes('package.json'), 'launcher template must not reference a target manifest');
   assert.ok(!commandBlock.includes('status'), 'launcher template must not contain a status form');

@@ -24,14 +24,18 @@ function runStatus(args: string[]): { status: number; stdout: string; stderr: st
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
+// v0.3 actor literal：与默认 bootstrap assignment 一致（测试侧独立 literal，不导入实现）。
+const PLANNER = { participant_id: 'codex-app', actor_role: 'planner' as const };
+const EXECUTOR = { participant_id: 'local-runner', actor_role: 'executor' as const };
+
 function seedDb(dbPath: string): void {
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
-  service.createRoom('room-1');
-  service.transitionToArchitectureReview('room-1');
-  service.transitionToWaitingForUserConfirmation('room-1');
-  service.submitTask(makeTask());
-  service.startRun(makeRun()); // CODING，cursor 5
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  service.startRun(makeRun(), EXECUTOR); // CODING，cursor 5
   db.close();
 }
 
@@ -62,7 +66,7 @@ test('status CLI prints deterministic pretty JSON matching the seeded Room state
   // 值来自测试侧 seed fixture 的独立 literal，不从实现导入。
   assert.equal(parsed.room_id, 'room-1');
   assert.equal(parsed.state, 'CODING');
-  assert.equal(parsed.waiting_actor, 'claude');
+  assert.equal(parsed.waiting_actor, 'worker');
   assert.equal(parsed.cursor, 5);
   assert.equal(parsed.current_task_id, 'task-1');
   assert.equal(parsed.current_run_id, 'run-1');

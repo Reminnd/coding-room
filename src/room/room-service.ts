@@ -1,17 +1,25 @@
 import { DatabaseSync } from 'node:sqlite';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
   codingResultSchema,
+  participantProfileSchema,
+  persistedTaskSchema,
   questionSchema,
   reviewSchema,
+  roleAssignmentSchema,
   runSchema,
   taskContractSchema,
-  type Actor,
   type CodingResult,
   type Event,
+  type EventActor,
+  type ParticipantProfile,
+  type PersistedTask,
   type Question,
   type Review,
+  type Role,
+  type RoleAssignment,
   type RoomState,
   type Run,
   type TaskContract,
@@ -19,12 +27,101 @@ import {
 import { RoomRepository, type RoomRecord } from './repository.ts';
 import { resolveTransition } from './state-machine.ts';
 
-// Runner 在 terminal transition 时必须随 result/failure 一并持久化的完成证据：session、
-// process exit、Git evidence 与 artifact refs 都在同一 RoomService transaction 内提交，
+// ---- v0.3 bootstrap profiles / assignments ----
+// 创建 Room 时注册的最小 identity 集合。adapter_id 是 Stage 1 已验收 adapter 的 key；
+// provider/config_ref 只是描述性 metadata，config_ref 不存 secret。
+export const BOOTSTRAP_PARTICIPANTS: readonly Omit<ParticipantProfile, 'created_at'>[] = [
+  {
+    participant_id: 'operator',
+    display_name: 'Operator',
+    kind: 'human',
+    provider: 'local',
+    adapter_id: 'human',
+    capabilities: ['supervising'],
+    config_ref: null,
+    enabled: true,
+  },
+  {
+    participant_id: 'codex-app',
+    display_name: 'Codex App',
+    kind: 'agent',
+    provider: 'codex',
+    adapter_id: 'codex_app',
+    // codex-app 是 project 唯一 control endpoint participant：planner/reviewer 之外还持有
+    // supervising capability，承担 Room orchestrator（Review finding inc9-r4）。
+    capabilities: ['planning', 'reviewing', 'supervising'],
+    config_ref: null,
+    enabled: true,
+  },
+  {
+    participant_id: 'claude-code-cli',
+    display_name: 'Claude Code CLI',
+    kind: 'agent',
+    provider: 'anthropic',
+    adapter_id: 'claude_code_cli',
+    capabilities: ['coding', 'questioning'],
+    config_ref: null,
+    enabled: true,
+  },
+  {
+    participant_id: 'local-runner',
+    display_name: 'Local Runner',
+    kind: 'service',
+    provider: 'local',
+    adapter_id: 'local_runner',
+    capabilities: ['execution'],
+    config_ref: null,
+    enabled: true,
+  },
+];
+
+// bootstrap room-scope assignments：codex-app 是 single control orchestrator 兼
+// planner/reviewer，Claude Code CLI 是 worker，local service 是 executor。operator 只保留
+// human profile，不持有 active assignment（Review finding inc9-r4）。git_controller 在
+// Stage 1 只可登记 assignment 不执行，因此 bootstrap 不分配。
+export const BOOTSTRAP_ASSIGNMENTS: readonly Omit<
+  RoleAssignment,
+  'assignment_id' | 'room_id' | 'created_at'
+>[] = [
+  { scope_type: 'room', scope_id: null, role: 'orchestrator', participant_id: 'codex-app' },
+  { scope_type: 'room', scope_id: null, role: 'planner', participant_id: 'codex-app' },
+  { scope_type: 'room', scope_id: null, role: 'reviewer', participant_id: 'codex-app' },
+  { scope_type: 'room', scope_id: null, role: 'worker', participant_id: 'claude-code-cli' },
+  { scope_type: 'room', scope_id: null, role: 'executor', participant_id: 'local-runner' },
+];
+
+// Runner / system Event 使用的 local service participant。
+export const LOCAL_SERVICE_PARTICIPANT_ID = 'local-runner';
+
+// Stage 1 role → 已验收 adapter 映射：只有已验收 adapter 的 participant 才能被解析为可执行
+// assignment；其它 provider profile 可注册但不可承担可执行 role（ADR-0003 §4.3）。
+const ROLE_REQUIRED_ADAPTERS: Partial<Record<Role, readonly string[]>> = {
+  planner: ['codex_app'],
+  reviewer: ['codex_app'],
+  worker: ['claude_code_cli'],
+  executor: ['local_runner'],
+  orchestrator: ['human', 'codex_app'],
+  // git_controller 兼容规则冻结为 local_runner（Review finding inc9-r5）；Stage 1 只可
+  // 登记 assignment，不执行 Git write。
+  git_controller: ['local_runner'],
+};
+
+// role → 必需 capability：profile.capabilities 必须包含该 capability 才能承担 role。
+const ROLE_REQUIRED_CAPABILITIES: Partial<Record<Role, string>> = {
+  planner: 'planning',
+  reviewer: 'reviewing',
+  worker: 'coding',
+  executor: 'execution',
+  orchestrator: 'supervising',
+  git_controller: 'git_control',
+};
+
+// Runner 在 terminal transition 时必须随 result/failure 一并持久化的完成证据：agent session
+// ref、process exit、Git evidence 与 artifact refs 都在同一 RoomService transaction 内提交，
 // 避免 succeeded/failed Run 缺少已观察到的 process/Git/artifact evidence。git_evidence 的
 // shape 与 Run.git_evidence 一致，但不 import schema.ts 的未导出 zod schema。
 export interface RunTerminalEvidence {
-  claude_session_id: string | null;
+  agent_session_ref: string | null;
   process_exit_code: number | null;
   git_evidence: { staged: string[]; unstaged: string[]; untracked: string[] };
   artifact_refs: string[];
@@ -42,6 +139,8 @@ export type ContinuationContext =
 
 // application service 是唯一拥有 rooms.state 修改权限的模块。每个公开方法都在单个
 // SQLite transaction 内完成 entity write、state change 与 Event append，失败即回滚。
+// v0.3 的每个 command 都接收 EventActor（participant_id + actor_role）：role 决定转换
+// authority，participant 决定谁实际执行；Event 与 lifecycle entity 在创建时固化 identity。
 export class RoomService {
   private readonly db: DatabaseSync;
   private readonly repo: RoomRepository;
@@ -54,14 +153,24 @@ export class RoomService {
   }
 
   // ---- Room creation ----
-  createRoom(roomId: string): { room: RoomRecord; created: boolean } {
+  // bootstrap 在 Room 创建时注册 profiles/assignments；room_create 的 caller 必须持有新 Room
+  // 的 planner assignment（bootstrap 后的 codex-app 通过，orchestrator-only participant 被拒）。
+  createRoom(roomId: string, actor: EventActor): { room: RoomRecord; created: boolean } {
     return this.tx(() => {
-      const { room, created } = this.repo.createRoom(roomId, this.now());
-      if (!created) return { room, created: false };
+      const createdAt = this.now();
+      const { room, created } = this.repo.createRoom(roomId, createdAt);
+      if (!created) {
+        // same-ID retry 不是 authority bypass：返回既有 Room 前同样校验 planner authority
+        //（Review finding inc9-r3）。
+        this.assertAuthority(roomId, actor, 'planner');
+        return { room, created: false };
+      }
+      this.bootstrapRoom(roomId, createdAt);
+      this.assertAuthority(roomId, actor, 'planner');
       this.repo.appendEvent({
         room_id: roomId,
         type: 'room_created',
-        actor: 'system',
+        actor: { participant_id: LOCAL_SERVICE_PARTICIPANT_ID, actor_role: 'orchestrator' },
         entity_type: 'room',
         entity_id: roomId,
         summary: `room ${roomId} created`,
@@ -71,48 +180,77 @@ export class RoomService {
     });
   }
 
-  // ---- Planning transitions (codex) ----
-  transitionToArchitectureReview(roomId: string): RoomRecord {
-    return this.tx(() =>
-      this.planningTransition(roomId, 'ARCHITECTURE_REVIEW', `room ${roomId} moved to ARCHITECTURE_REVIEW`),
-    );
+  // ---- Planning transitions (planner) ----
+  transitionToArchitectureReview(roomId: string, actor: EventActor): RoomRecord {
+    return this.tx(() => {
+      this.assertAuthority(roomId, actor, 'planner');
+      return this.planningTransition(
+        roomId,
+        'ARCHITECTURE_REVIEW',
+        `room ${roomId} moved to ARCHITECTURE_REVIEW`,
+        actor,
+      );
+    });
   }
 
-  transitionToWaitingForUserConfirmation(roomId: string): RoomRecord {
-    return this.tx(() =>
-      this.planningTransition(
+  transitionToWaitingForUserConfirmation(roomId: string, actor: EventActor): RoomRecord {
+    return this.tx(() => {
+      this.assertAuthority(roomId, actor, 'planner');
+      return this.planningTransition(
         roomId,
         'WAITING_FOR_USER_CONFIRMATION',
         `room ${roomId} moved to WAITING_FOR_USER_CONFIRMATION`,
-      ),
-    );
+        actor,
+      );
+    });
   }
 
-  retryAfterFailure(roomId: string): RoomRecord {
-    return this.tx(() =>
-      this.planningTransition(roomId, 'PLAN_READY', `room ${roomId} retry after failure`),
-    );
-  }
-
-  // ---- Task submission (codex) ----
-  submitTask(input: unknown): { room: RoomRecord; task: TaskContract; created: boolean } {
-    const task = this.parse(taskContractSchema, input, 'TaskContract') as TaskContract;
+  retryAfterFailure(roomId: string, actor: EventActor): RoomRecord {
     return this.tx(() => {
-      this.requireRoom(task.room_id);
-      const inserted = this.repo.insertTask(task);
-      if (!inserted.created) {
-        return { room: this.requireRoom(task.room_id), task: this.requireTask(task.task_id), created: false };
+      this.assertAuthority(roomId, actor, 'planner');
+      return this.planningTransition(roomId, 'PLAN_READY', `room ${roomId} retry after failure`, actor);
+    });
+  }
+
+  // ---- Task submission (planner) ----
+  submitTask(
+    input: unknown,
+    actor: EventActor,
+  ): { room: RoomRecord; task: PersistedTask; created: boolean } {
+    const contract = this.parse(taskContractSchema, input, 'TaskContract') as TaskContract;
+    return this.tx(() => {
+      this.requireRoom(contract.room_id);
+      const existing = this.repo.getTask(contract.task_id);
+      if (existing) {
+        // same-ID retry 按 stored Task 冻结的提交 identity 认证（Review finding inc9-fr2-3）：
+        // 不使用 current assignment 重新 augment existing content 后比较。content 判定复用
+        // repository：layered content（caller-owned contract + stored frozen identity）与
+        // stored 相同 → created=false 且零写入；不同 → id_conflict。两种失败都由 transaction
+        // 保证 Room/entity/Event 零写入。
+        this.assertTaskRetryAuthority(existing, actor);
+        const retry = {
+          ...contract,
+          planner_participant_id: existing.planner_participant_id,
+          orchestrator_participant_id: existing.orchestrator_participant_id,
+        };
+        this.repo.insertTask(retry);
+        return { room: this.requireRoom(contract.room_id), task: existing, created: false };
       }
+      // 新 Task 继续使用 current assignment authority 并在提交时固化 planner/orchestrator
+      // identity；输入契约本身不含这两个字段。
+      this.assertAuthority(contract.room_id, actor, 'planner');
+      const task = this.augmentTaskWithIdentities(contract);
+      this.repo.insertTask(task);
       if (task.type === 'fix') {
         this.validateFixReferences(task);
-        this.applyTransition(task.room_id, 'FIX_PLAN_READY', 'codex');
+        this.applyTransition(task.room_id, 'FIX_PLAN_READY', actor);
       } else {
-        this.applyTransition(task.room_id, 'PLAN_READY', 'codex');
+        this.applyTransition(task.room_id, 'PLAN_READY', actor);
       }
       this.repo.appendEvent({
         room_id: task.room_id,
         type: 'task_submitted',
-        actor: 'codex',
+        actor,
         entity_type: 'task',
         entity_id: task.task_id,
         summary: `task ${task.task_id} submitted (${task.type})`,
@@ -122,22 +260,32 @@ export class RoomService {
     });
   }
 
-  // ---- Run lifecycle (runner) ----
-  startRun(input: unknown): { room: RoomRecord; run: Run; created: boolean } {
+  // ---- Run lifecycle (executor) ----
+  startRun(input: unknown, actor: EventActor): { room: RoomRecord; run: Run; created: boolean } {
     const run = this.normalizeRunForCoding(this.parse(runSchema, input, 'Run') as Run);
     return this.tx(() => {
       this.assertRunTask(run);
-      const inserted = this.repo.insertRun(run);
-      if (!inserted.created) {
-        return { room: this.requireRoom(run.room_id), run: this.requireRun(run.run_id), created: false };
-      }
       this.assertCurrentTask(run);
       this.assertStartableState(run);
-      this.applyTransition(run.room_id, 'CODING', 'runner');
+      const existing = this.repo.getRun(run.run_id);
+      if (existing) {
+        // same-ID retry 按 stored Run 冻结的 executor identity 认证（Review finding
+        // inc9-fr2-3）：不要求 current worker/executor assignment 与历史 identity 一致。
+        // content 判定复用 repository：同 content → created=false 且零写入；不同 → id_conflict。
+        this.assertRunCommandAuthority(existing, actor, 'executor');
+        this.repo.insertRun(run);
+        return { room: this.requireRoom(run.room_id), run: existing, created: false };
+      }
+      // 新 Run：claim authority（current assignment）与冻结 identity 一致性校验先于 insert，
+      // guard 失败由 transaction 整体 rollback，无 partial write。
+      this.assertExecutorClaimAuthority(run, actor);
+      this.validateClaimIdentity(run, actor);
+      this.repo.insertRun(run);
+      this.applyTransition(run.room_id, 'CODING', actor);
       this.repo.appendEvent({
         room_id: run.room_id,
         type: 'run_started',
-        actor: 'runner',
+        actor,
         entity_type: 'run',
         entity_id: run.run_id,
         summary: `run ${run.run_id} started`,
@@ -147,21 +295,27 @@ export class RoomService {
     });
   }
 
-  resumeRun(input: unknown): { room: RoomRecord; run: Run; created: boolean } {
+  resumeRun(input: unknown, actor: EventActor): { room: RoomRecord; run: Run; created: boolean } {
     const run = this.normalizeRunForCoding(this.parse(runSchema, input, 'Run') as Run);
     return this.tx(() => {
       this.assertRunTask(run);
-      const inserted = this.repo.insertRun(run);
-      if (!inserted.created) {
-        return { room: this.requireRoom(run.room_id), run: this.requireRun(run.run_id), created: false };
-      }
       this.assertCurrentTask(run);
       this.assertResumableState(run);
-      this.applyTransition(run.room_id, 'CODING', 'runner');
+      const existing = this.repo.getRun(run.run_id);
+      if (existing) {
+        // 与 startRun 相同的 replacement-safe retry（Review finding inc9-fr2-3）。
+        this.assertRunCommandAuthority(existing, actor, 'executor');
+        this.repo.insertRun(run);
+        return { room: this.requireRoom(run.room_id), run: existing, created: false };
+      }
+      this.assertExecutorClaimAuthority(run, actor);
+      this.validateClaimIdentity(run, actor);
+      this.repo.insertRun(run);
+      this.applyTransition(run.room_id, 'CODING', actor);
       this.repo.appendEvent({
         room_id: run.room_id,
         type: 'run_resumed',
-        actor: 'runner',
+        actor,
         entity_type: 'run',
         entity_id: run.run_id,
         summary: `run ${run.run_id} resumed`,
@@ -175,9 +329,13 @@ export class RoomService {
     runId: string,
     resultInput: unknown,
     evidence: RunTerminalEvidence,
+    actor: EventActor,
   ): { room: RoomRecord; run: Run } {
     return this.tx(() => {
       const run = this.requireRun(runId);
+      // 已创建 Run 的 command authority：先校验 route actor（存在/enabled/role），再只对照
+      // claim 时冻结的 executor；不要求仍持有 current assignment（Review finding inc9-r1）。
+      this.assertRunCommandAuthority(run, actor, 'executor');
       this.assertRunRunning(run);
       const result = this.parseCodingResult(resultInput);
       if (result.status !== 'completed') {
@@ -198,18 +356,18 @@ export class RoomService {
         ...run,
         status: 'succeeded',
         result,
-        claude_session_id: evidence.claude_session_id,
+        agent_session_ref: evidence.agent_session_ref,
         process_exit_code: evidence.process_exit_code,
         git_evidence: evidence.git_evidence,
         artifact_refs: evidence.artifact_refs,
         completed_at: this.now(),
       };
       this.repo.updateRun(updated);
-      this.applyTransition(run.room_id, 'REVIEW_REQUIRED', 'runner');
+      this.applyTransition(run.room_id, 'REVIEW_REQUIRED', actor);
       this.repo.appendEvent({
         room_id: run.room_id,
         type: 'run_completed',
-        actor: 'runner',
+        actor,
         entity_type: 'run',
         entity_id: runId,
         summary: `run ${runId} completed`,
@@ -223,9 +381,12 @@ export class RoomService {
     runId: string,
     failure: { code: string; message: string },
     evidence: RunTerminalEvidence,
+    actor: EventActor,
   ): { room: RoomRecord; run: Run } {
     return this.tx(() => {
       const run = this.requireRun(runId);
+      // 与 completeRun 相同的冻结 executor authority：actor 校验先于 lifecycle guard。
+      this.assertRunCommandAuthority(run, actor, 'executor');
       this.assertRunRunning(run);
       // 即使 Run 失败也持久化已成功观察到的 evidence，避免 failed Run 丢失已观察的
       // process/Git/artifact 事实；evidence 与 failure 在同一 transaction 提交。
@@ -233,18 +394,18 @@ export class RoomService {
         ...run,
         status: 'failed',
         failure,
-        claude_session_id: evidence.claude_session_id,
+        agent_session_ref: evidence.agent_session_ref,
         process_exit_code: evidence.process_exit_code,
         git_evidence: evidence.git_evidence,
         artifact_refs: evidence.artifact_refs,
         completed_at: this.now(),
       };
       this.repo.updateRun(updated);
-      this.applyTransition(run.room_id, 'RUN_FAILED', 'runner');
+      this.applyTransition(run.room_id, 'RUN_FAILED', actor);
       this.repo.appendEvent({
         room_id: run.room_id,
         type: 'run_failed',
-        actor: 'runner',
+        actor,
         entity_type: 'run',
         entity_id: runId,
         summary: `run ${runId} failed`,
@@ -260,15 +421,18 @@ export class RoomService {
   appendRunProgress(
     runId: string,
     progress: { type: string | null; subtype: string | null; outcome: string | null },
+    actor: EventActor,
   ): void {
     this.tx(() => {
       const run = this.requireRun(runId);
+      // progress 与 terminal 命令共享冻结 executor authority（Review finding inc9-r1）。
+      this.assertRunCommandAuthority(run, actor, 'executor');
       this.assertRunRunning(run);
       const label = [progress.type, progress.subtype].filter((p): p is string => p !== null).join(':') || 'unknown';
       this.repo.appendEvent({
         room_id: run.room_id,
         type: 'run_progress',
-        actor: 'runner',
+        actor,
         entity_type: 'run',
         entity_id: runId,
         summary: `run ${runId} progress ${label}`,
@@ -277,10 +441,14 @@ export class RoomService {
     });
   }
 
-  // ---- Question (claude / codex) ----
-  askQuestion(input: unknown): { room: RoomRecord; question: Question; created: boolean } {
+  // ---- Question (worker / planner) ----
+  askQuestion(input: unknown, actor: EventActor): { room: RoomRecord; question: Question; created: boolean } {
     const question = this.parse(questionSchema, input, 'Question') as Question;
     return this.tx(() => {
+      // authority 先于 insert：same-ID retry 必须先认证 actor（Review finding inc9-r3），且
+      // authority 只对照 claim 时冻结的 worker（Review finding inc9-r1），失败整体回滚。
+      const run = this.requireRun(question.run_id);
+      this.assertRunCommandAuthority(run, actor, 'worker');
       const normalized: Question = {
         ...question,
         status: 'open',
@@ -290,13 +458,16 @@ export class RoomService {
       };
       const inserted = this.repo.insertQuestion(normalized);
       if (!inserted.created) {
+        // authorized same-content retry 直接返回既有 Question：首次 ask 已把 Run 置为
+        // needs_decision，running/task-room guard 只约束 newly inserted Question，不误伤 retry。
         return {
           room: this.requireRoom(question.room_id),
           question: this.requireQuestion(question.question_id),
           created: false,
         };
       }
-      const run = this.requireRun(question.run_id);
+      // 以下 guard 只在 newly inserted Question 上执行；失败由 transaction 整体回滚，
+      // insert 不残留，可观察错误码与 insert 前校验一致。
       this.assertRunRunning(run);
       if (run.room_id !== question.room_id || run.task_id !== question.task_id) {
         throw new ProtocolError(
@@ -306,11 +477,11 @@ export class RoomService {
       }
       const updatedRun: Run = { ...run, status: 'needs_decision' };
       this.repo.updateRun(updatedRun);
-      this.applyTransition(question.room_id, 'NEEDS_DECISION', 'claude');
+      this.applyTransition(question.room_id, 'NEEDS_DECISION', actor);
       this.repo.appendEvent({
         room_id: question.room_id,
         type: 'question_asked',
-        actor: 'claude',
+        actor,
         entity_type: 'question',
         entity_id: question.question_id,
         summary: `question ${question.question_id} asked`,
@@ -328,9 +499,11 @@ export class RoomService {
     questionId: string,
     answer: string,
     answerChangesContract: boolean,
+    actor: EventActor,
   ): { room: RoomRecord; question: Question } {
     return this.tx(() => {
       const question = this.requireQuestion(questionId);
+      this.assertAuthority(question.room_id, actor, 'planner');
       if (question.status !== 'open') {
         throw new ProtocolError('validation_failed', `question ${questionId} is not open`);
       }
@@ -347,12 +520,12 @@ export class RoomService {
       };
       this.repo.updateQuestion(answered);
       if (answerChangesContract) {
-        this.applyTransition(question.room_id, 'WAITING_FOR_USER_CONFIRMATION', 'codex');
+        this.applyTransition(question.room_id, 'WAITING_FOR_USER_CONFIRMATION', actor);
       }
       this.repo.appendEvent({
         room_id: question.room_id,
         type: 'question_answered',
-        actor: 'codex',
+        actor,
         entity_type: 'question',
         entity_id: questionId,
         summary: `question ${questionId} answered`,
@@ -371,11 +544,15 @@ export class RoomService {
     result: CodingResult | null,
     failure: { code: string; message: string } | null,
     evidence: RunTerminalEvidence,
+    actor: EventActor,
   ): { room: RoomRecord; run: Run; created: boolean } {
     return this.tx(() => {
       const run = this.requireRun(runId);
+      // same-ID/payload retry 不是 authority bypass：先校验冻结 executor authority
+      //（Review finding inc9-r1/r3），再进入幂等/conflict 判定与首次 lifecycle guard。
+      this.assertRunCommandAuthority(run, actor, 'executor');
       if (run.completed_at !== null) {
-        // 已 finalize：先按已持久化 result/failure/evidence 与 incoming payload 比较，作为幂等
+        // 已 finalize：按已持久化 result/failure/evidence 与 incoming payload 比较，作为幂等
         // retry / conflict 边界。该判定不依赖 Question 仍 open 或 Room 仍在首次 finalization
         // state，故须在首次 lifecycle guard 之前执行，保证 answer 后同 payload retry 仍幂等。
         const existingSignature = this.runPauseSignature(run);
@@ -390,7 +567,7 @@ export class RoomService {
         ...run,
         result,
         failure,
-        claude_session_id: evidence.claude_session_id,
+        agent_session_ref: evidence.agent_session_ref,
         process_exit_code: evidence.process_exit_code,
         git_evidence: evidence.git_evidence,
         artifact_refs: evidence.artifact_refs,
@@ -400,7 +577,7 @@ export class RoomService {
       this.repo.appendEvent({
         room_id: run.room_id,
         type: 'run_paused',
-        actor: 'runner',
+        actor,
         entity_type: 'run',
         entity_id: runId,
         summary: `run ${runId} paused for decision`,
@@ -434,17 +611,24 @@ export class RoomService {
     }
   }
 
-  // ---- Review (codex) ----
-  submitReview(input: unknown): { room: RoomRecord; review: Review; created: boolean } {
+  // ---- Review (reviewer) ----
+  submitReview(input: unknown, actor: EventActor): { room: RoomRecord; review: Review; created: boolean } {
     const review = this.parse(reviewSchema, input, 'Review') as Review;
     return this.tx(() => {
-      // 幂等判断优先：同 ID/同 content 的重复提交是已完成 create 的幂等重试，直接返回既有
-      // Review 且不新增 Event；同 ID/异 content 由 insertReview 抛 id_conflict。只有新 Review
-      // 才进入后续 lifecycle guard 与 state transition。
-      const inserted = this.repo.insertReview(review);
-      if (!inserted.created) {
-        return { room: this.requireRoom(review.room_id), review: this.requireReview(review.review_id), created: false };
+      const existing = this.repo.getReview(review.review_id);
+      if (existing) {
+        // same-ID retry 按 stored Review 冻结的 reviewer identity 认证（Review finding
+        // inc9-fr2-3）：不要求 current reviewer assignment。content 判定复用 repository：
+        // 同 content → created=false 且零写入；不同 → id_conflict。
+        this.assertReviewCommandAuthority(existing, actor);
+        this.repo.insertReview(review);
+        return { room: this.requireRoom(review.room_id), review: existing, created: false };
       }
+      // 新 Review 继续使用 current reviewer assignment（Task scope 优先、Room fallback，
+      // Review finding inc9-r2）并固化 identity；task/run/status/result/current Run guard
+      // 只作用于 newly created Review，失败由 transaction 整体 rollback。
+      this.assertReviewerAuthority(review, actor);
+      this.repo.insertReview(review);
       const task = this.requireTask(review.task_id);
       const run = this.requireRun(review.run_id);
       if (task.room_id !== review.room_id) {
@@ -467,11 +651,11 @@ export class RoomService {
       if (run.run_id !== this.currentRunId(review.room_id)) {
         throw new ProtocolError('validation_failed', `review ${review.review_id} references run ${run.run_id} which is not the current completed run`);
       }
-      this.applyTransition(review.room_id, 'REVIEW_DISCUSSION', 'codex');
+      this.applyTransition(review.room_id, 'REVIEW_DISCUSSION', actor);
       this.repo.appendEvent({
         room_id: review.room_id,
         type: 'review_submitted',
-        actor: 'codex',
+        actor,
         entity_type: 'review',
         entity_id: review.review_id,
         summary: `review ${review.review_id} submitted`,
@@ -481,9 +665,17 @@ export class RoomService {
     });
   }
 
-  acceptReview(reviewId: string, confirmedByUser: boolean): { room: RoomRecord; review: Review } {
+  acceptReview(
+    reviewId: string,
+    confirmedByUser: boolean,
+    actor: EventActor,
+  ): { room: RoomRecord; review: Review } {
     return this.tx(() => {
       const review = this.requireReview(reviewId);
+      // acceptance authority 只对照 Review 提交时冻结的 reviewer identity（Review finding
+      // inc9-fr2-2）：先校验 route participant 存在、enabled 且 actor_role=reviewer，再与
+      // review.reviewer_participant_id 比较；不要求仍持有 current assignment。
+      this.assertReviewCommandAuthority(review, actor);
       if (confirmedByUser !== true) {
         throw new ProtocolError('validation_failed', `review ${reviewId} acceptance requires confirmed_by_user`);
       }
@@ -493,11 +685,11 @@ export class RoomService {
       if (review.review_id !== this.currentReviewId(review.room_id)) {
         throw new ProtocolError('validation_failed', `review ${reviewId} is not the current review`);
       }
-      this.applyTransition(review.room_id, 'ACCEPTED', 'codex');
+      this.applyTransition(review.room_id, 'ACCEPTED', actor);
       this.repo.appendEvent({
         room_id: review.room_id,
         type: 'review_accepted',
-        actor: 'codex',
+        actor,
         entity_type: 'review',
         entity_id: reviewId,
         summary: `review ${reviewId} accepted`,
@@ -507,12 +699,106 @@ export class RoomService {
     });
   }
 
+  // ---- Participant / RoleAssignment commands (orchestrator) ----
+  registerParticipant(
+    input: unknown,
+    actor: EventActor,
+  ): { profile: ParticipantProfile; created: boolean } {
+    const profile = this.parse(participantProfileSchema, input, 'ParticipantProfile') as ParticipantProfile;
+    return this.tx(() => {
+      this.assertAnyRoomOrchestrator(actor);
+      const inserted = this.repo.insertParticipant(profile);
+      if (!inserted.created) {
+        const existing = this.repo.getParticipant(profile.participant_id);
+        if (!existing) {
+          throw new ProtocolError('entity_not_found', `participant ${profile.participant_id} missing after idempotent insert`);
+        }
+        return { profile: existing, created: false };
+      }
+      return { profile, created: true };
+    });
+  }
+
+  setParticipantEnabled(
+    participantId: string,
+    enabled: boolean,
+    actor: EventActor,
+  ): { profile: ParticipantProfile } {
+    return this.tx(() => {
+      this.assertAnyRoomOrchestrator(actor);
+      const existing = this.repo.getParticipant(participantId);
+      if (!existing) {
+        throw new ProtocolError('entity_not_found', `participant ${participantId} not found`);
+      }
+      // 只改写 enabled 字段；既有 Run/Review/Event 的 participant/role 逐字段不变。
+      const updated: ParticipantProfile = { ...existing, enabled };
+      this.repo.updateParticipant(updated);
+      return { profile: updated };
+    });
+  }
+
+  createRoleAssignment(
+    input: unknown,
+    actor: EventActor,
+  ): { assignment: RoleAssignment; created: boolean } {
+    const assignment = this.parse(roleAssignmentSchema, input, 'RoleAssignment') as RoleAssignment;
+    return this.tx(() => {
+      this.requireRoom(assignment.room_id);
+      this.assertAuthority(assignment.room_id, actor, 'orchestrator');
+      this.validateAssignmentTarget(assignment);
+      const inserted = this.repo.insertRoleAssignment(assignment);
+      if (!inserted.created) {
+        const existing = this.repo.getRoleAssignment(assignment.assignment_id);
+        if (!existing) {
+          throw new ProtocolError('entity_not_found', `assignment ${assignment.assignment_id} missing after idempotent insert`);
+        }
+        return { assignment: existing, created: false };
+      }
+      return { assignment, created: true };
+    });
+  }
+
+  // ---- Assignment resolution ----
+  // 公开只读解析：exact entity scope 优先于 Room default；同 scope/role 的最新 assignment 是
+  // active（Review finding inc9-r5：只由成功 insert 的 rowid 顺序决定，不信任 caller
+  // created_at）。Stage 1 消费点：Task 提交使用 Room planner/orchestrator；Run claim 与
+  // Review 提交按 Task scope 优先、Room default fallback 解析（Review finding inc9-r2）。
+  resolveAssignment(
+    roomId: string,
+    scopeType: RoleAssignment['scope_type'],
+    scopeId: string | null,
+    role: Role,
+  ): RoleAssignment | null {
+    if (scopeType !== 'room' && scopeId !== null) {
+      const exact = this.repo.latestAssignment(roomId, scopeType, scopeId, role);
+      if (exact) return exact;
+    }
+    return this.repo.latestAssignment(roomId, 'room', null, role);
+  }
+
+  // snapshot 读取前的 reader 校验：caller 必须是该 Room 的 member（任意 role 的 assignment）。
+  assertRoomParticipant(roomId: string, participantId: string): void {
+    const profile = this.repo.getParticipant(participantId);
+    if (!profile) {
+      throw new ProtocolError('actor_not_allowed', `participant ${participantId} is not registered`);
+    }
+    if (!profile.enabled) {
+      throw new ProtocolError('actor_not_allowed', `participant ${participantId} is disabled`);
+    }
+    if (!this.repo.participantHasAssignmentInRoom(participantId, roomId)) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${participantId} is not a member of room ${roomId}`,
+      );
+    }
+  }
+
   // ---- Read (delegated, read-only) ----
   getRoom(roomId: string): RoomRecord | null {
     return this.repo.getRoom(roomId);
   }
 
-  getTask(taskId: string): TaskContract | null {
+  getTask(taskId: string): PersistedTask | null {
     return this.repo.getTask(taskId);
   }
 
@@ -526,6 +812,38 @@ export class RoomService {
 
   getQuestion(questionId: string): Question | null {
     return this.repo.getQuestion(questionId);
+  }
+
+  getParticipant(participantId: string): ParticipantProfile | null {
+    return this.repo.getParticipant(participantId);
+  }
+
+  getRoleAssignment(assignmentId: string): RoleAssignment | null {
+    return this.repo.getRoleAssignment(assignmentId);
+  }
+
+  listTasks(roomId: string): PersistedTask[] {
+    return this.repo.listTasks(roomId);
+  }
+
+  listRuns(roomId: string): Run[] {
+    return this.repo.listRuns(roomId);
+  }
+
+  listReviews(roomId: string): Review[] {
+    return this.repo.listReviews(roomId);
+  }
+
+  listQuestions(roomId: string): Question[] {
+    return this.repo.listQuestions(roomId);
+  }
+
+  listRoleAssignments(roomId: string): RoleAssignment[] {
+    return this.repo.listRoleAssignments(roomId);
+  }
+
+  listRoomParticipants(roomId: string): ParticipantProfile[] {
+    return this.repo.listRoomParticipants(roomId);
   }
 
   listEvents(roomId: string, afterSequence?: number): Event[] {
@@ -549,26 +867,324 @@ export class RoomService {
     return new Date().toISOString();
   }
 
-  private applyTransition(roomId: string, to: RoomState, actor: Actor): RoomRecord {
+  private bootstrapRoom(roomId: string, createdAt: string): void {
+    for (const base of BOOTSTRAP_PARTICIPANTS) {
+      // profile 是 database 级 identity：已有则复用（不重复创建、不改写 enabled 状态）。
+      if (!this.repo.getParticipant(base.participant_id)) {
+        this.repo.insertParticipant({ ...base, created_at: createdAt });
+      }
+    }
+    for (const base of BOOTSTRAP_ASSIGNMENTS) {
+      this.repo.insertRoleAssignment({
+        ...base,
+        assignment_id: randomUUID(),
+        room_id: roomId,
+        created_at: createdAt,
+      });
+    }
+  }
+
+  private applyTransition(roomId: string, to: RoomState, actor: EventActor): RoomRecord {
     const room = this.requireRoom(roomId);
-    resolveTransition(room.state, to, actor);
+    resolveTransition(room.state, to, actor.actor_role);
     const updatedAt = this.now();
     this.setStateStmt.run(to, updatedAt, roomId);
     return { ...room, state: to, updated_at: updatedAt };
   }
 
-  private planningTransition(roomId: string, to: RoomState, summary: string): RoomRecord {
-    const room = this.applyTransition(roomId, to, 'codex');
+  private planningTransition(
+    roomId: string,
+    to: RoomState,
+    summary: string,
+    actor: EventActor,
+  ): RoomRecord {
+    const room = this.applyTransition(roomId, to, actor);
     this.repo.appendEvent({
       room_id: roomId,
       type: 'state_transition',
-      actor: 'codex',
+      actor,
       entity_type: 'room',
       entity_id: roomId,
       summary,
       created_at: this.now(),
     });
     return room;
+  }
+
+  // 每个 command 的 role authority：participant 必须存在、enabled，actor_role 与 command 的
+  // required role 一致，且持有该 Room 内对应 role 的 active assignment。
+  private assertAuthority(roomId: string, actor: EventActor, requiredRole: Role): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== requiredRole) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as ${requiredRole} (role ${actor.actor_role})`,
+      );
+    }
+    const assignment = this.resolveAssignment(roomId, 'room', null, requiredRole);
+    if (!assignment) {
+      throw new ProtocolError('actor_not_allowed', `no ${requiredRole} assignment in room ${roomId}`);
+    }
+    this.assertAssignable(assignment);
+    if (assignment.participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} has no active ${requiredRole} assignment in room ${roomId}`,
+      );
+    }
+  }
+
+  private assertParticipantActive(actor: EventActor): void {
+    const profile = this.repo.getParticipant(actor.participant_id);
+    if (!profile) {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} is not registered`);
+    }
+    if (!profile.enabled) {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} is disabled`);
+    }
+  }
+
+  // register/setEnabled 是 database 级操作，无目标 Room：要求 actor 在至少一个适用 Room 的
+  // 某个 scope/role 组持有 active latest orchestrator assignment（Review finding
+  // inc9-fr2-4）。同 scope/role 只有 rowid 最新 assignment 授权；被新 assignment 替换的
+  // historical orchestrator 立即失去管理 authority，重新成为 active 后才恢复。
+  private assertAnyRoomOrchestrator(actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'orchestrator') {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} cannot act as orchestrator`);
+    }
+    if (!this.repo.isActiveLatestAssignment(actor.participant_id, 'orchestrator')) {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} has no active orchestrator assignment`);
+    }
+  }
+
+  // assignment 的 participant 必须存在、enabled 且 capability/adapter 与 role 兼容；Stage 1
+  // scope 只允许 room|task（Review finding inc9-r5）：room scope 的 scope_id 必须为 null，
+  // task scope 必须引用同一 Room 内已存在的 Task，避免悬空或跨 Room assignment。run/review
+  // scope 已在 schema boundary 拒绝，不会到达本层。
+  private validateAssignmentTarget(assignment: RoleAssignment): void {
+    this.assertAssignable(assignment);
+    if (assignment.scope_type === 'room') {
+      if (assignment.scope_id !== null) {
+        throw new ProtocolError(
+          'validation_failed',
+          `assignment ${assignment.assignment_id} with room scope must have scope_id null`,
+        );
+      }
+      return;
+    }
+    if (assignment.scope_id === null) {
+      throw new ProtocolError(
+        'validation_failed',
+        `assignment ${assignment.assignment_id} with scope_type ${assignment.scope_type} requires scope_id`,
+      );
+    }
+    const task = this.requireTask(assignment.scope_id);
+    if (task.room_id !== assignment.room_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `assignment ${assignment.assignment_id} references task from another room`,
+      );
+    }
+  }
+
+  private assertAssignable(assignment: RoleAssignment): void {
+    const profile = this.repo.getParticipant(assignment.participant_id);
+    if (!profile) {
+      throw new ProtocolError('validation_failed', `participant ${assignment.participant_id} not found for assignment`);
+    }
+    if (!profile.enabled) {
+      throw new ProtocolError('validation_failed', `participant ${assignment.participant_id} is disabled`);
+    }
+    const adapters = ROLE_REQUIRED_ADAPTERS[assignment.role];
+    if (adapters && !adapters.includes(profile.adapter_id)) {
+      throw new ProtocolError(
+        'validation_failed',
+        `adapter ${profile.adapter_id} is not compatible with role ${assignment.role}`,
+      );
+    }
+    const capability = ROLE_REQUIRED_CAPABILITIES[assignment.role];
+    if (capability && !profile.capabilities.includes(capability)) {
+      throw new ProtocolError(
+        'validation_failed',
+        `participant ${assignment.participant_id} lacks capability ${capability} for role ${assignment.role}`,
+      );
+    }
+  }
+
+  // 提交 Task 时从当时 resolved assignment 固化 planner/orchestrator identity。
+  private augmentTaskWithIdentities(contract: TaskContract): PersistedTask {
+    const planner = this.requireResolvedAssignment(contract.room_id, 'room', null, 'planner');
+    const orchestrator = this.requireResolvedAssignment(contract.room_id, 'room', null, 'orchestrator');
+    const persisted = persistedTaskSchema.safeParse({
+      ...contract,
+      planner_participant_id: planner.participant_id,
+      orchestrator_participant_id: orchestrator.participant_id,
+    });
+    if (!persisted.success) {
+      throw new ProtocolError('validation_failed', 'persisted task augmentation failed');
+    }
+    return persisted.data;
+  }
+
+  // 解析 assignment 并要求 participant 可执行（存在、enabled、capability/adapter 兼容）。
+  private requireResolvedAssignment(
+    roomId: string,
+    scopeType: RoleAssignment['scope_type'],
+    scopeId: string | null,
+    role: Role,
+  ): RoleAssignment {
+    const assignment = this.resolveAssignment(roomId, scopeType, scopeId, role);
+    if (!assignment) {
+      throw new ProtocolError('validation_failed', `no ${role} assignment for room ${roomId}`);
+    }
+    this.assertAssignable(assignment);
+    return assignment;
+  }
+
+  // Run claim 时固化 worker/executor：两者必须来自当时 resolved assignment（Task scope 优先、
+  // Room default fallback，Review finding inc9-r2），且 executor 就是执行 claim 的 actor。
+  private validateClaimIdentity(run: Run, actor: EventActor): void {
+    const worker = this.requireResolvedAssignment(run.room_id, 'task', run.task_id, 'worker');
+    if (worker.participant_id !== run.worker_participant_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `run ${run.run_id} worker ${run.worker_participant_id} does not match resolved assignment ${worker.participant_id}`,
+      );
+    }
+    const executor = this.requireResolvedAssignment(run.room_id, 'task', run.task_id, 'executor');
+    if (executor.participant_id !== run.executor_participant_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `run ${run.run_id} executor ${run.executor_participant_id} does not match resolved assignment ${executor.participant_id}`,
+      );
+    }
+    if (run.executor_participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot claim run ${run.run_id} as executor`,
+      );
+    }
+  }
+
+  // 已创建 Run 的 command authority（Review finding inc9-r1）：先校验 route participant 存在、
+  // enabled 且 actor_role 与 required role 一致，再只对照 Run claim 时冻结的 worker/executor
+  // identity；不要求该 participant 仍持有 current assignment，因此 assignment replacement 不
+  // 撤销冻结 authority，replacement participant 也不能接管旧 Run。disabled 冻结 participant
+  // 必须先 re-enable 才能恢复 command。
+  private assertRunCommandAuthority(run: Run, actor: EventActor, role: 'worker' | 'executor'): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== role) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as ${role} (role ${actor.actor_role})`,
+      );
+    }
+    const frozenParticipantId = role === 'worker' ? run.worker_participant_id : run.executor_participant_id;
+    if (frozenParticipantId !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `run ${run.run_id} ${role} is ${frozenParticipantId}, not ${actor.participant_id}`,
+      );
+    }
+  }
+
+  // Run claim 的 executor authority（Review finding inc9-r2）：actor 必须存在、enabled、role
+  // 正确，且等于 run.task_id 的 Task scope 优先（Room fallback）解析的 executor。Run 冻结
+  // identity 与解析结果的一致性由 validateClaimIdentity 校验。
+  private assertExecutorClaimAuthority(run: Run, actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'executor') {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as executor (role ${actor.actor_role})`,
+      );
+    }
+    const assignment = this.resolveAssignment(run.room_id, 'task', run.task_id, 'executor');
+    if (!assignment) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `no executor assignment for task ${run.task_id} in room ${run.room_id}`,
+      );
+    }
+    this.assertAssignable(assignment);
+    if (assignment.participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} has no active executor assignment for task ${run.task_id} in room ${run.room_id}`,
+      );
+    }
+  }
+
+  // same-ID Task retry 的 authority（Review finding inc9-fr2-3）：actor 必须存在、enabled、
+  // role 正确，且等于 stored Task 冻结的提交 planner identity；不使用 current assignment。
+  private assertTaskRetryAuthority(task: PersistedTask, actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'planner') {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as planner (role ${actor.actor_role})`,
+      );
+    }
+    if (task.planner_participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `task ${task.task_id} planner is ${task.planner_participant_id}, not ${actor.participant_id}`,
+      );
+    }
+  }
+
+  // Review 的 command authority（Review finding inc9-fr2-2/r3）：先校验 route participant
+  // 存在、enabled 且 actor_role=reviewer，再只对照 Review 提交时冻结的 reviewer identity；
+  // 不要求仍持有 current assignment，replacement 不转移既有 Review 的 acceptance/retry 权。
+  private assertReviewCommandAuthority(review: Review, actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'reviewer') {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as reviewer (role ${actor.actor_role})`,
+      );
+    }
+    if (review.reviewer_participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `review ${review.review_id} reviewer is ${review.reviewer_participant_id}, not ${actor.participant_id}`,
+      );
+    }
+  }
+
+  // Review 提交的 reviewer authority（Review finding inc9-r2/r3）：actor 必须存在、enabled、
+  // role 正确，且等于 review.task_id 的 Task scope 优先（Room fallback）解析的 reviewer；
+  // review.reviewer_participant_id 同时必须等于 actor，保证提交时固化的 identity 与授权
+  // actor 一致。
+  private assertReviewerAuthority(review: Review, actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'reviewer') {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as reviewer (role ${actor.actor_role})`,
+      );
+    }
+    const assignment = this.resolveAssignment(review.room_id, 'task', review.task_id, 'reviewer');
+    if (!assignment) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `no reviewer assignment for task ${review.task_id} in room ${review.room_id}`,
+      );
+    }
+    this.assertAssignable(assignment);
+    if (assignment.participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} has no active reviewer assignment for task ${review.task_id} in room ${review.room_id}`,
+      );
+    }
+    if (review.reviewer_participant_id !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `review ${review.review_id} reviewer ${review.reviewer_participant_id} does not match actor ${actor.participant_id}`,
+      );
+    }
   }
 
   private validateFixReferences(task: TaskContract): void {
@@ -724,7 +1340,7 @@ export class RoomService {
     evidence: RunTerminalEvidence,
   ): string {
     return JSON.stringify([
-      evidence.claude_session_id,
+      evidence.agent_session_ref,
       evidence.process_exit_code,
       result,
       failure,
@@ -735,7 +1351,7 @@ export class RoomService {
 
   private runPauseSignature(run: Run): string {
     return JSON.stringify([
-      run.claude_session_id,
+      run.agent_session_ref,
       run.process_exit_code,
       run.result,
       run.failure,
@@ -791,7 +1407,7 @@ export class RoomService {
     if (run.completed_at === null) {
       throw new ProtocolError('validation_failed', `decision source run ${run.run_id} has not been pause-finalized`);
     }
-    if (run.claude_session_id === null || run.claude_session_id === '') {
+    if (run.agent_session_ref === null || run.agent_session_ref === '') {
       throw new ProtocolError('validation_failed', `decision source run ${run.run_id} has no session to resume`);
     }
     return { kind: 'decision', sourceRun: run, question, review: null };
@@ -815,7 +1431,7 @@ export class RoomService {
     if (run.room_id !== roomId || run.task_id !== review.task_id) {
       throw new ProtocolError('validation_failed', `fix source run ${run.run_id} does not match review task/room`);
     }
-    if (run.claude_session_id === null || run.claude_session_id === '') {
+    if (run.agent_session_ref === null || run.agent_session_ref === '') {
       throw new ProtocolError('validation_failed', `fix source run ${run.run_id} has no session to resume`);
     }
     return { kind: 'fix', sourceRun: run, question: null, review };
@@ -839,7 +1455,7 @@ export class RoomService {
     return room;
   }
 
-  private requireTask(taskId: string): TaskContract {
+  private requireTask(taskId: string): PersistedTask {
     const task = this.repo.getTask(taskId);
     if (!task) throw new ProtocolError('entity_not_found', `task ${taskId} not found`);
     return task;

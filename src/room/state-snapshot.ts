@@ -2,17 +2,21 @@ import { z } from 'zod';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
   eventSchema,
+  participantProfileSchema,
+  persistedTaskSchema,
   questionSchema,
   reviewSchema,
+  roleAssignmentSchema,
   roomStateSchema,
   runSchema,
-  taskContractSchema,
   type Event,
+  type ParticipantProfile,
+  type PersistedTask,
   type Question,
   type Review,
+  type RoleAssignment,
   type RoomState,
   type Run,
-  type TaskContract,
 } from '../protocol/schema.ts';
 import type { RoomRecord } from './repository.ts';
 import type { RoomService } from './room-service.ts';
@@ -31,20 +35,21 @@ export const roomRecordSchema = z.object({
 });
 
 // waiting actor 由 Room.state 的固定映射决定，不接受 caller 传入的 actor string/header，
-// 不引入第二条 transition path。ACCEPTED 没有下一位 actor，返回 null。
-export type WaitingActor = 'codex' | 'user' | 'runner' | 'claude' | null;
+// 不引入第二条 transition path。v0.3 以 Role 表达下一位 actor（user 仍是人工确认点）；
+// ACCEPTED 没有下一位 actor，返回 null。
+export type WaitingActor = 'planner' | 'worker' | 'reviewer' | 'executor' | 'user' | null;
 
 const WAITING_ACTOR_BY_STATE: Record<RoomState, WaitingActor> = {
-  DISCUSSION: 'codex',
-  ARCHITECTURE_REVIEW: 'codex',
+  DISCUSSION: 'planner',
+  ARCHITECTURE_REVIEW: 'planner',
   WAITING_FOR_USER_CONFIRMATION: 'user',
-  PLAN_READY: 'runner',
-  CODING: 'claude',
+  PLAN_READY: 'executor',
+  CODING: 'worker',
   NEEDS_DECISION: 'user',
-  RUN_FAILED: 'codex',
-  REVIEW_REQUIRED: 'codex',
+  RUN_FAILED: 'planner',
+  REVIEW_REQUIRED: 'reviewer',
   REVIEW_DISCUSSION: 'user',
-  FIX_PLAN_READY: 'runner',
+  FIX_PLAN_READY: 'executor',
   ACCEPTED: null,
 };
 
@@ -56,7 +61,13 @@ export const roomStateSnapshotInputSchema = z.object({
 
 export interface RoomStateSnapshot {
   room: RoomRecord;
-  current_task: TaskContract | null;
+  participants: ParticipantProfile[];
+  role_assignments: RoleAssignment[];
+  tasks: PersistedTask[];
+  runs: Run[];
+  reviews: Review[];
+  questions: Question[];
+  current_task: PersistedTask | null;
   current_run: Run | null;
   current_review: Review | null;
   current_question: Question | null;
@@ -67,11 +78,17 @@ export interface RoomStateSnapshot {
 
 export const roomStateSnapshotSchema = z.object({
   room: roomRecordSchema,
-  current_task: taskContractSchema.nullable(),
+  participants: z.array(participantProfileSchema),
+  role_assignments: z.array(roleAssignmentSchema),
+  tasks: z.array(persistedTaskSchema),
+  runs: z.array(runSchema),
+  reviews: z.array(reviewSchema),
+  questions: z.array(questionSchema),
+  current_task: persistedTaskSchema.nullable(),
   current_run: runSchema.nullable(),
   current_review: reviewSchema.nullable(),
   current_question: questionSchema.nullable(),
-  waiting_actor: z.enum(['codex', 'user', 'runner', 'claude']).nullable(),
+  waiting_actor: z.enum(['planner', 'worker', 'reviewer', 'executor', 'user']).nullable(),
   cursor: z.number().int().min(0),
   events: z.array(eventSchema),
 });
@@ -108,8 +125,16 @@ export function getRoomStateSnapshot(
   const question = questionId ? service.getQuestion(questionId) : null;
   const currentQuestion = question !== null && question.status === 'open' ? question : null;
 
-  return {
+  // 稳定数组一律按 room membership 过滤（repository 层按 content room_id / assignment 归属），
+  // 跨 Room 不泄漏；current references 只是 derived convenience，不替代 Event authority。
+  const snapshot: RoomStateSnapshot = {
     room,
+    participants: service.listRoomParticipants(input.room_id),
+    role_assignments: service.listRoleAssignments(input.room_id),
+    tasks: service.listTasks(input.room_id),
+    runs: service.listRuns(input.room_id),
+    reviews: service.listReviews(input.room_id),
+    questions: service.listQuestions(input.room_id),
     current_task: taskId ? service.getTask(taskId) : null,
     current_run: runId ? service.getRun(runId) : null,
     current_review: reviewId ? service.getReview(reviewId) : null,
@@ -118,4 +143,5 @@ export function getRoomStateSnapshot(
     cursor: allEvents.length === 0 ? 0 : allEvents[allEvents.length - 1].sequence,
     events: allEvents.filter((e) => e.sequence > after),
   };
+  return snapshot;
 }

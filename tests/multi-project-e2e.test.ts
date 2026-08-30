@@ -151,7 +151,7 @@ async function runCli(
     '--project', fixture,
     '--task-id', taskId,
     '--run-id', runId,
-    '--mcp-url', `${url}/mcp/claude`,
+    '--mcp-url', `${url}/mcp/participants/p~claude-code-cli`,
   ];
   if (baselineHead !== null) args.push('--baseline-head', baselineHead);
   const { io, out } = recordingIo();
@@ -170,9 +170,9 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
   const serviceB = new RoomService(dbB);
   const appA = await startApp(serviceA, fixtureA.repo);
   const appB = await startApp(serviceB, fixtureB.repo);
-  const codexA = await connect(appA.url, '/mcp/codex');
-  const codexB = await connect(appB.url, '/mcp/codex');
-  const claudeA = await connect(appA.url, '/mcp/claude');
+  const codexA = await connect(appA.url, '/mcp/participants/p~codex-app');
+  const codexB = await connect(appB.url, '/mcp/participants/p~codex-app');
+  const claudeA = await connect(appA.url, '/mcp/participants/p~claude-code-cli');
   try {
     // 各自完成 planning gate，提交各自 Task。
     await plan(codexA, 'room-a');
@@ -277,12 +277,12 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     assert.equal(runB.exitCode, 0);
     const payloadA = JSON.parse(runA.stdout) as {
       room: { state: string };
-      run: { status: string; claude_session_id: string; completed_at: string | null };
+      run: { status: string; agent_session_ref: string; completed_at: string | null };
     };
     const payloadB = JSON.parse(runB.stdout) as { room: { state: string }; run: { status: string } };
     assert.equal(payloadA.room.state, 'NEEDS_DECISION');
     assert.equal(payloadA.run.status, 'needs_decision');
-    assert.equal(payloadA.run.claude_session_id, SESSION_A);
+    assert.equal(payloadA.run.agent_session_ref, SESSION_A);
     assert.ok(payloadA.run.completed_at !== null, 'paused run is finalized with completed_at');
     assert.equal(payloadB.room.state, 'REVIEW_REQUIRED');
     assert.equal(payloadB.run.status, 'succeeded');
@@ -346,9 +346,9 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     assert.ok(runA1.completed_at !== null && runB1.completed_at !== null);
     assert.ok(runA1.completed_at! >= runB1.started_at, 'A completion must be after B start');
     assert.ok(runB1.completed_at! >= runA1.started_at, 'B completion must be after A start');
-    assert.equal(runA1.claude_session_id, SESSION_A);
+    assert.equal(runA1.agent_session_ref, SESSION_A);
     assert.equal(runA1.baseline_head, fixtureA.baselineHead);
-    assert.equal(runB1.claude_session_id, SESSION_B);
+    assert.equal(runB1.agent_session_ref, SESSION_B);
     assert.equal(runB1.baseline_head, fixtureB.baselineHead);
     assert.deepEqual(runA1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
     assert.deepEqual(runB1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-b.txt'] });

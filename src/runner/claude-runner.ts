@@ -1,9 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ProtocolError } from '../protocol/errors.ts';
-import type { CodingResult, Run, TaskContract } from '../protocol/schema.ts';
+import type { CodingResult, EventActor, Run, TaskContract } from '../protocol/schema.ts';
 import type { RoomRecord } from '../room/repository.ts';
-import { RoomService, type ContinuationContext, type RunTerminalEvidence } from '../room/room-service.ts';
+import {
+  RoomService,
+  type ContinuationContext,
+  type RunTerminalEvidence,
+} from '../room/room-service.ts';
 import {
   collectCompletionEvidence,
   establishCleanBaseline,
@@ -97,8 +101,8 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
     // lineage 的新 session；decision/fix 的 session 已由 service 保证非空，normalization 无副作用。
     mode = 'resume';
     resumeSessionId =
-      context.sourceRun.claude_session_id !== null && context.sourceRun.claude_session_id !== ''
-        ? context.sourceRun.claude_session_id
+      context.sourceRun.agent_session_ref !== null && context.sourceRun.agent_session_ref !== ''
+        ? context.sourceRun.agent_session_ref
         : null;
     const observation = await observeContinuation(input.targetWorktree);
     if (observation.head !== context.sourceRun.baseline_head) {
@@ -114,15 +118,45 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
   const prompt = buildPrompt(task, context, input);
   const codingResultJsonSchema = serializeCodingResultCliSchema();
 
+  // MCP config 必须指向 resolved worker participant route（requirement：Runner 生成的 Claude
+  // MCP config 使用 worker route；tool 调用的 Event actor 来自 route participant + worker role）。
+  // worker/executor 按 Task scope 优先、Room default fallback 解析（Review finding inc9-r2），
+  // 与 service claim 校验的解析口径一致。participant_id 是 raw opaque identity，HTTP path
+  // segment 只是其 transport framing（Fix inc9-fr4）：canonical segment 为 `p~` +
+  // encodeURIComponent(完整 raw identity)，恰好一个 URI segment，`.`/`..`/斜杠 identity
+  // 都不会被 WHATWG URL dot-segment normalization 归并；raw 多 segment、未编码或 unframed
+  // value 不在 exact route 上（Fix inc9-fr3/fr4）。
+  const workerAssignment = input.roomService.resolveAssignment(task.room_id, 'task', task.task_id, 'worker');
+  if (!workerAssignment) {
+    throw new ProtocolError('validation_failed', `no worker assignment for task ${task.task_id} in room ${task.room_id}`);
+  }
+  const workerRoute = `/mcp/participants/p~${encodeURIComponent(workerAssignment.participant_id)}`;
+  assertWorkerMcpRoute(input.mcpConfig, workerRoute);
+
   // 构造 Run 输入并原子 claim：startRun/resumeRun 先创建 running Run 并进入 CODING，
-  // 之后 Runner 才启动 process 并验证 MCP init。
+  // 之后 Runner 才启动 process 并验证 MCP init。worker/executor 在 claim 时来自当时 resolved
+  // assignment，service 校验与输入一致；agent_session_ref 初始为 null，由 terminal evidence 写入。
+  const executorAssignment = input.roomService.resolveAssignment(task.room_id, 'task', task.task_id, 'executor');
+  if (!executorAssignment) {
+    throw new ProtocolError('validation_failed', `no executor assignment for task ${task.task_id} in room ${task.room_id}`);
+  }
+  // Runner 是 executor authority 的 consumer：claim 与整个 Run lifecycle 的 command actor
+  // 必须来自 resolved executor assignment（Task scope 优先、Room default fallback），不得
+  // 回退固定常量（Review finding inc9-fr2-1）。service 在 claim 时校验并冻结该 identity，
+  // 之后 progress/pause finalization/terminal 都沿用同一 actor（inc9-fr2-1 冻结语义）。
+  const executorActor: EventActor = {
+    participant_id: executorAssignment.participant_id,
+    actor_role: 'executor',
+  };
   const runInput: Run = {
     run_id: input.runId,
     room_id: task.room_id,
     task_id: task.task_id,
     status: 'starting',
     baseline_head: baselineHead,
-    claude_session_id: null,
+    worker_participant_id: workerAssignment.participant_id,
+    executor_participant_id: executorAssignment.participant_id,
+    agent_session_ref: null,
     process_exit_code: null,
     started_at: new Date().toISOString(),
     completed_at: null,
@@ -134,8 +168,8 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
 
   const claimed =
     mode === 'start'
-      ? input.roomService.startRun(runInput)
-      : input.roomService.resumeRun(runInput);
+      ? input.roomService.startRun(runInput, executorActor)
+      : input.roomService.resumeRun(runInput, executorActor);
 
   return executeRun(
     input,
@@ -146,6 +180,7 @@ export async function runClaude(input: ClaudeRunnerInput): Promise<ClaudeRunResu
     claimed.run.run_id,
     mode,
     resumeSessionId,
+    executorActor,
   );
 }
 
@@ -186,6 +221,7 @@ async function executeRun(
   runId: string,
   mode: 'start' | 'resume',
   resumeSessionId: string | null,
+  executorActor: EventActor,
 ): Promise<ClaudeRunResult> {
   const interpreter = new ClaudeStreamInterpreter({
     expectedTaskId: task.task_id,
@@ -214,7 +250,7 @@ async function executeRun(
         // 消费后续 stdout 以完成 interpreter/artifact/terminal/pause evidence，但不得再追加
         // running-only progress。progress 不改变 Run/Room state，也不影响 terminal 分类。
         if (progress !== null && input.roomService.getRun(runId)?.status === 'running') {
-          input.roomService.appendRunProgress(runId, progress);
+          input.roomService.appendRunProgress(runId, progress, executorActor);
         }
       },
       onStderrChunk: (chunk: string) => {
@@ -255,7 +291,7 @@ async function executeRun(
   }
 
   const evidence: RunTerminalEvidence = {
-    claude_session_id: streamOutcome.sessionId,
+    agent_session_ref: streamOutcome.sessionId,
     process_exit_code: processOutcome?.exitCode ?? null,
     git_evidence: gitEvidence,
     artifact_refs: artifactRefs,
@@ -267,7 +303,7 @@ async function executeRun(
   const currentRun = input.roomService.getRun(runId);
   if (currentRun?.status === 'needs_decision') {
     const pause = classifyNeedsDecisionPause(processError, processOutcome, streamOutcome, gitError, artifactError);
-    const finalized = input.roomService.finalizeNeedsDecision(runId, pause.result, pause.failure, evidence);
+    const finalized = input.roomService.finalizeNeedsDecision(runId, pause.result, pause.failure, evidence, executorActor);
     return { run: finalized.run, room: finalized.room };
   }
 
@@ -276,9 +312,40 @@ async function executeRun(
   // 单一 terminal settlement：无论 process/stream/Git/artifact 出现几个 failure，completeRun/
   // failRun 最多调用一次；后续事实不得改写已确定的 terminal result。
   if (terminal.kind === 'success') {
-    return input.roomService.completeRun(runId, terminal.codingResult, evidence);
+    return input.roomService.completeRun(runId, terminal.codingResult, evidence, executorActor);
   }
-  return input.roomService.failRun(runId, { code: terminal.code, message: terminal.message }, evidence);
+  return input.roomService.failRun(runId, { code: terminal.code, message: terminal.message }, evidence, executorActor);
+}
+
+// Claude MCP config 的 worker route 校验：agent_room server 的 URL 必须精确指向 resolved
+// worker participant 的 canonical framed route（`p~` + encodeURIComponent(raw identity)，
+// 单一 URI segment，transport framing 与 authority identity 分离，Fix inc9-fr3/fr4），
+// 任何其它 path（含 raw 多 segment 与 unframed candidate）都在 spawn/claim 前以
+// validation_failed 拒绝。
+function assertWorkerMcpRoute(mcpConfig: string, workerRoute: string): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(mcpConfig);
+  } catch {
+    throw new ProtocolError('validation_failed', 'MCP config is not valid JSON');
+  }
+  const url = (parsed as { mcpServers?: { agent_room?: { url?: unknown } } })?.mcpServers?.agent_room
+    ?.url;
+  if (typeof url !== 'string') {
+    throw new ProtocolError('validation_failed', 'MCP config has no agent_room url');
+  }
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new ProtocolError('validation_failed', `MCP url is invalid: ${url}`);
+  }
+  if (parsedUrl.pathname !== workerRoute) {
+    throw new ProtocolError(
+      'validation_failed',
+      `MCP url must target the exact ${workerRoute} route: ${url}`,
+    );
+  }
 }
 
 type TerminalResult =

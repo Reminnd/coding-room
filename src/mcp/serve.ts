@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { parseArgs } from 'node:util';
+import { ProtocolError } from '../protocol/errors.ts';
 import { RoomService } from '../room/room-service.ts';
 import { createRoomMcpApp } from './http.ts';
 
@@ -80,7 +81,17 @@ function main(): void {
   // 失败不得创建 --db 文件或输出 listening：project validation 必须先于 openDbOrExit。
   validateProjectOrExit(config.project);
   const db = openDbOrExit(config.db);
-  const service = new RoomService(db);
+  let service: RoomService;
+  try {
+    service = new RoomService(db);
+  } catch (err) {
+    // v0.3 writable open 门禁（v0.2 archive / version mismatch）以稳定 code 拒绝，
+    // 不初始化 schema、不改写 database。
+    if (err instanceof ProtocolError) {
+      fail(`${err.code}: ${err.message}`);
+    }
+    throw err;
+  }
   const app = createRoomMcpApp({ service, projectPath: config.project });
 
   const server = app.listen(config.port, '127.0.0.1');

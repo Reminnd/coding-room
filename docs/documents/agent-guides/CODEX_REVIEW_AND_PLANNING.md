@@ -281,3 +281,9 @@ Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时
 每个 fresh consumer task只证明其transcript与tool output实际观察到的assertion。正确activation不同时证明bundled resource resolution或architecture描述正确；resource resolution必须有installed cache实际读取或等价consumer tool evidence，不能用模型自述替代。
 
 失败或未完成的task不得计入通过，应以新的fresh replacement闭合对应门禁并明确记录排除项。unsupported boundary prompt必须表达与Plugin无关的正常目标，不能通过点名或禁止Plugin引导negative结果。多个独立task可以共同形成acceptance evidence，但Review与项目文档必须说明每个task具体承担哪个assertion。
+
+## 16. Opaque Identity 的 URI Path Review 必须经过 URL Parser Boundary
+
+公开schema允许opaque identity进入URI path segment时，Review不能把`encodeURIComponent`或框架route参数的局部行为当成端到端可达性证据。必须从schema支持输入中至少选择slash与WHATWG dot-segment（`.`、`..`），让测试侧literal URL经过真实URL parser、MCP route以及Contract点名的Runner/CLI public path；分别断言合法framed route恢复原始identity、unframed/多segment表示在副作用前拒绝，并核对Room/Event中仍保存raw authority identity。
+
+若修复采用固定framing，Review必须确认prefix只属于transport representation：application在framework标准percent-decode后只验证并移除一次prefix，不二次decode，不收窄既有identity schema，也不建立alias、wildcard或compatibility route。这样能区分“编码了delimiter”与“URL parser仍会归一化整个segment”两类不同失败。

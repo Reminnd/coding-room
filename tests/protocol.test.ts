@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  actorSchema,
   codingResultSchema,
+  eventActorSchema,
   eventSchema,
+  participantProfileSchema,
+  persistedTaskSchema,
+  protocolVersionSchema,
   questionSchema,
   reviewSchema,
+  roleAssignmentSchema,
+  roleSchema,
   roomStateSchema,
   runSchema,
   taskContractSchema,
@@ -14,13 +19,15 @@ import {
 import {
   makeCodingResult,
   makeFixTask,
+  makeParticipant,
   makeQuestion,
   makeReview,
+  makeRoleAssignment,
   makeRun,
   makeTask,
 } from './fixtures.ts';
 
-test('RoomState and Actor enums accept only listed values', () => {
+test('RoomState enum accepts only listed values', () => {
   assert.deepEqual(
     roomStateSchema.options,
     [
@@ -37,7 +44,50 @@ test('RoomState and Actor enums accept only listed values', () => {
       'ACCEPTED',
     ],
   );
-  assert.deepEqual(actorSchema.options, ['user', 'codex', 'claude', 'runner', 'system']);
+});
+
+test('protocol version is the frozen 0.3-design literal', () => {
+  assert.equal(protocolVersionSchema.value, '0.3-design');
+  assert.equal(protocolVersionSchema.safeParse('0.3-design').success, true);
+  assert.equal(protocolVersionSchema.safeParse('0.2').success, false);
+});
+
+test('Role enum accepts only the six frozen roles', () => {
+  assert.deepEqual(roleSchema.options, [
+    'planner',
+    'worker',
+    'reviewer',
+    'executor',
+    'git_controller',
+    'orchestrator',
+  ]);
+});
+
+test('ParticipantProfile accepts a valid profile and rejects illegal kind/adapter', () => {
+  assert.equal(participantProfileSchema.safeParse(makeParticipant()).success, true);
+  assert.equal(participantProfileSchema.safeParse(makeParticipant({ kind: 'robot' as never })).success, false);
+  assert.equal(participantProfileSchema.safeParse(makeParticipant({ enabled: 'yes' as never })).success, false);
+  assert.equal(participantProfileSchema.safeParse(makeParticipant({ config_ref: {} as never })).success, false);
+});
+
+test('RoleAssignment accepts valid shapes and rejects illegal scope/role', () => {
+  assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment()).success, true);
+  assert.equal(
+    roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'task', scope_id: 'task-1' })).success,
+    true,
+  );
+  assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'global' as never })).success, false);
+  // Fix inc9-r2：Stage 1 scope 收窄为 room|task；run/review scope 不是合法 shape。
+  assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'run' as never })).success, false);
+  assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'review' as never })).success, false);
+  assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ role: 'admin' as never })).success, false);
+});
+
+test('EventActor requires participant_id and a frozen Role; no fixed actor enum remains', () => {
+  assert.equal(eventActorSchema.safeParse({ participant_id: 'codex-app', actor_role: 'planner' }).success, true);
+  assert.equal(eventActorSchema.safeParse({ participant_id: 'codex-app' }).success, false);
+  assert.equal(eventActorSchema.safeParse({ actor_role: 'planner' }).success, false);
+  assert.equal(eventActorSchema.safeParse({ participant_id: 'codex-app', actor_role: 'user' as never }).success, false);
 });
 
 test('TaskContract accepts a valid implementation task', () => {
@@ -82,9 +132,28 @@ test('TaskContract rejects invalid fix task shape (missing parent/review/finding
   );
 });
 
+test('PersistedTask adds frozen planner/orchestrator identities to a TaskContract', () => {
+  const persisted = { ...makeTask(), planner_participant_id: 'codex-app', orchestrator_participant_id: 'operator' };
+  assert.equal(persistedTaskSchema.safeParse(persisted).success, true);
+  assert.equal(persistedTaskSchema.safeParse(makeTask()).success, false);
+  assert.equal(
+    persistedTaskSchema.safeParse({ ...persisted, planner_participant_id: '' }).success,
+    false,
+  );
+});
+
 test('Run accepts a valid run and rejects illegal status', () => {
   assert.equal(runSchema.safeParse(makeRun()).success, true);
   assert.equal(runSchema.safeParse(makeRun({ status: 'flying' as never })).success, false);
+});
+
+test('Run requires claimed worker/executor identities and an opaque nullable agent_session_ref', () => {
+  const { worker_participant_id: _w, ...noWorker } = makeRun();
+  assert.equal(runSchema.safeParse(noWorker).success, false);
+  const { executor_participant_id: _e, ...noExecutor } = makeRun();
+  assert.equal(runSchema.safeParse(noExecutor).success, false);
+  assert.equal(runSchema.safeParse(makeRun({ agent_session_ref: 'sess-1' })).success, true);
+  assert.equal(runSchema.safeParse(makeRun({ agent_session_ref: 42 as never })).success, false);
 });
 
 test('CodingResult accepts valid shape and rejects illegal status', () => {
@@ -98,6 +167,8 @@ test('CodingResult accepts valid shape and rejects illegal status', () => {
 test('Review accepts valid shape and rejects illegal severity/decision', () => {
   assert.equal(reviewSchema.safeParse(makeReview()).success, true);
   assert.equal(reviewSchema.safeParse(makeReview({ decision: 'maybe' as never })).success, false);
+  const { reviewer_participant_id: _r, ...noReviewer } = makeReview();
+  assert.equal(reviewSchema.safeParse(noReviewer).success, false);
   const badFinding = {
     finding_id: 'f-1',
     severity: 'critical',
@@ -124,13 +195,14 @@ test('Question accepts valid shape and rejects illegal status', () => {
   );
 });
 
-test('Event accepts valid shape and rejects non-positive sequence or illegal actor', () => {
+test('Event accepts valid shape and rejects non-positive sequence or illegal actor role', () => {
   const event = {
     event_id: 'e-1',
     room_id: 'room-1',
     sequence: 1,
     type: 't',
-    actor: 'system',
+    actor_role: 'planner',
+    participant_id: 'codex-app',
     entity_type: 'room',
     entity_id: 'room-1',
     summary: 's',
@@ -138,7 +210,8 @@ test('Event accepts valid shape and rejects non-positive sequence or illegal act
   };
   assert.equal(eventSchema.safeParse(event).success, true);
   assert.equal(eventSchema.safeParse({ ...event, sequence: 0 }).success, false);
-  assert.equal(eventSchema.safeParse({ ...event, actor: 'robot' }).success, false);
+  assert.equal(eventSchema.safeParse({ ...event, actor_role: 'robot' as never }).success, false);
+  assert.equal(eventSchema.safeParse({ ...event, participant_id: '' }).success, false);
 });
 
 test('utcTimestampSchema accepts valid UTC ISO 8601 and rejects invalid, non-UTC or invalid-date strings', () => {
