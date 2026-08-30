@@ -1,2 +1,2 @@
 [mcp_servers.agent_room]
-url = "http://127.0.0.1:59665/mcp/codex"
+url = "http://127.0.0.1:59665/mcp/participants/p~codex-app"

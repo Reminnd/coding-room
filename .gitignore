@@ -5,3 +5,6 @@ node_modules/
 .agent-room/room.sqlite
 .agent-room/room.sqlite-*
 .agent-room/artifacts/
+
+.agent-room/room-v0.3.sqlite
+.agent-room/room-v0.3.sqlite-*
