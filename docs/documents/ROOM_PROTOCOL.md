@@ -537,7 +537,7 @@ Fix Review 4证明§16.4的纯`encodeURIComponent`表示仍不能覆盖公开sch
 - direct regression（期望值均为测试侧literal framed route，未从production导出framing helper/constant）：MCP public path注册并分配`.`/`..`后经`/mcp/participants/p~.`与`/mcp/participants/p~..`调用实际`room_ask_question`成功，Event actor与Run冻结均为raw identity；unframed `.../mcp/participants/.`/`.../mcp/participants/..`被WHATWG URL归一化出participant route，POST 404且Event list零变化。production `runClaude`以`.`/`..` Task-scope worker穿过route gate、claim与`run_completed` terminal settlement（Run冻结raw identity），unframed encoded mcpConfig在spawn/claim前`validation_failed`且零spawn/Run/Event/artifact。public `room:run` CLI以framed `p~.`/`p~..` mcp-url完成fake-process Run，unframed URL preflight失败且完整durable read-model snapshot逐字段不变。setup public CLI三路径（fresh/migrated/reused）生成framed URL；unframed candidate config（section与frozen dotted两种形态）非零exit且三文件逐byte不变。`worker/2`回归更新为framed `p~worker%2F2`（raw多segment与unframed encoded仍拒绝）。
 - 验证事实：typecheck exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；full 321/321；`git diff --check`无错误。schema、database、protocol version、Room state、assignment/frozen authority、retry ordering与Event identity未变；全部Fix 1–3回归保持通过；v0.3仍为candidate，未执行cutover。
 - Fix Review 5 `review-increment-009-codex-005`无finding，Decision为`approved`；用户确认后Room通过`review_accepted` Event sequence `217709`进入`ACCEPTED`。Current v0.2 protocol、database与binding保持权威，未执行commit、push或cutover。
-- 2026-08-30 active cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、默认Participant/Assignment完整，Task/Run/Review/Question均为空。Room初始为`DISCUSSION`，随后经授权由Event sequence 2/3推进到`ARCHITECTURE_REVIEW`与`WAITING_FOR_USER_CONFIRMATION`，waiting actor=`user`。该新Room是active authority；历史v0.2 database只读保留。
+- 2026-08-30 active cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、默认Participant/Assignment完整，Task/Run/Review/Question均为空。Room初始为`DISCUSSION`，随后经逐项授权完成Increment 10 Implementation/Fix/Review lifecycle，并于2026-08-31因用户最终接受进入`ACCEPTED`、waiting actor=`null`。该Room是active v0.3 durable authority且已terminal；历史v0.2 database只读保留。
 
 ## 17. Stage 2 target protocol boundary（confirmed design，尚未实现）
 
@@ -551,3 +551,44 @@ Fix Review 4证明§16.4的纯`encodeURIComponent`表示仍不能覆盖公开sch
 - Stage 2仍是one-shot execution core，不包含Scheduler、TaskGraph、Git Controller或worktree creation。
 
 字段、transition、transaction、error、Event和测试矩阵的唯一详细权威是Approved [Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)与Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)；实现范围由Accepted [Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)冻结。
+
+### 17.1 Stage 2 candidate implementation facts（Increment 10 Review 1 changes_requested，2026-08-31）
+
+Increment 10 continuation Run `-007`已在task-owned worktree完成Contract范围的candidate实现；Review `review-increment-010-codex-001`确认三项protocol/application缺口。§16的`0.3-design`协议仍是Current authority，本节不构成可调用contract或cutover授权。
+
+- `Room.state`只保留planning phase；logical `Run`（`ready|running|cancel_requested|needs_decision|failed|canceled|review_required|review_discussion|accepted`）与per-process `RunAttempt`（non-terminal `running|decision_requested|cancel_requested`，terminal `succeeded|failed|needs_decision|canceled|interrupted`）分离；attempt terminal settlement为first-writer-wins。
+- snapshot不再有单一`current_run/current_review/current_question`；改为`planning_waiting_actor` + 稳定排序的`run_work_items`（`run_id`/`run_status`/`waiting_actor`/`current_task_id`/`current_attempt_id`/`current_question_id`/`current_review_id`）。
+- MCP为15个tools，在§16 actor/assignment gate之上新增`room_cancel_run`（需`confirmed_by_user`）与`room_add_run_guidance`（fresh `guidance_id`，只在Run无active attempt时接受，由下一attempt claim恰好消费一次）；`room_submit_review`把Run从`review_required`推进到`review_discussion`。
+- candidate目标仍要求atomic claim与worktree lease由同一SQLite transaction和partial unique index共同保证；当前deferred transaction在真实双connection同时通过guard后会让loser泄漏`database is locked`，尚未满足stable domain error contract。
+- 唯一worker adapter为`claude_code_cli`；其他`adapter_id`经`selectWorkerAdapter`以`worker_adapter_unavailable`拒绝。raw stdout/stderr只在`WorkerAdapterOutcome`单点累积，Executor在settlement后一次性消费，无逐行callback。
+- 验证事实（Run -007）：`npm run typecheck` exit 0；protocol/state-machine/room-service/room-state-snapshot 103/103；execution-core 7/7；claude-process/claude-stream/claude-runner/worker-adapter 103/103；room-mcp/runner-cli/status-cli/e2e-workflow 66/66；plugin-setup/plugin-packaging/multi-project-e2e 37/37；scope 1/1；full `npm test` 341/341。
+- Review另确认settle缺少terminal status/result/failure一致性校验，且ready work item未从latest Task独立推导`current_task_id`。三项solution与[Fix Task 1](./INCREMENT_10_FIX_TASK_1.md)全文已确认；Fix Contract为`Accepted`且已提交，Room=`FIX_PLAN_READY`，Fix Run尚未授权。
+- 状态：candidate未接受；§16 v0.3 protocol/database/binding保持active authority，未执行v0.4 cutover、旧database删除或Git写操作。
+
+### 17.2 Fix Task 1 candidate contract 细化（2026-08-31，candidate；terminal evidence 方案 1 已确认）
+
+Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current authority）：
+
+- claim写事务在guard前取得writer reservation（`BEGIN IMMEDIATE`，inc10-r1）；并发loser以domain error收敛（`run_already_active`/`worktree_already_owned`），不暴露raw SQLite error。
+- terminal settlement contract（inc10-r2）：succeeded=completed同Task result+无failure；failed/interrupted=无result+failure非null；cancel_requested唯一终端=canonical `canceled + result=null + failure=null`；矛盾evidence=`validation_failed`且完整durable snapshot不变；canceled幂等retry按canonical payload比较。
+- needs_decision：带result时必须同Task needs_decision result且failure=null；result=null+failure非null的pause-failure形式保留（用户已确认terminal evidence方案1，2026-08-31）：它是evidence收集失败的唯一legal terminal，不是第二个business Decision result；Executor与transition table不变。
+- `run_work_items.current_task_id`由`latestTaskForRun`推导（inc10-r3）；initial-ready/fix-ready（claim前）经snapshot、MCP与Status CLI direct evidence锁定。
+
+### 17.3 Increment 10最终接受（2026-08-31）
+
+[Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)已闭合effective `needs_decision`的empty evidence边界；Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，独立typecheck、focused suites与full 353/353通过。用户已最终接受，durable v0.3 Room=`ACCEPTED`。该事实把Increment 10提升为accepted candidate，但未执行版本化或v0.4 cutover；§16仍是Current protocol authority。
+
+后续哈希删除Architecture已获确认，target amendment见§18；Increment 10 accepted candidate与Current v0.3字段不因规划文档本身自动改写。
+
+## 18. Increment 11 target protocol amendment（Architecture Approved，未实现）
+
+[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md) supersede ADR-0004中的baseline部分。fresh target protocol MUST：
+
+- 从Run、RunAttempt、claim input、SQLite mapper、snapshot/status与Plugin consumer删除`baseline_head`；`observed_baseline_head`不进入target v0.4 submission/execution contract；
+- 删除commit-object HEAD probe与`git_head_missing`；保留canonical root probe、`git_repository_missing`、`worktree_not_clean`及Git process failure；
+- first attempt对clean committed与clean unborn repository均可claim，dirty evidence在attempt/process/Event/artifact前拒绝；
+- continuation只比较canonical worktree，HEAD、branch或commit drift不产生ProtocolError；wrong worktree保持零写入拒绝；
+- same-ID retry/conflict按删除baseline后的remaining structured content判断，Event、authority、terminal union、Question/Review/Fix/cancel/guidance与worktree lease不变；
+- fresh database直接使用无baseline schema，不读取或改写v0.2/v0.3 archive，不增加dual-read/compatibility contract。
+
+[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)已为`Accepted`，但本节仍只定义target，不是Current callable contract。用户指定Coding通过独立Codex task `gpt-5.6-sol`/`medium`完成；该task不映射为Agent Room Task/Run，也不得改写terminal v0.3 Room。实现、Review、用户接受、版本化与cutover完成前，§16继续是Current protocol authority。

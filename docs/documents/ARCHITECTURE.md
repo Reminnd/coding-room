@@ -337,6 +337,43 @@ Stage 1修改runtime自身，因此candidate开发执行由固定planning baseli
 
 详细状态、entity、public command、SQLite/Event与verification matrix由Approved Architecture Review及Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)拥有。[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)已获用户全文确认，现为`Accepted`且`confirmed_by_user=true`；上述内容仍不是Current implementation，也未授权Task submission、Claude Run或v0.4 cutover。
 
+#### 3.14.1 Stage 2 candidate implementation facts（2026-08-31，Review 1 changes_requested）
+
+Increment 10 continuation Run `-007`已在task-owned worktree完成candidate实现；Codex Review 1确认三项缺口，§3.13的Current v0.3 runtime不变：
+
+- 新增`src/runner/executor.ts`（atomic claim、worktree lease、attempt settlement、cancel/guidance消费）与`src/runner/worker-adapter.ts`（`selectWorkerAdapter` + 唯一`ClaudeCodeWorkerAdapter`，outcome单点累积raw stdout/stderr）；`src/room`扩展Room/Run/RunAttempt三层entity、per-Run snapshot（`run_work_items`）与v0.4 state machine；MCP扩展为15 tools（新增`room_cancel_run`/`room_add_run_guidance`）；`room:run`/`room:status` CLI按`--run-id`/`--attempt-id`定向操作。
+- 状态所有权不变：attempt/guidance/lease在SQLite，Claude process归Runner，code归Git；Executor不启动Git写操作。
+- setup v0.4：fresh binding生成`room-v0.4.sqlite`、`protocol_version=0.4-design`与`archived_database_paths: []`；v0.3 binding迁移把旧database按`[v0.2, v0.3]`顺序归档且逐byte保留；v0.2/v0.3旧database一律不原地改写。
+- 验证事实（Run -007）：typecheck exit 0；8条Contract verification独立通过（focused 103/103、7/7、103/103、66/66、37/37、1/1，full `npm test` 341/341）。
+- Review事实：真实双Worker/SQLite claim的loser泄漏`ERR_SQLITE_ERROR: database is locked`；public settle可写入`succeeded + result=null + failure`；ready `run_work_items.current_task_id`为null或Fix前一Task。Review `review-increment-010-codex-001`=`changes_requested`，三项最小方向与[Fix Task 1](./INCREMENT_10_FIX_TASK_1.md)全文已获用户确认；Fix Contract为`Accepted`且已提交，Room=`FIX_PLAN_READY`，Fix Run尚未授权。
+- 状态：candidate未接受；atomic claim与完整Stage 2仍未验收，不构成Current capability，未执行v0.4 cutover、旧database删除或Git写操作。
+
+#### 3.14.2 Fix Task 1 candidate coding facts（2026-08-31，historical）
+
+Fix Task 1在task-owned worktree完成三项finding的最小修复（candidate，未Review、未接受）：
+
+- RoomService写事务改为`BEGIN IMMEDIATE`：writer在claim guard读取前取得写锁（inc10-r1），并发loser经busy_timeout串行化后以fresh committed state重走guard/partial unique index，映射为`run_already_active`/`worktree_already_owned`，不泄漏raw SQLite error；repository无功能变化。真实并发由两个Worker/独立SQLite connection经SharedArrayBuffer barrier同步start后直接调用公开`claimRunAttempt`回归。
+- `settleRunAttempt`新增canonical terminal payload校验（inc10-r2）：transition校验仍最先；succeeded要求completed同Task result且failure=null；failed/interrupted要求result=null且failure非null；cancel_requested唯一终端=canonical `canceled + result=null + failure=null`（session/process/Git/artifact evidence保留，retry按canonical payload比较）；矛盾evidence=`validation_failed`且完整durable snapshot不变。
+- snapshot `current_task_id`改为`latestTaskForRun`推导（inc10-r3）：initial-ready与fix-ready（claim前）即显示正确Task，与latest attempt解耦；snapshot/MCP/Status CLI一致。
+- needs_decision的pause-failure形式（result=null+failure非null）保持合法：用户已确认terminal evidence方案1（2026-08-31），result-carrying form按同Task result+无failure校验，pause-failure form保留且不是第二个business Decision result，Executor与transition table不变；未验收前不构成Current capability。
+
+#### 3.14.3 Increment 10最终接受与后续Draft（2026-08-31）
+
+- [Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)补齐effective `needs_decision`的union-shaped evidence边界：拒绝`result=null + failure=null`，保留同Task result-carrying与non-null failure pause两种legal shape，并以public settlement前后完整snapshot证明invalid payload零写。
+- Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`；Codex独立验证typecheck、focused suites与full `npm test` 353/353全部通过。用户已最终接受，durable Room=`ACCEPTED`。
+- 该接受只确认Increment 10 candidate实现；版本化、v0.4 database/binding cutover、旧database处理与其它Git写操作仍需分别授权，因此§3.13的v0.3 runtime继续是Current authority，ADR-0004保持`Proposed`。
+- 用户随后提出删除所有哈希校验，并已确认[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)的范围与取舍；target architecture见§3.15。该确认不改变本节Increment 10 accepted candidate或Current runtime。
+
+### 3.15 Increment 11 target：baseline-free Git lineage（Architecture Approved，未实现）
+
+用户已确认[Architecture Review](./HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)：target `0.4-design`完整删除Run/RunAttempt/claim/schema/SQLite/consumer中的`baseline_head`及commit-object HEAD读取/比较。ADR-0005只supersede ADR-0004的baseline部分；Run/RunAttempt、atomic claim、canonical worktree lease、Executor/WorkerAdapter、terminal settlement与per-Run lifecycle继续保持。
+
+target Git数据流变为：first attempt解析canonical non-bare worktree并收集live staged/unstaged/untracked evidence，dirty时零副作用拒绝，clean committed或unborn repository均可claim；continuation收集同类evidence并只比较canonical worktree，HEAD、branch与commit drift不再参与decision。Git command failure继续传播，不能解释为空evidence。
+
+fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0.3 database；`git_head_missing`删除，`git_repository_missing`、`worktree_not_clean`与wrong-worktree rollback保留。npm integrity、URL fragment、UUID与历史commit evidence不属于本架构变更。
+
+[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)已获用户全文确认并转为`Accepted`。用户指定Coding使用独立Codex project task `gpt-5.6-sol`/`medium`，不走Agent Room Claude Runner；这是单Task dispatch例外，不改变Current v0.3 runtime或永久角色。Coding前必须另行授权形成clean versioned baseline和创建Codex worktree task。
+
 ## 4. 依赖方向
 
 ```text

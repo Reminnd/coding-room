@@ -84,7 +84,13 @@ Claude Code guidance只在无active attempt时保存并注入下一attempt；Sta
 2. Stage 2不包含Scheduler/worktree creation；
 3. guidance仅next-attempt生效。
 
-本ADR继续标记为`Proposed`，用于明确该设计尚未由实现、Review、用户接受与v0.4 cutover证据提升为Current capability。用户已于2026-08-30另行确认Increment 10完整Task Contract；Contract acceptance不等于Current implementation或cutover授权。
+本ADR继续标记为`Proposed`，用于明确该设计虽已由Increment 10实现、Review并获用户最终接受，但尚未版本化或完成v0.4 cutover，因而不是Current capability。用户接受candidate不等于Git写操作、runtime cutover或旧database处理授权。
+
+首轮Review事实（2026-08-31，historical）：Increment 10 continuation Run `-007`在task-owned worktree完成Contract范围candidate实现；原8条verification及Codex独立typecheck/full 341/341通过。Review `review-increment-010-codex-001`以真实双connection probe确认deferred transaction泄漏`database is locked`，并确认terminal evidence一致性与ready current Task两项缺口，Decision=`changes_requested`。用户随后确认最小方向与[Fix Task 1](../INCREMENT_10_FIX_TASK_1.md)全文；该阶段Room曾为`FIX_PLAN_READY`。这些finding的最终结论由下段验收事实取代。
+
+最终验收（2026-08-31）：Fix Task 1闭合atomic claim、terminal evidence与ready current Task三项finding；Fix Task 2补齐effective `needs_decision` empty evidence拒绝与public zero-write regression。Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，独立typecheck、focused suites与full 353/353通过；用户已最终接受，durable Room=`ACCEPTED`。本ADR仍保持`Proposed`，因为candidate未版本化且未cutover。
+
+后续Accepted amendment：用户已确认删除所有project-owned runtime hash validation，[ADR-0005](./0005-remove-git-baseline-hash-validation.md) supersede本ADR中的Git `baseline_head`冻结与HEAD equality guard，同时保留first-attempt clean worktree、canonical worktree lease和live Git evidence。本ADR的Run/RunAttempt、atomic claim、worktree lease、Executor/WorkerAdapter、terminal settlement与其它Stage 2决策继续有效；Increment 11尚未实现，Current v0.3 runtime不变。
 
 ## 6. 重新评估条件
 

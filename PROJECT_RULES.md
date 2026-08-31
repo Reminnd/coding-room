@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：WAITING_FOR_USER_CONFIRMATION / Increment 10 Contract已Accepted但尚未提交Task；active runtime保持protocol v0.3
+> 当前阶段：PLAN_READY / Increment 11 Contract已Accepted，等待clean baseline与Codex task创建授权；active runtime保持protocol v0.3
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -130,7 +130,9 @@ Increment 8 的用户已确认[完整Accepted Contract](./docs/documents/INCREME
 
 用户于2026-08-29确认[Agent Room v0.3六阶段路线](./docs/documents/AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./docs/documents/ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9完整Accepted Contract](./docs/documents/INCREMENT_9_TASK_CONTRACT.md)。Stage 1只交付Participant/Role/Assignment、generic actor/session/participant route、新v0.3 database与binding；`Plan`/`Approval`随Stage 3实际consumer交付。Implementation Review `review-increment-009-codex-001`的六项finding已由[Fix Task 1](./docs/documents/INCREMENT_9_FIX_TASK_1.md)处理；Fix Review 2的五项finding已由[Fix Task 2](./docs/documents/INCREMENT_9_FIX_TASK_2.md)处理。Fix Review 3 `review-increment-009-codex-003`确认上述五项修复与全部自动化验证通过，但公开schema允许包含URL path delimiter的`participant_id`，而Runner/CLI直接把identity拼入单一participant route segment，导致合法Participant不可达；用户确认方案后形成[Fix Task 3](./docs/documents/INCREMENT_9_FIX_TASK_3.md)。Fix Review 4 `review-increment-009-codex-004`确认`worker/2`路径已闭合，但`participant_id`仍允许`.`与`..`，`encodeURIComponent`不会编码dot，而WHATWG URL解析会把对应路径归一化为当前/父路径，任意opaque identity目标仍未满足；Decision为`changes_requested`。Increment 9 Stage 1现已通过Review、获用户最终接受并进入版本化`main`；用户于2026-08-30另行批准并完成active project runtime的v0.3 database/binding cutover，旧v0.2 database按设计只读归档。
 
-Stage 2的[Architecture Review](./docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)已完成，用户于2026-08-30确认三项设计方向：fresh `0.4-design` database/new Room与archive array；Stage 2只交付one-shot multi-Run Execution Core、不包含Scheduler/worktree creation；guidance只供下一RunAttempt消费。用户随后确认[Increment 10 Contract](./docs/documents/INCREMENT_10_TASK_CONTRACT.md)全文，Contract现为`Accepted`且`confirmed_by_user=true`；详细设计仍由Proposed [ADR-0004](./docs/documents/ADR/0004-execution-core-run-attempt-and-concurrency.md)拥有。以上不是Current implementation；active runtime、database与binding保持v0.3，durable Room已按授权推进到`WAITING_FOR_USER_CONFIRMATION`，仍未提交Task或启动Claude Run。
+Stage 2的[Architecture Review](./docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)已完成，用户于2026-08-30确认三项设计方向并确认[Increment 10 Contract](./docs/documents/INCREMENT_10_TASK_CONTRACT.md)全文。Implementation、Fix与最终Review均已完成，用户已最终接受，durable Room=`ACCEPTED`；candidate仍未版本化、未cutover，active runtime/database/binding保持v0.3。用户于2026-08-31进一步确认[哈希校验删除规划](./docs/documents/HASH_VALIDATION_REMOVAL_PLAN.md)的范围和HEAD/branch drift取舍；[Architecture Review](./docs/documents/HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md)=`Approved`，[ADR-0005](./docs/documents/ADR/0005-remove-git-baseline-hash-validation.md)=`Accepted`，[Increment 11 Contract](./docs/documents/INCREMENT_11_TASK_CONTRACT.md)全文已确认并转为`Accepted`。
+
+Increment 11获得一次性执行路由例外：用户要求Coding由独立Codex task执行，模型固定`gpt-5.6-sol`、reasoning effort=`medium`，不走Agent Room Claude Runner。该例外只适用于本Task，不永久改变默认角色；current root Codex继续拥有Contract、Review、文档维护与用户接受。Coding dispatch前必须另行授权把Increment 10 accepted scope和Increment 11 planning docs版本化为clean baseline；本轮确认不授权Git写操作、task创建或runtime cutover。
 
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
@@ -192,11 +194,14 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - Fix Task 必须引用原 Review 和用户已确认的解决方案。
 - Runner 捕获 CLI 最终结果并验证实际 Git 状态。
 - Claude 的最终输出必须满足 Coding Result Contract；缺失或无效结果不能被标记为成功。
+- Increment 10 Fix Task 1的terminal evidence clarification已获用户确认：effective `needs_decision`携带result时必须是同Task `needs_decision` result且`failure=null`；existing Executor的pause-failure form允许`result=null`与non-null `failure`。该决定不授权修改Executor、transition table或其它Fix non-goals。
 
 ## 9. Git 与工作区规则
 
 - 首个 Implementation Task 派发前，目标目录必须是 Git repository 且 worktree clean。
 - 一个 Implementation Task 及其全部 Fix Task 共用同一 `baseline_head`。
+- clean-worktree gate只建立首个Implementation Run的exact baseline。`RUN_FAILED`后的retry/continuation继承同一Task lineage的`baseline_head`；当actual `HEAD`仍等于该baseline时，source Run保留的staged、unstaged与untracked evidence允许继续存在，并作为该Task拥有的partial implementation继续处理，不得仅为重新制造clean baseline而丢弃、回退或清理。
+- 每次retry与新的one-shot Run仍须单独获得用户授权；continuation允许保留task-owned dirty evidence，不等于实现已完成、Review已通过或获得任何Git写操作权限。
 - Runner 必须采集 tracked、staged、unstaged 和 untracked 状态。
 - CODING 期间用户不同时编辑目标 worktree。
 - Room 不自动 commit、checkout、reset、clean、merge、rebase 或 push。
@@ -290,11 +295,17 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_9_FIX_TASK_3.md](./docs/documents/INCREMENT_9_FIX_TASK_3.md) | Increment 9 opaque participant route single-segment encoding最小Fix Task | Codex | Increment 9 Fix 3 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_9_FIX_TASK_4.md](./docs/documents/INCREMENT_9_FIX_TASK_4.md) | Increment 9 dot-segment-safe participant route framing最小Fix Task | Codex | Increment 9 Fix 4 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_10_TASK_CONTRACT.md](./docs/documents/INCREMENT_10_TASK_CONTRACT.md) | Stage 2 Execution Core Implementation Task Contract | Codex | Increment 10 Coding与Review | Accepted |
+| [docs/documents/INCREMENT_10_FIX_TASK_1.md](./docs/documents/INCREMENT_10_FIX_TASK_1.md) | Increment 10 claim serialization、terminal evidence与current Task最小Fix Task | Codex | Increment 10 Fix Coding与再次Review | Accepted |
+| [docs/documents/INCREMENT_10_FIX_TASK_2.md](./docs/documents/INCREMENT_10_FIX_TASK_2.md) | Increment 10 empty needs_decision evidence guard最小Fix Task | Codex | Increment 10 Fix 2 Coding与再次Review | Accepted |
+| [docs/documents/HASH_VALIDATION_REMOVAL_PLAN.md](./docs/documents/HASH_VALIDATION_REMOVAL_PLAN.md) | 删除project-owned Git baseline hash validation的范围、风险与实施顺序 | Codex | Increment 11 Architecture/Task规划 | Approved |
+| [docs/documents/HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md](./docs/documents/HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md) | baseline-free Git/Execution Core目标架构、失败语义与dispatch边界 | Codex | Increment 11规划、Coding与Review | Approved |
+| [docs/documents/INCREMENT_11_TASK_CONTRACT.md](./docs/documents/INCREMENT_11_TASK_CONTRACT.md) | 删除Git baseline hash validation的完整Implementation Task Contract | Codex | Increment 11 Coding与Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
 | [docs/documents/ADR/0003-participant-role-and-v03-evolution.md](./docs/documents/ADR/0003-participant-role-and-v03-evolution.md) | Participant/Role authority、v0.3新数据库与分阶段演进决策 | Codex | v0.3协议、binding、migration与阶段规划 | Accepted |
 | [docs/documents/ADR/0004-execution-core-run-attempt-and-concurrency.md](./docs/documents/ADR/0004-execution-core-run-attempt-and-concurrency.md) | Stage 2 Run/RunAttempt、atomic claim、worktree lease与0.4 cutover决策 | Codex | Stage 2协议、storage、Executor与并发 | Proposed / decisions confirmed |
+| [docs/documents/ADR/0005-remove-git-baseline-hash-validation.md](./docs/documents/ADR/0005-remove-git-baseline-hash-validation.md) | 删除baseline hash contract并保留canonical worktree/live evidence | Codex | Increment 11实现、Review与cutover | Accepted |
 
 “会话必读”文档为：
 
@@ -340,7 +351,18 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-08-30：用户确认Stage 2三项Architecture Decision：fresh `0.4-design` database/new Room与archive array；Stage 2只交付one-shot multi-Run Execution Core，Scheduler/worktree creation留到Stage 3；guidance只在下一RunAttempt消费。用户授权同步Project Rules与相关Current文档，明确这些内容仍是Draft/Proposed而非Current implementation。Increment 10完整Contract未确认，未授权Task submission、Claude Run、stage、commit、push、database/binding cutover或旧数据删除。
 - 2026-08-30：用户明确确认Increment 10完整Task Contract，Contract更新为`Accepted`、`confirmed_by_user=true`。本次确认不授权Git写操作、Task submission或Claude Run，因此Current v0.3 Room继续为`DISCUSSION`且无Task，尚未进入durable `PLAN_READY`；v0.4 cutover、旧数据删除、push与其它操作仍是独立门禁。
 - 2026-08-30：用户授权仅把Current v0.3 Room依次推进到`ARCHITECTURE_REVIEW`与`WAITING_FOR_USER_CONFIRMATION`；durable Event sequence 2/3确认两次transition，waiting actor=`user`，Task/Run/Review/Question仍为空。用户随后授权处理dirty worktree并形成clean planning baseline；`room_submit_task`、Claude Run、push、v0.4 cutover与旧数据删除继续分别授权。
+- 2026-08-30：用户随后分别授权并完成Increment 10 `room_submit_task`及同一Task lineage的one-shot Runs `run-increment-010-implementation-001`至`-006`。六个Run均已terminal failed：`-001/-003/-005`为`runner_process_lost`，`-002/-004`为`runner_database_locked`，`-006`为`coding_result_invalid`（Claude process exit 0但返回`needs_decision`且未创建正式Room Question）。Current Room=`RUN_FAILED`、waiting actor=`planner`、current Run=`-006`、current Question为空；baseline=`1be0cc2e37aebf69234276ff88c5c95eb92f6495`，Git evidence为0 staged、23 unstaged、2 untracked。用户确认这些dirty paths属于Increment 10同一Task lineage的partial implementation，后续retry按本文件第9节保留并续作；本次文档授权不包含下一次`room_retry_run`、Claude Run、stage、commit、push或其它Git写操作。
+- 2026-08-31：continuation Run `run-increment-010-implementation-007`成功结算后，Review `review-increment-010-codex-001`以独立双Worker/SQLite probe、public settlement probe与snapshot probe确认三项finding，Decision=`changes_requested`，Room进入`REVIEW_DISCUSSION`。用户确认全部finding、最小方向与[Increment 10 Fix Task 1](./docs/documents/INCREMENT_10_FIX_TASK_1.md)全文；Contract转为`Accepted`、`confirmed_by_user=true`并经`room_submit_task`创建成功，Event sequence=`321217`，Room=`FIX_PLAN_READY`、waiting actor=`executor`。Fix Run、Git写操作与v0.4 cutover仍未授权。
+- 2026-08-31：Fix Runs `run-increment-010-fix-003`与`run-increment-010-fix-004`的Claude process均exit 0，但因此前未成功创建Room Question，v0.3 retry continuation未获得聊天中的用户答案，两次都重复返回`status=needs_decision`并以`coding_result_invalid`终结；`-004`后的durable Room=`RUN_FAILED`、waiting actor=`planner`、current Question为空、cursor=`446434`，Git evidence为0 staged、37 unstaged、6 untracked。用户明确选择方案1并授权写入权威文档：result-carrying `needs_decision`按同Task result/`failure=null`校验，existing pause-failure form保留`result=null`/non-null `failure`；Executor与transition table不变。下一次`room_retry_run`与fresh Run ID仍需独立授权。
+- 2026-08-31：Fix Run `run-increment-010-fix-005`成功结算后，Fix Review `review-increment-010-codex-002`独立确认writer reservation与latest Task snapshot两项修复正确；typecheck、focused 9/9、62/62、60/60、99/99及full 352/352均通过。但public `settleRunAttempt` probe证明`needs_decision + result=null + failure=null`仍被接受并推进Attempt/Run、追加terminal Event，违反用户确认的方案1与invalid-payload零写约束。Finding `inc10-fix1-r1-empty-needs-decision-evidence`=`high`，Decision=`changes_requested`；Room进入`REVIEW_DISCUSSION`。用户确认finding与最小方案前不生成或提交下一Fix Task，不启动Claude、不accept、不执行Git写操作或v0.4 cutover。
+- 2026-08-31：用户确认`inc10-fix1-r1-empty-needs-decision-evidence`及最小方向：仅拒绝effective `needs_decision`的`result=null + failure=null`，保留同Task result-carrying与non-null failure pause两种legal shape，并增加public rollback regression；不改schema、transition、Executor、repository或其它Fix 1行为。Codex已创建Draft [Increment 10 Fix Task 2](./docs/documents/INCREMENT_10_FIX_TASK_2.md)并登记文档索引；全文尚未确认，未调用`room_submit_task`或启动Claude。
+- 2026-08-31：用户随后确认Increment 10 Fix Task 2全文；Contract转为`Accepted`、`confirmed_by_user=true`。此次确认不授权`room_submit_task`、fresh continuation Run、Claude、stage、commit、push或v0.4 cutover；Room保持`REVIEW_DISCUSSION`。
+- 2026-08-31：用户随后分别授权Fix Task 2 `room_submit_task`与one-shot Run `run-increment-010-fix-006`。Run以process exit 0、Coding Result `completed`成功结算并进入`REVIEW_REQUIRED`；Fix只修改`src/room/room-service.ts`与`tests/room-service.test.ts`，拒绝effective `needs_decision`的`result=null + failure=null`，保留result-carrying、pause-failure与cancel-wins语义。Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`；Codex独立验证typecheck、room-service 63/63、claude-runner 51/51、scope 1/1与full 353/353全部通过。Room进入`REVIEW_DISCUSSION`等待用户最终接受；未执行stage、commit、push、v0.4 cutover或旧database删除。
+- 2026-08-31：用户明确最终接受Review `review-increment-010-codex-003`与Increment 10；`room_accept_review`把durable Room推进到`ACCEPTED`，无finding或open question。Fix验收经验回收新增union-shaped evidence规则：必须显式排除empty/overlap形态，并分别验证每个合法分支、effective-target顺序与完整rollback。该确认不授权stage、commit、push、v0.4 cutover或旧database删除。
+- 2026-08-31：用户提出“删除项目里所有哈希校验”。盘点确认project-owned runtime中唯一以哈希改变行为的是Git `HEAD`/`baseline_head`冻结与相等性校验；npm lockfile integrity、URL fragment、UUID与历史commit IDs不是同类。Codex创建Draft [哈希校验删除规划](./docs/documents/HASH_VALIDATION_REMOVAL_PLAN.md)，等待用户确认范围与失去HEAD/branch drift自动拒绝的取舍；未创建或提交Task，未启动Run或执行Git/runtime写操作。
+- 2026-08-31：用户确认哈希删除范围、失去HEAD/branch drift自动拒绝的取舍，并指定Increment 11 Coding路由为独立Codex task `gpt-5.6-sol`/`medium`。Architecture Review=`Approved`、ADR-0005=`Accepted`，完整Task Contract为`Draft`等待全文确认；Agent Room terminal Room不复用，未创建Codex task、未启动Claude/Run或执行Git/runtime写操作。
+- 2026-08-31：用户确认Increment 11完整Task Contract；Contract转为`Accepted`、`confirmed_by_user=true`，阶段进入`PLAN_READY`。本次确认不授权stage/commit、Codex task创建、Claude/Room Run、runtime cutover、database处理或push。
 
 ## 14. 当前阶段
 
-Increment 1–9 Stage 1均已完成、通过Review、获用户接受并进入版本化`main`；active project runtime继续是protocol v0.3 Stage 1，当前Room=`WAITING_FOR_USER_CONFIRMATION`、waiting actor=`user`且无Task。Stage 2 Architecture Review为`Approved`，ADR-0004仍为Proposed，Increment 10 Contract为`Accepted`且`confirmed_by_user=true`。本轮仅形成clean planning baseline；下一门禁是用户另行授权`room_submit_task`。Claude Run、push、v0.4 database/binding cutover与旧数据删除仍未授权。
+Increment 1–9 Stage 1均已完成并进入版本化`main`；active project runtime继续是protocol v0.3。Increment 10已完成并获用户最终接受，durable Room=`ACCEPTED`，但candidate尚未版本化或cutover。Increment 11 Architecture与[Task Contract](./docs/documents/INCREMENT_11_TASK_CONTRACT.md)均已确认，阶段=`PLAN_READY`。Coding route固定为独立Codex task `gpt-5.6-sol`/`medium`，但task创建、Increment 10/11 planning baseline Git写入、v0.4 cutover、push与旧database处理继续分别授权。

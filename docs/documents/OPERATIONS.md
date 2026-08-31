@@ -224,15 +224,15 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 | archived v0.2 database | `D:\agent\case\codex-claudecode-room\.agent-room\room.sqlite`，由`archived_database_path`引用 | 只读保留；不迁移、不backfill、不删除、不由v0.3 writable service打开 |
 | runtime binding | exact八字段；`port=59665`、`room_id=room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`、`control_participant_id=codex-app` | extra/missing field、path/port/version/identity mismatch立即停止，不猜测替代值 |
 | project MCP | `http://127.0.0.1:59665/mcp/participants/p~codex-app` | 必须与runtime exact匹配；不得用raw HTTP、unframed route、v0.2 route或其它project MCP绕过 |
-| Room | `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，state=`WAITING_FOR_USER_CONFIRMATION`，waiting actor=`user`，cursor=`3` | `room_get_state`返回identity不一致或错误时停止；不得创建第二Room规避 |
+| Room | `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f`，state=`ACCEPTED`，waiting actor=`null` | `room_get_state`返回identity不一致或错误时停止；terminal Room不接收新Task，不创建第二Room规避既有binding门禁 |
 | default authority | codex-app→planner/reviewer/orchestrator；claude-code-cli→worker；local-runner→executor | Participant/Assignment缺失或不一致时停止，不推进workflow |
 
-Cutover成功证据：八字段runtime与config URL通过exact校验，loopback service已监听，project-scoped MCP加载成功；`room_get_state`返回同一Room identity、完整默认Participant/Assignment，Task/Run/Review/Question均为空。setup未创建重复Room，也未启动Claude Run或删除旧v0.2 database。随后经独立授权，Room由Event sequence 2/3推进到`ARCHITECTURE_REVIEW`与`WAITING_FOR_USER_CONFIRMATION`。
+Cutover成功证据：八字段runtime与config URL通过exact校验，loopback service已监听，project-scoped MCP加载成功；`room_get_state`返回同一Room identity、完整默认Participant/Assignment，Task/Run/Review/Question均为空。setup未创建重复Room，也未启动Claude Run或删除旧v0.2 database。随后经逐项授权完成Increment 10 Implementation、Fix与Review workflow；用户最终接受后Room进入`ACCEPTED`。
 
 Current操作边界：
 
 - Room service仍是operator控制的本地process，不新增service manager、自动重启或health scheduler。端口关闭时按Agent Room Skill的setup/normal-workflow门禁处理，不启动第二实例绕开冲突。
-- Current Room=`WAITING_FOR_USER_CONFIRMATION`；只有用户另行授权提交已Accepted Contract时才能调用`room_submit_task`。当前clean planning baseline授权不包含该command。
+- Current Room=`ACCEPTED`且waiting actor=`null`；不得向该terminal Room提交新Task。后续规划需要新的planning Room/binding与独立授权，不能复用或改写该Room终态。
 - `room:run`仍是one-shot、operator-approved边界；只有`PLAN_READY`、`FIX_PLAN_READY`或合法Decision continuation允许计划一次调用。cutover授权本身不授权Claude Run。当前command形态为：
 
   ```text
@@ -242,6 +242,33 @@ Current操作边界：
   `--baseline-head`只用于首次new Implementation，并且只能来自同一次首次成功`room_submit_task`返回的`observed_baseline_head`；Fix、retry与Decision resume省略该参数。
 - v0.3 binding、`.gitignore`和本次Current文档属于working-tree变更；stage、commit、push、旧database删除与detached v0.2 launcher cleanup继续分别授权。
 - binding/config mismatch、Room identity mismatch、service不可达或MCP error均停止并报告；不使用direct SQLite、raw HTTP、旧route、另一project binding或live Git HEAD作为fallback。
+
+### 4.7 Stage 2 v0.4 accepted candidate 运维视图（2026-08-31，未cutover）
+
+> 状态：Accepted candidate。Increment 10最终Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，用户已最终接受且durable Room=`ACCEPTED`。§4.6的Current v0.3 runtime与command shape保持权威；本节不授权版本化、v0.4 cutover、旧database处理或Git写操作。
+
+- candidate binding：fresh setup生成`room-v0.4.sqlite`、`protocol_version=0.4-design`、`archived_database_paths: []`；v0.3 binding migration把旧database按`[v0.2, v0.3]`顺序归档且逐byte保留；v0.2/v0.3 database不原地改写、不删除。
+- candidate `room:run` command shape（每个RunAttempt一次）：
+
+  ```text
+  npm --prefix "<AGENT_ROOM_ROOT>" run room:run -- --db "<DATABASE_PATH>" --project "<PROJECT_PATH>" --run-id "<RUN_ID>" --attempt-id "<FRESH_ATTEMPT_ID>" --mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli"
+  ```
+
+  不再携带`--task-id`或`--baseline-head`；worktree/baseline由Run首个attempt冻结并由后续attempt继承。
+- candidate `room:status`输出`planning_waiting_actor`与per-Run `run_work_items`（`run_id`/`run_status`/`waiting_actor`/`current_task_id`/`current_attempt_id`/`current_question_id`/`current_review_id`），不再输出单一`current_run`。
+- Review stop conditions已满足：normal双connection claim不把`database is locked`暴露给operator；ready work item显示即将执行的latest Task；Attempt进入Review前具有与effective terminal status一致的union-shaped result/failure，empty/overlap形态在零写前拒绝。v0.4 cutover仍需独立授权。
+- candidate运维动作：`room_retry_run`回到`ready`后由下一`room:run`继续；`room_cancel_run`（需`confirmed_by_user`）把Run与active attempt置`cancel_requested`，Executor结算`canceled`；`room_add_run_guidance`只在Run无active attempt时接受，由下一attempt claim恰好消费一次。
+- cutover/rollback门禁：Codex Review与用户接受已经满足；v0.4 cutover仍需独立授权。此前不得把binding切到v0.4、删除v0.2/v0.3 database或对candidate worktree执行Git写操作。
+- Fix acceptance（2026-08-31）：Fix Task 1修复writer reservation、canonical terminal evidence与latest Task推导；Fix Task 2显式拒绝effective `needs_decision` empty evidence并保留两种合法形态。Fix Review `review-increment-010-codex-003`与full 353/353已通过，用户最终接受。
+- 后续Approved运维方向：[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)已确认删除`baseline_head`/HEAD equality与`git_head_missing`；first attempt仍要求clean canonical Git worktree，continuation只校验canonical worktree而不拒绝branch/commit drift。Increment 11尚未实现，因此当前可执行命令与runtime contract不变。
+
+### 4.8 Increment 11 Codex Coding dispatch（Accepted Contract）
+
+- Coding不使用Agent Room terminal v0.3 Room或Claude `room:run`；用户指定独立Codex project task，model=`gpt-5.6-sol`、reasoning effort=`medium`。
+- [Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)全文已确认；task创建仍需独立授权。
+- 当前root worktree包含未提交的Increment 10 accepted candidate与planning docs。dispatch前必须另行授权版本化这些scope并确认clean exact `main` baseline；不得直接在dirty root上叠加新Implementation后把混合Diff交付Review。
+- clean baseline形成并获得task创建授权后，Codex App使用saved project `codex-claudecode-room`创建独立worktree task；prompt完整注入Accepted Contract，不使用摘要。
+- Coding task不得commit、push、merge、rebase、reset、clean、checkout或cutover。完成后由root Codex检查完整task-owned Diff与verification，再进入Review discussion。
 
 ## 5. 人工操作命令
 
@@ -333,5 +360,8 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-009-codex-003` | `changes_requested` / solution confirmed / Fix Task 3 Accepted，Fix Coding完成（candidate，`REVIEW_REQUIRED`） | Fix Task 2五项finding已闭合，独立验证全部通过；公开schema允许`worker/2`等opaque identity，但raw participant route为404，encoded route被Runner/CLI exact comparison拒绝 | [Fix Task 3](./INCREMENT_9_FIX_TASK_3.md) Fix Coding完成：canonical single-segment encoding + `worker/2`的MCP/Runner/CLI direct regression（claude-runner 49/49、runner-cli 15/15、room-mcp 38/38、scope 1/1、full 314/314）全部通过；等待Fix Review 4，不cutover、不accept、不执行Git write |
 | `review-increment-009-codex-004` | `changes_requested` / solution confirmed / Fix Task 4 Accepted，Fix Coding完成（candidate，`REVIEW_REQUIRED`） | Fix Task 3对`worker/2`的single-segment encoding与Runner/CLI gate正确；但schema允许`.`/`..`且`encodeURIComponent`保留dot，WHATWG URL parser把participant path归一化为当前/父路径，合法Participant不可达 | [Fix Task 4](./INCREMENT_9_FIX_TASK_4.md) Fix Coding完成：所有participant routes统一为`p~` + `encodeURIComponent(raw id)` framing，MCP只移除一次prefix恢复raw authority，unframed POST 404；`.`/`..`/`worker/2`的MCP/Runner/CLI/setup direct regression（room-mcp/claude-runner/runner-cli 108/108、plugin-setup/plugin-packaging 35/35、E2E 12/12、scope 1/1、full 321/321）全部通过；等待Fix Review 5，不cutover、不accept、不执行Git write |
 | `review-increment-009-codex-005` | `approved` / 无finding / 用户已最终接受 | Fix Task 4固定`p~` framing在MCP、Runner、CLI、setup与Plugin consumer中保持raw identity/authority；unframed route在副作用前拒绝 | 独立typecheck、focused 108/108、35/35、12/12、scope 1/1与full 321/321通过；Room=`ACCEPTED`，经验回收完成；不cutover、不执行Git write |
+| `review-increment-010-codex-001` | `changes_requested` / findings与方案已确认 | 真实双connection claim泄漏SQLite lock；terminal evidence允许矛盾shape；ready snapshot未引用latest Task | [Fix Task 1](./INCREMENT_10_FIX_TASK_1.md)闭合三项finding；不cutover、不执行Git write |
+| `review-increment-010-codex-002` | `changes_requested` / finding与方案已确认 | effective `needs_decision`仍接受`result=null + failure=null`并产生durable写入 | [Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)增加最小guard与public rollback regression |
+| `review-increment-010-codex-003` | `approved` / 无finding / 用户已最终接受 | union-shaped evidence、public path、rollback、atomic claim与current Task语义全部闭合 | 独立typecheck、focused suites与full 353/353通过；Room=`ACCEPTED`，经验回收完成；未版本化、未cutover、未执行Git write |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。
