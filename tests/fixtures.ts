@@ -6,11 +6,11 @@ import type {
   Role,
   RoleAssignment,
   Run,
+  RunAttempt,
   TaskContract,
 } from '../src/protocol/schema.ts';
-import type { RunTerminalEvidence } from '../src/room/room-service.ts';
 
-// v0.3 默认 bootstrap identity：与 room-service BOOTSTRAP_* 常量一致，测试 fixture 用
+// v0.4 默认 bootstrap identity：与 room-service BOOTSTRAP_* 常量一致，测试 fixture 用
 // 独立 literal（Oracle 不导入被测实现）。
 export const BOOTSTRAP_PARTICIPANT_IDS = [
   'operator',
@@ -26,12 +26,20 @@ export const ROOM_SCOPE_DEFAULT_ROLES = [
   'executor',
 ] as const;
 
+// 独立 literal 的默认 actor：与 bootstrap assignment 一致。
+export const PLANNER = { participant_id: 'codex-app', actor_role: 'planner' as const };
+export const REVIEWER = { participant_id: 'codex-app', actor_role: 'reviewer' as const };
+export const WORKER = { participant_id: 'claude-code-cli', actor_role: 'worker' as const };
+export const EXECUTOR = { participant_id: 'local-runner', actor_role: 'executor' as const };
+export const ORCHESTRATOR = { participant_id: 'codex-app', actor_role: 'orchestrator' as const };
+
 const T = '2026-08-23T00:00:00.000Z';
 
 export function makeTask(overrides: Partial<TaskContract> = {}): TaskContract {
   return {
     task_id: 'task-1',
     room_id: 'room-1',
+    run_id: 'run-1',
     type: 'implementation',
     parent_task_id: null,
     based_on_review_id: null,
@@ -64,20 +72,40 @@ export function makeFixTask(overrides: Partial<TaskContract> = {}): TaskContract
   });
 }
 
+// v0.4 Run：稳定 logical lineage；worktree/baseline 由首 attempt claim 冻结。
 export function makeRun(overrides: Partial<Run> = {}): Run {
   return {
     run_id: 'run-1',
     room_id: 'room-1',
+    root_task_id: 'task-1',
+    status: 'ready',
+    worker_participant_id: 'claude-code-cli',
+    worktree_path: null,
+    baseline_head: null,
+    created_at: T,
+    updated_at: T,
+    accepted_at: null,
+    ...overrides,
+  };
+}
+
+// v0.4 RunAttempt：单次 process invocation 与 terminal evidence。
+export function makeAttempt(overrides: Partial<RunAttempt> = {}): RunAttempt {
+  return {
+    attempt_id: 'attempt-1',
+    run_id: 'run-1',
+    room_id: 'room-1',
     task_id: 'task-1',
+    attempt_no: 1,
     status: 'running',
-    baseline_head: 'deadbeef',
-    // claim 时固化的 resolved assignment：worker = claude-code-cli、executor = local-runner。
     worker_participant_id: 'claude-code-cli',
     executor_participant_id: 'local-runner',
+    worktree_path: 'D:\\agent\\case\\project',
+    baseline_head: 'deadbeef',
     agent_session_ref: null,
     process_exit_code: null,
     started_at: T,
-    completed_at: null,
+    settled_at: null,
     result: null,
     git_evidence: { staged: [], unstaged: [], untracked: [] },
     artifact_refs: [],
@@ -86,9 +114,25 @@ export function makeRun(overrides: Partial<Run> = {}): Run {
   };
 }
 
-export function makeTerminalEvidence(overrides: Partial<RunTerminalEvidence> = {}): RunTerminalEvidence {
+// settleRunAttempt 的 caller-owned terminal input（独立 literal，不导入 service schema）。
+export interface AttemptSettleInput {
+  attempt_id: string;
+  status: 'succeeded' | 'failed' | 'needs_decision' | 'canceled' | 'interrupted';
+  result: CodingResult | null;
+  failure: { code: string; message: string } | null;
+  agent_session_ref: string | null;
+  process_exit_code: number | null;
+  git_evidence: { staged: string[]; unstaged: string[]; untracked: string[] };
+  artifact_refs: string[];
+}
+
+export function makeAttemptSettle(overrides: Partial<AttemptSettleInput> = {}): AttemptSettleInput {
   return {
-    agent_session_ref: null,
+    attempt_id: 'attempt-1',
+    status: 'succeeded',
+    result: makeCodingResult(),
+    failure: null,
+    agent_session_ref: 'session-1',
     process_exit_code: 0,
     git_evidence: { staged: [], unstaged: [], untracked: [] },
     artifact_refs: [],
@@ -118,6 +162,7 @@ export function makeReview(overrides: Partial<Review> = {}): Review {
     room_id: 'room-1',
     task_id: 'task-1',
     run_id: 'run-1',
+    attempt_id: 'attempt-1',
     decision: 'approved',
     findings: [],
     open_questions: [],
@@ -135,7 +180,7 @@ export function makeParticipant(overrides: Partial<ParticipantProfile> = {}): Pa
     display_name: 'Operator',
     kind: 'human',
     provider: 'local',
-    adapter_id: 'human_console',
+    adapter_id: 'human',
     capabilities: ['supervising'],
     config_ref: null,
     enabled: true,
@@ -179,6 +224,7 @@ export function makeQuestion(overrides: Partial<Question> = {}): Question {
     room_id: 'room-1',
     task_id: 'task-1',
     run_id: 'run-1',
+    attempt_id: 'attempt-1',
     status: 'open',
     question: 'need a decision',
     blocking_scope: 'scope',

@@ -287,3 +287,9 @@ Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时
 公开schema允许opaque identity进入URI path segment时，Review不能把`encodeURIComponent`或框架route参数的局部行为当成端到端可达性证据。必须从schema支持输入中至少选择slash与WHATWG dot-segment（`.`、`..`），让测试侧literal URL经过真实URL parser、MCP route以及Contract点名的Runner/CLI public path；分别断言合法framed route恢复原始identity、unframed/多segment表示在副作用前拒绝，并核对Room/Event中仍保存raw authority identity。
 
 若修复采用固定framing，Review必须确认prefix只属于transport representation：application在framework标准percent-decode后只验证并移除一次prefix，不二次decode，不收窄既有identity schema，也不建立alias、wildcard或compatibility route。这样能区分“编码了delimiter”与“URL parser仍会归一化整个segment”两类不同失败。
+
+## 17. Union-shaped Evidence 必须显式闭合空形态
+
+当 terminal evidence、request payload 或 persisted result 允许多个互斥合法形态时，Review 不能只检查“字段存在时是否合法”。先把合法集合写成精确 union，再验证 union 之外的空形态和重叠形态均被拒绝。例如合法形态为 `result + no failure` 或 `no result + failure` 时，`result=null + failure=null` 与 `result + failure` 都必须有明确结论。
+
+若 command 先根据 cancel、override 或 persisted state 计算 effective target，union validation 必须针对 effective target 执行，避免把其它 target 的 canonical empty payload误判为非法。Direct regression 至少覆盖每个合法分支、empty/overlap invalid branch，以及 invalid command 前后完整 public durable snapshot deepEqual；不能用共享 helper、单个 error assertion或其它合法分支的 green test替代。

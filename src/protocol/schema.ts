@@ -3,9 +3,10 @@ import { z } from 'zod';
 // 标识符是稳定的 opaque string。
 const id = z.string().min(1);
 
-// v0.3 protocol version：新 database 必须持久化并在 writable open 前校验 exact value；
-// 缺失 metadata 的 v0.2 database 分类为 archive，以 protocol_version_mismatch 拒绝。
-export const PROTOCOL_VERSION = '0.3-design';
+// v0.4 protocol version：新 database 必须持久化并在 writable open 前校验 exact value；
+// 缺失 metadata 的 v0.2 database 与 v0.3 database 都分类为 archive，以
+// protocol_version_mismatch 拒绝，绝不原地改写。
+export const PROTOCOL_VERSION = '0.4-design';
 export const protocolVersionSchema = z.literal(PROTOCOL_VERSION);
 
 // 严格 UTC ISO 8601 timestamp：z.iso.datetime() 只接受以 Z 结尾的合法 UTC datetime，
@@ -15,18 +16,14 @@ export const utcTimestampSchema = z.iso.datetime();
 const timestamp = utcTimestampSchema;
 
 // ---- RoomState ----
+// v0.4：Room.state 只拥有 planning artifact；execution/review/acceptance 生命周期全部下放
+// 到 per-Run。WAITING_FOR_USER_CONFIRMATION → DISCUSSION 由 confirmed implementation Task
+// 提交（原子创建 ready Run）触发；DISCUSSION → WAITING_FOR_USER_CONFIRMATION 由 scope-
+// changing Question answer 触发（重新进入 planning confirmation）。
 export const roomStateSchema = z.enum([
   'DISCUSSION',
   'ARCHITECTURE_REVIEW',
   'WAITING_FOR_USER_CONFIRMATION',
-  'PLAN_READY',
-  'CODING',
-  'NEEDS_DECISION',
-  'RUN_FAILED',
-  'REVIEW_REQUIRED',
-  'REVIEW_DISCUSSION',
-  'FIX_PLAN_READY',
-  'ACCEPTED',
 ]);
 export type RoomState = z.infer<typeof roomStateSchema>;
 
@@ -101,6 +98,9 @@ export const taskContractSchema = z
   .object({
     task_id: id,
     room_id: id,
+    // v0.4：每个 Task 从提交起就属于一条 Run lineage。implementation 的 run_id 指定
+    // 即将原子创建的 ready Run；fix 的 run_id 必须引用既有 review_discussion Run。
+    run_id: id,
     type: z.enum(['implementation', 'fix']),
     parent_task_id: z.string().nullable(),
     based_on_review_id: z.string().nullable(),
@@ -203,15 +203,56 @@ export const codingResultSchema = z.object({
 export type CodingResult = z.infer<typeof codingResultSchema>;
 
 // ---- Run ----
+// v0.4：Run 是稳定 logical lineage（一条 Implementation/Fix chain + 一个 session lineage +
+// 一个 canonical worktree/baseline），不再承载单次 process invocation 的 evidence。
+// worktree_path/baseline_head 由首 attempt claim 时冻结，之后只读继承。
 export const runStatusSchema = z.enum([
-  'starting',
+  'ready',
   'running',
+  'cancel_requested',
   'needs_decision',
-  'succeeded',
   'failed',
-  'interrupted',
+  'canceled',
+  'review_required',
+  'review_discussion',
+  'accepted',
 ]);
 export type RunStatus = z.infer<typeof runStatusSchema>;
+
+export const runSchema = z.object({
+  run_id: id,
+  room_id: id,
+  // lineage 根 Task：后续 fix Task 都挂在同一 Run 下，root_task_id 不随 fix 改写。
+  root_task_id: id,
+  status: runStatusSchema,
+  // Run 创建时按 Task scope 优先、Room default fallback 解析并冻结的 worker identity；
+  // assignment replacement 不改写既有 Run。
+  worker_participant_id: id,
+  // canonical worktree：首 attempt claim 时由 Git Observer 解析的 repository root 冻结。
+  worktree_path: z.string().min(1).nullable(),
+  baseline_head: z.string().min(1).nullable(),
+  created_at: timestamp,
+  updated_at: timestamp,
+  accepted_at: timestamp.nullable(),
+});
+export type Run = z.infer<typeof runSchema>;
+
+// ---- RunAttempt ----
+// RunAttempt 拥有一次 process invocation、frozen executor、session/result/process/Git/
+// artifact evidence 与唯一 terminal outcome。terminal status 首写者胜且 immutable。
+export const attemptStatusSchema = z.enum([
+  // 非终态：process 仍在运行，或已提交 Question/cancel 请求等待 Executor 停止 process。
+  'running',
+  'decision_requested',
+  'cancel_requested',
+  // 终态：唯一 terminal outcome，settled 后 fields first-writer-wins。
+  'succeeded',
+  'failed',
+  'needs_decision',
+  'canceled',
+  'interrupted',
+]);
+export type AttemptStatus = z.infer<typeof attemptStatusSchema>;
 
 const gitEvidenceSchema = z.object({
   staged: z.array(z.string()),
@@ -224,26 +265,46 @@ const runFailureSchema = z.object({
   message: z.string(),
 });
 
-export const runSchema = z.object({
+export const runAttemptSchema = z.object({
+  attempt_id: id,
   run_id: id,
   room_id: id,
   task_id: id,
-  status: runStatusSchema,
-  baseline_head: z.string(),
-  // Run claim 时固化的 worker/executor participant（来自当时 resolved assignment）。
+  // server-assigned 1-based attempt sequence，同一 Run 内严格递增且 UNIQUE。
+  attempt_no: z.number().int().positive(),
+  status: attemptStatusSchema,
+  // claim 时固化的 worker/executor：worker 继承 Run 冻结 identity，executor 来自当时
+  // resolved assignment。
   worker_participant_id: id,
   executor_participant_id: id,
+  worktree_path: z.string().min(1),
+  baseline_head: z.string().min(1),
   // opaque adapter session reference，只由 assigned WorkerAdapter 写入与解释。
   agent_session_ref: z.string().nullable(),
   process_exit_code: z.number().int().nullable(),
   started_at: timestamp,
-  completed_at: timestamp.nullable(),
+  settled_at: timestamp.nullable(),
   result: codingResultSchema.nullable(),
   git_evidence: gitEvidenceSchema,
   artifact_refs: z.array(z.string()),
   failure: runFailureSchema.nullable(),
 });
-export type Run = z.infer<typeof runSchema>;
+export type RunAttempt = z.infer<typeof runAttemptSchema>;
+
+// ---- RunGuidance ----
+// planner 在 Run 无 active attempt 时保存的 guidance；只被下一 attempt claim 原子消费一次，
+// 由 Executor 注入完整 prompt。consumed_by_attempt_id 非 null 表示已消费。
+export const runGuidanceSchema = z.object({
+  guidance_id: id,
+  room_id: id,
+  run_id: id,
+  text: z.string().min(1),
+  // 保存时固化的 planner identity；assignment replacement 不改写既有 guidance。
+  planner_participant_id: id,
+  created_at: timestamp,
+  consumed_by_attempt_id: z.string().min(1).nullable(),
+});
+export type RunGuidance = z.infer<typeof runGuidanceSchema>;
 
 // ---- Review ----
 const findingSeveritySchema = z.enum(['blocker', 'high', 'medium', 'low']);
@@ -266,6 +327,8 @@ export const reviewSchema = z.object({
   room_id: id,
   task_id: id,
   run_id: id,
+  // Review 只审查 target Run 的 latest succeeded attempt。
+  attempt_id: id,
   decision: z.enum(['approved', 'changes_requested', 'needs_discussion']),
   findings: z.array(findingSchema),
   open_questions: z.array(z.string()),
@@ -287,6 +350,9 @@ export const questionSchema = z.object({
   room_id: id,
   task_id: id,
   run_id: id,
+  // Question 由 frozen worker 在 active attempt 内提出；attempt_id 把 Question 绑定到
+  // 提出它的 process invocation。
+  attempt_id: id,
   status: z.enum(['open', 'answered', 'superseded']),
   question: z.string().min(1),
   blocking_scope: z.string(),
@@ -299,7 +365,15 @@ export const questionSchema = z.object({
 export type Question = z.infer<typeof questionSchema>;
 
 // ---- Event ----
-const entityTypeSchema = z.enum(['room', 'task', 'run', 'review', 'question']);
+const entityTypeSchema = z.enum([
+  'room',
+  'task',
+  'run',
+  'run_attempt',
+  'run_guidance',
+  'review',
+  'question',
+]);
 
 export const eventSchema = z.object({
   event_id: id,

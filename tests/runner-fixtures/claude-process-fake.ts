@@ -24,6 +24,8 @@ export class FakeClaudeProcess extends EventEmitter {
   readonly stderr: PassThrough;
   stdinWritten = '';
   stdinEnded = false;
+  // Executor cancel boundary 的证据：abort → child.kill() 的事实。
+  killed: NodeJS.Signals | null = null;
 
   constructor(stdinWriteError?: Error) {
     super();
@@ -42,6 +44,14 @@ export class FakeClaudeProcess extends EventEmitter {
     this.stdin.on('finish', () => {
       this.stdinEnded = true;
     });
+  }
+
+  // 与真实 ChildProcess.kill 一致的最小表面：记录信号并同步 emit close(null, signal)，
+  // 使 transport 层观察到 signal exit outcome；canceled 分类仍由 Executor 按 attempt status 决定。
+  kill(signal?: NodeJS.Signals): boolean {
+    this.killed = signal ?? 'SIGTERM';
+    this.emit('close', null, this.killed);
+    return true;
   }
 }
 

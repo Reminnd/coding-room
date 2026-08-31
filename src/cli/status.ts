@@ -5,10 +5,13 @@ import { ProtocolError } from '../protocol/errors.ts';
 import { RoomService } from '../room/room-service.ts';
 import { getRoomStateSnapshot, type RoomStateSnapshot } from '../room/state-snapshot.ts';
 
-// read-only Status CLI：显式 --db/--project 与 --room-id，调用共享 snapshot boundary，把
-// deterministic pretty JSON 写到 stdout。打开 SQLite 前确认 --db 已存在；missing path 不
-// 创建空 database/schema；对有效 database 只读 snapshot，不创建 Room/entity/Event，不执行
-// state transition。invalid args / entity / protocol failure 写 stderr 并 non-zero exit。
+// read-only Status CLI：显式 --db 与 --room-id，调用共享 snapshot boundary，把 deterministic
+// pretty JSON 写到 stdout。打开 SQLite 前确认 --db 已存在；missing path 不创建空
+// database/schema；对有效 database 只读 snapshot，不创建 Room/entity/Event，不执行 state
+// transition。invalid args / entity / protocol failure 写 stderr 并 non-zero exit。
+//
+// v0.4：multi-Run 输出 planning_waiting_actor 与全部 run_work_items（稳定排序），不存在单一
+// current Run 造成的覆盖。
 
 interface StatusConfig {
   db: string;
@@ -55,21 +58,24 @@ function readSnapshotOrExit(service: RoomService, roomId: string): RoomStateSnap
   }
 }
 
-// deterministic pretty JSON：固定 key 顺序 + 2-space indent。缺失 current entity 用 null。
+// deterministic pretty JSON：固定 key 顺序 + 2-space indent。runs 是 run_work_items 的稳定
+// 排序投影（created_at 升序、同 created_at 按 run_id），每个 work item 的 reference 缺失
+// 时用 null。
 function formatStatus(snapshot: RoomStateSnapshot): string {
-  const run = snapshot.current_run;
   const output = {
     room_id: snapshot.room.room_id,
     state: snapshot.room.state,
-    waiting_actor: snapshot.waiting_actor,
+    planning_waiting_actor: snapshot.planning_waiting_actor,
     cursor: snapshot.cursor,
-    current_task_id: snapshot.current_task?.task_id ?? null,
-    current_run_id: snapshot.current_run?.run_id ?? null,
-    current_review_id: snapshot.current_review?.review_id ?? null,
-    current_question_id: snapshot.current_question?.question_id ?? null,
-    latest_run_status: run?.status ?? null,
-    latest_run_failure: run?.failure ?? null,
-    git_evidence: run?.git_evidence ?? { staged: [], unstaged: [], untracked: [] },
+    runs: snapshot.run_work_items.map((item) => ({
+      run_id: item.run_id,
+      status: item.run_status,
+      waiting_actor: item.waiting_actor,
+      current_task_id: item.current_task_id,
+      current_attempt_id: item.current_attempt_id,
+      current_question_id: item.current_question_id,
+      current_review_id: item.current_review_id,
+    })),
   };
   return `${JSON.stringify(output, null, 2)}\n`;
 }

@@ -191,3 +191,9 @@ leaf test 只负责 process/stream outcome；orchestrator test 负责 outcome �
 当Contract要求任意非空opaque identity映射到单个URI path segment时，不要假设`encodeURIComponent`已经处理所有URL parser语义：它可编码slash，却保留`.`与`..`，WHATWG parser会在request到达route handler前执行dot-segment normalization。若Accepted方案冻结固定framing，应先拼接固定prefix，再对raw identity执行component encoding；framework完成标准percent-decode后，application只验证并移除一次prefix，剩余值直接作为raw identity，不做第二次decode。
 
 Regression期望必须使用测试侧literal，并分别覆盖slash、`.`与`..`经过真实MCP、production Runner和public CLI boundary的成功路径；同时证明unframed、raw multi-segment或旧candidate URL在spawn、Run、Event、artifact与config write前拒绝。framing只改变transport representation，不得进入Participant、Assignment、Run、Review或Event identity字段，也不得通过schema restriction、alias、wildcard或compatibility rewrite规避既有opaque identity contract。
+
+## 14. Union-shaped Payload 的最小实现与回归
+
+当 Contract 冻结多个互斥合法 payload shape 时，先把每个 shape 写成直接 boolean condition，再显式拒绝不属于 union 的 empty/overlap shape；不要以“某字段非空时才校验”的单边 guard 留下空分支，也不要为两个分支创建通用 validator framework。
+
+若 operation 存在 cancel-wins 或其它 effective-target canonicalization，先确定 effective target，再执行该 target 的 payload union validation。回归必须直接调用公开 operation，分别证明每个合法 shape 成功、empty/overlap shape 返回冻结 error，并对非法调用前后的完整 public durable snapshot做 `deepEqual`；已有合法分支测试不得删除、skip或弱化。

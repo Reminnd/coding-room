@@ -1,19 +1,20 @@
 // setup-project.ts — Agent Room Skill 的确定性项目 setup helper。
 //
-// 只使用 Node.js standard library。职责边界（Increment 8 + Increment 9 v0.3 Accepted）：
-//   - 输入校验、现有 binding 分类（v0.2 archive / v0.3 reuse / fresh）、v0.2→v0.3 migration、
-//     port/UUID 生成与三份文件的计划/写入；
+// 只使用 Node.js standard library。职责边界（Increment 8/9/10 Accepted）：
+//   - 输入校验、现有 binding 分类（v0.2 archive / v0.3 archive / v0.4 reuse / fresh）、
+//     v0.2→v0.4 / v0.3→v0.4 migration、port/UUID 生成与三份文件的计划/写入；
 //   - 不写 SQLite schema（database schema 只由现有 room:serve 初始化）；
 //   - 不调用 Room MCP（reload 后的 Room 创建/读取由 Skill 拥有）；
 //   - 不启动 one-shot launcher/Claude process、不执行任何 Git mutation。
 //
-// v0.3 migration：读取 valid v0.2 五字段 binding 后，旧 database 保持原路径与内容不变
-// （archive），创建新的 <project>/.agent-room/room-v0.3.sqlite 与新 room_id/control
-// participant，并保守更新 project-scoped MCP URL 到 framed participant route（`p~`
-// transport framing，Fix inc9-fr4）；任何 conflict 在
-// 写入前拒绝；不 delete/rename/原地改写 v0.2 database。migration rerun 复用同一 v0.3
-// identity，不创建第二 database/Room/profile/assignment；v0.2 archived path 永不是新
-// service database_path。
+// v0.4 migration：读取 valid v0.2 五字段或 v0.3 八字段 binding 后，旧 database 保持原路径
+// 与内容不变（archive），创建新的 <project>/.agent-room/room-v0.4.sqlite 与新 room_id/
+// control participant。binding 的 single archived_database_path 替换为有序
+// archived_database_paths array（旧 database 按版本先后排序），active database_path 绝不
+// 出现在 archive list。任何 conflict 在写入前拒绝；不 delete/rename/原地改写旧 database。
+// migration rerun 复用同一 v0.4 identity，不创建第二 database/Room/profile/assignment。
+// v0.3→v0.4 的 MCP framed participant route（`p~` framing，Fix inc9-fr4）与 expectedUrl
+// 完全一致，无需 legacy URL 改写；v0.2 的 /mcp/codex URL 仍按 legacy 保守改写。
 //
 // 安全顺序：先读取并验证全部相关现有文件（含 conflict/mismatch 判定），全部通过后才
 // mkdir/write；任何 invalid/conflict 都零写入并以非零 exit 报告。fresh binding 的 port
@@ -28,23 +29,50 @@ import { isAbsolute, join, resolve } from 'node:path';
 const RUNTIME_DIR = '.agent-room';
 const CONFIG_DIR = '.codex';
 const CONFIG_SECTION = '[mcp_servers.agent_room]';
-// v0.3 protocol version；setup 生成的 binding 必须使用该值。
-const PROTOCOL_VERSION = '0.3-design';
+// v0.4 protocol version；setup 生成的 binding 必须使用该值。
+const PROTOCOL_VERSION = '0.4-design';
 // project-scoped control participant（Codex App）：MCP URL 与绑定都指向它。
 const CONTROL_PARTICIPANT_ID = 'codex-app';
-// .gitignore 必须补齐的 local runtime 条目（Contract 冻结顺序；v0.3 增加新 database 文件）。
+// .gitignore 必须补齐的 local runtime 条目（Contract 冻结顺序；v0.4 增加新 database 文件，
+// 旧版本条目保留：archived database 继续以原路径存在于 .agent-room）。
 const GITIGNORE_ENTRIES = [
   '.agent-room/runtime.json',
   '.agent-room/room.sqlite',
   '.agent-room/room.sqlite-*',
   '.agent-room/room-v0.3.sqlite',
   '.agent-room/room-v0.3.sqlite-*',
+  '.agent-room/room-v0.4.sqlite',
+  '.agent-room/room-v0.4.sqlite-*',
   '.agent-room/artifacts/',
 ];
 
-// v0.3 binding：原五字段 + protocol_version + control_participant_id + archived_database_path
-//（旧 v0.2 database 路径或 null）。archived_database_path 永不能等于 database_path。
+// v0.4 binding：五字段 + protocol_version + control_participant_id + ordered
+// archived_database_paths array（旧版本 database 路径，按版本先后排序；fresh 为空数组）。
+// 每个 archived path 永不能等于 active database_path。
 interface RuntimeBinding {
+  agent_room_root: string;
+  database_path: string;
+  project_path: string;
+  port: number;
+  room_id: string;
+  protocol_version: '0.4-design';
+  control_participant_id: string;
+  archived_database_paths: string[];
+}
+
+// v0.2 五字段 binding：archive 输入，不补任何 v0.3/v0.4 字段（migration 在 plan 阶段
+// 生成新 v0.4 binding）。
+interface V02Binding {
+  agent_room_root: string;
+  database_path: string;
+  project_path: string;
+  port: number;
+  room_id: string;
+}
+
+// v0.3 八字段 binding：archive 输入，single archived_database_path 在 migration 时转为
+// ordered archived_database_paths（v0.3 database_path 成为最后一个 archive）。
+interface LegacyV03Binding {
   agent_room_root: string;
   database_path: string;
   project_path: string;
@@ -121,23 +149,36 @@ function validateAgentRoomRoot(rootInput: string): string {
   return root;
 }
 
-// runtime.json 读取与严格分类：missing / valid-v02 / valid-v03 / invalid（invalid 带具体
-// reason，任何越界形态都零写入停止）。v0.2 五字段 binding 是 archive 输入（只迁移不复用）；
-// v0.3 八字段 binding 是 current identity（幂等复用）。两个版本都要求三个 absolute path、
-// port 为 1..65535 JSON integer、room_id 非空，且 project_path 经 host normal path
-// resolution 等于当前项目。v0.3 额外要求 protocol_version 精确为 0.3-design、control
-// participant 非空、archived_database_path 为 absolute path 或 null，且 archived path
-// 永不能等于 service database_path。
+// runtime.json 读取与严格分类：missing / valid-v02 / valid-v03 / valid-v04 / invalid
+//（invalid 带具体 reason，任何越界形态都零写入停止）。v0.2 五字段与 v0.3 八字段 binding
+// 是 archive 输入（只迁移不复用）；v0.4 八字段 binding 是 current identity（幂等复用）。
+// 三个版本都要求三个 absolute path、port 为 1..65535 JSON integer、room_id 非空，且
+// project_path 经 host normal path resolution 等于当前项目。v0.3 额外要求
+// protocol_version 精确为 0.3-design、control participant 非空、archived_database_path
+// 为 absolute path 或 null，且 archived path 永不能等于 service database_path。v0.4
+// 额外要求 protocol_version 精确为 0.4-design、archived_database_paths 为 absolute
+// path string array，且任一 entry 都不能等于 service database_path。
 type RuntimeParse =
   | { kind: 'missing' }
-  | { kind: 'valid-v02'; binding: RuntimeBinding }
-  | { kind: 'valid-v03'; binding: RuntimeBinding }
+  | { kind: 'valid-v02'; binding: V02Binding }
+  | { kind: 'valid-v03'; binding: LegacyV03Binding }
+  | { kind: 'valid-v04'; binding: RuntimeBinding }
   | { kind: 'invalid'; reason: string };
 
 const V02_FIELDS = ['agent_room_root', 'database_path', 'port', 'project_path', 'room_id'];
 const V03_FIELDS = [
   'agent_room_root',
   'archived_database_path',
+  'control_participant_id',
+  'database_path',
+  'port',
+  'project_path',
+  'protocol_version',
+  'room_id',
+];
+const V04_FIELDS = [
+  'agent_room_root',
+  'archived_database_paths',
   'control_participant_id',
   'database_path',
   'port',
@@ -166,8 +207,9 @@ function readRuntime(projectPath: string): RuntimeParse {
   }
   const obj = data as Record<string, unknown>;
   const keys = Object.keys(obj).sort();
-  if (keys.join(',') !== V02_FIELDS.slice().sort().join(',') && keys.join(',') !== V03_FIELDS.slice().sort().join(',')) {
-    return { kind: 'invalid', reason: `runtime.json must contain exactly the v0.2 five fields or the v0.3 eight fields (found: ${keys.join(', ')})` };
+  const sorted = (list: string[]): string => list.slice().sort().join(',');
+  if (sorted(keys) !== sorted(V02_FIELDS) && sorted(keys) !== sorted(V03_FIELDS) && sorted(keys) !== sorted(V04_FIELDS)) {
+    return { kind: 'invalid', reason: `runtime.json must contain exactly the v0.2 five fields, the v0.3 eight fields, or the v0.4 eight fields (found: ${keys.join(', ')})` };
   }
   const stringField = (name: string): string | null => {
     const v = obj[name];
@@ -203,42 +245,59 @@ function readRuntime(projectPath: string): RuntimeParse {
     port: port as number,
     room_id: roomId,
   };
-  if (keys.join(',') === V02_FIELDS.slice().sort().join(',')) {
-    // v0.2 archive 输入：只读保留，不在这里补 v0.3 字段（migration 在 plan 阶段生成新 binding）。
-    return {
-      kind: 'valid-v02',
-      binding: {
-        ...base,
-        protocol_version: PROTOCOL_VERSION,
-        control_participant_id: CONTROL_PARTICIPANT_ID,
-        archived_database_path: null,
-      },
-    };
+  if (sorted(keys) === sorted(V02_FIELDS)) {
+    // v0.2 archive 输入：只读保留五字段原形，migration 在 plan 阶段生成新 v0.4 binding。
+    return { kind: 'valid-v02', binding: base };
   }
   const protocolVersion = stringField('protocol_version');
   const controlParticipantId = stringField('control_participant_id');
-  const archivedDatabasePath = obj.archived_database_path;
-  if (protocolVersion !== PROTOCOL_VERSION) {
-    return { kind: 'invalid', reason: `protocol_version must be ${PROTOCOL_VERSION}` };
-  }
-  // Review finding inc9-fr2-5：existing v0.3 binding 的 control identity 必须 exact 为
-  // codex-app；MCP URL 由同一 validated identity 构造，任何其它值在写入前按 invalid 拒绝。
+  // Review finding inc9-fr2-5：existing binding 的 control identity 必须 exact 为
+  // codex-app（v0.3 与 v0.4 同口径）；MCP URL 由同一 validated identity 构造，任何其它值
+  // 在写入前按 invalid 拒绝。
   if (controlParticipantId !== CONTROL_PARTICIPANT_ID) {
     return { kind: 'invalid', reason: `control_participant_id must be ${CONTROL_PARTICIPANT_ID}` };
   }
-  if (archivedDatabasePath !== null && (typeof archivedDatabasePath !== 'string' || !isAbsolute(archivedDatabasePath))) {
-    return { kind: 'invalid', reason: 'archived_database_path must be an absolute path string or null' };
+  if (sorted(keys) === sorted(V03_FIELDS)) {
+    if (protocolVersion !== '0.3-design') {
+      return { kind: 'invalid', reason: 'protocol_version must be 0.3-design' };
+    }
+    const archivedDatabasePath = obj.archived_database_path;
+    if (archivedDatabasePath !== null && (typeof archivedDatabasePath !== 'string' || !isAbsolute(archivedDatabasePath))) {
+      return { kind: 'invalid', reason: 'archived_database_path must be an absolute path string or null' };
+    }
+    if (archivedDatabasePath === databasePath) {
+      return { kind: 'invalid', reason: 'archived_database_path must not equal the service database_path' };
+    }
+    return {
+      kind: 'valid-v03',
+      binding: {
+        ...base,
+        protocol_version: '0.3-design',
+        control_participant_id: controlParticipantId,
+        archived_database_path: archivedDatabasePath as string | null,
+      },
+    };
   }
-  if (archivedDatabasePath === databasePath) {
-    return { kind: 'invalid', reason: 'archived_database_path must not equal the service database_path' };
+  // v0.4：archived_database_paths 是有序 absolute path array，active database_path 绝不
+  // 出现在 archive list；只验证类型与 absolute/inclusion 约束，不校验文件存在（archived
+  // database 只读保留，生命周期独立于 active database）。
+  if (protocolVersion !== PROTOCOL_VERSION) {
+    return { kind: 'invalid', reason: `protocol_version must be ${PROTOCOL_VERSION}` };
+  }
+  const archivedPaths = obj.archived_database_paths;
+  if (!Array.isArray(archivedPaths) || !archivedPaths.every((p) => typeof p === 'string' && isAbsolute(p))) {
+    return { kind: 'invalid', reason: 'archived_database_paths must be an array of absolute path strings' };
+  }
+  if (archivedPaths.includes(databasePath)) {
+    return { kind: 'invalid', reason: 'archived_database_paths must not include the service database_path' };
   }
   return {
-    kind: 'valid-v03',
+    kind: 'valid-v04',
     binding: {
       ...base,
       protocol_version: PROTOCOL_VERSION,
       control_participant_id: controlParticipantId,
-      archived_database_path: archivedDatabasePath as string | null,
+      archived_database_paths: archivedPaths as string[],
     },
   };
 }
@@ -494,8 +553,9 @@ async function main(): Promise<void> {
 
   let mode: 'created' | 'migrated' | 'reused';
   let binding: RuntimeBinding;
-  // legacyUrl 是 v0.2 /mcp/codex URL：migration/reuse 下配置仍指向它时保守改写为
-  // participant route（expectedUrl）；fresh 模式为 null，任何既有 agent_room 定义都拒绝。
+  // legacyUrl 是 v0.2 /mcp/codex URL：v0.2 migration 下配置仍指向它时保守改写为
+  // participant route（expectedUrl）；fresh/v0.3/v0.4 模式为 null——fresh 时任何既有
+  // agent_room 定义都拒绝，v0.3/v0.4 的 framed route 与 expectedUrl 完全一致，无需改写。
   let legacyUrl: string | null = null;
   if (rt.kind === 'missing') {
     // fresh binding：operator 只提供一次 agent_room_root。
@@ -517,58 +577,83 @@ async function main(): Promise<void> {
     const port = await allocateLoopbackPort();
     binding = {
       agent_room_root: root,
-      database_path: join(projectPath, RUNTIME_DIR, 'room.sqlite'),
+      database_path: join(projectPath, RUNTIME_DIR, 'room-v0.4.sqlite'),
       project_path: projectPath,
       port,
       room_id: `room-${randomUUID()}`,
       protocol_version: PROTOCOL_VERSION,
       control_participant_id: CONTROL_PARTICIPANT_ID,
-      archived_database_path: null,
+      archived_database_paths: [],
     };
     mode = 'created';
   } else if (rt.kind === 'invalid') {
     fail(`invalid runtime binding: ${rt.reason}`);
   } else if (rt.kind === 'valid-v02') {
-    // v0.2→v0.3 migration：stored agent_room_root 指向 v0.2 代码（如 detached launcher
-    // worktree），不能作为 v0.3 root，operator 必须再提供一次 --agent-room-root。旧
+    // v0.2→v0.4 migration：stored agent_room_root 指向 v0.2 代码（如 detached launcher
+    // worktree），不能作为 v0.4 root，operator 必须再提供一次 --agent-room-root。旧
     // database 保持原路径与字节不变（archive，不 delete/rename/原地改写）；创建新的
-    // room-v0.3.sqlite、新 room_id 与 control participant；复用 port。migration rerun
-    // 复用同一 v0.3 identity，不创建第二 database/Room/profile/assignment。
+    // room-v0.4.sqlite、新 room_id 与 control participant；复用 port；archives 只含旧
+    // v0.2 database。migration rerun 复用同一 v0.4 identity，不创建第二
+    // database/Room/profile/assignment。
     if (parsed.agentRoomRoot === undefined) {
       fail('--agent-room-root is required to migrate an existing v0.2 runtime binding');
     }
     const root = validateAgentRoomRoot(parsed.agentRoomRoot);
     binding = {
       agent_room_root: root,
-      database_path: join(projectPath, RUNTIME_DIR, 'room-v0.3.sqlite'),
+      database_path: join(projectPath, RUNTIME_DIR, 'room-v0.4.sqlite'),
       project_path: projectPath,
       port: rt.binding.port,
       room_id: `room-${randomUUID()}`,
       protocol_version: PROTOCOL_VERSION,
       control_participant_id: CONTROL_PARTICIPANT_ID,
-      archived_database_path: rt.binding.database_path,
+      archived_database_paths: [rt.binding.database_path],
     };
     legacyUrl = `http://127.0.0.1:${binding.port}/mcp/codex`;
     mode = 'migrated';
+  } else if (rt.kind === 'valid-v03') {
+    // v0.3→v0.4 migration：stored root 指向同一 agent-room 源码树（现含 v0.4 代码），
+    // 原地升级复用；operator 若另行提供 root 必须一致。旧 v0.3 database 与 v0.3 binding
+    // 记录的 v0.2 archived database（若存在）保持原路径与内容不变；archives 按版本先后
+    // 排序 [v0.2, v0.3]；创建新 room-v0.4.sqlite 与新 room_id；复用 port。framed
+    // participant route 在 v0.3 与 v0.4 完全一致，无需 legacy URL 改写。
+    const storedRoot = rt.binding.agent_room_root;
+    if (parsed.agentRoomRoot !== undefined && resolve(parsed.agentRoomRoot) !== resolve(storedRoot)) {
+      fail(`agent_room_root mismatch: runtime stores ${storedRoot}, provided ${parsed.agentRoomRoot}`);
+    }
+    validateAgentRoomRoot(storedRoot);
+    binding = {
+      agent_room_root: storedRoot,
+      database_path: join(projectPath, RUNTIME_DIR, 'room-v0.4.sqlite'),
+      project_path: projectPath,
+      port: rt.binding.port,
+      room_id: `room-${randomUUID()}`,
+      protocol_version: PROTOCOL_VERSION,
+      control_participant_id: CONTROL_PARTICIPANT_ID,
+      archived_database_paths: [
+        ...(rt.binding.archived_database_path === null ? [] : [rt.binding.archived_database_path]),
+        rt.binding.database_path,
+      ],
+    };
+    mode = 'migrated';
   } else {
-    // valid v0.3 binding 幂等复用：identity 以 stored 为准；operator 若另行提供 root 必须一致。
+    // valid v0.4 binding 幂等复用：identity 以 stored 为准；operator 若另行提供 root 必须一致。
     const storedRoot = rt.binding.agent_room_root;
     if (parsed.agentRoomRoot !== undefined && resolve(parsed.agentRoomRoot) !== resolve(storedRoot)) {
       fail(`agent_room_root mismatch: runtime stores ${storedRoot}, provided ${parsed.agentRoomRoot}`);
     }
     validateAgentRoomRoot(storedRoot);
     binding = rt.binding;
-    legacyUrl = `http://127.0.0.1:${binding.port}/mcp/codex`;
     mode = 'reused';
   }
 
   // MCP URL 从同一个 validated control identity 构造（Review finding inc9-fr2-5）：
   // binding.control_participant_id 已在生成路径（created/migrated）或 readRuntime（reused）
   // 校验为 exact codex-app，不分别使用 stored 任意值与 hardcoded route。route segment
-  // 使用 v0.3 canonical transport framing `p~` + encodeURIComponent(identity)（Fix
-  // inc9-fr4）；既有配置中的旧 unframed candidate URL（如 /mcp/participants/codex-app）
-  // 不是 expectedUrl 也不是 legacyUrl，由 planConfig 的 exact-match 分支按 conflict 在
-  // 任何写入前拒绝（无 auto-compat migration/rewrite）。
+  // 使用 canonical transport framing `p~` + encodeURIComponent(identity)（Fix inc9-fr4，
+  // v0.3 与 v0.4 同 framing）；既有配置中的旧 unframed candidate URL（如
+  // /mcp/participants/codex-app）不是 expectedUrl 也不是 legacyUrl，由 planConfig 的
+  // exact-match 分支按 conflict 在任何写入前拒绝（无 auto-compat migration/rewrite）。
   const expectedUrl = `http://127.0.0.1:${binding.port}/mcp/participants/p~${binding.control_participant_id}`;
   const configPlan = planConfig(configText, expectedUrl, legacyUrl);
   const gitignorePlan = planGitignore(gitignoreText);

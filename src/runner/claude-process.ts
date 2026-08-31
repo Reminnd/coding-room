@@ -44,6 +44,10 @@ export interface ClaudeProcessInput {
   codingResultJsonSchema: string;
   mcpConfig: string;
   resumeSessionId: string | null;
+  // Stage 2 cancel boundary：Executor 通过 poll boundary 观察到 cancel_requested 后 abort，
+  // 本模块只负责终止 owned child process；terminal 分类（canceled）由 Executor 在 abort
+  // 之后按 attempt status 唯一 settle，不在此伪造 exit code。
+  signal?: AbortSignal;
   onStdoutLine: (line: string) => void;
   onStderrChunk: (chunk: string) => void;
 }
@@ -142,6 +146,22 @@ export function startClaudeProcess(
     }
 
     let settled = false;
+
+    // abort 只终止 process；close 之后按正常 outcome 返回（exitCode null + signal 非 null），
+    // 是否映射为 canceled terminal 由 Executor 依据 attempt status 决定，不在本层判定。
+    if (input.signal !== undefined) {
+      const abortHandler = () => {
+        child.kill();
+      };
+      if (input.signal.aborted) {
+        abortHandler();
+      } else {
+        input.signal.addEventListener('abort', abortHandler, { once: true });
+        child.once('close', () => {
+          input.signal?.removeEventListener('abort', abortHandler);
+        });
+      }
+    }
 
     child.once('error', (cause) => {
       if (settled) return;

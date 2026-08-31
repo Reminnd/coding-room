@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { establishCleanBaseline } from '../git/git-observer.ts';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
   participantProfileSchema,
@@ -9,9 +8,11 @@ import {
   questionSchema,
   reviewSchema,
   roleAssignmentSchema,
+  runAttemptSchema,
+  runGuidanceSchema,
+  runSchema,
   taskContractSchema,
   type EventActor,
-  type TaskContract,
 } from '../protocol/schema.ts';
 import type { RoomService } from '../room/room-service.ts';
 import {
@@ -21,11 +22,12 @@ import {
   roomStateSnapshotSchema,
 } from '../room/state-snapshot.ts';
 
-// v0.3 tool surface 的注册层：单一路由 /mcp/participants/:participantId 把 participant
+// v0.4 tool surface 的注册层：单一路由 /mcp/participants/:participantId 把 participant
 // identity 从 route 传入，每个 tool 映射到 frozen required role，service 层按该 role 的
 // RoleAssignment 校验 authority。不信任 caller 传入的 actor string/header；write tool 只
 // 映射 RoomService application operation，不直接访问 repository/SQLite，不复制 state
-// transition 或 idempotency logic。
+// transition 或 idempotency logic。execution authority 已下放 per-Run：cancel/retry/
+// guidance 都以 run_id 显式路由，不存在单一 current Run 被 tools 隐式覆盖。
 
 export interface RoomMcpDependencies {
   service: RoomService;
@@ -60,34 +62,17 @@ async function runTool(fn: () => Promise<unknown>): Promise<CallToolResult> {
   }
 }
 
-// room_submit_task 的 Git gate 顺序：先查 existing Task，命中则直接委托 RoomService 保留
-// same-content idempotent retry 与 different-content id_conflict；仅首次 type=implementation
-// 提交才调用 establishCleanBaseline。fix 不重新要求 clean baseline。
-async function submitTask(
-  deps: RoomMcpDependencies,
-  actor: EventActor,
-  task: TaskContract,
-): Promise<unknown> {
-  const existing = deps.service.getTask(task.task_id);
-  if (!existing && task.type === 'implementation') {
-    const baseline = await establishCleanBaseline(deps.projectPath);
-    const result = deps.service.submitTask(task, actor);
-    return { ...result, observed_baseline_head: baseline.baselineHead };
-  }
-  const result = deps.service.submitTask(task, actor);
-  return { ...result, observed_baseline_head: null };
-}
-
 const submitTaskOutputSchema = z.object({
   room: roomRecordSchema,
   task: persistedTaskSchema,
+  run: runSchema,
   created: z.boolean(),
-  observed_baseline_head: z.string().nullable(),
 });
 
 const submitReviewOutputSchema = z.object({
   room: roomRecordSchema,
   review: reviewSchema,
+  run: runSchema,
   created: z.boolean(),
 });
 
@@ -100,6 +85,7 @@ const answerQuestionInputSchema = z.object({
 const answerQuestionOutputSchema = z.object({
   room: roomRecordSchema,
   question: questionSchema,
+  run: runSchema,
 });
 
 const acceptReviewInputSchema = z.object({
@@ -110,16 +96,57 @@ const acceptReviewInputSchema = z.object({
 const acceptReviewOutputSchema = z.object({
   room: roomRecordSchema,
   review: reviewSchema,
+  run: runSchema,
 });
 
 const askQuestionOutputSchema = z.object({
   room: roomRecordSchema,
   question: questionSchema,
+  attempt: runAttemptSchema,
   created: z.boolean(),
 });
 
 const roomIdInputSchema = z.object({
   room_id: z.string().min(1),
+});
+
+const retryRunInputSchema = z.object({
+  room_id: z.string().min(1),
+  run_id: z.string().min(1),
+});
+
+const retryRunOutputSchema = z.object({
+  room: roomRecordSchema,
+  run: runSchema,
+});
+
+// confirmed_by_user 是 protocol 级 literal true gate：cancel 必须携带用户确认，与
+// accept_review 同口径；schema boundary 直接拒绝 false，service 不再重复校验。
+const cancelRunInputSchema = z.object({
+  room_id: z.string().min(1),
+  run_id: z.string().min(1),
+  reason: z.string(),
+  confirmed_by_user: z.literal(true),
+});
+
+const cancelRunOutputSchema = z.object({
+  room: roomRecordSchema,
+  run: runSchema,
+  attempt: runAttemptSchema,
+  created: z.boolean(),
+});
+
+const addRunGuidanceInputSchema = z.object({
+  guidance_id: z.string().min(1),
+  room_id: z.string().min(1),
+  run_id: z.string().min(1),
+  text: z.string().min(1),
+});
+
+const addRunGuidanceOutputSchema = z.object({
+  room: roomRecordSchema,
+  guidance: runGuidanceSchema,
+  created: z.boolean(),
 });
 
 const createRoomOutputSchema = z.object({
@@ -150,9 +177,10 @@ const roleAssignmentOutputSchema = z.object({
   created: z.boolean(),
 });
 
-// tool → frozen required role（与 ROOM_PROTOCOL v0.3 candidate 一致）：
-// planner = create/planning/submit/answer；reviewer = review/accept；
-// worker = ask_question；orchestrator = participant/assignment 管理；
+// tool → frozen required role（与 ROOM_PROTOCOL v0.4 candidate 一致）：
+// planner = create/planning/submit/answer/retry/cancel/guidance；reviewer = review/accept；
+// worker = ask_question；orchestrator = participant/assignment 管理；executor 只经 Runner
+// 的 one-shot claim/settle/progress service boundary 执行，无 MCP write tool；
 // room_get_state 是 reader，任意 room member 可读。
 export function registerParticipantTools(
   server: McpServer,
@@ -178,7 +206,7 @@ export function registerParticipantTools(
   server.registerTool(
     'room_begin_architecture_review',
     {
-      description: 'Move the Room to ARCHITECTURE_REVIEW for the current Task.',
+      description: 'Move the Room to ARCHITECTURE_REVIEW for the current planning artifact.',
       inputSchema: roomIdInputSchema,
       outputSchema: roomOnlyOutputSchema,
     },
@@ -202,18 +230,41 @@ export function registerParticipantTools(
   server.registerTool(
     'room_retry_run',
     {
-      description: 'Return a failed Run to PLAN_READY so the Runner can retry the same Task.',
-      inputSchema: roomIdInputSchema,
-      outputSchema: roomOnlyOutputSchema,
+      description:
+        'Return a failed or canceled Run to ready so its next attempt can be claimed. Needs-decision Runs resume via room_answer_question and review_discussion Runs via a Fix Task; other Runs are unaffected.',
+      inputSchema: retryRunInputSchema,
+      outputSchema: retryRunOutputSchema,
     },
-    (args) => runTool(async () => ({ room: deps.service.retryAfterFailure(args.room_id, planner) })),
+    (args) => runTool(async () => deps.service.retryRun(args.room_id, args.run_id, planner)),
+  );
+
+  server.registerTool(
+    'room_cancel_run',
+    {
+      description:
+        'Request cancellation of a Run with an active attempt. The attempt and Run move to cancel_requested; the Executor observes the durable status and settles canceled. Requires confirmed_by_user=true.',
+      inputSchema: cancelRunInputSchema,
+      outputSchema: cancelRunOutputSchema,
+    },
+    (args) => runTool(async () => deps.service.cancelRun(args, planner)),
+  );
+
+  server.registerTool(
+    'room_add_run_guidance',
+    {
+      description:
+        'Add guidance for a Run. Only allowed while the Run has no active attempt; the next claim consumes it exactly once and injects it into the full prompt. Requests during a running attempt are rejected with zero writes.',
+      inputSchema: addRunGuidanceInputSchema,
+      outputSchema: addRunGuidanceOutputSchema,
+    },
+    (args) => runTool(async () => deps.service.addRunGuidance(args, planner)),
   );
 
   server.registerTool(
     'room_get_state',
     {
       description:
-        'Read the current Room state snapshot: room, participants, role assignments, all tasks/runs/reviews/questions, current task/run/review/open question, waiting actor, event cursor, and events after the given sequence.',
+        'Read the current Room state snapshot: room, participants, role assignments, all tasks/runs/attempts/guidance/reviews/questions, planning waiting actor, per-Run work items, event cursor, and events after the given sequence.',
       inputSchema: roomStateSnapshotInputSchema,
       outputSchema: roomStateSnapshotSchema,
     },
@@ -231,17 +282,17 @@ export function registerParticipantTools(
     'room_submit_task',
     {
       description:
-        'Submit a Task Contract. First-time implementation submission requires a clean Git worktree; fix tasks and same-content retries skip the gate.',
+        'Submit a Task Contract with an explicit run_id. An implementation Task atomically creates a ready Run and returns the Room to DISCUSSION; a fix Task attaches to an existing review_discussion Run and returns it to ready.',
       inputSchema: taskContractSchema,
       outputSchema: submitTaskOutputSchema,
     },
-    (args) => runTool(async () => submitTask(deps, planner, args)),
+    (args) => runTool(async () => deps.service.submitTask(args, planner)),
   );
 
   server.registerTool(
     'room_submit_review',
     {
-      description: 'Submit a Review for the current completed Run.',
+      description: 'Submit a Review for the latest succeeded attempt of a Run in review_required.',
       inputSchema: reviewSchema,
       outputSchema: submitReviewOutputSchema,
     },
@@ -251,7 +302,8 @@ export function registerParticipantTools(
   server.registerTool(
     'room_answer_question',
     {
-      description: 'Answer an open Question, optionally recording that the answer changes the contract.',
+      description:
+        'Answer an open Question. A contract answer returns the Run to ready; a scope-changing answer moves the Room to planning confirmation and keeps the Run in needs_decision.',
       inputSchema: answerQuestionInputSchema,
       outputSchema: answerQuestionOutputSchema,
     },
@@ -264,7 +316,7 @@ export function registerParticipantTools(
   server.registerTool(
     'room_accept_review',
     {
-      description: 'Accept the current Review on behalf of the user, once no blocking findings remain.',
+      description: 'Accept the current Review of a Run on behalf of the user, once no blocking findings remain.',
       inputSchema: acceptReviewInputSchema,
       outputSchema: acceptReviewOutputSchema,
     },
@@ -275,7 +327,8 @@ export function registerParticipantTools(
   server.registerTool(
     'room_ask_question',
     {
-      description: 'Ask a blocking question to the user, moving the Room to NEEDS_DECISION.',
+      description:
+        'Ask a blocking question from the active attempt of a Run. The attempt moves to decision_requested; the Executor stops the process and settles needs_decision. Only the frozen worker of the attempt may call this.',
       inputSchema: questionSchema,
       outputSchema: askQuestionOutputSchema,
     },

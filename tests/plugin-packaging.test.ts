@@ -54,8 +54,30 @@ const secretTokens = ['api_key', 'secret_key', 'password', 'token'];
 // key 形态需要长后缀（sk- 单独作为子串会命中 --task-id 等合法 flag，不构成凭据形态）。
 const secretPatterns: RegExp[] = [/sk-[A-Za-z0-9]{8,}/];
 
-// /mcp/codex 上既有 public tool surface 的测试侧 literal（九个）。
-const nineCodexTools = [
+// v0.4 public tool surface 的测试侧 literal（十五个，含 v0.4 新增 cancel/guidance）。
+// referenced 检查以此为准：SKILL 不得引用任何非 public room_* 标识符。
+const v04PublicTools = [
+  'room_accept_review',
+  'room_add_run_guidance',
+  'room_answer_question',
+  'room_ask_question',
+  'room_begin_architecture_review',
+  'room_cancel_run',
+  'room_create',
+  'room_create_role_assignment',
+  'room_get_state',
+  'room_register_participant',
+  'room_request_user_confirmation',
+  'room_retry_run',
+  'room_set_participant_enabled',
+  'room_submit_review',
+  'room_submit_task',
+];
+
+// SKILL workflow 必须路由的 public tools（setup continuation + planning + per-Run
+// lifecycle + Question/Review/Fix + cancel/guidance）；participant 管理工具是 bootstrap
+// 专用，不进入 workflow routing。
+const workflowTools = [
   'room_create',
   'room_get_state',
   'room_begin_architecture_review',
@@ -65,6 +87,8 @@ const nineCodexTools = [
   'room_retry_run',
   'room_submit_review',
   'room_accept_review',
+  'room_cancel_run',
+  'room_add_run_guidance',
 ];
 
 // —— YAML front matter 局部 parser（测试侧 literal；不导入 candidate validator/schema）——
@@ -212,13 +236,14 @@ test('shared plugin contains no project-specific values, secrets or permission m
   );
 });
 
-// 测试侧 frozen description literal：与 Increment 8 冻结值（显式 setup mode 入口）逐字符
-// 一致，用于 exact 断言。本局部 parser 只验证冻结 metadata 子集（name plain scalar +
-// JSON-compatible double-quoted description、恰好两个字段与负向 grammar fixture），不构成
-// actual installed-plugin consumer evidence：真实 load/activation 与 bundled resource
-// resolution 由 Codex/operator 在另行授权后执行，未运行前保持 not_run/pending。
+// 测试侧 frozen description literal：与 Increment 10 v0.4 冻结值（planning-only Room +
+// per-Run work items + one-shot RunAttempt 入口）逐字符一致，用于 exact 断言。本局部 parser
+// 只验证冻结 metadata 子集（name plain scalar + JSON-compatible double-quoted description、
+// 恰好两个字段与负向 grammar fixture），不构成 actual installed-plugin consumer evidence：
+// 真实 load/activation 与 bundled resource resolution 由 Codex/operator 在另行授权后执行，
+// 未运行前保持 not_run/pending。
 const frozenDescription =
-  'Use when the operator asks to run the Agent Room workflow for the current project or its local `.agent-room/runtime.json` binding, or to set up the Agent Room for the current project from an operator-provided agent_room_root: validate the project-local Room binding, follow the durable Room state through planning, one-shot Claude Run, Question, Review/Fix and acceptance, and invoke the Agent Room launcher at most once per approved task run.';
+  'Use when the operator asks to run the Agent Room workflow for the current project or its local `.agent-room/runtime.json` binding, or to set up the Agent Room for the current project from an operator-provided agent_room_root: validate the project-local Room binding, follow the durable planning-only Room state and per-Run work items through planning, one-shot RunAttempt, Question, Review/Fix and acceptance, and invoke the Agent Room launcher at most once per approved task run.';
 
 test('skill front matter satisfies the frozen metadata subset: exact name, frozen description and negative grammar fixtures', () => {
   const skill = readText(skillPath);
@@ -237,10 +262,10 @@ test('skill front matter satisfies the frozen metadata subset: exact name, froze
   );
   const fm = parseFrontMatter(skill);
   assert.equal(fm.name, 'agent-room');
-  // description 必须与 Increment 8 冻结值一致（JSON.parse 取回的内容，不含引号）。
+  // description 必须与 Increment 10 v0.4 冻结值一致（JSON.parse 取回的内容，不含引号）。
   assert.equal(fm.description, frozenDescription, 'description must equal the frozen value');
-  // description 面向 discovery：setup 显式入口 + project-local binding/planning/run/Question/Review-Fix。
-  for (const trigger of ['set up the Agent Room', 'runtime.json', 'planning', 'one-shot Claude Run', 'Question', 'Review/Fix']) {
+  // description 面向 discovery：setup 显式入口 + project-local binding/planning/per-Run/Question/Review-Fix。
+  for (const trigger of ['set up the Agent Room', 'runtime.json', 'planning', 'one-shot RunAttempt', 'Question', 'Review/Fix']) {
     assert.ok(fm.description.includes(trigger), `description must cover trigger ${trigger}`);
   }
   // description 不得声称非目标能力（只检查 front matter 描述块）。
@@ -249,7 +274,7 @@ test('skill front matter satisfies the frozen metadata subset: exact name, froze
   }
 });
 
-test('runtime.json template has exactly the eight v0.3 fields and its port placeholder becomes a JSON integer', () => {
+test('runtime.json template has exactly the eight v0.4 fields and its port placeholder becomes a JSON integer', () => {
   const setup = readText(projectSetupPath);
   const template = codeFenceBlocks(setup).find((b) => b.includes('agent_room_root'));
   assert.ok(template, 'runtime.json template must be a fenced block');
@@ -267,7 +292,7 @@ test('runtime.json template has exactly the eight v0.3 fields and its port place
   const parsed = JSON.parse(substituted) as Record<string, unknown>;
   assert.deepEqual(Object.keys(parsed).sort(), [
     'agent_room_root',
-    'archived_database_path',
+    'archived_database_paths',
     'control_participant_id',
     'database_path',
     'port',
@@ -279,9 +304,9 @@ test('runtime.json template has exactly the eight v0.3 fields and its port place
   assert.equal(parsed.database_path, 'C:/room.db');
   assert.equal(parsed.project_path, 'C:/project');
   assert.equal(parsed.room_id, 'room-a');
-  assert.equal(parsed.protocol_version, '0.3-design');
+  assert.equal(parsed.protocol_version, '0.4-design');
   assert.equal(parsed.control_participant_id, 'codex-app');
-  assert.equal(parsed.archived_database_path, null);
+  assert.deepEqual(parsed.archived_database_paths, [], 'fresh binding must have an empty archive array');
   assert.ok(Number.isInteger(parsed.port), 'port must be a JSON integer after substitution');
   assert.ok(
     (parsed.port as number) >= 1 && (parsed.port as number) <= 65535,
@@ -360,80 +385,105 @@ test('setup helper is discoverable, standard-library-only, and the Skill package
   );
 });
 
-test('skill maps every Room state to its legal action and allows launcher planning from ready states or answered decision continuations', () => {
+test('skill maps every planning Room state and per-Run status to its legal action with no single-current-Run authority', () => {
   const skill = readText(skillPath);
-  const stateActions: Array<[string, string]> = [
+  // v0.4：Room 是 planning-only（三个状态），execution 状态全部在 per-Run work items。
+  assert.ok(skill.includes('planning-only'), 'Room must be described as planning-only');
+  const roomStateActions: Array<[string, string]> = [
     ['DISCUSSION', 'room_begin_architecture_review'],
     ['ARCHITECTURE_REVIEW', 'room_request_user_confirmation'],
     ['WAITING_FOR_USER_CONFIRMATION', 'room_submit_task'],
-    ['PLAN_READY', 'These ready states allow planning exactly one Run'],
-    ['FIX_PLAN_READY', 'These ready states allow planning exactly one Run'],
-    ['CODING', 'Zero launcher invocations'],
-    ['NEEDS_DECISION', 'room_answer_question'],
-    ['RUN_FAILED', 'Only after the user decides to retry'],
-    ['REVIEW_REQUIRED', 'room_submit_review'],
-    ['REVIEW_DISCUSSION', 'room_accept_review'],
-    ['ACCEPTED', 'Report and stop'],
   ];
-  for (const [state, action] of stateActions) {
-    assert.ok(skill.includes(state), `skill must map state ${state}`);
-    assert.ok(skill.includes(action), `skill must define the action for ${state}`);
+  for (const [state, action] of roomStateActions) {
+    assert.ok(skill.includes(state), `skill must map planning state ${state}`);
+    assert.ok(skill.includes(action), `skill must define the planning action for ${state}`);
   }
-  // 九个 public tool 全部被引用；skill 不得引用任何其它 room_* 标识符（无第二状态 authority）。
-  for (const tool of nineCodexTools) {
-    assert.ok(skill.includes(tool), `skill must use public tool ${tool}`);
+  // per-Run status 表：ready/running/cancel_requested/needs_decision/failed/canceled/
+  // review_required/review_discussion/accepted 各有唯一合法下一动作。
+  const runStatusActions: Array<[string, string]> = [
+    ['`ready`', 'Step 4'],
+    ['`running`', 'Zero launcher invocations'],
+    ['`cancel_requested`', 'room_cancel_run'],
+    ['`needs_decision`', 'room_answer_question'],
+    ['`failed`', 'room_retry_run'],
+    ['`review_required`', 'room_submit_review'],
+    ['`review_discussion`', 'room_accept_review'],
+    ['`accepted`', 'Report and stop'],
+  ];
+  for (const [status, action] of runStatusActions) {
+    assert.ok(skill.includes(status), `skill must map Run status ${status}`);
+    assert.ok(skill.includes(action), `skill must define the action for ${status}`);
+  }
+  // per-Run authority 结构：run_work_items 排序是 authority，绝不推断单一 current Run。
+  assert.ok(skill.includes('run_work_items'), 'skill must route via run_work_items');
+  assert.ok(skill.includes('waiting_actor'), 'skill must route via per-Run waiting_actor');
+  assert.ok(skill.includes('never infers a single'), 'skill must never infer a single current Run');
+  // 全部 workflow public tools 被引用；skill 不得引用任何其它 room_* 标识符
+  //（无第二状态 authority；participant 管理工具是 bootstrap 专用，不进 workflow routing）。
+  for (const tool of workflowTools) {
+    assert.ok(skill.includes(tool), `skill must use workflow tool ${tool}`);
   }
   const referenced = new Set(skill.match(/\broom_[a-z_]+/g) ?? []);
   for (const name of referenced) {
-    // room_id 是 runtime.json 协议字段，不是 MCP tool；其余任何 room_* 标识符都必须属于九个 public tool。
+    // room_id 是 runtime.json 协议字段，不是 MCP tool；其余任何 room_* 标识符都必须属于 v0.4 public tools。
     if (name === 'room_id') continue;
-    assert.ok(nineCodexTools.includes(name), `skill must not reference non-public tool ${name}`);
+    assert.ok(v04PublicTools.includes(name), `skill must not reference non-public tool ${name}`);
   }
 });
 
-test('skill sources the first-implementation baseline only from observed_baseline_head and forbids live-Git fallbacks', () => {
+test('skill keeps the worktree baseline Run-owned at claim time and the command never carries a baseline or task id', () => {
   const skill = readText(skillPath);
+  // v0.4：baseline 不再来自 room_submit_task 响应——persisted Run 拥有 baseline（首个
+  // attempt 的 clean-Git gate 冻结），Skill 的 one-shot 命令绝不携带 --baseline-head/--task-id。
   assert.ok(
-    skill.includes('observed_baseline_head'),
-    'baseline must come from the room_submit_task response',
+    skill.includes('The persisted Run owns the worktree baseline'),
+    'baseline must be owned by the persisted Run',
   );
+  assert.ok(
+    skill.includes('frozen by the first attempt'),
+    'the first attempt claim must freeze the worktree baseline',
+  );
+  assert.ok(
+    skill.includes('never carries a `--task-id` or `--baseline-head`'),
+    'the one-shot command must not carry a baseline or task id',
+  );
+  assert.ok(!skill.includes('observed_baseline_head'), 'no v0.3 caller-baseline authority may remain');
   assert.ok(!skill.includes('rev-parse'), 'no git rev-parse fallback may appear');
   assert.ok(!/git\s+rev/.test(skill), 'no live Git HEAD read may appear');
-  assert.ok(
-    skill.includes('zero invocation and report `needs_decision`'),
-    'null/lost baseline must fail closed and report needs_decision',
-  );
-  // Fix / decision(false) resume / retry 省略 caller baseline；decision(true) 不得 resume 旧 Task。
-  assert.ok(skill.includes('omit `--baseline-head`'), 'continuations must omit the caller baseline');
+  // Fix / decision(false) resume / retry 继承 persisted Run 的 lineage；decision(true) 不得 resume 旧 Task。
   assert.ok(
     skill.includes('answer_changes_contract=true') && skill.includes('must not be resumed'),
     'contract-changing answers must return to planning and never resume the old task',
   );
-  // Step 4 合法入口由下面的组合 Decision Oracle 测试覆盖（ready states + answered continuation）。
+  // Step 4 合法入口由下面的 per-Run gate 测试覆盖（ready work items + answered continuation）。
 });
 
-test('skill gates launcher entry to ready states or answered decision continuations: open questions and active runs stay zero-launcher', () => {
+test('skill gates launcher entry to ready Run work items or answered decision continuations: open questions and active runs stay zero-launcher', () => {
   const skill = readText(skillPath);
-  // open current_question 的 NEEDS_DECISION 只 answer，零 launcher。
-  assert.ok(skill.includes('zero launcher'), 'open-question NEEDS_DECISION must stay zero-launcher');
+  // open Question 的 needs_decision Run 只 answer，零 launcher。
+  assert.ok(skill.includes('zero launcher'), 'open-question needs_decision must stay zero-launcher');
   assert.ok(skill.includes('current Question is still open'), 'open-question gate must be explicit');
-  // answer(false) 成功后 Room 保持 NEEDS_DECISION，该 continuation 成为 Step 4 合法入口。
+  // answer(false) 成功后 Run 回到 ready，该 answered continuation 成为 Step 4 合法入口。
   assert.ok(skill.includes('answer_changes_contract=false'), 'false-answer branch must be present');
-  assert.ok(skill.includes('the Room keeps `NEEDS_DECISION`'), 'Room stays in NEEDS_DECISION after a false answer');
-  for (const entry of ['PLAN_READY', 'FIX_PLAN_READY', 'NEEDS_DECISION']) {
+  assert.ok(skill.includes('returns to `ready`'), 'Run returns to ready after a false answer');
+  // Step 4 合法入口全部来自 ready work items（四个 continuation 来源，全部显式列出）。
+  for (const entry of [
+    'a new Implementation Run',
+    'a Fix Task continuation',
+    'a decision resume',
+    'a `room_retry_run` retry',
+  ]) {
     assert.ok(skill.includes(entry), `Step 4 must allow entry ${entry}`);
   }
-  // 已 answer 的 read model：current_question 为空，legality 由既有 launcher preflight 校验同一 lineage。
-  assert.ok(skill.includes('current_question'), 'answered read model must be explicit');
-  assert.ok(skill.includes('preflight'), 'continuation legality must be verified by the existing launcher preflight');
+  // 已 answer 的 read model：Question 不再 open，Run 的 baseline/session lineage 由 persisted Run 拥有。
+  assert.ok(skill.includes('current Question is answered'), 'answered read model must be explicit');
+  assert.ok(skill.includes('session lineage'), 'session lineage must be documented as per-Run');
   // answer(true)：不得 resume，也不得进入 Step 4。
   assert.ok(skill.includes('must not be resumed'), 'true-answer must never resume the old task');
   assert.ok(skill.includes('never enters Step 4'), 'true-answer branch must never enter Step 4');
-  // CODING / active Run：零 launcher。
-  assert.ok(skill.includes('Zero launcher invocations'), 'CODING stays zero-launcher');
-  // Decision resume 省略 caller baseline，继承 persisted source Run。
-  assert.ok(skill.includes('omit `--baseline-head`'), 'decision resume must omit the caller baseline');
-  // 显式拒绝旧 ready-state-only gate：既不能出现旧 Step 4 门槛短语，也不能保留任何排他声明。
+  // active attempt（running/cancel_requested）：零 launcher。
+  assert.ok(skill.includes('Zero launcher invocations'), 'active attempts stay zero-launcher');
+  // 显式拒绝旧 Room-state-only gate：既不能出现旧 Step 4 门槛短语，也不能保留任何排他声明。
   assert.ok(
     !skill.includes('Only from `PLAN_READY` / `FIX_PLAN_READY`'),
     'old ready-state-only gate must be rejected',
@@ -444,21 +494,27 @@ test('skill gates launcher entry to ready states or answered decision continuati
   );
 });
 
-test('skill plans each invocation with a fresh stable run_id and never mints a second id on uncertainty', () => {
+test('skill takes run_id from the durable snapshot, mints a fresh attempt_id and never mints a second id on uncertainty', () => {
   const skill = readText(skillPath);
-  assert.ok(skill.includes('fresh non-empty `run_id`'), 'run_id must be fresh and non-empty');
-  assert.ok(skill.includes('never changes'), 'run_id must stay stable across display/approval/execution');
+  // v0.4：run_id 只来自 durable snapshot 的 ready work item，Skill 自身绝不生成 Run id。
   assert.ok(
-    skill.includes('do not reuse any completed, failed, needs-decision or active Run id'),
-    'no reuse of existing Run ids',
+    skill.includes('comes exclusively from the durable snapshot'),
+    'run_id must come exclusively from the durable snapshot',
   );
+  assert.ok(skill.includes('it never changes'), 'run_id must stay stable across display/approval/execution');
   assert.ok(
-    skill.includes('mint a second `run_id` while the claim is unconfirmed'),
+    skill.includes('Never mint a second `run_id`'),
     'uncertain outcome must not mint a second run_id',
+  );
+  // attempt_id 每次 invocation 一个 fresh 值，claim 未确认前不得 mint 第二个。
+  assert.ok(skill.includes('fresh non-empty `attempt_id`'), 'attempt_id must be fresh and non-empty');
+  assert.ok(
+    skill.includes('never re-execute or mint a second `attempt_id`'),
+    'uncertain claim must not mint a second attempt_id',
   );
 });
 
-test('one-shot command quotes every path/ID/URL placeholder and resolves via the validated agent_room_root', () => {
+test('one-shot command quotes every path/ID/URL placeholder, carries run_id and a fresh attempt_id, and resolves via the validated agent_room_root', () => {
   const skill = readText(skillPath);
   const commandBlock = codeFenceBlocks(skill).find((b) =>
     b.startsWith('npm --prefix "<AGENT_ROOM_ROOT>" run room:run -- --db'),
@@ -466,13 +522,15 @@ test('one-shot command quotes every path/ID/URL placeholder and resolves via the
   assert.ok(commandBlock, 'one-shot template must be a fenced block starting with the prefixed launcher');
   assert.ok(commandBlock.includes('--db "<DATABASE_PATH>"'));
   assert.ok(commandBlock.includes('--project "<PROJECT_PATH>"'));
-  assert.ok(commandBlock.includes('--task-id "<TASK_ID>"'));
   assert.ok(commandBlock.includes('--run-id "<RUN_ID>"'));
+  assert.ok(commandBlock.includes('--attempt-id "<FRESH_ATTEMPT_ID>"'));
   assert.ok(
     commandBlock.includes('--mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli"'),
     'launcher must target the exact framed worker participant route',
   );
-  assert.ok(commandBlock.includes('[--baseline-head "<OBSERVED_BASELINE_HEAD>"]'));
+  // v0.4：baseline/task id 由 claim 时从 persisted Run 冻结，命令绝不携带两者。
+  assert.ok(!commandBlock.includes('--task-id'), 'one-shot command must not carry a task id');
+  assert.ok(!commandBlock.includes('--baseline-head'), 'one-shot command must not carry a baseline');
   assert.ok(!commandBlock.includes('package.json'), 'launcher template must not reference a target manifest');
   assert.ok(!commandBlock.includes('status'), 'launcher template must not contain a status form');
   assert.ok(!skill.includes('npm run room:run'), 'must not run room:run from the target project cwd');
@@ -519,7 +577,10 @@ test('skill re-reads the durable Room after every invocation and reports only th
   assert.ok(skill.includes('call `room_get_state` again'), 'post-run reread must call room_get_state');
   assert.ok(skill.includes('same `room_id`'), 'reread must use the same room_id');
   assert.ok(skill.includes('durable snapshot'), 'report must follow the durable snapshot');
-  assert.ok(skill.includes('REVIEW_REQUIRED'), 'snapshot states must be reportable');
+  // v0.4：report 对象是 Run status 而非 Room 单一大状态。
+  for (const runState of ['`review_required`', '`needs_decision`', '`failed`', '`canceled`']) {
+    assert.ok(skill.includes(runState), `snapshot Run states must be reportable (${runState})`);
+  }
   assert.ok(skill.includes('uncertain'), 'uncertain outcome must be handled');
 });
 

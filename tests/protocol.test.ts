@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  attemptStatusSchema,
   codingResultSchema,
   eventActorSchema,
   eventSchema,
@@ -12,11 +13,15 @@ import {
   roleAssignmentSchema,
   roleSchema,
   roomStateSchema,
+  runAttemptSchema,
+  runGuidanceSchema,
   runSchema,
+  runStatusSchema,
   taskContractSchema,
   utcTimestampSchema,
 } from '../src/protocol/schema.ts';
 import {
+  makeAttempt,
   makeCodingResult,
   makeFixTask,
   makeParticipant,
@@ -27,28 +32,18 @@ import {
   makeTask,
 } from './fixtures.ts';
 
-test('RoomState enum accepts only listed values', () => {
-  assert.deepEqual(
-    roomStateSchema.options,
-    [
-      'DISCUSSION',
-      'ARCHITECTURE_REVIEW',
-      'WAITING_FOR_USER_CONFIRMATION',
-      'PLAN_READY',
-      'CODING',
-      'NEEDS_DECISION',
-      'RUN_FAILED',
-      'REVIEW_REQUIRED',
-      'REVIEW_DISCUSSION',
-      'FIX_PLAN_READY',
-      'ACCEPTED',
-    ],
-  );
+test('RoomState enum accepts only the v0.4 planning-only values', () => {
+  assert.deepEqual(roomStateSchema.options, [
+    'DISCUSSION',
+    'ARCHITECTURE_REVIEW',
+    'WAITING_FOR_USER_CONFIRMATION',
+  ]);
 });
 
-test('protocol version is the frozen 0.3-design literal', () => {
-  assert.equal(protocolVersionSchema.value, '0.3-design');
-  assert.equal(protocolVersionSchema.safeParse('0.3-design').success, true);
+test('protocol version is the frozen 0.4-design literal', () => {
+  assert.equal(protocolVersionSchema.value, '0.4-design');
+  assert.equal(protocolVersionSchema.safeParse('0.4-design').success, true);
+  assert.equal(protocolVersionSchema.safeParse('0.3-design').success, false);
   assert.equal(protocolVersionSchema.safeParse('0.2').success, false);
 });
 
@@ -90,8 +85,14 @@ test('EventActor requires participant_id and a frozen Role; no fixed actor enum 
   assert.equal(eventActorSchema.safeParse({ participant_id: 'codex-app', actor_role: 'user' as never }).success, false);
 });
 
-test('TaskContract accepts a valid implementation task', () => {
+test('TaskContract accepts a valid implementation task with an explicit run_id', () => {
   assert.equal(taskContractSchema.safeParse(makeTask()).success, true);
+});
+
+test('TaskContract requires run_id', () => {
+  const { run_id: _runId, ...missing } = makeTask();
+  assert.equal(taskContractSchema.safeParse(missing).success, false);
+  assert.equal(taskContractSchema.safeParse(makeTask({ run_id: '' })).success, false);
 });
 
 test('TaskContract accepts a valid fix task', () => {
@@ -142,18 +143,64 @@ test('PersistedTask adds frozen planner/orchestrator identities to a TaskContrac
   );
 });
 
+test('RunStatus enum accepts only the v0.4 run lifecycle values', () => {
+  assert.deepEqual(runStatusSchema.options, [
+    'ready',
+    'running',
+    'cancel_requested',
+    'needs_decision',
+    'failed',
+    'canceled',
+    'review_required',
+    'review_discussion',
+    'accepted',
+  ]);
+});
+
 test('Run accepts a valid run and rejects illegal status', () => {
   assert.equal(runSchema.safeParse(makeRun()).success, true);
   assert.equal(runSchema.safeParse(makeRun({ status: 'flying' as never })).success, false);
 });
 
-test('Run requires claimed worker/executor identities and an opaque nullable agent_session_ref', () => {
+test('Run freezes worker identity and nullable worktree/baseline lineage fields', () => {
   const { worker_participant_id: _w, ...noWorker } = makeRun();
   assert.equal(runSchema.safeParse(noWorker).success, false);
-  const { executor_participant_id: _e, ...noExecutor } = makeRun();
-  assert.equal(runSchema.safeParse(noExecutor).success, false);
-  assert.equal(runSchema.safeParse(makeRun({ agent_session_ref: 'sess-1' })).success, true);
-  assert.equal(runSchema.safeParse(makeRun({ agent_session_ref: 42 as never })).success, false);
+  const { root_task_id: _r, ...noRoot } = makeRun();
+  assert.equal(runSchema.safeParse(noRoot).success, false);
+  assert.equal(runSchema.safeParse(makeRun({ worktree_path: 'D:\\agent\\case\\project' })).success, true);
+  assert.equal(runSchema.safeParse(makeRun({ baseline_head: 'deadbeef' })).success, true);
+  assert.equal(runSchema.safeParse(makeRun({ worktree_path: '' })).success, false);
+  assert.equal(runSchema.safeParse(makeRun({ accepted_at: T() })).success, true);
+  assert.equal(runSchema.safeParse(makeRun({ accepted_at: 42 as never })).success, false);
+});
+
+test('AttemptStatus enum accepts only the v0.4 attempt status values', () => {
+  assert.deepEqual(attemptStatusSchema.options, [
+    'running',
+    'decision_requested',
+    'cancel_requested',
+    'succeeded',
+    'failed',
+    'needs_decision',
+    'canceled',
+    'interrupted',
+  ]);
+});
+
+test('RunAttempt accepts a valid attempt and requires frozen worker/executor identities', () => {
+  assert.equal(runAttemptSchema.safeParse(makeAttempt()).success, true);
+  const { worker_participant_id: _w, ...noWorker } = makeAttempt();
+  assert.equal(runAttemptSchema.safeParse(noWorker).success, false);
+  const { executor_participant_id: _e, ...noExecutor } = makeAttempt();
+  assert.equal(runAttemptSchema.safeParse(noExecutor).success, false);
+  assert.equal(runAttemptSchema.safeParse(makeAttempt({ attempt_no: 0 })).success, false);
+  assert.equal(runAttemptSchema.safeParse(makeAttempt({ attempt_no: -1 })).success, false);
+  assert.equal(runAttemptSchema.safeParse(makeAttempt({ attempt_no: 1.5 })).success, false);
+  assert.equal(
+    runAttemptSchema.safeParse(makeAttempt({ settled_at: '2026-08-23T00:00:00.000Z' })).success,
+    true,
+  );
+  assert.equal(runAttemptSchema.safeParse(makeAttempt({ settled_at: 42 as never })).success, false);
 });
 
 test('CodingResult accepts valid shape and rejects illegal status', () => {
@@ -164,8 +211,10 @@ test('CodingResult accepts valid shape and rejects illegal status', () => {
   );
 });
 
-test('Review accepts valid shape and rejects illegal severity/decision', () => {
+test('Review accepts valid shape with attempt_id and rejects illegal severity/decision', () => {
   assert.equal(reviewSchema.safeParse(makeReview()).success, true);
+  const { attempt_id: _a, ...noAttempt } = makeReview();
+  assert.equal(reviewSchema.safeParse(noAttempt).success, false);
   assert.equal(reviewSchema.safeParse(makeReview({ decision: 'maybe' as never })).success, false);
   const { reviewer_participant_id: _r, ...noReviewer } = makeReview();
   assert.equal(reviewSchema.safeParse(noReviewer).success, false);
@@ -187,10 +236,34 @@ test('Review accepts valid shape and rejects illegal severity/decision', () => {
   );
 });
 
-test('Question accepts valid shape and rejects illegal status', () => {
+test('Question accepts valid shape with attempt_id and rejects illegal status', () => {
   assert.equal(questionSchema.safeParse(makeQuestion()).success, true);
+  const { attempt_id: _a, ...noAttempt } = makeQuestion();
+  assert.equal(questionSchema.safeParse(noAttempt).success, false);
   assert.equal(
     questionSchema.safeParse(makeQuestion({ status: 'closed' as never })).success,
+    false,
+  );
+});
+
+test('RunGuidance accepts valid shape and rejects empty text', () => {
+  const guidance = {
+    guidance_id: 'g-1',
+    room_id: 'room-1',
+    run_id: 'run-1',
+    text: 'prefer the repo helper',
+    planner_participant_id: 'codex-app',
+    created_at: T(),
+    consumed_by_attempt_id: null,
+  };
+  assert.equal(runGuidanceSchema.safeParse(guidance).success, true);
+  assert.equal(runGuidanceSchema.safeParse({ ...guidance, text: '' }).success, false);
+  assert.equal(
+    runGuidanceSchema.safeParse({ ...guidance, consumed_by_attempt_id: 'attempt-1' }).success,
+    true,
+  );
+  assert.equal(
+    runGuidanceSchema.safeParse({ ...guidance, consumed_by_attempt_id: 42 as never }).success,
     false,
   );
 });
@@ -203,15 +276,16 @@ test('Event accepts valid shape and rejects non-positive sequence or illegal act
     type: 't',
     actor_role: 'planner',
     participant_id: 'codex-app',
-    entity_type: 'room',
-    entity_id: 'room-1',
+    entity_type: 'run_attempt',
+    entity_id: 'attempt-1',
     summary: 's',
-    created_at: '2026-08-23T00:00:00.000Z',
+    created_at: T(),
   };
   assert.equal(eventSchema.safeParse(event).success, true);
   assert.equal(eventSchema.safeParse({ ...event, sequence: 0 }).success, false);
   assert.equal(eventSchema.safeParse({ ...event, actor_role: 'robot' as never }).success, false);
   assert.equal(eventSchema.safeParse({ ...event, participant_id: '' }).success, false);
+  assert.equal(eventSchema.safeParse({ ...event, entity_type: 'unknown' as never }).success, false);
 });
 
 test('utcTimestampSchema accepts valid UTC ISO 8601 and rejects invalid, non-UTC or invalid-date strings', () => {
@@ -227,5 +301,9 @@ test('utcTimestampSchema accepts valid UTC ISO 8601 and rejects invalid, non-UTC
 
 test('entity schemas reject an invalid timestamp', () => {
   assert.equal(taskContractSchema.safeParse(makeTask({ created_at: 'not-a-timestamp' })).success, false);
-  assert.equal(runSchema.safeParse(makeRun({ started_at: '2026-08-23T00:00:00' })).success, false);
+  assert.equal(runSchema.safeParse(makeRun({ created_at: '2026-08-23T00:00:00' })).success, false);
 });
+
+function T(): string {
+  return '2026-08-23T00:00:00.000Z';
+}

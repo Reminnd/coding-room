@@ -13,6 +13,8 @@ import type {
   RoleAssignment,
   RoomState,
   Run,
+  RunAttempt,
+  RunGuidance,
 } from '../protocol/schema.ts';
 
 // rooms.state 的持久化 shape。协议未定义独立 Room entity，这里只保存 room_id、
@@ -24,11 +26,10 @@ export interface RoomRecord {
   updated_at: string;
 }
 
-type EntityTable = 'tasks' | 'runs' | 'reviews' | 'questions' | 'participants' | 'role_assignments';
+type EntityTable = 'tasks' | 'reviews' | 'questions' | 'participants' | 'role_assignments';
 
 const TABLE_ID_COLUMN: Record<EntityTable, string> = {
   tasks: 'task_id',
-  runs: 'run_id',
   reviews: 'review_id',
   questions: 'question_id',
   participants: 'participant_id',
@@ -39,21 +40,32 @@ interface JsonRow {
   content_json: string;
 }
 
+function isSqliteUniqueError(err: unknown): err is Error {
+  return err instanceof Error && err.message.includes('UNIQUE constraint failed');
+}
+
 // SQLite 是协作实体与状态机的唯一权威来源。repository 只提供 entity CRUD 与
 // event append；不暴露任何绕过 transition 校验的 rooms.state 修改原语。
+// v0.4 为支持跨 process 并发事实增加 projection columns 与 partial unique index，
+// 并把约束竞争映射为稳定 domain error（run_already_active / worktree_already_owned /
+// id_conflict），不泄漏 raw SQLite error。
 export class RoomRepository {
   private readonly db: DatabaseSync;
 
   constructor(db: DatabaseSync) {
     this.db = db;
+    // 多 Run 的并发 CLI process 通过同一 file-backed database 串行化写事务：写锁竞争
+    // 等待而非立刻 SQLITE_BUSY，使 loser 在 winner commit 后以 fresh state 走 guard 或
+    // unique index 映射路径，保证 double-claim/cancel/settle 竞争确定性收敛。
+    this.db.exec('PRAGMA busy_timeout = 5000');
     this.assertWritableProtocol();
     this.createSchema();
     this.writeProtocolVersion();
   }
 
-  // v0.3 writable open 门禁：fresh database 直接建 schema 并写入 protocol metadata；
+  // v0.4 writable open 门禁：fresh database 直接建 schema 并写入 protocol metadata；
   // 已有 rooms 等表但无 protocol metadata 的是 v0.2 archive，任何 schema write 前拒绝；
-  // 已有 metadata 但 version 不 exact 匹配同样拒绝，避免兼容 parser 改写旧数据。
+  // 已有 metadata 但 version 不 exact 匹配（v0.3）同样拒绝，绝不原地改写旧数据。
   private assertWritableProtocol(): void {
     const tables = new Set(
       (this.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{
@@ -64,7 +76,7 @@ export class RoomRepository {
     if (!tables.has('protocol_metadata')) {
       throw new ProtocolError(
         'protocol_version_mismatch',
-        'database is a v0.2 archive without protocol metadata; v0.3 writable open refused',
+        'database is a v0.2 archive without protocol metadata; v0.4 writable open refused',
       );
     }
     const row = this.db
@@ -105,6 +117,30 @@ export class RoomRepository {
       );
       CREATE TABLE IF NOT EXISTS runs (
         run_id TEXT PRIMARY KEY,
+        room_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        worktree_path TEXT,
+        content_json TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_unaccepted_worktree
+        ON runs(worktree_path) WHERE worktree_path IS NOT NULL AND status != 'accepted';
+      CREATE TABLE IF NOT EXISTS run_attempts (
+        attempt_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        room_id TEXT NOT NULL,
+        task_id TEXT NOT NULL,
+        attempt_no INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        content_json TEXT NOT NULL,
+        UNIQUE(run_id, attempt_no)
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_run_attempts_active
+        ON run_attempts(run_id)
+        WHERE status IN ('running', 'decision_requested', 'cancel_requested');
+      CREATE TABLE IF NOT EXISTS run_guidance (
+        guidance_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        room_id TEXT NOT NULL,
         content_json TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS reviews (
@@ -152,13 +188,9 @@ export class RoomRepository {
     return row ?? null;
   }
 
-  // ---- Tasks / Runs / Reviews / Questions ----
+  // ---- Tasks / Reviews / Questions ----
   getTask(taskId: string): PersistedTask | null {
     return this.getEntity<PersistedTask>('tasks', 'task_id', taskId);
-  }
-
-  getRun(runId: string): Run | null {
-    return this.getEntity<Run>('runs', 'run_id', runId);
   }
 
   getReview(reviewId: string): Review | null {
@@ -173,10 +205,6 @@ export class RoomRepository {
     return this.insertEntity('tasks', task.task_id, task);
   }
 
-  insertRun(run: Run): { created: boolean } {
-    return this.insertEntity('runs', run.run_id, run);
-  }
-
   insertReview(review: Review): { created: boolean } {
     return this.insertEntity('reviews', review.review_id, review);
   }
@@ -185,16 +213,220 @@ export class RoomRepository {
     return this.insertEntity('questions', question.question_id, question);
   }
 
-  updateRun(run: Run): void {
-    this.db
-      .prepare('UPDATE runs SET content_json = ? WHERE run_id = ?')
-      .run(JSON.stringify(run), run.run_id);
-  }
-
   updateQuestion(question: Question): void {
     this.db
       .prepare('UPDATE questions SET content_json = ? WHERE question_id = ?')
       .run(JSON.stringify(question), question.question_id);
+  }
+
+  // ---- Runs（projection columns 与 content_json 同步维护）----
+  getRun(runId: string): Run | null {
+    const row = this.db.prepare('SELECT content_json FROM runs WHERE run_id = ?').get(runId) as
+      | JsonRow
+      | undefined;
+    return row ? (JSON.parse(row.content_json) as Run) : null;
+  }
+
+  insertRun(run: Run): { created: boolean } {
+    const contentJson = JSON.stringify(run);
+    const existing = this.db.prepare('SELECT content_json FROM runs WHERE run_id = ?').get(run.run_id) as
+      | JsonRow
+      | undefined;
+    if (existing) {
+      if (existing.content_json === contentJson) return { created: false };
+      throw new ProtocolError('id_conflict', `run id ${run.run_id} already exists with different content`);
+    }
+    try {
+      this.db
+        .prepare('INSERT INTO runs (run_id, room_id, status, worktree_path, content_json) VALUES (?, ?, ?, ?, ?)')
+        .run(run.run_id, run.room_id, run.status, run.worktree_path, contentJson);
+    } catch (err) {
+      if (isSqliteUniqueError(err)) {
+        if (err.message.includes('idx_runs_unaccepted_worktree') || err.message.includes('runs.worktree_path')) {
+          throw new ProtocolError('worktree_already_owned', `worktree ${run.worktree_path ?? ''} is already owned by an unaccepted run`);
+        }
+        if (err.message.includes('runs.run_id')) {
+          throw new ProtocolError('id_conflict', `run id ${run.run_id} already exists with different content`);
+        }
+      }
+      throw err;
+    }
+    return { created: true };
+  }
+
+  updateRun(run: Run): void {
+    try {
+      this.db
+        .prepare('UPDATE runs SET room_id = ?, status = ?, worktree_path = ?, content_json = ? WHERE run_id = ?')
+        .run(run.room_id, run.status, run.worktree_path, JSON.stringify(run), run.run_id);
+    } catch (err) {
+      if (isSqliteUniqueError(err)) {
+        if (err.message.includes('idx_runs_unaccepted_worktree') || err.message.includes('runs.worktree_path')) {
+          throw new ProtocolError('worktree_already_owned', `worktree ${run.worktree_path ?? ''} is already owned by an unaccepted run`);
+        }
+      }
+      throw err;
+    }
+  }
+
+  // 指定 room 内全部 Run（rowid 升序，稳定读取顺序）。
+  listRuns(roomId: string): Run[] {
+    return this.listEntitiesByRoom<Run>('runs', roomId);
+  }
+
+  // ---- RunAttempts ----
+  getAttempt(attemptId: string): RunAttempt | null {
+    const row = this.db
+      .prepare('SELECT content_json FROM run_attempts WHERE attempt_id = ?')
+      .get(attemptId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as RunAttempt) : null;
+  }
+
+  insertAttempt(attempt: RunAttempt): { created: boolean } {
+    const contentJson = JSON.stringify(attempt);
+    const existing = this.db
+      .prepare('SELECT content_json FROM run_attempts WHERE attempt_id = ?')
+      .get(attempt.attempt_id) as JsonRow | undefined;
+    if (existing) {
+      if (existing.content_json === contentJson) return { created: false };
+      throw new ProtocolError('id_conflict', `attempt id ${attempt.attempt_id} already exists with different content`);
+    }
+    try {
+      this.db
+        .prepare(
+          'INSERT INTO run_attempts (attempt_id, run_id, room_id, task_id, attempt_no, status, content_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        )
+        .run(
+          attempt.attempt_id,
+          attempt.run_id,
+          attempt.room_id,
+          attempt.task_id,
+          attempt.attempt_no,
+          attempt.status,
+          contentJson,
+        );
+    } catch (err) {
+      if (isSqliteUniqueError(err)) {
+        // 同 attempt_id 并发首插：PK 冲突 → id_conflict（content 不同）。
+        if (err.message.includes('run_attempts.attempt_id')) {
+          throw new ProtocolError('id_conflict', `attempt id ${attempt.attempt_id} already exists with different content`);
+        }
+        // 同 Run 并发 claim：attempt_no 唯一约束或 active-attempt partial index 冲突。
+        if (
+          err.message.includes('idx_run_attempts_active') ||
+          err.message.includes('run_attempts.run_id') ||
+          err.message.includes('run_attempts.attempt_no')
+        ) {
+          throw new ProtocolError('run_already_active', `run ${attempt.run_id} already has an active or numbered attempt`);
+        }
+      }
+      throw err;
+    }
+    return { created: true };
+  }
+
+  // 条件更新 attempt：expectedStatus 不匹配（另一 writer 已推进）时返回 false 且零写入。
+  // settle/cancel 的 first-writer-wins 以此为最终 Oracle：winner 先写，loser 的 UPDATE
+  // 命中 0 行后由 service 重新读取并走幂等/id_conflict 判定。
+  updateAttemptIfStatus(attempt: RunAttempt, expectedStatus: string): boolean {
+    const result = this.db
+      .prepare(
+        'UPDATE run_attempts SET status = ?, content_json = ? WHERE attempt_id = ? AND status = ?',
+      )
+      .run(attempt.status, JSON.stringify(attempt), attempt.attempt_id, expectedStatus);
+    return result.changes > 0;
+  }
+
+  listAttemptsByRoom(roomId: string): RunAttempt[] {
+    return this.listEntitiesByRoom<RunAttempt>('run_attempts', roomId);
+  }
+
+  // 同一 Run 的全部 attempt，attempt_no 升序（claim 顺序）。
+  listAttemptsByRun(runId: string): RunAttempt[] {
+    const rows = this.db
+      .prepare("SELECT content_json FROM run_attempts WHERE json_extract(content_json, '$.run_id') = ? ORDER BY attempt_no ASC")
+      .all(runId) as unknown as JsonRow[];
+    return rows.map((row) => JSON.parse(row.content_json) as RunAttempt);
+  }
+
+  // attempt_no 最大的 attempt（latest attempt of a Run）。
+  latestAttemptForRun(runId: string): RunAttempt | null {
+    const row = this.db
+      .prepare(
+        "SELECT content_json FROM run_attempts WHERE json_extract(content_json, '$.run_id') = ? ORDER BY attempt_no DESC LIMIT 1",
+      )
+      .get(runId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as RunAttempt) : null;
+  }
+
+  // 该 Run 当前 active（非终态）attempt；至多一个（partial unique index 保证）。
+  activeAttemptForRun(runId: string): RunAttempt | null {
+    const row = this.db
+      .prepare(
+        "SELECT content_json FROM run_attempts WHERE json_extract(content_json, '$.run_id') = ? AND status IN ('running', 'decision_requested', 'cancel_requested') ORDER BY attempt_no DESC LIMIT 1",
+      )
+      .get(runId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as RunAttempt) : null;
+  }
+
+  nextAttemptNo(runId: string): number {
+    const row = this.db
+      .prepare("SELECT COALESCE(MAX(json_extract(content_json, '$.attempt_no')), 0) AS max_no FROM run_attempts WHERE json_extract(content_json, '$.run_id') = ?")
+      .get(runId) as { max_no: number };
+    return row.max_no + 1;
+  }
+
+  // ---- RunGuidance ----
+  getGuidance(guidanceId: string): RunGuidance | null {
+    const row = this.db
+      .prepare('SELECT content_json FROM run_guidance WHERE guidance_id = ?')
+      .get(guidanceId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as RunGuidance) : null;
+  }
+
+  insertGuidance(guidance: RunGuidance): { created: boolean } {
+    const contentJson = JSON.stringify(guidance);
+    const existing = this.db
+      .prepare('SELECT content_json FROM run_guidance WHERE guidance_id = ?')
+      .get(guidance.guidance_id) as JsonRow | undefined;
+    if (existing) {
+      if (existing.content_json === contentJson) return { created: false };
+      throw new ProtocolError('id_conflict', `guidance id ${guidance.guidance_id} already exists with different content`);
+    }
+    this.db
+      .prepare('INSERT INTO run_guidance (guidance_id, run_id, room_id, content_json) VALUES (?, ?, ?, ?)')
+      .run(guidance.guidance_id, guidance.run_id, guidance.room_id, contentJson);
+    return { created: true };
+  }
+
+  updateGuidance(guidance: RunGuidance): void {
+    this.db
+      .prepare('UPDATE run_guidance SET content_json = ? WHERE guidance_id = ?')
+      .run(JSON.stringify(guidance), guidance.guidance_id);
+  }
+
+  listGuidanceByRoom(roomId: string): RunGuidance[] {
+    return this.listEntitiesByRoom<RunGuidance>('run_guidance', roomId);
+  }
+
+  // 未被消费的 guidance，rowid 升序（保存顺序，先保存先消费）。
+  listUnconsumedGuidance(runId: string): RunGuidance[] {
+    const rows = this.db
+      .prepare(
+        "SELECT content_json FROM run_guidance WHERE json_extract(content_json, '$.run_id') = ? AND json_extract(content_json, '$.consumed_by_attempt_id') IS NULL ORDER BY rowid ASC",
+      )
+      .all(runId) as unknown as JsonRow[];
+    return rows.map((row) => JSON.parse(row.content_json) as RunGuidance);
+  }
+
+  // 某 attempt 已消费的 guidance（same-ID claim retry 返回时重建首次消费事实）。
+  listGuidanceConsumedBy(attemptId: string): RunGuidance[] {
+    const rows = this.db
+      .prepare(
+        "SELECT content_json FROM run_guidance WHERE json_extract(content_json, '$.consumed_by_attempt_id') = ? ORDER BY rowid ASC",
+      )
+      .all(attemptId) as unknown as JsonRow[];
+    return rows.map((row) => JSON.parse(row.content_json) as RunGuidance);
   }
 
   // ---- Participants / RoleAssignments ----
@@ -284,10 +516,6 @@ export class RoomRepository {
     return this.listEntitiesByRoom<PersistedTask>('tasks', roomId);
   }
 
-  listRuns(roomId: string): Run[] {
-    return this.listEntitiesByRoom<Run>('runs', roomId);
-  }
-
   listReviews(roomId: string): Review[] {
     return this.listEntitiesByRoom<Review>('reviews', roomId);
   }
@@ -314,6 +542,37 @@ export class RoomRepository {
     return rows.map((row) => JSON.parse(row.content_json) as ParticipantProfile);
   }
 
+  // 某 Run 的最新 Task（同一 Run 的 Fix chain 里 rowid 最大者）。
+  latestTaskForRun(runId: string): PersistedTask | null {
+    const row = this.db
+      .prepare(
+        "SELECT content_json FROM tasks WHERE json_extract(content_json, '$.run_id') = ? ORDER BY rowid DESC LIMIT 1",
+      )
+      .get(runId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as PersistedTask) : null;
+  }
+
+  // 该 Run 当前 open Question：同一 Run 至多一个 open Question（active attempt 至多 ask 一次，
+  // ask 后 attempt 变为 decision_requested 并失去 running 资格）。
+  latestOpenQuestionForRun(runId: string): Question | null {
+    const row = this.db
+      .prepare(
+        "SELECT content_json FROM questions WHERE json_extract(content_json, '$.run_id') = ? AND json_extract(content_json, '$.status') = 'open' ORDER BY rowid DESC LIMIT 1",
+      )
+      .get(runId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as Question) : null;
+  }
+
+  // 该 Run 最新 Review（rowid 升序插入，latest 即 rowid 最大者）。
+  latestReviewForRun(runId: string): Review | null {
+    const row = this.db
+      .prepare(
+        "SELECT content_json FROM reviews WHERE json_extract(content_json, '$.run_id') = ? ORDER BY rowid DESC LIMIT 1",
+      )
+      .get(runId) as JsonRow | undefined;
+    return row ? (JSON.parse(row.content_json) as Review) : null;
+  }
+
   // ---- Events ----
   appendEvent(input: {
     room_id: string;
@@ -324,11 +583,10 @@ export class RoomRepository {
     summary: string;
     created_at: string;
   }): Event {
-    const sequence = this.nextSequence(input.room_id);
     const event: Event = {
       event_id: randomUUID(),
       room_id: input.room_id,
-      sequence,
+      sequence: this.nextSequence(input.room_id),
       type: input.type,
       actor_role: input.actor.actor_role,
       participant_id: input.actor.participant_id,
@@ -337,14 +595,27 @@ export class RoomRepository {
       summary: input.summary,
       created_at: input.created_at,
     };
-    this.db
-      .prepare('INSERT INTO events (event_id, room_id, sequence, content_json) VALUES (?, ?, ?, ?)')
-      .run(event.event_id, event.room_id, event.sequence, JSON.stringify(event));
+    try {
+      this.db
+        .prepare('INSERT INTO events (event_id, room_id, sequence, content_json) VALUES (?, ?, ?, ?)')
+        .run(event.event_id, event.room_id, event.sequence, JSON.stringify(event));
+    } catch (err) {
+      // 并发写事务各自在事务开始读到同一 MAX(sequence)，loser 等待 winner commit 后
+      // 命中 UNIQUE(room_id, sequence)：此时重读一次 fresh MAX 并重插，让并发 append
+      // 确定性收敛，而不是泄漏 raw SQLite error。
+      if (isSqliteUniqueError(err) && err.message.includes('events')) {
+        event.sequence = this.nextSequence(input.room_id);
+        this.db
+          .prepare('INSERT INTO events (event_id, room_id, sequence, content_json) VALUES (?, ?, ?, ?)')
+          .run(event.event_id, event.room_id, event.sequence, JSON.stringify(event));
+      } else {
+        throw err;
+      }
+    }
     return event;
   }
 
   // 返回指定 room 内 type 匹配且 sequence 最大的 Event 的 entity_id；无匹配返回 null。
-  // 用于判定 current Review（最近一次 review_submitted Event 指向的 Review）。
   latestEventEntityId(roomId: string, type: string): string | null {
     const row = this.db
       .prepare(
@@ -366,7 +637,7 @@ export class RoomRepository {
   }
 
   // ---- Private helpers ----
-  private listEntitiesByRoom<T>(table: EntityTable, roomId: string): T[] {
+  private listEntitiesByRoom<T>(table: EntityTable | 'runs' | 'run_attempts' | 'run_guidance', roomId: string): T[] {
     const rows = this.db
       .prepare(
         `SELECT content_json FROM ${table} WHERE json_extract(content_json, '$.room_id') = ? ORDER BY rowid ASC`,

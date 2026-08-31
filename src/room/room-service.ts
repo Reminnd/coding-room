@@ -9,7 +9,6 @@ import {
   questionSchema,
   reviewSchema,
   roleAssignmentSchema,
-  runSchema,
   taskContractSchema,
   type CodingResult,
   type Event,
@@ -22,13 +21,15 @@ import {
   type RoleAssignment,
   type RoomState,
   type Run,
+  type RunAttempt,
+  type RunGuidance,
   type TaskContract,
 } from '../protocol/schema.ts';
 import { RoomRepository, type RoomRecord } from './repository.ts';
-import { resolveTransition } from './state-machine.ts';
+import { resolveAttemptTransition, resolveRunTransition, resolveTransition } from './state-machine.ts';
 
-// ---- v0.3 bootstrap profiles / assignments ----
-// 创建 Room 时注册的最小 identity 集合。adapter_id 是 Stage 1 已验收 adapter 的 key；
+// ---- v0.4 bootstrap profiles / assignments ----
+// 创建 Room 时注册的最小 identity 集合。adapter_id 是已验收 adapter 的 key；
 // provider/config_ref 只是描述性 metadata，config_ref 不存 secret。
 export const BOOTSTRAP_PARTICIPANTS: readonly Omit<ParticipantProfile, 'created_at'>[] = [
   {
@@ -78,7 +79,7 @@ export const BOOTSTRAP_PARTICIPANTS: readonly Omit<ParticipantProfile, 'created_
 // bootstrap room-scope assignments：codex-app 是 single control orchestrator 兼
 // planner/reviewer，Claude Code CLI 是 worker，local service 是 executor。operator 只保留
 // human profile，不持有 active assignment（Review finding inc9-r4）。git_controller 在
-// Stage 1 只可登记 assignment 不执行，因此 bootstrap 不分配。
+// Stage 2 只可登记 assignment 不执行，因此 bootstrap 不分配。
 export const BOOTSTRAP_ASSIGNMENTS: readonly Omit<
   RoleAssignment,
   'assignment_id' | 'room_id' | 'created_at'
@@ -93,15 +94,16 @@ export const BOOTSTRAP_ASSIGNMENTS: readonly Omit<
 // Runner / system Event 使用的 local service participant。
 export const LOCAL_SERVICE_PARTICIPANT_ID = 'local-runner';
 
-// Stage 1 role → 已验收 adapter 映射：只有已验收 adapter 的 participant 才能被解析为可执行
+// role → 已验收 adapter 映射：只有已验收 adapter 的 participant 才能被解析为可执行
 // assignment；其它 provider profile 可注册但不可承担可执行 role（ADR-0003 §4.3）。
+// v0.4 worker 不再有 adapter 门禁：worker assignment 是 provider-neutral identity 路由，
+// 具体 WorkerAdapter 可用性在 claim 时校验（worker_adapter_unavailable，零副作用）。
 const ROLE_REQUIRED_ADAPTERS: Partial<Record<Role, readonly string[]>> = {
   planner: ['codex_app'],
   reviewer: ['codex_app'],
-  worker: ['claude_code_cli'],
   executor: ['local_runner'],
   orchestrator: ['human', 'codex_app'],
-  // git_controller 兼容规则冻结为 local_runner（Review finding inc9-r5）；Stage 1 只可
+  // git_controller 兼容规则冻结为 local_runner（Review finding inc9-r5）；Stage 2 只可
   // 登记 assignment，不执行 Git write。
   git_controller: ['local_runner'],
 };
@@ -116,31 +118,37 @@ const ROLE_REQUIRED_CAPABILITIES: Partial<Record<Role, string>> = {
   git_controller: 'git_control',
 };
 
-// Runner 在 terminal transition 时必须随 result/failure 一并持久化的完成证据：agent session
-// ref、process exit、Git evidence 与 artifact refs 都在同一 RoomService transaction 内提交，
-// 避免 succeeded/failed Run 缺少已观察到的 process/Git/artifact evidence。git_evidence 的
-// shape 与 Run.git_evidence 一致，但不 import schema.ts 的未导出 zod schema。
-export interface RunTerminalEvidence {
+// Executor settle 请求的 terminal target 与完整 attempt evidence。service 是唯一 terminal
+// 写入者：attempt 的 settled_at 与 evidence 在同一 transaction 提交，失败即整体回滚。
+export interface SettleAttemptInput {
+  attempt_id: string;
+  status: 'succeeded' | 'failed' | 'needs_decision' | 'canceled' | 'interrupted';
+  result: CodingResult | null;
+  failure: { code: string; message: string } | null;
   agent_session_ref: string | null;
   process_exit_code: number | null;
   git_evidence: { staged: string[]; unstaged: string[]; untracked: string[] };
   artifact_refs: string[];
 }
 
-// 只读 continuation context：Runner 在 spawn 前据此推导 Decision/Fix/retry resume 的 exact
-// session、baseline 与 answered Question，不接受 caller 覆盖这些 authority。new_implementation
-// 表示首次 Implementation（无 source Run），走 clean-baseline start；retry 表示同一 current
-// Task 存在已 terminal-finalized 的 failed source Run，继承其 baseline 与可选 session。
-export type ContinuationContext =
-  | { kind: 'new_implementation'; sourceRun: null; question: null; review: null }
-  | { kind: 'decision'; sourceRun: Run; question: Question; review: null }
-  | { kind: 'fix'; sourceRun: Run; question: null; review: Review }
-  | { kind: 'retry'; sourceRun: Run; question: null; review: null };
+// atomic claim 的 caller-owned 输入：attempt_id 必须 fresh；worktree_path/baseline_head 由
+// Executor 在 claim 前经 Git Observer 解析（首 attempt clean gate，后续 HEAD==baseline 校验），
+// claim 只负责冻结/继承与并发事实。
+export interface ClaimAttemptInput {
+  attempt_id: string;
+  run_id: string;
+  room_id: string;
+  worktree_path: string;
+  baseline_head: string;
+}
 
-// application service 是唯一拥有 rooms.state 修改权限的模块。每个公开方法都在单个
-// SQLite transaction 内完成 entity write、state change 与 Event append，失败即回滚。
-// v0.3 的每个 command 都接收 EventActor（participant_id + actor_role）：role 决定转换
-// authority，participant 决定谁实际执行；Event 与 lifecycle entity 在创建时固化 identity。
+// application service 是唯一拥有 rooms.state 与 Run/RunAttempt.status 修改权限的模块。
+// v0.4 状态所有权三层分离：Room 只拥有 planning 状态；Run 拥有 execution/review/acceptance
+// lifecycle；RunAttempt 拥有单次 process 与唯一 terminal outcome。每个公开方法都在单个
+// SQLite transaction 内完成 entity write、state change 与 Event append，失败即回滚；
+// BEGIN IMMEDIATE 使 writer 在 guard 读取前先取得写锁（Review finding inc10-r1）：跨
+// process 写竞争在 PRAGMA busy_timeout 内串行化，loser 在 winner commit 后以 fresh state
+// 重走 guard 或 partial unique index 路径确定性收敛，不泄漏 raw SQLite error。
 export class RoomService {
   private readonly db: DatabaseSync;
   private readonly repo: RoomRepository;
@@ -205,18 +213,15 @@ export class RoomService {
     });
   }
 
-  retryAfterFailure(roomId: string, actor: EventActor): RoomRecord {
-    return this.tx(() => {
-      this.assertAuthority(roomId, actor, 'planner');
-      return this.planningTransition(roomId, 'PLAN_READY', `room ${roomId} retry after failure`, actor);
-    });
-  }
-
   // ---- Task submission (planner) ----
+  // v0.4：implementation 要求 Room=WAITING_FOR_USER_CONFIRMATION，在同一 transaction 原子创建
+  // ready Run（冻结 worker）并把 Room 返回 DISCUSSION；fix 附着到既有 review_discussion Run，
+  // 校验 current Review 后把 Run 转回 ready，Room 状态不变。两种类型的 Run/Review/failure
+  // authority 都是 per-Run，不再写入 Room.state。
   submitTask(
     input: unknown,
     actor: EventActor,
-  ): { room: RoomRecord; task: PersistedTask; created: boolean } {
+  ): { room: RoomRecord; task: PersistedTask; run: Run; created: boolean } {
     const contract = this.parse(taskContractSchema, input, 'TaskContract') as TaskContract;
     return this.tx(() => {
       this.requireRoom(contract.room_id);
@@ -225,8 +230,8 @@ export class RoomService {
         // same-ID retry 按 stored Task 冻结的提交 identity 认证（Review finding inc9-fr2-3）：
         // 不使用 current assignment 重新 augment existing content 后比较。content 判定复用
         // repository：layered content（caller-owned contract + stored frozen identity）与
-        // stored 相同 → created=false 且零写入；不同 → id_conflict。两种失败都由 transaction
-        // 保证 Room/entity/Event 零写入。
+        // stored 相同 → created=false 且零写入；不同 → id_conflict。失败由 transaction 整体
+        // rollback，Run/Event 零写入。
         this.assertTaskRetryAuthority(existing, actor);
         const retry = {
           ...contract,
@@ -234,7 +239,13 @@ export class RoomService {
           orchestrator_participant_id: existing.orchestrator_participant_id,
         };
         this.repo.insertTask(retry);
-        return { room: this.requireRoom(contract.room_id), task: existing, created: false };
+        // 首次提交已创建/推进 Run；retry 只返回既有 authority 事实。
+        return {
+          room: this.requireRoom(contract.room_id),
+          task: existing,
+          run: this.requireRun(existing.run_id),
+          created: false,
+        };
       }
       // 新 Task 继续使用 current assignment authority 并在提交时固化 planner/orchestrator
       // identity；输入契约本身不含这两个字段。
@@ -242,213 +253,394 @@ export class RoomService {
       const task = this.augmentTaskWithIdentities(contract);
       this.repo.insertTask(task);
       if (task.type === 'fix') {
-        this.validateFixReferences(task);
-        this.applyTransition(task.room_id, 'FIX_PLAN_READY', actor);
+        const run = this.attachFixToRun(task);
+        return { room: this.requireRoom(task.room_id), task, run, created: true };
+      }
+      const run = this.createReadyRunForImplementation(task);
+      return { room: this.requireRoom(task.room_id), task, run, created: true };
+    });
+  }
+
+  // ---- Run creation（implementation 的内部步骤，仍在同一 transaction 内）----
+  private createReadyRunForImplementation(task: PersistedTask): Run {
+    const room = this.requireRoom(task.room_id);
+    if (room.state !== 'WAITING_FOR_USER_CONFIRMATION') {
+      throw new ProtocolError(
+        'validation_failed',
+        `implementation task ${task.task_id} requires room ${task.room_id} to be WAITING_FOR_USER_CONFIRMATION (state ${room.state})`,
+      );
+    }
+    // worker 在 Run 创建时解析并冻结：Task scope 优先、Room default fallback；此时 Task 已
+    // insert，task-scoped assignment 可正常命中。adapter 门禁不在 assignment/创建层，claim
+    // 时校验（provider-neutral worker routing）。
+    const worker = this.requireResolvedAssignment(task.room_id, 'task', task.task_id, 'worker');
+    const createdAt = this.now();
+    const run: Run = {
+      run_id: task.run_id,
+      room_id: task.room_id,
+      root_task_id: task.task_id,
+      status: 'ready',
+      worker_participant_id: worker.participant_id,
+      worktree_path: null,
+      baseline_head: null,
+      created_at: createdAt,
+      updated_at: createdAt,
+      accepted_at: null,
+    };
+    this.repo.insertRun(run);
+    this.applyTransition(task.room_id, 'DISCUSSION', {
+      participant_id: LOCAL_SERVICE_PARTICIPANT_ID,
+      actor_role: 'planner',
+    });
+    this.repo.appendEvent({
+      room_id: task.room_id,
+      type: 'run_created',
+      actor: { participant_id: LOCAL_SERVICE_PARTICIPANT_ID, actor_role: 'planner' },
+      entity_type: 'run',
+      entity_id: run.run_id,
+      summary: `run ${run.run_id} created for task ${task.task_id}`,
+      created_at: createdAt,
+    });
+    this.repo.appendEvent({
+      room_id: task.room_id,
+      type: 'task_submitted',
+      actor: { participant_id: task.planner_participant_id, actor_role: 'planner' },
+      entity_type: 'task',
+      entity_id: task.task_id,
+      summary: `task ${task.task_id} submitted (${task.type})`,
+      created_at: createdAt,
+    });
+    return run;
+  }
+
+  // ---- Fix attachment（fix 的内部步骤，仍在同一 transaction 内）----
+  private attachFixToRun(task: PersistedTask): Run {
+    const run = this.requireRun(task.run_id);
+    if (run.room_id !== task.room_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `fix task ${task.task_id} references run ${run.run_id} from another room`,
+      );
+    }
+    if (run.status !== 'review_discussion') {
+      throw new ProtocolError(
+        'validation_failed',
+        `fix task ${task.task_id} requires run ${run.run_id} to be review_discussion (status ${run.status})`,
+      );
+    }
+    const parent = this.requireTask(task.parent_task_id ?? '');
+    if (parent.room_id !== task.room_id || parent.run_id !== run.run_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `fix task ${task.task_id} references parent task from another room or run`,
+      );
+    }
+    const review = this.requireReview(task.based_on_review_id ?? '');
+    if (review.room_id !== task.room_id || review.run_id !== run.run_id || review.task_id !== parent.task_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `fix task ${task.task_id} references review ${review.review_id} that does not target parent task in run ${run.run_id}`,
+      );
+    }
+    // Review 只审查 target Run 的 latest succeeded attempt；Fix 必须引用该 Run 的 current
+    // Review（rowid latest），stale Review 即使属于同一 Run 也拒绝。
+    const currentReview = this.repo.latestReviewForRun(run.run_id);
+    if (!currentReview || currentReview.review_id !== review.review_id) {
+      throw new ProtocolError(
+        'validation_failed',
+        `fix task ${task.task_id} references review ${review.review_id} which is not the current review of run ${run.run_id}`,
+      );
+    }
+    for (const finding of task.confirmed_findings ?? []) {
+      if (!review.findings.some((f) => f.finding_id === finding.finding_id)) {
+        throw new ProtocolError(
+          'validation_failed',
+          `confirmed finding ${finding.finding_id} does not exist in review ${review.review_id}`,
+        );
+      }
+    }
+    const updated: Run = { ...run, status: 'ready', updated_at: this.now() };
+    this.repo.updateRun(updated);
+    this.repo.appendEvent({
+      room_id: task.room_id,
+      type: 'task_submitted',
+      actor: { participant_id: task.planner_participant_id, actor_role: 'planner' },
+      entity_type: 'task',
+      entity_id: task.task_id,
+      summary: `task ${task.task_id} submitted (${task.type})`,
+      created_at: this.now(),
+    });
+    return updated;
+  }
+
+  // ---- Atomic attempt claim (executor) ----
+  // 单一 transaction 内按 Contract 顺序执行：认证 authority → 验证 Run ready → 拒绝已有
+  // active attempt → 解析并冻结 executor → 校验 Worker adapter → 冻结/继承 canonical
+  // worktree 与 baseline → 分配 attempt_no → 创建 running attempt → 消费 pending guidance →
+  // 更新 Run → 追加 run_attempt_claimed Event。并发 loser 由 partial unique index 映射为
+  // run_already_active / worktree_already_owned，零残留。
+  claimRunAttempt(
+    input: unknown,
+    actor: EventActor,
+  ): { room: RoomRecord; run: Run; attempt: RunAttempt; guidance: RunGuidance[]; created: boolean } {
+    const claim = this.parse(claimInputSchema, input, 'ClaimAttemptInput') as ClaimAttemptInput;
+    return this.tx(() => {
+      const existing = this.repo.getAttempt(claim.attempt_id);
+      if (existing) {
+        // same-ID retry 按 stored attempt 冻结的 executor 认证；不要求 current assignment。
+        // caller-owned 字段（run/room/worktree/baseline）与 stored 一致 → 幂等返回首次 claim
+        // 事实（含已消费 guidance）且零写入；不一致 → id_conflict。
+        this.assertAttemptCommandAuthority(existing, actor, 'executor');
+        if (
+          existing.run_id !== claim.run_id ||
+          existing.room_id !== claim.room_id ||
+          existing.worktree_path !== claim.worktree_path ||
+          existing.baseline_head !== claim.baseline_head
+        ) {
+          throw new ProtocolError(
+            'id_conflict',
+            `attempt id ${claim.attempt_id} already exists with different claim payload`,
+          );
+        }
+        return {
+          room: this.requireRoom(existing.room_id),
+          run: this.requireRun(existing.run_id),
+          attempt: existing,
+          guidance: this.repo.listGuidanceConsumedBy(existing.attempt_id),
+          created: false,
+        };
+      }
+      const run = this.requireRun(claim.run_id);
+      const room = this.requireRoom(claim.room_id);
+      if (run.room_id !== claim.room_id || room.room_id !== claim.room_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `claim ${claim.attempt_id} references run/room from different rooms`,
+        );
+      }
+      // 已有 active attempt（或 Run 已离开 ready）→ run_already_active；partial unique
+      // index 同时兜底并发竞争。
+      if (this.repo.activeAttemptForRun(claim.run_id)) {
+        throw new ProtocolError('run_already_active', `run ${claim.run_id} already has an active attempt`);
+      }
+      if (run.status !== 'ready') {
+        throw new ProtocolError(
+          'validation_failed',
+          `run ${claim.run_id} is not ready (status ${run.status})`,
+        );
+      }
+      // executor 按 Run 当前 Task 的 Task scope 优先、Room fallback 解析并冻结为 actor。
+      const task = this.repo.latestTaskForRun(claim.run_id);
+      if (!task) {
+        throw new ProtocolError('entity_not_found', `run ${claim.run_id} has no task`);
+      }
+      this.assertExecutorClaimAuthority(task, actor);
+      // Worker adapter 门禁：本实现只验收 claude_code_cli；其它 adapter 在 claim 前拒绝且
+      // 零 attempt/process/Event/artifact。worker assignment 本身允许 provider-neutral
+      // 创建，因此该检查只出现在 claim boundary。
+      this.assertWorkerAdapterAvailable(run.worker_participant_id);
+      // canonical worktree/baseline：首 attempt 冻结 caller 解析的 repository root + HEAD；
+      // 后续 attempt 必须使用同一 canonical worktree 且 baseline 相同（dirty evidence 由
+      // Executor 在 claim 前通过 Git Observer 校验，claim 只验证 lineage 一致性）。
+      let worktreePath: string;
+      let baselineHead: string;
+      if (run.worktree_path === null) {
+        worktreePath = claim.worktree_path;
+        baselineHead = claim.baseline_head;
       } else {
-        this.applyTransition(task.room_id, 'PLAN_READY', actor);
+        if (run.worktree_path !== claim.worktree_path || run.baseline_head !== claim.baseline_head) {
+          throw new ProtocolError(
+            'validation_failed',
+            `run ${claim.run_id} is frozen to worktree ${run.worktree_path} @ ${run.baseline_head ?? ''}`,
+          );
+        }
+        worktreePath = run.worktree_path;
+        baselineHead = run.baseline_head ?? '';
       }
-      this.repo.appendEvent({
-        room_id: task.room_id,
-        type: 'task_submitted',
-        actor,
-        entity_type: 'task',
-        entity_id: task.task_id,
-        summary: `task ${task.task_id} submitted (${task.type})`,
-        created_at: this.now(),
-      });
-      return { room: this.requireRoom(task.room_id), task, created: true };
-    });
-  }
-
-  // ---- Run lifecycle (executor) ----
-  startRun(input: unknown, actor: EventActor): { room: RoomRecord; run: Run; created: boolean } {
-    const run = this.normalizeRunForCoding(this.parse(runSchema, input, 'Run') as Run);
-    return this.tx(() => {
-      this.assertRunTask(run);
-      this.assertCurrentTask(run);
-      this.assertStartableState(run);
-      const existing = this.repo.getRun(run.run_id);
-      if (existing) {
-        // same-ID retry 按 stored Run 冻结的 executor identity 认证（Review finding
-        // inc9-fr2-3）：不要求 current worker/executor assignment 与历史 identity 一致。
-        // content 判定复用 repository：同 content → created=false 且零写入；不同 → id_conflict。
-        this.assertRunCommandAuthority(existing, actor, 'executor');
-        this.repo.insertRun(run);
-        return { room: this.requireRoom(run.room_id), run: existing, created: false };
-      }
-      // 新 Run：claim authority（current assignment）与冻结 identity 一致性校验先于 insert，
-      // guard 失败由 transaction 整体 rollback，无 partial write。
-      this.assertExecutorClaimAuthority(run, actor);
-      this.validateClaimIdentity(run, actor);
-      this.repo.insertRun(run);
-      this.applyTransition(run.room_id, 'CODING', actor);
-      this.repo.appendEvent({
-        room_id: run.room_id,
-        type: 'run_started',
-        actor,
-        entity_type: 'run',
-        entity_id: run.run_id,
-        summary: `run ${run.run_id} started`,
-        created_at: this.now(),
-      });
-      return { room: this.requireRoom(run.room_id), run, created: true };
-    });
-  }
-
-  resumeRun(input: unknown, actor: EventActor): { room: RoomRecord; run: Run; created: boolean } {
-    const run = this.normalizeRunForCoding(this.parse(runSchema, input, 'Run') as Run);
-    return this.tx(() => {
-      this.assertRunTask(run);
-      this.assertCurrentTask(run);
-      this.assertResumableState(run);
-      const existing = this.repo.getRun(run.run_id);
-      if (existing) {
-        // 与 startRun 相同的 replacement-safe retry（Review finding inc9-fr2-3）。
-        this.assertRunCommandAuthority(existing, actor, 'executor');
-        this.repo.insertRun(run);
-        return { room: this.requireRoom(run.room_id), run: existing, created: false };
-      }
-      this.assertExecutorClaimAuthority(run, actor);
-      this.validateClaimIdentity(run, actor);
-      this.repo.insertRun(run);
-      this.applyTransition(run.room_id, 'CODING', actor);
-      this.repo.appendEvent({
-        room_id: run.room_id,
-        type: 'run_resumed',
-        actor,
-        entity_type: 'run',
-        entity_id: run.run_id,
-        summary: `run ${run.run_id} resumed`,
-        created_at: this.now(),
-      });
-      return { room: this.requireRoom(run.room_id), run, created: true };
-    });
-  }
-
-  completeRun(
-    runId: string,
-    resultInput: unknown,
-    evidence: RunTerminalEvidence,
-    actor: EventActor,
-  ): { room: RoomRecord; run: Run } {
-    return this.tx(() => {
-      const run = this.requireRun(runId);
-      // 已创建 Run 的 command authority：先校验 route actor（存在/enabled/role），再只对照
-      // claim 时冻结的 executor；不要求仍持有 current assignment（Review finding inc9-r1）。
-      this.assertRunCommandAuthority(run, actor, 'executor');
-      this.assertRunRunning(run);
-      const result = this.parseCodingResult(resultInput);
-      if (result.status !== 'completed') {
-        throw new ProtocolError(
-          'coding_result_invalid',
-          `coding result status ${result.status} cannot complete a run`,
-        );
-      }
-      if (result.task_id !== run.task_id) {
-        throw new ProtocolError(
-          'coding_result_invalid',
-          `coding result task_id ${result.task_id} does not match run task ${run.task_id}`,
-        );
-      }
-      // terminal evidence 与 succeeded status 在同一 transaction 提交，保证 succeeded Run
-      // 始终携带已观察的 session/exit/Git/artifact evidence。
-      const updated: Run = {
-        ...run,
-        status: 'succeeded',
-        result,
-        agent_session_ref: evidence.agent_session_ref,
-        process_exit_code: evidence.process_exit_code,
-        git_evidence: evidence.git_evidence,
-        artifact_refs: evidence.artifact_refs,
-        completed_at: this.now(),
+      const createdAt = this.now();
+      const attempt: RunAttempt = {
+        attempt_id: claim.attempt_id,
+        run_id: claim.run_id,
+        room_id: claim.room_id,
+        task_id: task.task_id,
+        attempt_no: this.repo.nextAttemptNo(claim.run_id),
+        status: 'running',
+        worker_participant_id: run.worker_participant_id,
+        executor_participant_id: actor.participant_id,
+        worktree_path: worktreePath,
+        baseline_head: baselineHead,
+        agent_session_ref: null,
+        process_exit_code: null,
+        started_at: createdAt,
+        settled_at: null,
+        result: null,
+        git_evidence: { staged: [], unstaged: [], untracked: [] },
+        artifact_refs: [],
+        failure: null,
       };
-      this.repo.updateRun(updated);
-      this.applyTransition(run.room_id, 'REVIEW_REQUIRED', actor);
-      this.repo.appendEvent({
-        room_id: run.room_id,
-        type: 'run_completed',
-        actor,
-        entity_type: 'run',
-        entity_id: runId,
-        summary: `run ${runId} completed`,
-        created_at: this.now(),
-      });
-      return { room: this.requireRoom(run.room_id), run: updated };
-    });
-  }
-
-  failRun(
-    runId: string,
-    failure: { code: string; message: string },
-    evidence: RunTerminalEvidence,
-    actor: EventActor,
-  ): { room: RoomRecord; run: Run } {
-    return this.tx(() => {
-      const run = this.requireRun(runId);
-      // 与 completeRun 相同的冻结 executor authority：actor 校验先于 lifecycle guard。
-      this.assertRunCommandAuthority(run, actor, 'executor');
-      this.assertRunRunning(run);
-      // 即使 Run 失败也持久化已成功观察到的 evidence，避免 failed Run 丢失已观察的
-      // process/Git/artifact 事实；evidence 与 failure 在同一 transaction 提交。
-      const updated: Run = {
+      // insertAttempt 的 UNIQUE(run_id, attempt_no) / active-attempt partial index 把并发
+      // double-claim 映射为 run_already_active。
+      this.repo.insertAttempt(attempt);
+      // 消费 pending guidance：每一条至多被一个 attempt 消费，consumed_by_attempt_id 固化。
+      const guidance = this.repo.listUnconsumedGuidance(claim.run_id);
+      for (const item of guidance) {
+        this.repo.updateGuidance({ ...item, consumed_by_attempt_id: attempt.attempt_id });
+      }
+      // Run 冻结 worktree/baseline（首 attempt）并进入 running；同 worktree 未 accepted
+      // 双 Run 由 partial unique index 映射为 worktree_already_owned。
+      const updatedRun: Run = {
         ...run,
-        status: 'failed',
-        failure,
-        agent_session_ref: evidence.agent_session_ref,
-        process_exit_code: evidence.process_exit_code,
-        git_evidence: evidence.git_evidence,
-        artifact_refs: evidence.artifact_refs,
-        completed_at: this.now(),
+        status: 'running',
+        worktree_path: worktreePath,
+        baseline_head: baselineHead,
+        updated_at: createdAt,
       };
-      this.repo.updateRun(updated);
-      this.applyTransition(run.room_id, 'RUN_FAILED', actor);
+      resolveRunTransition(run.status, updatedRun.status, actor.actor_role);
+      this.repo.updateRun(updatedRun);
       this.repo.appendEvent({
-        room_id: run.room_id,
-        type: 'run_failed',
+        room_id: claim.room_id,
+        type: 'run_attempt_claimed',
         actor,
-        entity_type: 'run',
-        entity_id: runId,
-        summary: `run ${runId} failed`,
-        created_at: this.now(),
+        entity_type: 'run_attempt',
+        entity_id: attempt.attempt_id,
+        summary: `attempt ${attempt.attempt_id} (#${attempt.attempt_no}) claimed for run ${claim.run_id}`,
+        created_at: createdAt,
       });
-      return { room: this.requireRoom(run.room_id), run: updated };
+      return { room, run: updatedRun, attempt, guidance, created: true };
     });
   }
 
-  // Runner 实时把非终态 progress evidence 追加为 entity_type=run 的非终态 Event。progress
-  // 不是状态权威来源：不改变 Room/Run state，也不产生 transition。只接受 current running
-  // Run，stale/non-running Run 以 validation_failed 拒绝且不新增 Event。
-  appendRunProgress(
-    runId: string,
-    progress: { type: string | null; subtype: string | null; outcome: string | null },
+  // ---- Attempt settlement (executor) ----
+  // terminal outcome 的 first-writer-wins：conditional UPDATE 在同一 attempt 上串行化
+  // success/failure/cancel 竞争，winner 写 terminal status + evidence + 恰好一个 terminal
+  // Event；loser 重读后按 payload 签名判定幂等（零 Event）或 id_conflict（完整 snapshot 不变）。
+  // planner 已先行写入 cancel_requested 时，唯一合法 terminal 是 canceled（planner 意图优先）。
+  // Review finding inc10-r2：terminal status 与持久化 result/failure 必须 canonical 一致，
+  // 矛盾 evidence 以 validation_failed 拒绝且完整 durable snapshot 不变；canceled 的
+  // canonical payload 为 result=null + failure=null。
+  settleRunAttempt(input: unknown, actor: EventActor): { room: RoomRecord; run: Run; attempt: RunAttempt } {
+    const settle = this.parse(settleInputSchema, input, 'SettleAttemptInput') as SettleAttemptInput;
+    return this.tx(() => {
+      // 至多三轮：首次按 caller 目标推进；conditional UPDATE 失败后重读（另一 writer 已
+      // 推进 status），按新 status 重分类；再次失败说明存在第三个 writer，直接 id_conflict。
+      for (let round = 0; round < 3; round++) {
+        const attempt = this.requireAttempt(settle.attempt_id);
+        this.assertAttemptCommandAuthority(attempt, actor, 'executor');
+        if (this.isTerminalAttemptStatus(attempt.status)) {
+          // canceled 首次结算已把 payload 规范化（result=null + failure=null）：幂等 retry
+          // 必须按 canonical payload 比较，caller 首次携带的 success/decision 分类与
+          // failure 分类均已作废，evidence 字段仍按首次结算事实比较。
+          const canonicalSettle =
+            attempt.status === 'canceled'
+              ? this.canonicalSettlePayload(attempt.task_id, 'canceled', settle)
+              : settle;
+          const signature = this.attemptTerminalSignature({
+            status: attempt.status,
+            result: attempt.result,
+            failure: attempt.failure,
+            agent_session_ref: attempt.agent_session_ref,
+            process_exit_code: attempt.process_exit_code,
+            git_evidence: attempt.git_evidence,
+            artifact_refs: attempt.artifact_refs,
+          });
+          if (signature === this.attemptTerminalSignature(canonicalSettle)) {
+            // 相同 payload retry：返回既有 terminal attempt，零 Event。
+            return {
+              room: this.requireRoom(attempt.room_id),
+              run: this.requireRun(attempt.run_id),
+              attempt,
+            };
+          }
+          throw new ProtocolError(
+            'id_conflict',
+            `attempt ${settle.attempt_id} already settled with a different payload`,
+          );
+        }
+        const expected = attempt.status;
+        // planner cancel intent 已先行写入 cancel_requested：Executor 的 terminal 只能是
+        // canceled；进程已被 AbortSignal 终止，caller 提供的 success/decision 分类作废。
+        const target = expected === 'cancel_requested' ? 'canceled' : settle.status;
+        resolveAttemptTransition(expected, target, actor.actor_role);
+        // canonical terminal payload（Review finding inc10-r2）：transition 校验保持最先
+        //（既存错误优先级不变），随后按 target 校验/规范化 result/failure 并以 canonical
+        // payload 写入；矛盾 evidence → validation_failed，transaction 整体回滚。
+        const canonical = this.canonicalSettlePayload(attempt.task_id, target, settle);
+        const updated: RunAttempt = {
+          ...attempt,
+          status: target,
+          agent_session_ref: canonical.agent_session_ref,
+          process_exit_code: canonical.process_exit_code,
+          settled_at: this.now(),
+          result: canonical.result,
+          git_evidence: canonical.git_evidence,
+          artifact_refs: canonical.artifact_refs,
+          failure: canonical.failure,
+        };
+        if (!this.repo.updateAttemptIfStatus(updated, expected)) {
+          continue; // 另一 writer 已推进：重读后重分类
+        }
+        // winner：Run 状态在同一 transaction 推进，terminal Event 恰好一个。
+        const run = this.requireRun(attempt.run_id);
+        const runStatus = this.runStatusForTerminal(target);
+        resolveRunTransition(run.status, runStatus, actor.actor_role);
+        const updatedRun: Run = { ...run, status: runStatus, updated_at: this.now() };
+        this.repo.updateRun(updatedRun);
+        this.repo.appendEvent({
+          room_id: attempt.room_id,
+          type: this.eventTypeForTerminal(target),
+          actor,
+          entity_type: 'run_attempt',
+          entity_id: attempt.attempt_id,
+          summary: `attempt ${attempt.attempt_id} settled ${target}`,
+          created_at: this.now(),
+        });
+        return { room: this.requireRoom(attempt.room_id), run: updatedRun, attempt: updated };
+      }
+      throw new ProtocolError('id_conflict', `attempt ${settle.attempt_id} settlement raced repeatedly`);
+    });
+  }
+
+  // Executor 实时把非终态 progress evidence 追加为 run_attempt progress Event。progress 不是
+  // 状态权威来源：不改变 Room/Run/Attempt state。只接受 frozen executor 与仍 running 的
+  // attempt；decision_requested/cancel_requested/terminal 一律 validation_failed。
+  appendAttemptProgress(
+    input: { attempt_id: string; type: string | null; subtype: string | null; outcome: string | null },
     actor: EventActor,
   ): void {
     this.tx(() => {
-      const run = this.requireRun(runId);
-      // progress 与 terminal 命令共享冻结 executor authority（Review finding inc9-r1）。
-      this.assertRunCommandAuthority(run, actor, 'executor');
-      this.assertRunRunning(run);
-      const label = [progress.type, progress.subtype].filter((p): p is string => p !== null).join(':') || 'unknown';
+      const attempt = this.requireAttempt(input.attempt_id);
+      this.assertAttemptCommandAuthority(attempt, actor, 'executor');
+      if (attempt.status !== 'running') {
+        throw new ProtocolError(
+          'validation_failed',
+          `attempt ${attempt.attempt_id} is not running (status ${attempt.status})`,
+        );
+      }
+      const label =
+        [input.type, input.subtype].filter((p): p is string => p !== null).join(':') || 'unknown';
       this.repo.appendEvent({
-        room_id: run.room_id,
-        type: 'run_progress',
+        room_id: attempt.room_id,
+        type: 'run_attempt_progress',
         actor,
-        entity_type: 'run',
-        entity_id: runId,
-        summary: `run ${runId} progress ${label}`,
+        entity_type: 'run_attempt',
+        entity_id: attempt.attempt_id,
+        summary: `attempt ${attempt.attempt_id} progress ${label}`,
         created_at: this.now(),
       });
     });
   }
 
   // ---- Question (worker / planner) ----
-  askQuestion(input: unknown, actor: EventActor): { room: RoomRecord; question: Question; created: boolean } {
+  // v0.4：Question 由 frozen worker 对 active attempt 提出，原子创建 Question 并把 attempt
+  // 置 decision_requested；Run 保持 running 直到 Executor 停止 process 并 settle
+  // needs_decision。answer 要求 attempt 已 terminal-finalized。
+  askQuestion(input: unknown, actor: EventActor): { room: RoomRecord; question: Question; attempt: RunAttempt; created: boolean } {
     const question = this.parse(questionSchema, input, 'Question') as Question;
     return this.tx(() => {
-      // authority 先于 insert：same-ID retry 必须先认证 actor（Review finding inc9-r3），且
-      // authority 只对照 claim 时冻结的 worker（Review finding inc9-r1），失败整体回滚。
-      const run = this.requireRun(question.run_id);
-      this.assertRunCommandAuthority(run, actor, 'worker');
+      const attempt = this.requireAttempt(question.attempt_id);
+      // frozen worker authority：actor 必须存在、enabled、role=worker 且等于 attempt 冻结的
+      // worker identity（Review finding inc9-r1），失败整体回滚。
+      this.assertAttemptCommandAuthority(attempt, actor, 'worker');
       const normalized: Question = {
         ...question,
         status: 'open',
@@ -458,26 +650,30 @@ export class RoomService {
       };
       const inserted = this.repo.insertQuestion(normalized);
       if (!inserted.created) {
-        // authorized same-content retry 直接返回既有 Question：首次 ask 已把 Run 置为
-        // needs_decision，running/task-room guard 只约束 newly inserted Question，不误伤 retry。
+        // authorized same-content retry 直接返回既有 Question：首次 ask 已把 attempt 置为
+        // decision_requested，running/task-room guard 只约束 newly inserted Question。
         return {
           room: this.requireRoom(question.room_id),
           question: this.requireQuestion(question.question_id),
+          attempt,
           created: false,
         };
       }
-      // 以下 guard 只在 newly inserted Question 上执行；失败由 transaction 整体回滚，
-      // insert 不残留，可观察错误码与 insert 前校验一致。
-      this.assertRunRunning(run);
-      if (run.room_id !== question.room_id || run.task_id !== question.task_id) {
+      if (attempt.status !== 'running') {
         throw new ProtocolError(
           'validation_failed',
-          `question ${question.question_id} references run ${run.run_id} that does not match task/room`,
+          `attempt ${attempt.attempt_id} is not running (status ${attempt.status})`,
         );
       }
-      const updatedRun: Run = { ...run, status: 'needs_decision' };
-      this.repo.updateRun(updatedRun);
-      this.applyTransition(question.room_id, 'NEEDS_DECISION', actor);
+      if (attempt.run_id !== question.run_id || attempt.task_id !== question.task_id || attempt.room_id !== question.room_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `question ${question.question_id} references attempt ${attempt.attempt_id} that does not match run/task/room`,
+        );
+      }
+      const updatedAttempt: RunAttempt = { ...attempt, status: 'decision_requested' };
+      resolveAttemptTransition(attempt.status, updatedAttempt.status, actor.actor_role);
+      this.repo.updateAttemptIfStatus(updatedAttempt, attempt.status);
       this.repo.appendEvent({
         room_id: question.room_id,
         type: 'question_asked',
@@ -490,6 +686,7 @@ export class RoomService {
       return {
         room: this.requireRoom(question.room_id),
         question: normalized,
+        attempt: updatedAttempt,
         created: true,
       };
     });
@@ -500,17 +697,43 @@ export class RoomService {
     answer: string,
     answerChangesContract: boolean,
     actor: EventActor,
-  ): { room: RoomRecord; question: Question } {
+  ): { room: RoomRecord; question: Question; run: Run } {
     return this.tx(() => {
       const question = this.requireQuestion(questionId);
       this.assertAuthority(question.room_id, actor, 'planner');
       if (question.status !== 'open') {
         throw new ProtocolError('validation_failed', `question ${questionId} is not open`);
       }
-      // answer 前必须确认该 Question 是 Room 最新 question_asked 引用的 open Question、
-      // source Run 为 current needs_decision Run 且已完成 pause finalization（completed_at
-      // 非 null），避免旧 process 与 resume process 并行修改同一 worktree。
-      this.assertAnswerableQuestion(question);
+      // 回答前 gate：source attempt 必须已 terminal-finalized（needs_decision）、Run 必须
+      // needs_decision，且 Question 是该 Run 的 current open Question；避免旧 process 与
+      // resume process 并行修改同一 worktree。
+      const attempt = this.requireAttempt(question.attempt_id);
+      if (attempt.status !== 'needs_decision') {
+        throw new ProtocolError(
+          'validation_failed',
+          `question ${questionId} source attempt ${attempt.attempt_id} is not terminal-finalized needs_decision`,
+        );
+      }
+      const run = this.requireRun(question.run_id);
+      if (run.status !== 'needs_decision') {
+        throw new ProtocolError(
+          'validation_failed',
+          `question ${questionId} source run ${run.run_id} is not needs_decision`,
+        );
+      }
+      if (attempt.run_id !== question.run_id || run.room_id !== question.room_id || attempt.task_id !== question.task_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `question ${questionId} source run/attempt does not match task/room`,
+        );
+      }
+      const currentQuestion = this.repo.latestOpenQuestionForRun(run.run_id);
+      if (!currentQuestion || currentQuestion.question_id !== questionId) {
+        throw new ProtocolError(
+          'validation_failed',
+          `question ${questionId} is not the current open question of run ${run.run_id}`,
+        );
+      }
       const answered: Question = {
         ...question,
         status: 'answered',
@@ -519,8 +742,25 @@ export class RoomService {
         answered_at: this.now(),
       };
       this.repo.updateQuestion(answered);
+      let updatedRun: Run;
       if (answerChangesContract) {
-        this.applyTransition(question.room_id, 'WAITING_FOR_USER_CONFIRMATION', actor);
+        // scope-changing answer：进入 Room planning confirmation，Run 保持 needs_decision
+        //（planner 须提交 revised contract 的新 Implementation Run）；不改变其它 Run。
+        const room = this.requireRoom(question.room_id);
+        if (room.state === 'DISCUSSION') {
+          this.applyTransition(question.room_id, 'WAITING_FOR_USER_CONFIRMATION', actor);
+        } else if (room.state !== 'WAITING_FOR_USER_CONFIRMATION') {
+          throw new ProtocolError(
+            'validation_failed',
+            `room ${question.room_id} state ${room.state} cannot enter planning confirmation`,
+          );
+        }
+        updatedRun = run;
+      } else {
+        // contract 内答案：只把该 Run 置 ready；其它 Run 与 Room 状态不变。
+        updatedRun = { ...run, status: 'ready', updated_at: this.now() };
+        resolveRunTransition(run.status, updatedRun.status, actor.actor_role);
+        this.repo.updateRun(updatedRun);
       }
       this.repo.appendEvent({
         room_id: question.room_id,
@@ -531,127 +771,67 @@ export class RoomService {
         summary: `question ${questionId} answered`,
         created_at: this.now(),
       });
-      return { room: this.requireRoom(question.room_id), question: answered };
+      return { room: this.requireRoom(question.room_id), question: answered, run: updatedRun };
     });
-  }
-
-  // needs-decision Run 的 pause finalization：Claude process 退出后 Runner 调用，把已观察的
-  // session/exit/result/failure/Git/artifact evidence 与 completed_at 原子写回同一 needs_decision
-  // Run，保持 Room=NEEDS_DECISION、Run.status=needs_decision，并追加恰好一个 run_paused Event。
-  // 相同 finalization payload 的 retry 返回既有 Run 且不重复 Event，不同 payload 以 id_conflict 拒绝。
-  finalizeNeedsDecision(
-    runId: string,
-    result: CodingResult | null,
-    failure: { code: string; message: string } | null,
-    evidence: RunTerminalEvidence,
-    actor: EventActor,
-  ): { room: RoomRecord; run: Run; created: boolean } {
-    return this.tx(() => {
-      const run = this.requireRun(runId);
-      // same-ID/payload retry 不是 authority bypass：先校验冻结 executor authority
-      //（Review finding inc9-r1/r3），再进入幂等/conflict 判定与首次 lifecycle guard。
-      this.assertRunCommandAuthority(run, actor, 'executor');
-      if (run.completed_at !== null) {
-        // 已 finalize：按已持久化 result/failure/evidence 与 incoming payload 比较，作为幂等
-        // retry / conflict 边界。该判定不依赖 Question 仍 open 或 Room 仍在首次 finalization
-        // state，故须在首次 lifecycle guard 之前执行，保证 answer 后同 payload retry 仍幂等。
-        const existingSignature = this.runPauseSignature(run);
-        const incomingSignature = this.pausePayloadSignature(result, failure, evidence);
-        if (existingSignature === incomingSignature) {
-          return { room: this.requireRoom(run.room_id), run, created: false };
-        }
-        throw new ProtocolError('id_conflict', `run ${runId} already pause-finalized with a different payload`);
-      }
-      this.assertNeedsDecisionFinalizable(run);
-      const updated: Run = {
-        ...run,
-        result,
-        failure,
-        agent_session_ref: evidence.agent_session_ref,
-        process_exit_code: evidence.process_exit_code,
-        git_evidence: evidence.git_evidence,
-        artifact_refs: evidence.artifact_refs,
-        completed_at: this.now(),
-      };
-      this.repo.updateRun(updated);
-      this.repo.appendEvent({
-        room_id: run.room_id,
-        type: 'run_paused',
-        actor,
-        entity_type: 'run',
-        entity_id: runId,
-        summary: `run ${runId} paused for decision`,
-        created_at: this.now(),
-      });
-      return { room: this.requireRoom(run.room_id), run: updated, created: true };
-    });
-  }
-
-  // 只从当前 Room/Task 与既有 Event/reference 推导 continuation kind、source Run、exact
-  // baseline/session 与 answered Question，不接受 caller 覆盖。该 boundary 在 spawn 前由
-  // Runner 调用，任何 stale/wrong-state 都以 validation_failed 拒绝。
-  getContinuationContext(roomId: string, taskId: string): ContinuationContext {
-    const room = this.requireRoom(roomId);
-    const task = this.requireTask(taskId);
-    if (task.room_id !== roomId) {
-      throw new ProtocolError('validation_failed', `task ${taskId} is not in room ${roomId}`);
-    }
-    if (task.task_id !== this.currentTaskId(roomId)) {
-      throw new ProtocolError('validation_failed', `task ${taskId} is not the current task of room ${roomId}`);
-    }
-    switch (room.state) {
-      case 'PLAN_READY':
-        return this.deriveRetryOrNewImplementation(roomId, task);
-      case 'NEEDS_DECISION':
-        return this.deriveDecisionContinuation(roomId, task);
-      case 'FIX_PLAN_READY':
-        return this.deriveFixContinuation(roomId, task);
-      default:
-        throw new ProtocolError('validation_failed', `room ${roomId} state ${room.state} cannot start a run`);
-    }
   }
 
   // ---- Review (reviewer) ----
-  submitReview(input: unknown, actor: EventActor): { room: RoomRecord; review: Review; created: boolean } {
+  // v0.4：Review 只审查 target Run 的 latest succeeded attempt；attempt_id 固化该 attempt。
+  // 提交把 Run review_required → review_discussion；acceptance 把 Run → accepted（accepted_at
+  // 固化）并释放 worktree lease。Room 状态不参与。
+  submitReview(input: unknown, actor: EventActor): { room: RoomRecord; review: Review; run: Run; created: boolean } {
     const review = this.parse(reviewSchema, input, 'Review') as Review;
     return this.tx(() => {
       const existing = this.repo.getReview(review.review_id);
       if (existing) {
         // same-ID retry 按 stored Review 冻结的 reviewer identity 认证（Review finding
-        // inc9-fr2-3）：不要求 current reviewer assignment。content 判定复用 repository：
-        // 同 content → created=false 且零写入；不同 → id_conflict。
+        // inc9-fr2-3）。content 判定复用 repository：同 content → created=false 且零写入；
+        // 不同 → id_conflict。
         this.assertReviewCommandAuthority(existing, actor);
         this.repo.insertReview(review);
-        return { room: this.requireRoom(review.room_id), review: existing, created: false };
+        return {
+          room: this.requireRoom(review.room_id),
+          review: existing,
+          run: this.requireRun(existing.run_id),
+          created: false,
+        };
       }
       // 新 Review 继续使用 current reviewer assignment（Task scope 优先、Room fallback，
-      // Review finding inc9-r2）并固化 identity；task/run/status/result/current Run guard
-      // 只作用于 newly created Review，失败由 transaction 整体 rollback。
+      // Review finding inc9-r2）并固化 identity；guard 只作用于 newly created Review。
       this.assertReviewerAuthority(review, actor);
       this.repo.insertReview(review);
-      const task = this.requireTask(review.task_id);
       const run = this.requireRun(review.run_id);
-      if (task.room_id !== review.room_id) {
-        throw new ProtocolError('validation_failed', `review ${review.review_id} references task from another room`);
+      const task = this.requireTask(review.task_id);
+      if (task.room_id !== review.room_id || run.room_id !== review.room_id || task.run_id !== run.run_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `review ${review.review_id} references task/run from another room or lineage`,
+        );
       }
-      if (run.task_id !== review.task_id) {
-        throw new ProtocolError('validation_failed', `review ${review.review_id} references run ${run.run_id} of another task`);
+      if (run.status !== 'review_required') {
+        throw new ProtocolError(
+          'validation_failed',
+          `review ${review.review_id} references run ${run.run_id} that is not review_required (status ${run.status})`,
+        );
       }
-      if (run.room_id !== review.room_id) {
-        throw new ProtocolError('validation_failed', `review ${review.review_id} references run ${run.run_id} from another room`);
+      // 只允许 latest succeeded attempt 进入 review：attempt_id 必须等于该 Run attempt_no
+      // 最大且 status=succeeded 的 attempt，且 Review 的 task 必须与该 attempt 一致。
+      const latestAttempt = this.repo.latestAttemptForRun(run.run_id);
+      if (!latestAttempt || latestAttempt.status !== 'succeeded' || latestAttempt.attempt_id !== review.attempt_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `review ${review.review_id} attempt ${review.attempt_id} is not the latest succeeded attempt of run ${run.run_id}`,
+        );
       }
-      if (run.status !== 'succeeded') {
-        throw new ProtocolError('validation_failed', `review ${review.review_id} references run ${run.run_id} that is not succeeded`);
+      if (latestAttempt.task_id !== review.task_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `review ${review.review_id} references task ${review.task_id} that is not the target of attempt ${latestAttempt.attempt_id}`,
+        );
       }
-      if (!run.result || run.result.status !== 'completed') {
-        throw new ProtocolError('validation_failed', `review ${review.review_id} references run ${run.run_id} without a completed coding result`);
-      }
-      // REVIEW_REQUIRED 只能由 completeRun 在同一 transaction 内追加 run_completed Event 产生，
-      // 因此该 Room sequence 最大的 run_completed Event 指向的 Run 就是当前可审查 Run。
-      if (run.run_id !== this.currentRunId(review.room_id)) {
-        throw new ProtocolError('validation_failed', `review ${review.review_id} references run ${run.run_id} which is not the current completed run`);
-      }
-      this.applyTransition(review.room_id, 'REVIEW_DISCUSSION', actor);
+      const updated: Run = { ...run, status: 'review_discussion', updated_at: this.now() };
+      resolveRunTransition(run.status, updated.status, actor.actor_role);
+      this.repo.updateRun(updated);
       this.repo.appendEvent({
         room_id: review.room_id,
         type: 'review_submitted',
@@ -661,7 +841,7 @@ export class RoomService {
         summary: `review ${review.review_id} submitted`,
         created_at: this.now(),
       });
-      return { room: this.requireRoom(review.room_id), review, created: true };
+      return { room: this.requireRoom(review.room_id), review, run: updated, created: true };
     });
   }
 
@@ -669,12 +849,11 @@ export class RoomService {
     reviewId: string,
     confirmedByUser: boolean,
     actor: EventActor,
-  ): { room: RoomRecord; review: Review } {
+  ): { room: RoomRecord; review: Review; run: Run } {
     return this.tx(() => {
       const review = this.requireReview(reviewId);
       // acceptance authority 只对照 Review 提交时冻结的 reviewer identity（Review finding
-      // inc9-fr2-2）：先校验 route participant 存在、enabled 且 actor_role=reviewer，再与
-      // review.reviewer_participant_id 比较；不要求仍持有 current assignment。
+      // inc9-fr2-2）：不要求仍持有 current assignment。
       this.assertReviewCommandAuthority(review, actor);
       if (confirmedByUser !== true) {
         throw new ProtocolError('validation_failed', `review ${reviewId} acceptance requires confirmed_by_user`);
@@ -682,10 +861,23 @@ export class RoomService {
       if (review.findings.some((f) => f.severity === 'blocker')) {
         throw new ProtocolError('validation_failed', `review ${reviewId} still has blocking findings`);
       }
-      if (review.review_id !== this.currentReviewId(review.room_id)) {
-        throw new ProtocolError('validation_failed', `review ${reviewId} is not the current review`);
+      // per-Run current Review：rowid latest；stale Review 即使属于同一 Run 也拒绝。
+      const run = this.requireRun(review.run_id);
+      if (run.status !== 'review_discussion') {
+        throw new ProtocolError(
+          'validation_failed',
+          `review ${reviewId} run ${run.run_id} is not review_discussion (status ${run.status})`,
+        );
       }
-      this.applyTransition(review.room_id, 'ACCEPTED', actor);
+      const currentReview = this.repo.latestReviewForRun(run.run_id);
+      if (!currentReview || currentReview.review_id !== reviewId) {
+        throw new ProtocolError('validation_failed', `review ${reviewId} is not the current review of run ${run.run_id}`);
+      }
+      const updated: Run = { ...run, status: 'accepted', accepted_at: this.now(), updated_at: this.now() };
+      resolveRunTransition(run.status, updated.status, actor.actor_role);
+      // accepted 后 partial unique index 不再占用 worktree（status != 'accepted' 的 WHERE
+      // 集合），canonical worktree lease 释放；lineage 字段保留为历史事实。
+      this.repo.updateRun(updated);
       this.repo.appendEvent({
         room_id: review.room_id,
         type: 'review_accepted',
@@ -695,7 +887,183 @@ export class RoomService {
         summary: `review ${reviewId} accepted`,
         created_at: this.now(),
       });
-      return { room: this.requireRoom(review.room_id), review };
+      return { room: this.requireRoom(review.room_id), review, run: updated };
+    });
+  }
+
+  // ---- Retry (planner) ----
+  // 只把目标 failed/canceled Run 转 ready；needs_decision 由 Question answer 恢复，
+  // review_discussion 由 Fix Task 恢复。其它 Run 与 Room 状态不变。
+  retryRun(roomId: string, runId: string, actor: EventActor): { room: RoomRecord; run: Run } {
+    return this.tx(() => {
+      this.assertAuthority(roomId, actor, 'planner');
+      const run = this.requireRun(runId);
+      if (run.room_id !== roomId) {
+        throw new ProtocolError('validation_failed', `run ${runId} is not in room ${roomId}`);
+      }
+      if (run.status !== 'failed' && run.status !== 'canceled') {
+        throw new ProtocolError(
+          'validation_failed',
+          `run ${runId} status ${run.status} cannot be retried (only failed/canceled)`,
+        );
+      }
+      const updated: Run = { ...run, status: 'ready', updated_at: this.now() };
+      resolveRunTransition(run.status, updated.status, actor.actor_role);
+      this.repo.updateRun(updated);
+      this.repo.appendEvent({
+        room_id: roomId,
+        type: 'run_retried',
+        actor,
+        entity_type: 'run',
+        entity_id: runId,
+        summary: `run ${runId} retried`,
+        created_at: this.now(),
+      });
+      return { room: this.requireRoom(roomId), run: updated };
+    });
+  }
+
+  // ---- Cancel (planner) ----
+  // 把目标 active attempt 与 Run 置 cancel_requested 并追加 Event；Executor 通过 poll
+  // boundary 观察到 cancel_requested 后 AbortSignal 终止 owned process 并唯一 settle
+  // canceled。与 terminal settle 的竞争由 conditional UPDATE 串行化，只产生一个 terminal
+  // Event。open Question 随 attempt 被 supersede，避免 snapshot 误导。
+  cancelRun(
+    input: unknown,
+    actor: EventActor,
+  ): { room: RoomRecord; run: Run; attempt: RunAttempt; created: boolean } {
+    const cancel = this.parse(cancelInputSchema, input, 'CancelRunInput') as {
+      room_id: string;
+      run_id: string;
+      reason: string;
+      confirmed_by_user: boolean;
+    };
+    return this.tx(() => {
+      this.assertAuthority(cancel.room_id, actor, 'planner');
+      if (cancel.confirmed_by_user !== true) {
+        throw new ProtocolError('validation_failed', `cancel of run ${cancel.run_id} requires confirmed_by_user`);
+      }
+      const run = this.requireRun(cancel.run_id);
+      if (run.room_id !== cancel.room_id) {
+        throw new ProtocolError('validation_failed', `run ${cancel.run_id} is not in room ${cancel.room_id}`);
+      }
+      const active = this.repo.activeAttemptForRun(cancel.run_id);
+      if (!active) {
+        throw new ProtocolError(
+          'validation_failed',
+          `run ${cancel.run_id} has no active attempt to cancel`,
+        );
+      }
+      // same-ID cancel retry（attempt 已 cancel_requested）：幂等返回既有事实，零 Event。
+      if (active.status === 'cancel_requested' && run.status === 'cancel_requested') {
+        return { room: this.requireRoom(cancel.room_id), run, attempt: active, created: false };
+      }
+      const updatedAttempt: RunAttempt = { ...active, status: 'cancel_requested' };
+      resolveAttemptTransition(active.status, updatedAttempt.status, actor.actor_role);
+      if (!this.repo.updateAttemptIfStatus(updatedAttempt, active.status)) {
+        // 竞争 loser：attempt 已被 settle（terminal）→ 取消已不可能；或已 cancel_requested。
+        const current = this.requireAttempt(active.attempt_id);
+        if (current.status === 'cancel_requested') {
+          return { room: this.requireRoom(cancel.room_id), run: this.requireRun(cancel.run_id), attempt: current, created: false };
+        }
+        throw new ProtocolError(
+          'validation_failed',
+          `attempt ${active.attempt_id} already settled (status ${current.status}); cancel is no longer possible`,
+        );
+      }
+      // cancel 使 attempt 上的 open Question 失效：decision_requested → cancel_requested 后
+      // Question 不能再被 answer（attempt 未以 needs_decision 终结），显式 supersede。
+      const openQuestions = this.repo
+        .listQuestions(cancel.room_id)
+        .filter((q) => q.attempt_id === active.attempt_id && q.status === 'open');
+      for (const q of openQuestions) {
+        this.repo.updateQuestion({ ...q, status: 'superseded' });
+      }
+      const updatedRun: Run = { ...run, status: 'cancel_requested', updated_at: this.now() };
+      resolveRunTransition(run.status, updatedRun.status, actor.actor_role);
+      this.repo.updateRun(updatedRun);
+      this.repo.appendEvent({
+        room_id: cancel.room_id,
+        type: 'run_cancel_requested',
+        actor,
+        entity_type: 'run',
+        entity_id: cancel.run_id,
+        summary: `run ${cancel.run_id} cancel requested: ${cancel.reason}`,
+        created_at: this.now(),
+      });
+      return { room: this.requireRoom(cancel.room_id), run: updatedRun, attempt: updatedAttempt, created: true };
+    });
+  }
+
+  // ---- Run guidance (planner) ----
+  // 只有目标 Run 无 active attempt 时可创建；下一 attempt claim 原子消费一次并注入完整
+  // prompt。running/decision_requested/cancel_requested 期间请求以 validation_failed 零写入
+  // 拒绝，不宣称 Claude live steer。
+  addRunGuidance(
+    input: unknown,
+    actor: EventActor,
+  ): { room: RoomRecord; guidance: RunGuidance; created: boolean } {
+    // 输入只含 caller-owned 字段：planner_participant_id/created_at/consumed_by_attempt_id
+    // 由 service 固化，caller 不可指定（与其它 entity 的 caller-provided timestamp 不同，
+    // guidance 是 planner 在 claim 间隙的指令，不需要 caller 提供时间）。
+    const guidanceInput = this.parse(addGuidanceInputSchema, input, 'RunGuidanceInput') as {
+      guidance_id: string;
+      room_id: string;
+      run_id: string;
+      text: string;
+    };
+    return this.tx(() => {
+      this.assertAuthority(guidanceInput.room_id, actor, 'planner');
+      // same-ID retry：created_at 是 service 时间，无法与首次完全一致，因此按 caller-owned
+      // 字段（room/run/text + 冻结 planner identity）判定幂等；不一致 → id_conflict。
+      const existing = this.repo.getGuidance(guidanceInput.guidance_id);
+      if (existing) {
+        if (
+          existing.room_id !== guidanceInput.room_id ||
+          existing.run_id !== guidanceInput.run_id ||
+          existing.text !== guidanceInput.text ||
+          existing.planner_participant_id !== actor.participant_id
+        ) {
+          throw new ProtocolError(
+            'id_conflict',
+            `guidance id ${guidanceInput.guidance_id} already exists with different content`,
+          );
+        }
+        return { room: this.requireRoom(guidanceInput.room_id), guidance: existing, created: false };
+      }
+      const run = this.requireRun(guidanceInput.run_id);
+      if (run.room_id !== guidanceInput.room_id) {
+        throw new ProtocolError(
+          'validation_failed',
+          `run ${guidanceInput.run_id} is not in room ${guidanceInput.room_id}`,
+        );
+      }
+      if (this.repo.activeAttemptForRun(guidanceInput.run_id)) {
+        throw new ProtocolError(
+          'validation_failed',
+          `run ${guidanceInput.run_id} has an active attempt; guidance must be added between attempts`,
+        );
+      }
+      const normalized: RunGuidance = {
+        guidance_id: guidanceInput.guidance_id,
+        room_id: guidanceInput.room_id,
+        run_id: guidanceInput.run_id,
+        text: guidanceInput.text,
+        planner_participant_id: actor.participant_id,
+        created_at: this.now(),
+        consumed_by_attempt_id: null,
+      };
+      this.repo.insertGuidance(normalized);
+      this.repo.appendEvent({
+        room_id: guidanceInput.room_id,
+        type: 'run_guidance_added',
+        actor,
+        entity_type: 'run_guidance',
+        entity_id: guidanceInput.guidance_id,
+        summary: `guidance ${guidanceInput.guidance_id} added for run ${guidanceInput.run_id}`,
+        created_at: this.now(),
+      });
+      return { room: this.requireRoom(guidanceInput.room_id), guidance: normalized, created: true };
     });
   }
 
@@ -761,8 +1129,9 @@ export class RoomService {
   // ---- Assignment resolution ----
   // 公开只读解析：exact entity scope 优先于 Room default；同 scope/role 的最新 assignment 是
   // active（Review finding inc9-r5：只由成功 insert 的 rowid 顺序决定，不信任 caller
-  // created_at）。Stage 1 消费点：Task 提交使用 Room planner/orchestrator；Run claim 与
-  // Review 提交按 Task scope 优先、Room default fallback 解析（Review finding inc9-r2）。
+  // created_at）。Stage 2 消费点：Task 提交使用 Room planner/orchestrator；Run 创建按 Task
+  // scope 优先、Room default fallback 解析 worker（Review finding inc9-r2）；claim 按 Run
+  // 当前 Task 解析 executor。
   resolveAssignment(
     roomId: string,
     scopeType: RoleAssignment['scope_type'],
@@ -806,12 +1175,20 @@ export class RoomService {
     return this.repo.getRun(runId);
   }
 
+  getAttempt(attemptId: string): RunAttempt | null {
+    return this.repo.getAttempt(attemptId);
+  }
+
   getReview(reviewId: string): Review | null {
     return this.repo.getReview(reviewId);
   }
 
   getQuestion(questionId: string): Question | null {
     return this.repo.getQuestion(questionId);
+  }
+
+  getGuidance(guidanceId: string): RunGuidance | null {
+    return this.repo.getGuidance(guidanceId);
   }
 
   getParticipant(participantId: string): ParticipantProfile | null {
@@ -830,12 +1207,46 @@ export class RoomService {
     return this.repo.listRuns(roomId);
   }
 
+  listAttemptsByRoom(roomId: string): RunAttempt[] {
+    return this.repo.listAttemptsByRoom(roomId);
+  }
+
+  listAttemptsByRun(runId: string): RunAttempt[] {
+    return this.repo.listAttemptsByRun(runId);
+  }
+
+  // per-Run latest reference readers：snapshot / Executor 的 work item 推导与 session lineage
+  // 恢复共用，避免各自扫描 entity 内容。
+  latestTaskForRun(runId: string): PersistedTask | null {
+    return this.repo.latestTaskForRun(runId);
+  }
+
+  latestAttemptForRun(runId: string): RunAttempt | null {
+    return this.repo.latestAttemptForRun(runId);
+  }
+
+  activeAttemptForRun(runId: string): RunAttempt | null {
+    return this.repo.activeAttemptForRun(runId);
+  }
+
+  latestOpenQuestionForRun(runId: string): Question | null {
+    return this.repo.latestOpenQuestionForRun(runId);
+  }
+
+  latestReviewForRun(runId: string): Review | null {
+    return this.repo.latestReviewForRun(runId);
+  }
+
   listReviews(roomId: string): Review[] {
     return this.repo.listReviews(roomId);
   }
 
   listQuestions(roomId: string): Question[] {
     return this.repo.listQuestions(roomId);
+  }
+
+  listGuidanceByRoom(roomId: string): RunGuidance[] {
+    return this.repo.listGuidanceByRoom(roomId);
   }
 
   listRoleAssignments(roomId: string): RoleAssignment[] {
@@ -851,8 +1262,11 @@ export class RoomService {
   }
 
   // ---- Private ----
+  // writer transaction：BEGIN IMMEDIATE 立即取得 RESERVED 写锁（Review finding inc10-r1），
+  // 使 guard 读与后续写共享同一写锁；并发 writer 经 busy_timeout 串行化，loser 以 winner
+  // commit 后的 fresh state 重走 guard，不会读到 stale active attempt / worktree lease。
   private tx<T>(fn: () => T): T {
-    this.db.exec('BEGIN');
+    this.db.exec('BEGIN IMMEDIATE');
     try {
       const result = fn();
       this.db.exec('COMMIT');
@@ -1012,6 +1426,22 @@ export class RoomService {
     }
   }
 
+  // Worker adapter 门禁（claim boundary）：Run 冻结的 worker 必须是唯一已验收的
+  // claude_code_cli adapter；其它 adapter 在此以 worker_adapter_unavailable 拒绝，且发生在
+  // 任何 attempt/Event/artifact 写入之前（transaction 内先于 insertAttempt）。
+  private assertWorkerAdapterAvailable(workerParticipantId: string): void {
+    const profile = this.repo.getParticipant(workerParticipantId);
+    if (!profile) {
+      throw new ProtocolError('entity_not_found', `worker participant ${workerParticipantId} not found`);
+    }
+    if (profile.adapter_id !== 'claude_code_cli') {
+      throw new ProtocolError(
+        'worker_adapter_unavailable',
+        `worker participant ${workerParticipantId} uses adapter ${profile.adapter_id}; only claude_code_cli is available`,
+      );
+    }
+  }
+
   // 提交 Task 时从当时 resolved assignment 固化 planner/orchestrator identity。
   private augmentTaskWithIdentities(contract: TaskContract): PersistedTask {
     const planner = this.requireResolvedAssignment(contract.room_id, 'room', null, 'planner');
@@ -1042,57 +1472,10 @@ export class RoomService {
     return assignment;
   }
 
-  // Run claim 时固化 worker/executor：两者必须来自当时 resolved assignment（Task scope 优先、
-  // Room default fallback，Review finding inc9-r2），且 executor 就是执行 claim 的 actor。
-  private validateClaimIdentity(run: Run, actor: EventActor): void {
-    const worker = this.requireResolvedAssignment(run.room_id, 'task', run.task_id, 'worker');
-    if (worker.participant_id !== run.worker_participant_id) {
-      throw new ProtocolError(
-        'validation_failed',
-        `run ${run.run_id} worker ${run.worker_participant_id} does not match resolved assignment ${worker.participant_id}`,
-      );
-    }
-    const executor = this.requireResolvedAssignment(run.room_id, 'task', run.task_id, 'executor');
-    if (executor.participant_id !== run.executor_participant_id) {
-      throw new ProtocolError(
-        'validation_failed',
-        `run ${run.run_id} executor ${run.executor_participant_id} does not match resolved assignment ${executor.participant_id}`,
-      );
-    }
-    if (run.executor_participant_id !== actor.participant_id) {
-      throw new ProtocolError(
-        'actor_not_allowed',
-        `participant ${actor.participant_id} cannot claim run ${run.run_id} as executor`,
-      );
-    }
-  }
-
-  // 已创建 Run 的 command authority（Review finding inc9-r1）：先校验 route participant 存在、
-  // enabled 且 actor_role 与 required role 一致，再只对照 Run claim 时冻结的 worker/executor
-  // identity；不要求该 participant 仍持有 current assignment，因此 assignment replacement 不
-  // 撤销冻结 authority，replacement participant 也不能接管旧 Run。disabled 冻结 participant
-  // 必须先 re-enable 才能恢复 command。
-  private assertRunCommandAuthority(run: Run, actor: EventActor, role: 'worker' | 'executor'): void {
-    this.assertParticipantActive(actor);
-    if (actor.actor_role !== role) {
-      throw new ProtocolError(
-        'actor_not_allowed',
-        `participant ${actor.participant_id} cannot act as ${role} (role ${actor.actor_role})`,
-      );
-    }
-    const frozenParticipantId = role === 'worker' ? run.worker_participant_id : run.executor_participant_id;
-    if (frozenParticipantId !== actor.participant_id) {
-      throw new ProtocolError(
-        'actor_not_allowed',
-        `run ${run.run_id} ${role} is ${frozenParticipantId}, not ${actor.participant_id}`,
-      );
-    }
-  }
-
-  // Run claim 的 executor authority（Review finding inc9-r2）：actor 必须存在、enabled、role
-  // 正确，且等于 run.task_id 的 Task scope 优先（Room fallback）解析的 executor。Run 冻结
-  // identity 与解析结果的一致性由 validateClaimIdentity 校验。
-  private assertExecutorClaimAuthority(run: Run, actor: EventActor): void {
+  // claim 的 executor authority（Review finding inc9-r2）：actor 必须存在、enabled、role
+  // 正确，且等于 Run 当前 Task 的 Task scope 优先（Room fallback）解析的 executor。attempt
+  // 冻结 identity 就是 actor 本身，与解析结果一致性在 freeze 点天然成立。
+  private assertExecutorClaimAuthority(task: PersistedTask, actor: EventActor): void {
     this.assertParticipantActive(actor);
     if (actor.actor_role !== 'executor') {
       throw new ProtocolError(
@@ -1100,18 +1483,41 @@ export class RoomService {
         `participant ${actor.participant_id} cannot act as executor (role ${actor.actor_role})`,
       );
     }
-    const assignment = this.resolveAssignment(run.room_id, 'task', run.task_id, 'executor');
+    const assignment = this.resolveAssignment(task.room_id, 'task', task.task_id, 'executor');
     if (!assignment) {
       throw new ProtocolError(
         'actor_not_allowed',
-        `no executor assignment for task ${run.task_id} in room ${run.room_id}`,
+        `no executor assignment for task ${task.task_id} in room ${task.room_id}`,
       );
     }
     this.assertAssignable(assignment);
     if (assignment.participant_id !== actor.participant_id) {
       throw new ProtocolError(
         'actor_not_allowed',
-        `participant ${actor.participant_id} has no active executor assignment for task ${run.task_id} in room ${run.room_id}`,
+        `participant ${actor.participant_id} has no active executor assignment for task ${task.task_id} in room ${task.room_id}`,
+      );
+    }
+  }
+
+  // attempt 的 command authority（Review finding inc9-r1）：先校验 route participant 存在、
+  // enabled 且 actor_role 与 required role 一致，再只对照 claim 时冻结的 worker/executor
+  // identity；不要求该 participant 仍持有 current assignment，因此 assignment replacement 不
+  // 撤销冻结 authority，replacement participant 也不能接管旧 attempt。disabled 冻结
+  // participant 必须先 re-enable 才能恢复 command。
+  private assertAttemptCommandAuthority(attempt: RunAttempt, actor: EventActor, role: 'worker' | 'executor'): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== role) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `participant ${actor.participant_id} cannot act as ${role} (role ${actor.actor_role})`,
+      );
+    }
+    const frozenParticipantId =
+      role === 'worker' ? attempt.worker_participant_id : attempt.executor_participant_id;
+    if (frozenParticipantId !== actor.participant_id) {
+      throw new ProtocolError(
+        'actor_not_allowed',
+        `attempt ${attempt.attempt_id} ${role} is ${frozenParticipantId}, not ${actor.participant_id}`,
       );
     }
   }
@@ -1187,266 +1593,130 @@ export class RoomService {
     }
   }
 
-  private validateFixReferences(task: TaskContract): void {
-    if (task.type !== 'fix') return;
-    const parent = this.requireTask(task.parent_task_id ?? '');
-    const review = this.requireReview(task.based_on_review_id ?? '');
-    if (parent.room_id !== task.room_id) {
-      throw new ProtocolError(
-        'validation_failed',
-        `fix task ${task.task_id} references parent task from another room`,
-      );
+  // canonical terminal payload（Review finding inc10-r2）：terminal status 与持久化
+  // result/failure 相互一致，矛盾 evidence 在写入前以 validation_failed 拒绝。
+  // - succeeded：result.status=completed + result.task_id=attempt.task_id + failure=null
+  // - failed/interrupted：result=null + failure 非 null（只保存 failure evidence）
+  // - needs_decision：带 result 时必须 result.status=needs_decision + 同 task + failure=null；
+  //   result=null + failure 非 null 保留为 pause evidence —— Executor 在 decision_requested
+  //   后收集 process/stream/Git/artifact evidence 失败的唯一 legal terminal（transition
+  //   table 无 decision_requested→failed）。用户已确认 terminal evidence 方案 1
+  //   （2026-08-31）：result-carrying form 按上述校验，pause-failure form 保留且不是
+  //   第二个 business Decision result；Executor 与 transition table 不变，claude-runner
+  //   四个 pause-failure regression 不受影响。
+  //   result=null + failure=null 不表达任何可接受 terminal 事实，validation_failed
+  //   （Review finding inc10-fix1-r1）；legal evidence 是上述两种形态的 union。
+  // - canceled：planner intent 优先，canonical payload 为 result=null + failure=null；
+  //   caller 的 success/decision/failure 分类作废，session/process/Git/artifact evidence
+  //   保留首次结算事实。
+  private canonicalSettlePayload(
+    taskId: string,
+    target: SettleAttemptInput['status'],
+    settle: SettleAttemptInput,
+  ): SettleAttemptInput {
+    if (target === 'canceled') {
+      return { ...settle, status: 'canceled', result: null, failure: null };
     }
-    if (review.room_id !== task.room_id || review.task_id !== parent.task_id) {
-      throw new ProtocolError(
-        'validation_failed',
-        `fix task ${task.task_id} references review ${review.review_id} that does not target parent task ${parent.task_id}`,
-      );
-    }
-    if (review.review_id !== this.currentReviewId(task.room_id)) {
-      throw new ProtocolError(
-        'validation_failed',
-        `fix task ${task.task_id} references review ${review.review_id} which is not the current review`,
-      );
-    }
-    for (const finding of task.confirmed_findings ?? []) {
-      if (!review.findings.some((f) => f.finding_id === finding.finding_id)) {
+    if (target === 'succeeded') {
+      if (
+        settle.result === null ||
+        settle.result.status !== 'completed' ||
+        settle.result.task_id !== taskId ||
+        settle.failure !== null
+      ) {
         throw new ProtocolError(
           'validation_failed',
-          `confirmed finding ${finding.finding_id} does not exist in review ${review.review_id}`,
+          `attempt ${settle.attempt_id} cannot settle succeeded without a completed same-task result and no failure`,
         );
       }
+      return settle;
     }
-  }
-
-  private assertRunTask(run: Run): void {
-    const task = this.requireTask(run.task_id);
-    if (task.room_id !== run.room_id) {
-      throw new ProtocolError('validation_failed', `run ${run.run_id} references task from another room`);
+    if (target === 'needs_decision') {
+      if (
+        settle.result !== null &&
+        (settle.result.status !== 'needs_decision' ||
+          settle.result.task_id !== taskId ||
+          settle.failure !== null)
+      ) {
+        throw new ProtocolError(
+          'validation_failed',
+          `attempt ${settle.attempt_id} cannot settle needs_decision with a mismatched result or failure`,
+        );
+      }
+      // 两种 legal shape 的 union：result-carrying（上方校验）或 pause-failure（result=null +
+      // non-null failure）。null/null 不表达任何 terminal 事实（Review finding
+      // inc10-fix1-r1），validation_failed 且 transaction 整体回滚。
+      if (settle.result === null && settle.failure === null) {
+        throw new ProtocolError(
+          'validation_failed',
+          `attempt ${settle.attempt_id} cannot settle needs_decision without result or failure evidence`,
+        );
+      }
+      return settle;
     }
-  }
-
-  // current Task authority 复用每个 Room sequence 最大的 task_submitted Event；该 Event 与
-  // submitTask transition 在同一 transaction 内，sequence 提供稳定顺序。guard 只在 newly
-  // inserted Run 上执行，避免破坏同 ID/同 content 的 retry 与同 ID/异 content 的 conflict。
-  private assertCurrentTask(run: Run): void {
-    if (run.task_id !== this.currentTaskId(run.room_id)) {
+    if (settle.result !== null || settle.failure === null) {
       throw new ProtocolError(
         'validation_failed',
-        `run ${run.run_id} references task ${run.task_id} which is not the current task`,
+        `attempt ${settle.attempt_id} cannot settle ${target} with a result or without failure evidence`,
       );
     }
+    return settle;
   }
 
-  private normalizeRunForCoding(run: Run): Run {
-    if (run.status !== 'starting' && run.status !== 'running') {
-      throw new ProtocolError('validation_failed', `run ${run.run_id} status ${run.status} cannot enter CODING`);
-    }
-    return { ...run, status: 'running' };
+  private isTerminalAttemptStatus(status: string): boolean {
+    return ['succeeded', 'failed', 'needs_decision', 'canceled', 'interrupted'].includes(status);
   }
 
-  private assertRunRunning(run: Run): void {
-    if (run.status !== 'running') {
-      throw new ProtocolError('validation_failed', `run ${run.run_id} is not running (status ${run.status})`);
-    }
-  }
-
-  // startRun 只用于新 Implementation lineage（PLAN_READY）或 RUN_FAILED retry；NEEDS_DECISION
-  // 与 FIX_PLAN_READY 必须 resumeRun（继承 lineage session/baseline）。guard 只在 newly
-  // inserted Run 上执行，不误伤同 ID/同 content 的 retry。
-  private assertStartableState(run: Run): void {
-    const room = this.requireRoom(run.room_id);
-    if (room.state === 'NEEDS_DECISION' || room.state === 'FIX_PLAN_READY') {
-      throw new ProtocolError(
-        'validation_failed',
-        `startRun cannot be used in ${room.state}; use resumeRun to continue the lineage`,
-      );
+  private runStatusForTerminal(target: string): Run['status'] {
+    switch (target) {
+      case 'succeeded':
+        return 'review_required';
+      case 'needs_decision':
+        return 'needs_decision';
+      case 'canceled':
+        return 'canceled';
+      default:
+        // failed 与 interrupted 都把 Run 置 failed：attempt 保留真实 terminal status 与
+        // failure evidence，Run 表达 lineage 已失败等待 planner 决定。
+        return 'failed';
     }
   }
 
-  // resumeRun 要求存在 prior lineage Run：NEEDS_DECISION（decision）与 FIX_PLAN_READY（fix）
-  // 必然有先前的 source Run；PLAN_READY 只有 RUN_FAILED retry（已有 prior Run）才允许 resume，
-  // 首次 Implementation 必须 startRun。guard 只在 newly inserted Run 上执行。
-  private assertResumableState(run: Run): void {
-    const room = this.requireRoom(run.room_id);
-    if (room.state === 'PLAN_READY' && !this.hasPriorRun(run.room_id)) {
-      throw new ProtocolError(
-        'validation_failed',
-        'resumeRun requires a prior lineage Run; first PLAN_READY must use startRun',
-      );
+  private eventTypeForTerminal(target: string): string {
+    switch (target) {
+      case 'succeeded':
+        return 'run_attempt_succeeded';
+      case 'needs_decision':
+        return 'run_attempt_needs_decision';
+      case 'canceled':
+        return 'run_attempt_canceled';
+      default:
+        // interrupted 复用 run_attempt_failed Event：终端仍是失败语义。
+        return 'run_attempt_failed';
     }
   }
 
-  // 任一 run_started/run_resumed Event 存在即表示已有 prior lineage Run。首 Run 一定由
-  // startRun 产生 run_started，resumeRun 永远只在既有 lineage 之后发生。
-  private hasPriorRun(roomId: string): boolean {
-    return (
-      this.repo.latestEventEntityId(roomId, 'run_started') !== null ||
-      this.repo.latestEventEntityId(roomId, 'run_resumed') !== null
-    );
-  }
-
-  // answer 前 gate：source Run 必须是 current needs_decision Run，且 pause finalization 已完成。
-  // Question 的 currency 由最新 question_asked Event reference 决定，不扫描 JSON content 猜 identity。
-  private assertAnswerableQuestion(question: Question): void {
-    const room = this.requireRoom(question.room_id);
-    if (room.state !== 'NEEDS_DECISION') {
-      throw new ProtocolError('validation_failed', `room ${question.room_id} is not NEEDS_DECISION`);
-    }
-    if (question.question_id !== this.repo.latestEventEntityId(question.room_id, 'question_asked')) {
-      throw new ProtocolError('validation_failed', `question ${question.question_id} is not the current open question`);
-    }
-    const run = this.requireRun(question.run_id);
-    if (run.status !== 'needs_decision') {
-      throw new ProtocolError('validation_failed', `question ${question.question_id} source run ${run.run_id} is not needs_decision`);
-    }
-    if (run.room_id !== question.room_id || run.task_id !== question.task_id) {
-      throw new ProtocolError('validation_failed', `question ${question.question_id} source run ${run.run_id} does not match task/room`);
-    }
-    if (run.completed_at === null) {
-      throw new ProtocolError('validation_failed', `question ${question.question_id} source run ${run.run_id} has not been pause-finalized`);
-    }
-  }
-
-  // pause finalization 的前置：只接受 current Run 已 needs_decision、Room=NEEDS_DECISION、最新
-  // question_asked 引用的 open Question 与该 Run 的 task/room/run 一致的场景。Question 必须在
-  // finalize 前保持 open（answer 会把它置为 answered）。
-  private assertNeedsDecisionFinalizable(run: Run): void {
-    if (run.status !== 'needs_decision') {
-      throw new ProtocolError('validation_failed', `run ${run.run_id} is not needs_decision (status ${run.status})`);
-    }
-    const room = this.requireRoom(run.room_id);
-    if (room.state !== 'NEEDS_DECISION') {
-      throw new ProtocolError('validation_failed', `room ${run.room_id} is not NEEDS_DECISION`);
-    }
-    const questionId = this.repo.latestEventEntityId(run.room_id, 'question_asked');
-    if (questionId === null) {
-      throw new ProtocolError('validation_failed', `room ${run.room_id} has no open question for pause finalization`);
-    }
-    const question = this.requireQuestion(questionId);
-    if (question.status !== 'open') {
-      throw new ProtocolError('validation_failed', `question ${questionId} is not open for pause finalization`);
-    }
-    if (question.run_id !== run.run_id || question.task_id !== run.task_id || question.room_id !== run.room_id) {
-      throw new ProtocolError('validation_failed', `question ${questionId} does not reference run ${run.run_id} task/room`);
-    }
-  }
-
-  // pause payload 的稳定签名：比较 pause evidence 是否与既有 Run 一致，用于 idempotent retry /
-  // id_conflict。result/failure 已经过 schema normalization，JSON.stringify 的 key 顺序稳定。
-  private pausePayloadSignature(
-    result: CodingResult | null,
-    failure: { code: string; message: string } | null,
-    evidence: RunTerminalEvidence,
-  ): string {
+  // terminal payload 的稳定签名：比较 settle evidence 是否与既有 attempt 一致，用于幂等
+  // retry / id_conflict。字段已经过 schema normalization，JSON.stringify 的 key 顺序稳定；
+  // settled_at 是 server 时间，不参与签名。
+  private attemptTerminalSignature(input: {
+    status: string;
+    result: CodingResult | null;
+    failure: { code: string; message: string } | null;
+    agent_session_ref: string | null;
+    process_exit_code: number | null;
+    git_evidence: { staged: string[]; unstaged: string[]; untracked: string[] };
+    artifact_refs: string[];
+  }): string {
     return JSON.stringify([
-      evidence.agent_session_ref,
-      evidence.process_exit_code,
-      result,
-      failure,
-      evidence.git_evidence,
-      evidence.artifact_refs,
+      input.status,
+      input.result,
+      input.failure,
+      input.agent_session_ref,
+      input.process_exit_code,
+      input.git_evidence,
+      input.artifact_refs,
     ]);
-  }
-
-  private runPauseSignature(run: Run): string {
-    return JSON.stringify([
-      run.agent_session_ref,
-      run.process_exit_code,
-      run.result,
-      run.failure,
-      run.git_evidence,
-      run.artifact_refs,
-    ]);
-  }
-
-  // PLAN_READY 分支：Room 状态由 source lineage 决定 retry 或 new_implementation。权威 retry
-  // source 是 latest run_failed Event 引用的 Run；该 Run 必须属于 current Room/current Task 且已
-  // terminal-finalized（status=failed、completed_at 非 null）。缺失 source 或 source 来自更早
-  // lineage/task 时保持首次 new Implementation 语义，绝不从 artifact/session history 猜测 source。
-  private deriveRetryOrNewImplementation(roomId: string, task: TaskContract): ContinuationContext {
-    const failedRunId = this.repo.latestEventEntityId(roomId, 'run_failed');
-    if (failedRunId === null) {
-      return { kind: 'new_implementation', sourceRun: null, question: null, review: null };
-    }
-    const run = this.requireRun(failedRunId);
-    if (run.room_id !== roomId || run.task_id !== task.task_id) {
-      return { kind: 'new_implementation', sourceRun: null, question: null, review: null };
-    }
-    if (run.status !== 'failed' || run.completed_at === null) {
-      throw new ProtocolError(
-        'validation_failed',
-        `retry source run ${run.run_id} is not a terminal failed run of task ${task.task_id}`,
-      );
-    }
-    return { kind: 'retry', sourceRun: run, question: null, review: null };
-  }
-
-  private deriveDecisionContinuation(roomId: string, task: TaskContract): ContinuationContext {
-    const questionId = this.repo.latestEventEntityId(roomId, 'question_asked');
-    if (questionId === null) {
-      throw new ProtocolError('validation_failed', `room ${roomId} has no question for decision continuation`);
-    }
-    const question = this.requireQuestion(questionId);
-    if (question.status !== 'answered') {
-      throw new ProtocolError('validation_failed', `question ${questionId} is not answered`);
-    }
-    if (question.answer_changes_contract !== false) {
-      throw new ProtocolError('validation_failed', `question ${questionId} changes the contract and cannot be resumed`);
-    }
-    if (question.task_id !== task.task_id || question.room_id !== roomId) {
-      throw new ProtocolError('validation_failed', `question ${questionId} does not match task ${task.task_id}/room ${roomId}`);
-    }
-    const run = this.requireRun(question.run_id);
-    if (run.status !== 'needs_decision') {
-      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} is not needs_decision`);
-    }
-    if (run.room_id !== roomId || run.task_id !== task.task_id) {
-      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} does not match task/room`);
-    }
-    if (run.completed_at === null) {
-      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} has not been pause-finalized`);
-    }
-    if (run.agent_session_ref === null || run.agent_session_ref === '') {
-      throw new ProtocolError('validation_failed', `decision source run ${run.run_id} has no session to resume`);
-    }
-    return { kind: 'decision', sourceRun: run, question, review: null };
-  }
-
-  private deriveFixContinuation(roomId: string, task: TaskContract): ContinuationContext {
-    if (task.type !== 'fix') {
-      throw new ProtocolError('validation_failed', `room ${roomId} is FIX_PLAN_READY but task ${task.task_id} is not a fix task`);
-    }
-    const review = this.requireReview(task.based_on_review_id ?? '');
-    if (review.room_id !== roomId || review.task_id !== task.parent_task_id) {
-      throw new ProtocolError('validation_failed', `fix task ${task.task_id} review ${review.review_id} does not target parent task`);
-    }
-    if (review.review_id !== this.currentReviewId(roomId)) {
-      throw new ProtocolError('validation_failed', `fix task ${task.task_id} review ${review.review_id} is not current`);
-    }
-    const run = this.requireRun(review.run_id);
-    if (run.status !== 'succeeded') {
-      throw new ProtocolError('validation_failed', `fix source run ${run.run_id} is not succeeded`);
-    }
-    if (run.room_id !== roomId || run.task_id !== review.task_id) {
-      throw new ProtocolError('validation_failed', `fix source run ${run.run_id} does not match review task/room`);
-    }
-    if (run.agent_session_ref === null || run.agent_session_ref === '') {
-      throw new ProtocolError('validation_failed', `fix source run ${run.run_id} has no session to resume`);
-    }
-    return { kind: 'fix', sourceRun: run, question: null, review };
-  }
-
-  private currentReviewId(roomId: string): string | null {
-    return this.repo.latestEventEntityId(roomId, 'review_submitted');
-  }
-
-  private currentTaskId(roomId: string): string | null {
-    return this.repo.latestEventEntityId(roomId, 'task_submitted');
-  }
-
-  private currentRunId(roomId: string): string | null {
-    return this.repo.latestEventEntityId(roomId, 'run_completed');
   }
 
   private requireRoom(roomId: string): RoomRecord {
@@ -1465,6 +1735,12 @@ export class RoomService {
     const run = this.repo.getRun(runId);
     if (!run) throw new ProtocolError('entity_not_found', `run ${runId} not found`);
     return run;
+  }
+
+  private requireAttempt(attemptId: string): RunAttempt {
+    const attempt = this.repo.getAttempt(attemptId);
+    if (!attempt) throw new ProtocolError('entity_not_found', `attempt ${attemptId} not found`);
+    return attempt;
   }
 
   private requireReview(reviewId: string): Review {
@@ -1487,12 +1763,43 @@ export class RoomService {
     }
     return parsed.data;
   }
-
-  private parseCodingResult(input: unknown): CodingResult {
-    const parsed = codingResultSchema.safeParse(input);
-    if (!parsed.success) {
-      throw new ProtocolError('coding_result_invalid', 'coding result is invalid');
-    }
-    return parsed.data;
-  }
 }
+
+// claim/settle/cancel 输入的 service-local schema：只校验 caller-owned 字段，attempt_no、
+// started_at 等 server-assigned 字段不进入输入契约。
+const claimInputSchema = z.object({
+  attempt_id: z.string().min(1),
+  run_id: z.string().min(1),
+  room_id: z.string().min(1),
+  worktree_path: z.string().min(1),
+  baseline_head: z.string().min(1),
+});
+
+const settleInputSchema = z.object({
+  attempt_id: z.string().min(1),
+  status: z.enum(['succeeded', 'failed', 'needs_decision', 'canceled', 'interrupted']),
+  result: codingResultSchema.nullable(),
+  failure: z.object({ code: z.string(), message: z.string() }).nullable(),
+  agent_session_ref: z.string().nullable(),
+  process_exit_code: z.number().int().nullable(),
+  git_evidence: z.object({
+    staged: z.array(z.string()),
+    unstaged: z.array(z.string()),
+    untracked: z.array(z.string()),
+  }),
+  artifact_refs: z.array(z.string()),
+});
+
+const cancelInputSchema = z.object({
+  room_id: z.string().min(1),
+  run_id: z.string().min(1),
+  reason: z.string(),
+  confirmed_by_user: z.boolean(),
+});
+
+const addGuidanceInputSchema = z.object({
+  guidance_id: z.string().min(1),
+  room_id: z.string().min(1),
+  run_id: z.string().min(1),
+  text: z.string().min(1),
+});

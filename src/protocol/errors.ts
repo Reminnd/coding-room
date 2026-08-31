@@ -13,6 +13,12 @@ export const protocolErrorCodeSchema = z.enum([
   'git_head_missing',
   'worktree_not_clean',
   'run_already_active',
+  // v0.4：未 accepted Run 的 canonical worktree 已被另一 Run 持有（partial unique
+  // index race 或 service guard 检测），禁止同 worktree 双 Run。
+  'worktree_already_owned',
+  // v0.4：Run 冻结的 worker 不是本实现提供的唯一 claude_code_cli adapter；
+  // claim 前拒绝，零副作用。
+  'worker_adapter_unavailable',
   'claude_start_failed',
   'room_mcp_unavailable',
   'claude_exit_failed',

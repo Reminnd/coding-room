@@ -9,13 +9,12 @@ import { runCliMain, type RunCliIo } from '../src/cli/run.ts';
 import { RoomService } from '../src/room/room-service.ts';
 import { getRoomStateSnapshot } from '../src/room/state-snapshot.ts';
 import {
+  makeAttemptSettle,
   makeCodingResult,
   makeParticipant,
   makeQuestion,
   makeRoleAssignment,
-  makeRun,
   makeTask,
-  makeTerminalEvidence,
 } from './fixtures.ts';
 import {
   FakeClaudeProcess,
@@ -25,12 +24,14 @@ import {
 } from './runner-fixtures/claude-process-fake.ts';
 
 // room:run one-shot CLI 的 black-box 测试：全部通过 runCliMain 的 main() seam 执行，注入
-// recording io（stdout/stderr/exit）与 fake spawner，证明 stdout {room,run}、exit 0/1 契约、
-// preflight 拒绝与零副作用，而不调用真实 Claude CLI 或 process.exit。
+// recording io（stdout/stderr/exit）与 fake spawner，证明 v0.4 stdout {room,run,attempt}、
+// exit 0/1 契约、preflight 拒绝与零副作用，而不调用真实 Claude CLI 或 process.exit。
+// --run-id 与 fresh --attempt-id 是 v0.4 的显式 one-shot 输入；baseline 由 persisted Run
+// 冻结值拥有（首 attempt clean gate 冻结 actual HEAD），caller 不能传 --baseline-head。
 const SESSION_ID = 'sess-00000000-0000-4000-8000-000000000001';
 const MCP_URL = 'http://127.0.0.1:8080/mcp/participants/p~claude-code-cli';
 
-// v0.3 actor literal：与默认 bootstrap assignment 一致（测试侧独立 literal，不导入实现）。
+// v0.4 actor literal：与默认 bootstrap assignment 一致（测试侧独立 literal，不导入实现）。
 const PLANNER = { participant_id: 'codex-app', actor_role: 'planner' as const };
 const WORKER = { participant_id: 'claude-code-cli', actor_role: 'worker' as const };
 const EXECUTOR = { participant_id: 'local-runner', actor_role: 'executor' as const };
@@ -67,8 +68,16 @@ function makeRepo(fixture: string): { repo: string; baselineHead: string } {
   return { repo, baselineHead: git(repo, 'rev-parse', 'HEAD').trim() };
 }
 
-// file-backed database 处于 PLAN_READY：room-1 + 已提交 implementation task-1。
-function makeReadyDb(fixture: string): { dbPath: string; repo: string; baselineHead: string } {
+// file-backed database：room-1 + 已提交 implementation task-1 + ready run-1。customWorker
+// 非 null 时在 Run 创建前注册该 worker 并以 Room scope latest assignment 替换默认 worker
+// assignment：Contract 规定 worker 在 Run 创建时解析冻结、assignment replacement 不得改写
+// 既有 Run worker，而 task-scope assignment 要求 Task 已存在（Task 与 Run 同事务创建），
+// 因此非默认 worker（含 Fix inc9-fr3/fr4 的 worker/2、`.`、`..` raw identity）只能在
+// submitTask 前经 Room scope 生效并被 Run 冻结。
+function makeReadyDb(
+  fixture: string,
+  customWorker: string | null = null,
+): { dbPath: string; repo: string; baselineHead: string } {
   const { repo, baselineHead } = makeRepo(fixture);
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
@@ -76,66 +85,28 @@ function makeReadyDb(fixture: string): { dbPath: string; repo: string; baselineH
   service.createRoom('room-1', PLANNER);
   service.transitionToArchitectureReview('room-1', PLANNER);
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
-  service.submitTask(makeTask(), PLANNER);
-  db.close();
-  return { dbPath, repo, baselineHead };
-}
-
-// Fix inc9-fr3/fr4 fixture：bootstrap 后注册含斜杠 worker identity worker/2 并创建 Task-scope
-// worker assignment，使 resolved worker 为 raw worker/2 而不是默认 claude-code-cli。
-function makeSlashWorkerDb(fixture: string): { dbPath: string; repo: string; baselineHead: string } {
-  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
-  const db = new DatabaseSync(dbPath);
-  const service = new RoomService(db);
-  service.registerParticipant(
-    makeParticipant({
-      participant_id: 'worker/2',
-      display_name: 'Worker 2',
-      kind: 'agent',
-      provider: 'anthropic',
-      adapter_id: 'claude_code_cli',
-      capabilities: ['coding', 'questioning'],
-    }),
-    ORCHESTRATOR,
-  );
-  service.createRoleAssignment(
-    makeRoleAssignment({ assignment_id: 'a-w2', scope_type: 'task', scope_id: 'task-1', role: 'worker', participant_id: 'worker/2' }),
-    ORCHESTRATOR,
-  );
-  db.close();
-  return { dbPath, repo, baselineHead };
-}
-
-// Fix inc9-fr4 fixture：bootstrap 后注册 `.`/`..` worker identity 并创建 Task-scope worker
-// assignment；两者都是 schema 允许的 raw opaque id，resolved worker 不再指向默认 bootstrap。
-function makeDotWorkerDb(
-  fixture: string,
-  participantId: '.' | '..',
-): { dbPath: string; repo: string; baselineHead: string } {
-  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
-  const db = new DatabaseSync(dbPath);
-  const service = new RoomService(db);
-  service.registerParticipant(
-    makeParticipant({
-      participant_id: participantId,
-      display_name: participantId,
-      kind: 'agent',
-      provider: 'anthropic',
-      adapter_id: 'claude_code_cli',
-      capabilities: ['coding', 'questioning'],
-    }),
-    ORCHESTRATOR,
-  );
-  service.createRoleAssignment(
-    makeRoleAssignment({
-      assignment_id: `a-${participantId}`,
-      scope_type: 'task',
-      scope_id: 'task-1',
-      role: 'worker',
-      participant_id: participantId,
-    }),
-    ORCHESTRATOR,
-  );
+  if (customWorker !== null) {
+    service.registerParticipant(
+      makeParticipant({
+        participant_id: customWorker,
+        display_name: customWorker,
+        kind: 'agent',
+        provider: 'anthropic',
+        adapter_id: 'claude_code_cli',
+        capabilities: ['coding', 'questioning'],
+      }),
+      ORCHESTRATOR,
+    );
+    service.createRoleAssignment(
+      makeRoleAssignment({
+        assignment_id: `a-${customWorker}`,
+        role: 'worker',
+        participant_id: customWorker,
+      }),
+      ORCHESTRATOR,
+    );
+  }
+  service.submitTask(makeTask(), PLANNER); // run-1 创建时冻结该 worker identity
   db.close();
   return { dbPath, repo, baselineHead };
 }
@@ -191,8 +162,8 @@ function runArgs(dbPath: string, project: string, extra: string[] = []): string[
   return [
     '--db', dbPath,
     '--project', project,
-    '--task-id', 'task-1',
     '--run-id', 'run-1',
+    '--attempt-id', 'attempt-1',
     '--mcp-url', MCP_URL,
     ...extra,
   ];
@@ -212,9 +183,9 @@ function autoSpawner(
   return { spawner, invocations };
 }
 
-test('successful run prints deterministic {room,run} JSON to stdout and exits 0', async () => {
+test('successful run prints deterministic {room,run,attempt} JSON to stdout and exits 0', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-ok-'));
-  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
+  const { dbPath, repo } = makeReadyDb(fixture);
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     child.stdout.write(`${initLine()}\n${resultLine()}\n`);
@@ -224,21 +195,20 @@ test('successful run prints deterministic {room,run} JSON to stdout and exits 0'
   });
   const { io, out } = recordingIo();
   try {
-    await runCliMain(
-      runArgs(dbPath, repo, ['--baseline-head', baselineHead]),
-      { spawnProcess: spawner },
-      io,
-    );
+    await runCliMain(runArgs(dbPath, repo), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 0);
     assert.equal(out.stderr, '');
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
-      run: { status: string; run_id: string; agent_session_ref: string | null };
+      run: { status: string; run_id: string; worktree_path: string };
+      attempt: { status: string; agent_session_ref: string | null; attempt_no: number };
     };
-    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.room.state, 'DISCUSSION'); // Room 保持 planning-only
+    assert.equal(payload.run.status, 'review_required');
     assert.equal(payload.run.run_id, 'run-1');
-    assert.equal(payload.run.agent_session_ref, SESSION_ID);
+    assert.equal(payload.attempt.status, 'succeeded');
+    assert.equal(payload.attempt.agent_session_ref, SESSION_ID);
+    assert.equal(payload.attempt.attempt_no, 1);
 
     // 首次 Implementation：无 --resume；exact MCP config 原样传给 process。
     const args = invocations[0].args;
@@ -258,9 +228,9 @@ test('successful run prints deterministic {room,run} JSON to stdout and exits 0'
   }
 });
 
-test('failed run prints the same {room,run} JSON to stdout but exits 1 with empty stderr', async () => {
+test('failed run prints the same {room,run,attempt} JSON to stdout but exits 1 with empty stderr', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-fail-'));
-  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
+  const { dbPath, repo } = makeReadyDb(fixture);
   const child = new FakeClaudeProcess();
   const { spawner } = autoSpawner(child, () => {
     child.stdout.write(`${initLine()}\n`);
@@ -270,32 +240,30 @@ test('failed run prints the same {room,run} JSON to stdout but exits 1 with empt
   });
   const { io, out } = recordingIo();
   try {
-    await runCliMain(
-      runArgs(dbPath, repo, ['--baseline-head', baselineHead]),
-      { spawnProcess: spawner },
-      io,
-    );
+    await runCliMain(runArgs(dbPath, repo), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 1, 'failed run must exit 1');
     assert.equal(out.stderr, '', 'terminal failure must still be reported on stdout');
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
-      run: { status: string; failure: { code: string } | null };
+      run: { status: string };
+      attempt: { status: string; failure: { code: string } | null };
     };
-    assert.equal(payload.room.state, 'RUN_FAILED');
+    assert.equal(payload.room.state, 'DISCUSSION');
     assert.equal(payload.run.status, 'failed');
-    assert.equal(payload.run.failure?.code, 'claude_exit_failed');
+    assert.equal(payload.attempt.status, 'failed');
+    assert.equal(payload.attempt.failure?.code, 'claude_exit_failed');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test('paused needs-decision run prints {room,run} to stdout and exits 0', async () => {
+test('paused needs-decision run prints {room,run,attempt} to stdout and exits 0', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-pause-'));
-  const { dbPath, repo, baselineHead } = makeReadyDb(fixture);
+  const { dbPath, repo } = makeReadyDb(fixture);
   const child = new FakeClaudeProcess();
   const { spawner } = autoSpawner(child, () => {
-    // fake process 经第二个 file-backed connection 调用 room_ask_question 对应服务操作，
-    // 与 Runner 测试中 in-memory 共享 service 等价，走真实 SQLite 持久化。
+    // fake process 经第二个 file-backed connection 对 active attempt 调用 room_ask_question
+    // 对应服务操作，与 Runner 测试中 in-memory 共享 service 等价，走真实 SQLite 持久化。
     const db = new DatabaseSync(dbPath);
     const service = new RoomService(db);
     service.askQuestion(makeQuestion(), WORKER);
@@ -307,25 +275,23 @@ test('paused needs-decision run prints {room,run} to stdout and exits 0', async 
   });
   const { io, out } = recordingIo();
   try {
-    await runCliMain(
-      runArgs(dbPath, repo, ['--baseline-head', baselineHead]),
-      { spawnProcess: spawner },
-      io,
-    );
+    await runCliMain(runArgs(dbPath, repo), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 0, 'needs_decision is not a failure exit');
     assert.equal(out.stderr, '');
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
       run: { status: string };
+      attempt: { status: string };
     };
-    assert.equal(payload.room.state, 'NEEDS_DECISION');
+    assert.equal(payload.room.state, 'DISCUSSION');
     assert.equal(payload.run.status, 'needs_decision');
+    assert.equal(payload.attempt.status, 'needs_decision');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test('retry continuation succeeds without --baseline-head because the source run owns the baseline', async () => {
+test('retry continuation resumes the reliable session of the same Run', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-retry-'));
   const { repo, baselineHead } = makeRepo(fixture);
   const dbPath = join(fixture, 'room.db');
@@ -335,14 +301,22 @@ test('retry continuation succeeds without --baseline-head because the source run
   service.transitionToArchitectureReview('room-1', PLANNER);
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
-  service.startRun(makeRun({ baseline_head: baselineHead }), EXECUTOR);
-  service.failRun(
-    'run-1',
-    { code: 'claude_exit_failed', message: 'boom' },
-    makeTerminalEvidence({ agent_session_ref: SESSION_ID, process_exit_code: 1 }),
+  service.claimRunAttempt(
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: baselineHead },
     EXECUTOR,
   );
-  service.retryAfterFailure('room-1', PLANNER); // PLAN_READY
+  service.settleRunAttempt(
+    makeAttemptSettle({
+      attempt_id: 'attempt-1',
+      status: 'failed',
+      result: null,
+      failure: { code: 'claude_exit_failed', message: 'boom' },
+      agent_session_ref: SESSION_ID,
+      process_exit_code: 1,
+    }),
+    EXECUTOR,
+  );
+  service.retryRun('room-1', 'run-1', PLANNER); // ready
   db.close();
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
@@ -354,15 +328,21 @@ test('retry continuation succeeds without --baseline-head because the source run
   const { io, out } = recordingIo();
   try {
     await runCliMain(
-      runArgs(dbPath, repo, ['--run-id', 'run-2']), // 故意不传 --baseline-head
+      runArgs(dbPath, repo, ['--attempt-id', 'attempt-2']),
       { spawnProcess: spawner },
       io,
     );
     assert.equal(out.exitCode, 0);
     assert.equal(out.stderr, '');
-    const payload = JSON.parse(out.stdout) as { room: { state: string }; run: { run_id: string } };
-    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payload.run.run_id, 'run-2');
+    const payload = JSON.parse(out.stdout) as {
+      room: { state: string };
+      run: { run_id: string; status: string };
+      attempt: { attempt_no: number };
+    };
+    assert.equal(payload.room.state, 'DISCUSSION');
+    assert.equal(payload.run.run_id, 'run-1');
+    assert.equal(payload.run.status, 'review_required');
+    assert.equal(payload.attempt.attempt_no, 2);
     const args = invocations[0].args;
     const resumeIndex = args.indexOf('--resume');
     assert.ok(resumeIndex >= 0, 'retry must resume the source session');
@@ -384,33 +364,34 @@ test('missing required arguments write stderr and exit 1 without spawning', asyn
     assert.match(out.stderr, /--db/);
     assert.equal(invocations.length, 0);
     await runCliMain(
-      ['--db', join(fixture, 'room.db'), '--project', fixture, '--task-id', 'task-1', '--mcp-url', MCP_URL],
+      ['--db', join(fixture, 'room.db'), '--project', fixture, '--run-id', 'run-1', '--mcp-url', MCP_URL],
       { spawnProcess: spawner },
       io,
     );
     assert.equal(out.exitCode, 1);
-    assert.match(out.stderr, /--run-id/);
+    assert.match(out.stderr, /--attempt-id/);
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test('missing --baseline-head for a first new implementation writes stderr and exits 1 without spawning', async () => {
-  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-base-'));
-  const { dbPath } = makeReadyDb(fixture);
+test('a dirty first-attempt worktree fails the clean-baseline gate without spawning', async () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-clean-'));
+  const { dbPath, repo } = makeReadyDb(fixture);
+  writeFileSync(join(repo, 'dirty.txt'), 'x'); // 首 attempt clean gate 必须拒绝
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
-    await runCliMain(runArgs(dbPath, fixture), { spawnProcess: spawner }, io);
+    await runCliMain(runArgs(dbPath, repo), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 1);
     assert.equal(out.stdout, '');
-    assert.match(out.stderr, /--baseline-head .* required/);
+    assert.match(out.stderr, /worktree_not_clean/);
     assert.equal(invocations.length, 0, 'preflight failure must not spawn');
-    // 该失败不写 database：rooms/events 保持 submitTask 后的状态。
+    // 该失败不写 database：run-1 保持 ready，Room 保持 DISCUSSION。
     const db = new DatabaseSync(dbPath);
     const service = new RoomService(db);
-    assert.equal(service.getRoom('room-1')!.state, 'PLAN_READY');
-    assert.equal(service.getRun('run-1'), null);
+    assert.equal(service.getRoom('room-1')!.state, 'DISCUSSION');
+    assert.equal(service.getRun('run-1')!.status, 'ready');
     db.close();
   } finally {
     rmSync(fixture, { recursive: true, force: true });
@@ -424,7 +405,7 @@ test('missing database file writes stderr and exits 1 without creating it', asyn
   const { io, out } = recordingIo();
   try {
     const dbPath = join(fixture, 'missing.db');
-    await runCliMain(runArgs(dbPath, fixture, ['--baseline-head', 'deadbeef']), { spawnProcess: spawner }, io);
+    await runCliMain(runArgs(dbPath, fixture), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 1);
     assert.equal(out.stdout, '');
     assert.match(out.stderr, /database file does not exist/);
@@ -443,7 +424,7 @@ test('an existing empty database file is rejected as not-a-Room-database and sta
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
-    await runCliMain(runArgs(dbPath, fixture, ['--baseline-head', 'deadbeef']), { spawnProcess: spawner }, io);
+    await runCliMain(runArgs(dbPath, fixture), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 1);
     assert.equal(out.stdout, '');
     assert.match(out.stderr, /not an existing Room database/);
@@ -464,7 +445,7 @@ test('a non-Room SQLite file is rejected as not-a-Room-database and gains no Roo
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
-    await runCliMain(runArgs(dbPath, fixture, ['--baseline-head', 'deadbeef']), { spawnProcess: spawner }, io);
+    await runCliMain(runArgs(dbPath, fixture), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 1);
     assert.match(out.stderr, /not an existing Room database/);
     assert.equal(invocations.length, 0);
@@ -479,7 +460,7 @@ test('a non-Room SQLite file is rejected as not-a-Room-database and gains no Roo
 
 test('invalid MCP URLs write stderr and exit 1 before any spawn', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-url-'));
-  const { dbPath, baselineHead } = makeReadyDb(fixture);
+  const { dbPath } = makeReadyDb(fixture);
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
@@ -496,7 +477,7 @@ test('invalid MCP URLs write stderr and exit 1 before any spawn', async () => {
     ];
     for (const mcpUrl of urls) {
       await runCliMain(
-        ['--db', dbPath, '--project', fixture, '--task-id', 'task-1', '--run-id', 'run-1', '--mcp-url', mcpUrl, '--baseline-head', baselineHead],
+        ['--db', dbPath, '--project', fixture, '--run-id', 'run-1', '--attempt-id', 'attempt-1', '--mcp-url', mcpUrl],
         { spawnProcess: spawner },
         io,
       );
@@ -510,13 +491,13 @@ test('invalid MCP URLs write stderr and exit 1 before any spawn', async () => {
   }
 });
 
-// Fix inc9-fr3/fr4 direct regression：resolved worker 为含斜杠的 worker/2 时，public room:run
-// CLI 必须接受 canonical framed single-segment mcp-url（期望值 p~worker%2F2 是测试侧 literal，
-// 不从 production route builder 导出）并完成 fake-process Run 与 terminal settlement；Run
-// 持久化的 worker identity 保持 raw worker/2。
+// Fix inc9-fr3/fr4 direct regression：Run 冻结 worker 为含斜杠的 worker/2 时，public
+// room:run CLI 必须接受 canonical framed single-segment mcp-url（期望值 p~worker%2F2 是
+// 测试侧 literal，不从 production route builder 导出）并完成 fake-process Run 与 terminal
+// settlement；Run 持久化的 worker identity 保持 raw worker/2。
 test('a slash worker identity accepts the canonical framed MCP URL and completes a run', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-slash-ok-'));
-  const { dbPath, repo, baselineHead } = makeSlashWorkerDb(fixture);
+  const { dbPath, repo } = makeReadyDb(fixture, 'worker/2');
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     child.stdout.write(`${initLine()}\n${resultLine()}\n`);
@@ -528,7 +509,6 @@ test('a slash worker identity accepts the canonical framed MCP URL and completes
   try {
     await runCliMain(
       runArgs(dbPath, repo, [
-        '--baseline-head', baselineHead,
         '--mcp-url', 'http://127.0.0.1:8080/mcp/participants/p~worker%2F2',
       ]),
       { spawnProcess: spawner },
@@ -539,10 +519,12 @@ test('a slash worker identity accepts the canonical framed MCP URL and completes
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
       run: { status: string; worker_participant_id: string };
+      attempt: { status: string };
     };
-    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.room.state, 'DISCUSSION');
+    assert.equal(payload.run.status, 'review_required');
     assert.equal(payload.run.worker_participant_id, 'worker/2');
+    assert.equal(payload.attempt.status, 'succeeded');
     // process 收到的 exact MCP config 使用 canonical framed URL。
     const args = invocations[0].args;
     const mcpIndex = args.indexOf('--mcp-config');
@@ -558,11 +540,11 @@ test('a slash worker identity accepts the canonical framed MCP URL and completes
 
 // Fix inc9-fr3/fr4 direct regression：raw 多 segment（/mcp/participants/worker/2）与 unframed
 // encoded 单 segment（/mcp/participants/worker%2F2）都不是 canonical framed route，必须在
-// spawn、Run claim、Event/cursor 与 artifact 写入前失败；完整 durable read-model snapshot
+// spawn、attempt claim、Event/cursor 与 artifact 写入前失败；完整 durable read-model snapshot
 // 逐字段不变，artifact owner path 不存在。
 test('raw multi-segment and unframed encoded worker URLs fail the CLI preflight with zero side effects', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-slash-raw-'));
-  const { dbPath, repo, baselineHead } = makeSlashWorkerDb(fixture);
+  const { dbPath, repo } = makeReadyDb(fixture, 'worker/2');
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
@@ -575,10 +557,7 @@ test('raw multi-segment and unframed encoded worker URLs fail the CLI preflight 
       'http://127.0.0.1:8080/mcp/participants/worker%2F2',
     ]) {
       await runCliMain(
-        runArgs(dbPath, repo, [
-          '--baseline-head', baselineHead,
-          '--mcp-url', mcpUrl,
-        ]),
+        runArgs(dbPath, repo, ['--mcp-url', mcpUrl]),
         { spawnProcess: spawner },
         io,
       );
@@ -594,7 +573,7 @@ test('raw multi-segment and unframed encoded worker URLs fail the CLI preflight 
       before,
       'durable read-model snapshot must stay unchanged',
     );
-    assert.equal(afterService.getRun('run-1'), null, 'no Run may be claimed');
+    assert.equal(afterService.getRun('run-1')!.status, 'ready', 'no attempt may be claimed');
     afterDb.close();
     assert.equal(existsSync(join(repo, '.agent-room')), false, 'no artifact owner path');
   } finally {
@@ -607,7 +586,7 @@ test('raw multi-segment and unframed encoded worker URLs fail the CLI preflight 
 // 的 worker identity 保持 raw `.`/`..`，传给 process 的 exact MCP config 保持 framed URL。
 test('a dot worker identity accepts the canonical framed MCP URL and completes a run', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-dot-ok-'));
-  const { dbPath, repo, baselineHead } = makeDotWorkerDb(fixture, '.');
+  const { dbPath, repo } = makeReadyDb(fixture, '.');
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     child.stdout.write(`${initLine()}\n${resultLine()}\n`);
@@ -619,7 +598,6 @@ test('a dot worker identity accepts the canonical framed MCP URL and completes a
   try {
     await runCliMain(
       runArgs(dbPath, repo, [
-        '--baseline-head', baselineHead,
         '--mcp-url', 'http://127.0.0.1:8080/mcp/participants/p~.',
       ]),
       { spawnProcess: spawner },
@@ -630,10 +608,12 @@ test('a dot worker identity accepts the canonical framed MCP URL and completes a
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
       run: { status: string; worker_participant_id: string };
+      attempt: { status: string };
     };
-    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.room.state, 'DISCUSSION');
+    assert.equal(payload.run.status, 'review_required');
     assert.equal(payload.run.worker_participant_id, '.');
+    assert.equal(payload.attempt.status, 'succeeded');
     const args = invocations[0].args;
     const mcpIndex = args.indexOf('--mcp-config');
     assert.ok(mcpIndex >= 0, 'mcp config must be passed');
@@ -648,7 +628,7 @@ test('a dot worker identity accepts the canonical framed MCP URL and completes a
 
 test('a dotdot worker identity accepts the canonical framed MCP URL and completes a run', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-dotdot-ok-'));
-  const { dbPath, repo, baselineHead } = makeDotWorkerDb(fixture, '..');
+  const { dbPath, repo } = makeReadyDb(fixture, '..');
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     child.stdout.write(`${initLine()}\n${resultLine()}\n`);
@@ -660,7 +640,6 @@ test('a dotdot worker identity accepts the canonical framed MCP URL and complete
   try {
     await runCliMain(
       runArgs(dbPath, repo, [
-        '--baseline-head', baselineHead,
         '--mcp-url', 'http://127.0.0.1:8080/mcp/participants/p~..',
       ]),
       { spawnProcess: spawner },
@@ -671,10 +650,12 @@ test('a dotdot worker identity accepts the canonical framed MCP URL and complete
     const payload = JSON.parse(out.stdout) as {
       room: { state: string };
       run: { status: string; worker_participant_id: string };
+      attempt: { status: string };
     };
-    assert.equal(payload.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payload.run.status, 'succeeded');
+    assert.equal(payload.room.state, 'DISCUSSION');
+    assert.equal(payload.run.status, 'review_required');
     assert.equal(payload.run.worker_participant_id, '..');
+    assert.equal(payload.attempt.status, 'succeeded');
     const args = invocations[0].args;
     const mcpIndex = args.indexOf('--mcp-config');
     assert.ok(mcpIndex >= 0, 'mcp config must be passed');
@@ -689,10 +670,10 @@ test('a dotdot worker identity accepts the canonical framed MCP URL and complete
 
 // Fix inc9-fr4 direct regression：unframed `.`/`..` mcp-url 被 WHATWG URL 归一化出
 // participant route（/mcp/participants/ 与 /mcp/），不是 framed exact route，必须在 spawn、
-// Run claim、Event/cursor 与 artifact 写入前失败，durable snapshot 逐字段不变。
+// attempt claim、Event/cursor 与 artifact 写入前失败，durable snapshot 逐字段不变。
 test('unframed dot worker URLs fail the CLI preflight with zero side effects', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-dot-raw-'));
-  const { dbPath, repo, baselineHead } = makeDotWorkerDb(fixture, '.');
+  const { dbPath, repo } = makeReadyDb(fixture, '.');
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
@@ -705,10 +686,7 @@ test('unframed dot worker URLs fail the CLI preflight with zero side effects', a
       'http://127.0.0.1:8080/mcp/participants/..',
     ]) {
       await runCliMain(
-        runArgs(dbPath, repo, [
-          '--baseline-head', baselineHead,
-          '--mcp-url', mcpUrl,
-        ]),
+        runArgs(dbPath, repo, ['--mcp-url', mcpUrl]),
         { spawnProcess: spawner },
         io,
       );
@@ -724,7 +702,7 @@ test('unframed dot worker URLs fail the CLI preflight with zero side effects', a
       before,
       'durable read-model snapshot must stay unchanged',
     );
-    assert.equal(afterService.getRun('run-1'), null, 'no Run may be claimed');
+    assert.equal(afterService.getRun('run-1')!.status, 'ready', 'no attempt may be claimed');
     afterDb.close();
     assert.equal(existsSync(join(repo, '.agent-room')), false, 'no artifact owner path');
   } finally {
@@ -732,24 +710,24 @@ test('unframed dot worker URLs fail the CLI preflight with zero side effects', a
   }
 });
 
-test('missing task and non-directory project write stderr and exit 1 without spawning', async () => {
+test('a missing run and a non-directory project write stderr and exit 1 without spawning', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-preflight-'));
-  const { dbPath, baselineHead } = makeReadyDb(fixture);
+  const { dbPath } = makeReadyDb(fixture);
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
     await runCliMain(
-      ['--db', dbPath, '--project', fixture, '--task-id', 'missing', '--run-id', 'run-1', '--mcp-url', MCP_URL, '--baseline-head', baselineHead],
+      ['--db', dbPath, '--project', fixture, '--run-id', 'missing', '--attempt-id', 'attempt-1', '--mcp-url', MCP_URL],
       { spawnProcess: spawner },
       io,
     );
     assert.equal(out.exitCode, 1);
     assert.equal(out.stdout, '');
-    assert.match(out.stderr, /task missing not found/);
+    assert.match(out.stderr, /run missing not found/);
     assert.equal(invocations.length, 0);
 
     await runCliMain(
-      ['--db', dbPath, '--project', join(fixture, 'nope'), '--task-id', 'task-1', '--run-id', 'run-1', '--mcp-url', MCP_URL, '--baseline-head', baselineHead],
+      ['--db', dbPath, '--project', join(fixture, 'nope'), '--run-id', 'run-1', '--attempt-id', 'attempt-1', '--mcp-url', MCP_URL],
       { spawnProcess: spawner },
       io,
     );
@@ -761,7 +739,7 @@ test('missing task and non-directory project write stderr and exit 1 without spa
   }
 });
 
-test('a non-repository project writes stderr and exits 1 before creating a Run', async () => {
+test('a non-repository project writes stderr and exits 1 before claiming an attempt', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-norepo-'));
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
@@ -775,7 +753,7 @@ test('a non-repository project writes stderr and exits 1 before creating a Run',
   const { io, out } = recordingIo();
   try {
     await runCliMain(
-      ['--db', dbPath, '--project', fixture, '--task-id', 'task-1', '--run-id', 'run-1', '--mcp-url', MCP_URL, '--baseline-head', 'deadbeef'],
+      ['--db', dbPath, '--project', fixture, '--run-id', 'run-1', '--attempt-id', 'attempt-1', '--mcp-url', MCP_URL],
       { spawnProcess: spawner },
       io,
     );
@@ -785,15 +763,15 @@ test('a non-repository project writes stderr and exits 1 before creating a Run',
     assert.equal(invocations.length, 0);
     const readDb = new DatabaseSync(dbPath);
     const readService = new RoomService(readDb);
-    assert.equal(readService.getRun('run-1'), null, 'non-repository must not create a Run');
-    assert.equal(readService.getRoom('room-1')!.state, 'PLAN_READY');
+    assert.equal(readService.getRun('run-1')!.status, 'ready', 'non-repository must not claim');
+    assert.equal(readService.getRoom('room-1')!.state, 'DISCUSSION');
     readDb.close();
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test('a Room in an unstartable state writes stderr and exits 1 without spawning', async () => {
+test('a Run with an active attempt writes stderr and exits 1 without spawning', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-state-'));
   const { repo, baselineHead } = makeRepo(fixture);
   const dbPath = join(fixture, 'room.db');
@@ -803,19 +781,22 @@ test('a Room in an unstartable state writes stderr and exits 1 without spawning'
   service.transitionToArchitectureReview('room-1', PLANNER);
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
-  service.startRun(makeRun({ baseline_head: baselineHead }), EXECUTOR); // CODING
+  service.claimRunAttempt(
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: baselineHead },
+    EXECUTOR,
+  ); // running
   db.close();
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
   try {
     await runCliMain(
-      runArgs(dbPath, repo, ['--baseline-head', baselineHead]),
+      runArgs(dbPath, repo, ['--attempt-id', 'attempt-2']),
       { spawnProcess: spawner },
       io,
     );
     assert.equal(out.exitCode, 1);
     assert.equal(out.stdout, '');
-    assert.match(out.stderr, /cannot start a run/);
+    assert.match(out.stderr, /run_already_active/);
     assert.equal(invocations.length, 0, 'unstartable state must not spawn');
   } finally {
     rmSync(fixture, { recursive: true, force: true });

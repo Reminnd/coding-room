@@ -158,25 +158,23 @@ function autoSpawner(
   return { spawner, invocations };
 }
 
-// 经 room:run 的 main() seam 执行一次 one-shot 调用；baselineHead=null 时不传
-// --baseline-head（continuation/retry 场景）。
+// 经 room:run 的 main() seam 执行一次 one-shot 调用：v0.4 显式输入 --run-id 与 fresh
+// --attempt-id；baseline 由 persisted Run 冻结值拥有，caller 不能传 --baseline-head。
 async function runCli(
   url: string,
   dbPath: string,
   fixture: string,
-  taskId: string,
   runId: string,
-  baselineHead: string | null,
+  attemptId: string,
   spawnProcess: FakeSpawn,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     '--db', dbPath,
     '--project', fixture,
-    '--task-id', taskId,
     '--run-id', runId,
+    '--attempt-id', attemptId,
     '--mcp-url', `${url}/mcp/participants/p~claude-code-cli`,
   ];
-  if (baselineHead !== null) args.push('--baseline-head', baselineHead);
   const { io, out } = recordingIo();
   await runCliMain(args, { spawnProcess }, io);
   return out;
@@ -210,11 +208,16 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
       child1.stderr.end();
       child1.emit('close', 0, null);
     });
-    const run1 = await runCli(url, dbPath, repo, 'task-1', 'run-1', baselineHead, spawner1);
+    const run1 = await runCli(url, dbPath, repo, 'run-1', 'attempt-1', spawner1);
     assert.equal(run1.exitCode, 0);
-    const payload1 = JSON.parse(run1.stdout) as { room: { state: string }; run: Record<string, unknown> };
-    assert.equal(payload1.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payload1.run.status, 'succeeded');
+    const payload1 = JSON.parse(run1.stdout) as {
+      room: { state: string };
+      run: { status: string };
+      attempt: { status: string };
+    };
+    assert.equal(payload1.room.state, 'DISCUSSION'); // Room 保持 planning-only
+    assert.equal(payload1.run.status, 'review_required');
+    assert.equal(payload1.attempt.status, 'succeeded');
     assert.ok(!invocations1[0].args.includes('--resume'), 'first implementation must not resume');
 
     // 3. Codex Review 提交 finding → confirmed Fix Task。
@@ -238,10 +241,16 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
       child2.stderr.end();
       child2.emit('close', 0, null);
     });
-    const run2 = await runCli(url, dbPath, repo, 'task-2', 'run-2', baselineHead, spawner2);
+    const run2 = await runCli(url, dbPath, repo, 'run-1', 'attempt-2', spawner2);
     assert.equal(run2.exitCode, 0);
-    const payload2 = JSON.parse(run2.stdout) as { room: { state: string }; run: Record<string, unknown> };
-    assert.equal(payload2.room.state, 'REVIEW_REQUIRED');
+    const payload2 = JSON.parse(run2.stdout) as {
+      room: { state: string };
+      run: { status: string };
+      attempt: { status: string };
+    };
+    assert.equal(payload2.room.state, 'DISCUSSION');
+    assert.equal(payload2.run.status, 'review_required');
+    assert.equal(payload2.attempt.status, 'succeeded');
     const resumeIndex = invocations2[0].args.indexOf('--resume');
     assert.ok(resumeIndex >= 0, 'fix continuation must resume');
     assert.equal(invocations2[0].args[resumeIndex + 1], SESSION_ID, 'fix must resume the exact lineage session');
@@ -249,7 +258,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     // 5. approved Review + 用户 accept → ACCEPTED。
     const review2 = await codex.callTool({
       name: 'room_submit_review',
-      arguments: makeReview({ review_id: 'review-2', run_id: 'run-2', task_id: 'task-2', decision: 'approved' }) as unknown as Record<string, unknown>,
+      arguments: makeReview({ review_id: 'review-2', attempt_id: 'attempt-2', task_id: 'task-2', decision: 'approved' }) as unknown as Record<string, unknown>,
     });
     assert.equal(review2.isError, undefined);
     const accept = await codex.callTool({
@@ -258,53 +267,69 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     });
     assert.equal(accept.isError, undefined);
 
-    // 6. final snapshot：state、current references、cursor 与完整 Event 序列。
+    // 6. final snapshot：planning state、per-Run work item、cursor 与完整 Event 序列。
     const finalState = await snapshot(codex, 'room-1');
-    assert.equal((finalState.room as { state: string }).state, 'ACCEPTED');
-    assert.equal((finalState.current_task as { task_id: string }).task_id, 'task-2');
-    assert.equal((finalState.current_run as { run_id: string }).run_id, 'run-2');
-    assert.equal((finalState.current_review as { review_id: string }).review_id, 'review-2');
-    assert.equal(finalState.cursor, 12);
+    assert.equal((finalState.room as { state: string }).state, 'DISCUSSION');
+    const workItems = finalState.run_work_items as {
+      run_id: string;
+      run_status: string;
+      waiting_actor: string | null;
+      current_task_id: string | null;
+      current_attempt_id: string | null;
+      current_review_id: string | null;
+    }[];
+    assert.equal(workItems.length, 1);
+    assert.deepEqual(workItems[0], {
+      run_id: 'run-1',
+      run_status: 'accepted',
+      waiting_actor: null,
+      current_task_id: 'task-2',
+      current_attempt_id: 'attempt-2',
+      current_review_id: 'review-2',
+      current_question_id: null,
+    });
+    assert.equal(finalState.cursor, 13);
     const events = finalState.events as { type: string; sequence: number }[];
-    assert.equal(events.length, 12);
+    assert.equal(events.length, 13);
     assert.equal(events[events.length - 1].type, 'review_accepted');
-    assert.equal(events.filter((e) => e.type === 'run_started').length, 1);
-    assert.equal(events.filter((e) => e.type === 'run_resumed').length, 1);
-    assert.equal(events.filter((e) => e.type === 'run_completed').length, 2);
+    assert.equal(events.filter((e) => e.type === 'run_attempt_claimed').length, 2);
+    assert.equal(events.filter((e) => e.type === 'run_attempt_succeeded').length, 2);
     assert.equal(events.filter((e) => e.type === 'task_submitted').length, 2);
     assert.equal(events.filter((e) => e.type === 'review_submitted').length, 2);
 
-    // 7. durable 证据从 file-backed SQLite 的第二个连接验证：session/baseline 连续、
+    // 7. durable 证据从 file-backed SQLite 的第二个连接验证：attempt session/baseline 连续、
     // Git evidence 精确、artifact refs 与磁盘文件一致。连接用完即关，避免 Windows 下
     // file handle 阻塞临时目录删除。
     const verifyDb = new DatabaseSync(dbPath);
     const verify = new RoomService(verifyDb);
     const run1Row = verify.getRun('run-1')!;
-    const run2Row = verify.getRun('run-2')!;
-    assert.equal(run1Row.agent_session_ref, SESSION_ID);
-    assert.equal(run1Row.baseline_head, baselineHead);
-    assert.equal(run2Row.agent_session_ref, SESSION_ID, 'fix run must reuse the lineage session');
-    assert.equal(run2Row.baseline_head, baselineHead, 'fix run must inherit the source baseline');
-    assert.deepEqual(run1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
-    // run-2 的 completion evidence 在 run-1 已写 artifact 之后采集：.agent-room/ 是未版本化
-    // runtime 目录，run-1 的 artifact 文件以 untracked 出现在 run-2 evidence 中（porcelain
-    // 排序），而 run-2 自己的 artifact 在其 evidence 采集后才写入。
-    assert.deepEqual(run2Row.git_evidence, {
+    const attempt1Row = verify.getAttempt('attempt-1')!;
+    const attempt2Row = verify.getAttempt('attempt-2')!;
+    assert.equal(run1Row.status, 'accepted');
+    assert.equal(attempt1Row.agent_session_ref, SESSION_ID);
+    assert.equal(attempt1Row.baseline_head, baselineHead);
+    assert.equal(attempt2Row.agent_session_ref, SESSION_ID, 'fix attempt must reuse the lineage session');
+    assert.equal(attempt2Row.baseline_head, baselineHead, 'fix attempt must inherit the source baseline');
+    assert.deepEqual(attempt1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
+    // attempt-2 的 completion evidence 在 attempt-1 已写 artifact 之后采集：.agent-room/ 是
+    // 未版本化 runtime 目录，attempt-1 的 artifact 文件以 untracked 出现在 attempt-2 evidence
+    // 中（porcelain 排序），而 attempt-2 自己的 artifact 在其 evidence 采集后才写入。
+    assert.deepEqual(attempt2Row.git_evidence, {
       staged: [],
       unstaged: [],
       untracked: [
-        '.agent-room/artifacts/run-1/stderr.log',
-        '.agent-room/artifacts/run-1/stdout.jsonl',
+        '.agent-room/artifacts/attempt-1/stderr.log',
+        '.agent-room/artifacts/attempt-1/stdout.jsonl',
         'fix-a.txt',
         'impl-a.txt',
       ],
     });
-    assert.deepEqual(run2Row.artifact_refs, [
-      '.agent-room/artifacts/run-2/stdout.jsonl',
-      '.agent-room/artifacts/run-2/stderr.log',
+    assert.deepEqual(attempt2Row.artifact_refs, [
+      '.agent-room/artifacts/attempt-2/stdout.jsonl',
+      '.agent-room/artifacts/attempt-2/stderr.log',
     ]);
-    assert.equal(existsSync(join(repo, '.agent-room', 'artifacts', 'run-1', 'stdout.jsonl')), true);
-    assert.equal(existsSync(join(repo, '.agent-room', 'artifacts', 'run-2', 'stdout.jsonl')), true);
+    assert.equal(existsSync(join(repo, '.agent-room', 'artifacts', 'attempt-1', 'stdout.jsonl')), true);
+    assert.equal(existsSync(join(repo, '.agent-room', 'artifacts', 'attempt-2', 'stdout.jsonl')), true);
     verifyDb.close();
     await codex.close();
   } finally {
@@ -339,19 +364,24 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
       child1.stderr.end();
       child1.emit('close', 1, null);
     });
-    const failed = await runCli(url, dbPath, repo, 'task-1', 'run-1', baselineHead, spawner1);
-    assert.equal(failed.exitCode, 1, 'failed run must exit 1');
+    const failed = await runCli(url, dbPath, repo, 'run-1', 'attempt-1', spawner1);
+    assert.equal(failed.exitCode, 1, 'failed attempt must exit 1');
     assert.equal(failed.stderr, '', 'terminal failure is reported on stdout');
-    const failedPayload = JSON.parse(failed.stdout) as { room: { state: string }; run: { status: string } };
-    assert.equal(failedPayload.room.state, 'RUN_FAILED');
+    const failedPayload = JSON.parse(failed.stdout) as {
+      room: { state: string };
+      run: { status: string };
+      attempt: { status: string };
+    };
+    assert.equal(failedPayload.room.state, 'DISCUSSION');
     assert.equal(failedPayload.run.status, 'failed');
-    assert.equal(existsSync(join(repo, 'impl-wip.txt')), true, 'failed run keeps its worktree change');
+    assert.equal(failedPayload.attempt.status, 'failed');
+    assert.equal(existsSync(join(repo, 'impl-wip.txt')), true, 'failed attempt keeps its worktree change');
 
-    // 2. Codex 经 actual MCP room_retry_run 返回 PLAN_READY。
-    const retry = await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1' } });
-    assert.equal((retry.structuredContent as { room: { state: string } }).room.state, 'PLAN_READY');
+    // 2. Codex 经 actual MCP room_retry_run 把 Run 返回 ready。
+    const retry = await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1', run_id: 'run-1' } });
+    assert.equal((retry.structuredContent as { run: { status: string } }).run.status, 'ready');
 
-    // 3. one-shot retry：同一 Task、同一 session、继承 baseline；dirty worktree 被保留。
+    // 3. one-shot retry：同一 Run、同一 session、继承 baseline；dirty worktree 被保留。
     const child2 = new FakeClaudeProcess();
     const { spawner: spawner2, invocations: invocations2 } = autoSpawner(child2, () => {
       writeFileSync(join(repo, 'retry-ok.txt'), 'ok');
@@ -360,36 +390,43 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
       child2.stderr.end();
       child2.emit('close', 0, null);
     });
-    const ok = await runCli(url, dbPath, repo, 'task-1', 'run-2', null, spawner2); // retry 无需 --baseline-head
+    const ok = await runCli(url, dbPath, repo, 'run-1', 'attempt-2', spawner2);
     assert.equal(ok.exitCode, 0);
-    const okPayload = JSON.parse(ok.stdout) as { room: { state: string }; run: Record<string, unknown> };
-    assert.equal(okPayload.room.state, 'REVIEW_REQUIRED');
-    assert.equal(okPayload.run.status, 'succeeded');
+    const okPayload = JSON.parse(ok.stdout) as {
+      room: { state: string };
+      run: { status: string };
+      attempt: { status: string };
+    };
+    assert.equal(okPayload.room.state, 'DISCUSSION');
+    assert.equal(okPayload.run.status, 'review_required');
+    assert.equal(okPayload.attempt.status, 'succeeded');
     const resumeIndex = invocations2[0].args.indexOf('--resume');
     assert.ok(resumeIndex >= 0, 'retry must resume the source session');
     assert.equal(invocations2[0].args[resumeIndex + 1], SESSION_ID);
 
     // 4. durable 证据：HEAD 未变、baseline/session 继承、失败变更与新变更都在 evidence 中。
     assert.equal(git(repo, 'rev-parse', 'HEAD').trim(), baselineHead, 'retry must not change HEAD');
-    assert.equal(existsSync(join(repo, 'impl-wip.txt')), true, 'retry must preserve the failed run change');
+    assert.equal(existsSync(join(repo, 'impl-wip.txt')), true, 'retry must preserve the failed attempt change');
     const verifyDb = new DatabaseSync(dbPath);
     const verify = new RoomService(verifyDb);
     const run1Row = verify.getRun('run-1')!;
-    const run2Row = verify.getRun('run-2')!;
-    assert.equal(run1Row.status, 'failed');
-    assert.equal(run1Row.baseline_head, baselineHead);
-    assert.equal(run2Row.status, 'succeeded');
-    assert.equal(run2Row.agent_session_ref, SESSION_ID);
-    assert.equal(run2Row.baseline_head, baselineHead, 'retry must inherit the source run baseline');
-    assert.deepEqual(run1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-wip.txt'] });
-    // run-2 的 evidence 包含 run-1（失败 run 同样写 artifact）的 artifact 文件；run-2 自身的
-    // artifact 在其 evidence 采集后写入，不出现。
-    assert.deepEqual(run2Row.git_evidence, {
+    const attempt1Row = verify.getAttempt('attempt-1')!;
+    const attempt2Row = verify.getAttempt('attempt-2')!;
+    assert.equal(run1Row.status, 'review_required'); // retry 后同一 Run 进入 review
+    assert.equal(attempt1Row.status, 'failed');
+    assert.equal(attempt1Row.baseline_head, baselineHead);
+    assert.equal(attempt2Row.status, 'succeeded');
+    assert.equal(attempt2Row.agent_session_ref, SESSION_ID);
+    assert.equal(attempt2Row.baseline_head, baselineHead, 'retry must inherit the lineage baseline');
+    assert.deepEqual(attempt1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-wip.txt'] });
+    // attempt-2 的 evidence 包含 attempt-1（失败 attempt 同样写 artifact）的 artifact 文件；
+    // attempt-2 自身的 artifact 在其 evidence 采集后写入，不出现。
+    assert.deepEqual(attempt2Row.git_evidence, {
       staged: [],
       unstaged: [],
       untracked: [
-        '.agent-room/artifacts/run-1/stderr.log',
-        '.agent-room/artifacts/run-1/stdout.jsonl',
+        '.agent-room/artifacts/attempt-1/stderr.log',
+        '.agent-room/artifacts/attempt-1/stdout.jsonl',
         'impl-wip.txt',
         'retry-ok.txt',
       ],
@@ -397,7 +434,9 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
     const state = await snapshot(codex, 'room-1');
     const events = state.events as { type: string }[];
     assert.equal(events.filter((e) => e.type === 'task_submitted').length, 1, 'retry must not create a new task');
-    assert.equal(events.filter((e) => e.type === 'run_resumed').length, 1);
+    assert.equal(events.filter((e) => e.type === 'run_retried').length, 1);
+    assert.equal(events.filter((e) => e.type === 'run_attempt_failed').length, 1);
+    assert.equal(events.filter((e) => e.type === 'run_attempt_succeeded').length, 1);
     verifyDb.close();
     await codex.close();
   } finally {
@@ -430,12 +469,12 @@ test('retry with an empty source session creates a replacement session without -
       child1.stderr.end();
       child1.emit('close', 1, null);
     });
-    const failed = await runCli(url, dbPath, repo, 'task-1', 'run-1', baselineHead, spawner1);
+    const failed = await runCli(url, dbPath, repo, 'run-1', 'attempt-1', spawner1);
     assert.equal(failed.exitCode, 1);
-    const failedPayload = JSON.parse(failed.stdout) as { run: { agent_session_ref: string | null } };
-    assert.equal(failedPayload.run.agent_session_ref, null, 'failed run persists no session');
+    const failedPayload = JSON.parse(failed.stdout) as { attempt: { agent_session_ref: string | null } };
+    assert.equal(failedPayload.attempt.agent_session_ref, null, 'failed attempt persists no session');
 
-    await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1' } });
+    await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1', run_id: 'run-1' } });
 
     // 2. retry：无 --resume，Claude 创建 replacement session，仍继承 baseline 与 Task lineage。
     const child2 = new FakeClaudeProcess();
@@ -445,7 +484,7 @@ test('retry with an empty source session creates a replacement session without -
       child2.stderr.end();
       child2.emit('close', 0, null);
     });
-    const ok = await runCli(url, dbPath, repo, 'task-1', 'run-2', null, spawner2);
+    const ok = await runCli(url, dbPath, repo, 'run-1', 'attempt-2', spawner2);
     assert.equal(ok.exitCode, 0);
     const args = invocations2[0].args;
     assert.ok(!args.includes('--resume'), 'empty source session must omit --resume');
@@ -453,10 +492,10 @@ test('retry with an empty source session creates a replacement session without -
 
     const verifyDb = new DatabaseSync(dbPath);
     const verify = new RoomService(verifyDb);
-    const run2Row = verify.getRun('run-2')!;
-    assert.equal(run2Row.status, 'succeeded');
-    assert.equal(run2Row.agent_session_ref, REPLACEMENT_SESSION);
-    assert.equal(run2Row.baseline_head, baselineHead, 'replacement session still inherits the baseline');
+    const attempt2Row = verify.getAttempt('attempt-2')!;
+    assert.equal(attempt2Row.status, 'succeeded');
+    assert.equal(attempt2Row.agent_session_ref, REPLACEMENT_SESSION);
+    assert.equal(attempt2Row.baseline_head, baselineHead, 'replacement session still inherits the baseline');
     const state = await snapshot(codex, 'room-1');
     const events = state.events as { type: string }[];
     assert.equal(events.filter((e) => e.type === 'task_submitted').length, 1, 'replacement session keeps the task lineage');

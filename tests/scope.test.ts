@@ -8,7 +8,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 测试侧 literal 声明已冻结的 Scope boundary，避免与 future implementation 同源。
 const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli']);
-const allowedRunnerFiles = new Set(['claude-process.ts', 'claude-stream.ts', 'claude-runner.ts']);
+// v0.4：runner 边界新增 Executor/WorkerAdapter seam 两个文件；Stage 2 只允许这两个新模块。
+const allowedRunnerFiles = new Set([
+  'claude-process.ts',
+  'claude-stream.ts',
+  'claude-runner.ts',
+  'executor.ts',
+  'worker-adapter.ts',
+]);
 const allowedMcpFiles = new Set(['http.ts', 'tools.ts', 'serve.ts']);
 const allowedCliFiles = new Set(['status.ts', 'run.ts']);
 const allowedRoomFiles = new Set([

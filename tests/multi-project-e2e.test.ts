@@ -141,19 +141,17 @@ async function runCli(
   url: string,
   dbPath: string,
   fixture: string,
-  taskId: string,
   runId: string,
-  baselineHead: string | null,
+  attemptId: string,
   spawnProcess: FakeSpawn,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   const args = [
     '--db', dbPath,
     '--project', fixture,
-    '--task-id', taskId,
     '--run-id', runId,
+    '--attempt-id', attemptId,
     '--mcp-url', `${url}/mcp/participants/p~claude-code-cli`,
   ];
-  if (baselineHead !== null) args.push('--baseline-head', baselineHead);
   const { io, out } = recordingIo();
   await runCliMain(args, { spawnProcess }, io);
   return out;
@@ -178,12 +176,12 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     await plan(codexA, 'room-a');
     await codexA.callTool({
       name: 'room_submit_task',
-      arguments: makeTask({ task_id: 'task-a-1', room_id: 'room-a' }) as unknown as Record<string, unknown>,
+      arguments: makeTask({ task_id: 'task-a-1', room_id: 'room-a', run_id: 'run-a-1' }) as unknown as Record<string, unknown>,
     });
     await plan(codexB, 'room-b');
     await codexB.callTool({
       name: 'room_submit_task',
-      arguments: makeTask({ task_id: 'task-b-1', room_id: 'room-b' }) as unknown as Record<string, unknown>,
+      arguments: makeTask({ task_id: 'task-b-1', room_id: 'room-b', run_id: 'run-b-1' }) as unknown as Record<string, unknown>,
     });
 
     // barrier-gate：两个 fake child 都 spawn 后 drive 才允许交错执行；每个 drive 只在自己
@@ -230,19 +228,22 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     // 后在 A 尚未完成前经 actual MCP room_ask_question 把 run-a-1 转为 needs_decision。
     async function driveA(): Promise<void> {
       await bothSpawned;
-      const rejected = await runCli(appA.url, dbPathA, fixtureA.repo, 'task-a-1', 'run-a-2', fixtureA.baselineHead, spawnerA2);
-      assert.equal(rejected.exitCode, 1, 'second active run must exit 1');
+      // same Run 的 active attempt gate：attempt-a-1 仍在 running，attempt-a-2 的 claim 在
+      // spawn 前以 run_already_active 拒绝。
+      const rejected = await runCli(appA.url, dbPathA, fixtureA.repo, 'run-a-1', 'attempt-a-2', spawnerA2);
+      assert.equal(rejected.exitCode, 1, 'second active attempt must exit 1');
       assert.equal(rejected.stdout, '', 'validation failure is reported on stderr');
-      assert.ok(rejected.stderr.includes('validation_failed'), 'second active run must be rejected');
-      assert.equal(invocationsA2.length, 0, 'rejected run must not spawn a Claude process');
+      assert.ok(rejected.stderr.includes('run_already_active'), 'second active attempt must be rejected');
+      assert.equal(invocationsA2.length, 0, 'rejected attempt must not spawn a Claude process');
       const stateB = await snapshot(codexB, 'room-b');
-      assert.equal((stateB.current_run as { run_id: string }).run_id, 'run-b-1');
-      assert.equal((stateB.current_run as { status: string }).status, 'running', 'A must observe B in-flight');
+      const workItemsB = stateB.run_work_items as { run_id: string; run_status: string }[];
+      assert.equal(workItemsB[0].run_id, 'run-b-1');
+      assert.equal(workItemsB[0].run_status, 'running', 'A must observe B in-flight');
       resolveARead();
       await bReadDone;
       const asked = await claudeA.callTool({
         name: 'room_ask_question',
-        arguments: makeQuestion({ question_id: 'question-a-1', room_id: 'room-a', task_id: 'task-a-1', run_id: 'run-a-1' }) as unknown as Record<string, unknown>,
+        arguments: makeQuestion({ question_id: 'question-a-1', room_id: 'room-a', task_id: 'task-a-1', run_id: 'run-a-1', attempt_id: 'attempt-a-1' }) as unknown as Record<string, unknown>,
       });
       assert.equal((asked.structuredContent as { created: boolean }).created, true);
       writeFileSync(join(fixtureA.repo, 'impl-a.txt'), 'impl-a');
@@ -258,8 +259,9 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     async function driveB(): Promise<void> {
       await bothSpawned;
       const stateA = await snapshot(codexA, 'room-a');
-      assert.equal((stateA.current_run as { run_id: string }).run_id, 'run-a-1');
-      assert.equal((stateA.current_run as { status: string }).status, 'running', 'B must observe A in-flight');
+      const workItemsA = stateA.run_work_items as { run_id: string; run_status: string }[];
+      assert.equal(workItemsA[0].run_id, 'run-a-1');
+      assert.equal(workItemsA[0].run_status, 'running', 'B must observe A in-flight');
       resolveBRead();
       await aReadDone;
       writeFileSync(join(fixtureB.repo, 'impl-b.txt'), 'impl-b');
@@ -270,58 +272,81 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     }
 
     const [runA, runB] = await Promise.all([
-      runCli(appA.url, dbPathA, fixtureA.repo, 'task-a-1', 'run-a-1', fixtureA.baselineHead, spawnerA),
-      runCli(appB.url, dbPathB, fixtureB.repo, 'task-b-1', 'run-b-1', fixtureB.baselineHead, spawnerB),
+      runCli(appA.url, dbPathA, fixtureA.repo, 'run-a-1', 'attempt-a-1', spawnerA),
+      runCli(appB.url, dbPathB, fixtureB.repo, 'run-b-1', 'attempt-b-1', spawnerB),
     ]);
     assert.equal(runA.exitCode, 0);
     assert.equal(runB.exitCode, 0);
     const payloadA = JSON.parse(runA.stdout) as {
       room: { state: string };
-      run: { status: string; agent_session_ref: string; completed_at: string | null };
+      run: { status: string };
+      attempt: { status: string; agent_session_ref: string; settled_at: string | null };
     };
-    const payloadB = JSON.parse(runB.stdout) as { room: { state: string }; run: { status: string } };
-    assert.equal(payloadA.room.state, 'NEEDS_DECISION');
+    const payloadB = JSON.parse(runB.stdout) as {
+      room: { state: string };
+      run: { status: string };
+      attempt: { status: string };
+    };
+    assert.equal(payloadA.room.state, 'DISCUSSION');
     assert.equal(payloadA.run.status, 'needs_decision');
-    assert.equal(payloadA.run.agent_session_ref, SESSION_A);
-    assert.ok(payloadA.run.completed_at !== null, 'paused run is finalized with completed_at');
-    assert.equal(payloadB.room.state, 'REVIEW_REQUIRED');
-    assert.equal(payloadB.run.status, 'succeeded');
-    assert.ok(!invocationsA[0].args.includes('--resume'), 'first run must not resume');
-    assert.ok(!invocationsB[0].args.includes('--resume'), 'first run must not resume');
+    assert.equal(payloadA.attempt.status, 'needs_decision');
+    assert.equal(payloadA.attempt.agent_session_ref, SESSION_A);
+    assert.ok(payloadA.attempt.settled_at !== null, 'paused attempt is finalized with settled_at');
+    assert.equal(payloadB.room.state, 'DISCUSSION');
+    assert.equal(payloadB.run.status, 'review_required');
+    assert.equal(payloadB.attempt.status, 'succeeded');
+    assert.ok(!invocationsA[0].args.includes('--resume'), 'first attempt must not resume');
+    assert.ok(!invocationsB[0].args.includes('--resume'), 'first attempt must not resume');
 
     // Project B 走公开 lifecycle 提交 Review：review-b-1 只属于 room-b。
     await codexB.callTool({
       name: 'room_submit_review',
-      arguments: makeReview({ review_id: 'review-b-1', room_id: 'room-b', task_id: 'task-b-1', run_id: 'run-b-1', decision: 'approved' }) as unknown as Record<string, unknown>,
+      arguments: makeReview({ review_id: 'review-b-1', room_id: 'room-b', task_id: 'task-b-1', run_id: 'run-b-1', attempt_id: 'attempt-b-1', decision: 'approved' }) as unknown as Record<string, unknown>,
     });
 
-    // snapshot current 引用：各房间只指向自己的实体。
+    // snapshot per-Run work item 引用：各房间只指向自己的实体。
     const stateA = await snapshot(codexA, 'room-a');
     const stateB = await snapshot(codexB, 'room-b');
-    assert.equal((stateA.current_task as { task_id: string }).task_id, 'task-a-1');
-    assert.equal((stateB.current_task as { task_id: string }).task_id, 'task-b-1');
-    assert.equal((stateA.current_run as { run_id: string }).run_id, 'run-a-1');
-    assert.equal((stateB.current_run as { run_id: string }).run_id, 'run-b-1');
-    assert.equal((stateA.current_question as { question_id: string }).question_id, 'question-a-1');
-    assert.equal(stateB.current_question, null, 'B must not see A question');
-    assert.equal(stateA.current_review, null, 'A must not see B review');
-    assert.equal((stateB.current_review as { review_id: string }).review_id, 'review-b-1');
+    const itemA = (stateA.run_work_items as {
+      run_id: string;
+      run_status: string;
+      current_task_id: string | null;
+      current_question_id: string | null;
+      current_review_id: string | null;
+    }[])[0];
+    const itemB = (stateB.run_work_items as {
+      run_id: string;
+      run_status: string;
+      current_task_id: string | null;
+      current_question_id: string | null;
+      current_review_id: string | null;
+    }[])[0];
+    assert.equal(itemA.run_id, 'run-a-1');
+    assert.equal(itemA.run_status, 'needs_decision');
+    assert.equal(itemA.current_task_id, 'task-a-1');
+    assert.equal(itemA.current_question_id, 'question-a-1');
+    assert.equal(itemA.current_review_id, null, 'A must not see B review');
+    assert.equal(itemB.run_id, 'run-b-1');
+    assert.equal(itemB.run_status, 'review_discussion', 'review 提交后 Run 进入 review_discussion');
+    assert.equal(itemB.current_task_id, 'task-b-1');
+    assert.equal(itemB.current_question_id, null, 'B must not see A question');
+    assert.equal(itemB.current_review_id, 'review-b-1');
     // Event 序列：A 只有 question pause 事件，B 只有完成 + review 事件。
-    assert.equal(stateA.cursor, 7);
-    assert.equal(stateB.cursor, 7);
+    assert.equal(stateA.cursor, 8);
+    assert.equal(stateB.cursor, 8);
     const eventsA = stateA.events as { type: string; room_id: string }[];
     const eventsB = stateB.events as { type: string; room_id: string }[];
-    assert.equal(eventsA.length, 7);
-    assert.equal(eventsA.filter((e) => e.type === 'run_started').length, 1);
+    assert.equal(eventsA.length, 8);
+    assert.equal(eventsA.filter((e) => e.type === 'run_attempt_claimed').length, 1);
     assert.equal(eventsA.filter((e) => e.type === 'question_asked').length, 1);
-    assert.equal(eventsA.filter((e) => e.type === 'run_paused').length, 1);
-    assert.equal(eventsA.filter((e) => e.type === 'run_completed').length, 0);
+    assert.equal(eventsA.filter((e) => e.type === 'run_attempt_needs_decision').length, 1);
+    assert.equal(eventsA.filter((e) => e.type === 'run_attempt_succeeded').length, 0);
     assert.equal(eventsA.filter((e) => e.type === 'review_submitted').length, 0);
-    assert.equal(eventsB.length, 7);
-    assert.equal(eventsB.filter((e) => e.type === 'run_completed').length, 1);
+    assert.equal(eventsB.length, 8);
+    assert.equal(eventsB.filter((e) => e.type === 'run_attempt_succeeded').length, 1);
     assert.equal(eventsB.filter((e) => e.type === 'review_submitted').length, 1);
     assert.equal(eventsB.filter((e) => e.type === 'question_asked').length, 0);
-    assert.equal(eventsB.filter((e) => e.type === 'run_paused').length, 0);
+    assert.equal(eventsB.filter((e) => e.type === 'run_attempt_needs_decision').length, 0);
     for (const e of eventsA) assert.equal(e.room_id, 'room-a');
     for (const e of eventsB) assert.equal(e.room_id, 'room-b');
 
@@ -338,30 +363,30 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     assert.equal(verifyB.getQuestion('question-a-1'), null, 'B must not see question-a-1');
     assert.equal(verifyA.getReview('review-b-1'), null, 'A must not see review-b-1');
     assert.ok(verifyB.getReview('review-b-1'), 'B owns review-b-1');
-    assert.equal(verifyA.getRun('run-a-2'), null, 'rejected second run creates no row');
+    assert.equal(verifyA.getAttempt('attempt-a-2'), null, 'rejected second claim creates no attempt row');
 
-    // 时间重叠：A 的 pause finalize 与 B 的完成发生在各自 started_at 之后、对方 started_at 之前。
-    const runA1 = verifyA.getRun('run-a-1')!;
-    const runB1 = verifyB.getRun('run-b-1')!;
-    assert.ok(runA1.completed_at !== null && runB1.completed_at !== null);
-    assert.ok(runA1.completed_at! >= runB1.started_at, 'A completion must be after B start');
-    assert.ok(runB1.completed_at! >= runA1.started_at, 'B completion must be after A start');
-    assert.equal(runA1.agent_session_ref, SESSION_A);
-    assert.equal(runA1.baseline_head, fixtureA.baselineHead);
-    assert.equal(runB1.agent_session_ref, SESSION_B);
-    assert.equal(runB1.baseline_head, fixtureB.baselineHead);
-    assert.deepEqual(runA1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
-    assert.deepEqual(runB1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-b.txt'] });
-    assert.deepEqual(runA1.artifact_refs, [
-      '.agent-room/artifacts/run-a-1/stdout.jsonl',
-      '.agent-room/artifacts/run-a-1/stderr.log',
+    // 时间重叠：A 的 pause settle 与 B 的完成发生在各自 started_at 之后、对方 started_at 之前。
+    const attemptA1 = verifyA.getAttempt('attempt-a-1')!;
+    const attemptB1 = verifyB.getAttempt('attempt-b-1')!;
+    assert.ok(attemptA1.settled_at !== null && attemptB1.settled_at !== null);
+    assert.ok(attemptA1.settled_at! >= attemptB1.started_at, 'A settle must be after B start');
+    assert.ok(attemptB1.settled_at! >= attemptA1.started_at, 'B settle must be after A start');
+    assert.equal(attemptA1.agent_session_ref, SESSION_A);
+    assert.equal(attemptA1.baseline_head, fixtureA.baselineHead);
+    assert.equal(attemptB1.agent_session_ref, SESSION_B);
+    assert.equal(attemptB1.baseline_head, fixtureB.baselineHead);
+    assert.deepEqual(attemptA1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
+    assert.deepEqual(attemptB1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-b.txt'] });
+    assert.deepEqual(attemptA1.artifact_refs, [
+      '.agent-room/artifacts/attempt-a-1/stdout.jsonl',
+      '.agent-room/artifacts/attempt-a-1/stderr.log',
     ]);
-    assert.deepEqual(runB1.artifact_refs, [
-      '.agent-room/artifacts/run-b-1/stdout.jsonl',
-      '.agent-room/artifacts/run-b-1/stderr.log',
+    assert.deepEqual(attemptB1.artifact_refs, [
+      '.agent-room/artifacts/attempt-b-1/stdout.jsonl',
+      '.agent-room/artifacts/attempt-b-1/stderr.log',
     ]);
-    assert.equal(existsSync(join(fixtureA.repo, '.agent-room', 'artifacts', 'run-a-1', 'stdout.jsonl')), true);
-    assert.equal(existsSync(join(fixtureB.repo, '.agent-room', 'artifacts', 'run-b-1', 'stdout.jsonl')), true);
+    assert.equal(existsSync(join(fixtureA.repo, '.agent-room', 'artifacts', 'attempt-a-1', 'stdout.jsonl')), true);
+    assert.equal(existsSync(join(fixtureB.repo, '.agent-room', 'artifacts', 'attempt-b-1', 'stdout.jsonl')), true);
     assert.equal(git(fixtureA.repo, 'rev-parse', 'HEAD').trim(), fixtureA.baselineHead);
     assert.equal(git(fixtureB.repo, 'rev-parse', 'HEAD').trim(), fixtureB.baselineHead);
     verifyDbA.close();
