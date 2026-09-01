@@ -26,8 +26,8 @@ import {
 // room:run one-shot CLI 的 black-box 测试：全部通过 runCliMain 的 main() seam 执行，注入
 // recording io（stdout/stderr/exit）与 fake spawner，证明 v0.4 stdout {room,run,attempt}、
 // exit 0/1 契约、preflight 拒绝与零副作用，而不调用真实 Claude CLI 或 process.exit。
-// --run-id 与 fresh --attempt-id 是 v0.4 的显式 one-shot 输入；baseline 由 persisted Run
-// 冻结值拥有（首 attempt clean gate 冻结 actual HEAD），caller 不能传 --baseline-head。
+// --run-id 与 fresh --attempt-id 是 v0.4 的显式 one-shot 输入；canonical worktree 由
+// persisted Run 拥有，caller 不传 Git revision。
 const SESSION_ID = 'sess-00000000-0000-4000-8000-000000000001';
 const MCP_URL = 'http://127.0.0.1:8080/mcp/participants/p~claude-code-cli';
 
@@ -55,8 +55,8 @@ function git(fixture: string, ...args: string[]): string {
 }
 
 // fixture 根放 file-backed database，repository 在 repo 子目录：db 文件不进入 worktree，
-// 保持 room:run 启动前的 clean-baseline gate 前提。
-function makeRepo(fixture: string): { repo: string; baselineHead: string } {
+// 保持 room:run 启动前的 clean-worktree gate 前提。
+function makeRepo(fixture: string): { repo: string } {
   const repo = join(fixture, 'repo');
   mkdirSync(repo, { recursive: true });
   git(repo, 'init', '-q', '-b', 'main');
@@ -65,7 +65,7 @@ function makeRepo(fixture: string): { repo: string; baselineHead: string } {
   writeFileSync(join(repo, 'seed.txt'), 'base');
   git(repo, 'add', '.');
   git(repo, 'commit', '-q', '-m', 'base');
-  return { repo, baselineHead: git(repo, 'rev-parse', 'HEAD').trim() };
+  return { repo };
 }
 
 // file-backed database：room-1 + 已提交 implementation task-1 + ready run-1。customWorker
@@ -77,8 +77,8 @@ function makeRepo(fixture: string): { repo: string; baselineHead: string } {
 function makeReadyDb(
   fixture: string,
   customWorker: string | null = null,
-): { dbPath: string; repo: string; baselineHead: string } {
-  const { repo, baselineHead } = makeRepo(fixture);
+): { dbPath: string; repo: string } {
+  const { repo } = makeRepo(fixture);
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
@@ -108,7 +108,7 @@ function makeReadyDb(
   }
   service.submitTask(makeTask(), PLANNER); // run-1 创建时冻结该 worker identity
   db.close();
-  return { dbPath, repo, baselineHead };
+  return { dbPath, repo };
 }
 
 function recordingIo(): {
@@ -128,6 +128,15 @@ function recordingIo(): {
     },
   };
   return { io, out };
+}
+
+function durableSnapshot(dbPath: string): unknown {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    return getRoomStateSnapshot(new RoomService(db), { room_id: 'room-1' });
+  } finally {
+    db.close();
+  }
 }
 
 function line(event: Record<string, unknown>): string {
@@ -293,7 +302,7 @@ test('paused needs-decision run prints {room,run,attempt} to stdout and exits 0'
 
 test('retry continuation resumes the reliable session of the same Run', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-retry-'));
-  const { repo, baselineHead } = makeRepo(fixture);
+  const { repo } = makeRepo(fixture);
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
@@ -302,7 +311,7 @@ test('retry continuation resumes the reliable session of the same Run', async ()
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
   service.claimRunAttempt(
-    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: baselineHead },
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo },
     EXECUTOR,
   );
   service.settleRunAttempt(
@@ -375,24 +384,24 @@ test('missing required arguments write stderr and exit 1 without spawning', asyn
   }
 });
 
-test('a dirty first-attempt worktree fails the clean-baseline gate without spawning', async () => {
+test('a combined staged, unstaged and untracked first attempt fails before claim, process or artifact', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-clean-'));
   const { dbPath, repo } = makeReadyDb(fixture);
-  writeFileSync(join(repo, 'dirty.txt'), 'x'); // 首 attempt clean gate 必须拒绝
+  writeFileSync(join(repo, 'seed.txt'), 'staged');
+  git(repo, 'add', 'seed.txt');
+  writeFileSync(join(repo, 'seed.txt'), 'unstaged-after-stage');
+  writeFileSync(join(repo, 'untracked.txt'), 'untracked');
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const { io, out } = recordingIo();
+  const before = durableSnapshot(dbPath);
   try {
     await runCliMain(runArgs(dbPath, repo), { spawnProcess: spawner }, io);
     assert.equal(out.exitCode, 1);
     assert.equal(out.stdout, '');
     assert.match(out.stderr, /worktree_not_clean/);
     assert.equal(invocations.length, 0, 'preflight failure must not spawn');
-    // 该失败不写 database：run-1 保持 ready，Room 保持 DISCUSSION。
-    const db = new DatabaseSync(dbPath);
-    const service = new RoomService(db);
-    assert.equal(service.getRoom('room-1')!.state, 'DISCUSSION');
-    assert.equal(service.getRun('run-1')!.status, 'ready');
-    db.close();
+    assert.equal(existsSync(join(repo, '.agent-room')), false, 'preflight failure must not create artifacts');
+    assert.deepEqual(durableSnapshot(dbPath), before, 'preflight failure must not change durable state');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -773,7 +782,7 @@ test('a non-repository project writes stderr and exits 1 before claiming an atte
 
 test('a Run with an active attempt writes stderr and exits 1 without spawning', async () => {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runcli-state-'));
-  const { repo, baselineHead } = makeRepo(fixture);
+  const { repo } = makeRepo(fixture);
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
@@ -782,7 +791,7 @@ test('a Run with an active attempt writes stderr and exits 1 without spawning', 
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
   service.claimRunAttempt(
-    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: baselineHead },
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo },
     EXECUTOR,
   ); // running
   db.close();

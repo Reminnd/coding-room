@@ -2,7 +2,7 @@
 
 | 属性 | 内容 |
 |---|---|
-| 文档状态 | Approved / Implementation pending |
+| 文档状态 | Approved / Accepted source已版本化；runtime未cutover |
 | Owner | Codex |
 | 评审人 | 用户、Codex、Claude Code（实现可执行性） |
 | 创建日期 | 2026-08-30 |
@@ -23,7 +23,7 @@ Stage 2 应把 Current `Run` 拆为稳定的逻辑 `Run` 与一次 process invoc
 4. `WorkerAdapter` 只验收 `claude_code_cli`；provider-neutral Executor 不等于其它 provider 已可用。
 5. Claude Code `-p` 没有已验收的 live steer channel，因此 guidance 只允许在没有 active attempt 时保存，并注入下一 attempt；running guidance 请求必须拒绝。
 
-用户已于2026-08-30先确认以上三项Architecture Decision，随后确认[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文并将其标记为`Accepted`。之后用户分别授权planning Room transition与clean planning baseline：active runtime仍是v0.3，durable Room现为`WAITING_FOR_USER_CONFIRMATION`且没有Task；`room_submit_task`与Claude Run仍未授权。
+用户已于2026-08-30确认以上三项Architecture Decision和[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文。Implementation、Fix与最终Review均已完成，用户于2026-08-31最终接受；accepted source已由本次提交进入版本化`main`，active runtime仍是v0.3且未cutover。后续[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与accepted Increment 11 source删除本Review中的`baseline_head`/HEAD equality部分，其它Run/RunAttempt、atomic claim、worktree lease与Executor决策继续有效。
 
 ## 2. 当前事实与问题
 
@@ -390,4 +390,4 @@ Stage 2会修改正在协调自身开发的protocol、schema、Runner、CLI与Pl
 
 ## 15. Architecture Review decision
 
-`approved`。三项Decision与完整Increment 10 Contract均已获用户确认；Contract为`Accepted`且`confirmed_by_user=true`。durable Room已按授权推进到`WAITING_FOR_USER_CONFIRMATION`，clean planning baseline正在形成；`room_submit_task`与Claude Run仍未授权，不得进入Coding。
+`approved`。三项Decision与完整Increment 10 Contract均已获用户确认；Implementation、Fix与Review已完成，用户最终接受，accepted source已由本次提交进入版本化`main`。Active v0.3 runtime仍未cutover并保持Current operational authority；Stage 3规划不得把本Review中已被ADR-0005 supersede的baseline部分恢复为validator。

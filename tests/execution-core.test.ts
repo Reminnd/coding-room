@@ -83,10 +83,10 @@ function submitFirstTask(service: RoomService, taskId = 'task-1', runId = 'run-1
 
 function claimIn(
   service: RoomService,
-  input: { attempt_id: string; run_id: string; room_id: string; worktree_path: string; baseline_head: string },
+  input: { attempt_id: string; run_id: string; room_id: string; worktree_path: string },
 ): {
   created: boolean;
-  attempt: { attempt_id: string; attempt_no: number; worktree_path: string; baseline_head: string };
+  attempt: { attempt_id: string; attempt_no: number; worktree_path: string };
 } {
   const out = service.claimRunAttempt(input, EXECUTOR);
   return {
@@ -95,7 +95,6 @@ function claimIn(
       attempt_id: out.attempt.attempt_id,
       attempt_no: out.attempt.attempt_no,
       worktree_path: out.attempt.worktree_path,
-      baseline_head: out.attempt.baseline_head,
     },
   };
 }
@@ -114,14 +113,14 @@ test('same-Run double claim across two connections yields exactly one winner wit
   const { fixture, repo, head } = makeFixture();
   const { a, b, close } = makeServices(fixture);
   submitFirstTask(a);
-  const winner = claimIn(a, { attempt_id: 'attempt-a', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  const winner = claimIn(a, { attempt_id: 'attempt-a', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
   assert.equal(winner.created, true);
   assert.equal(winner.attempt.attempt_no, 1);
   assert.equal(a.getRun('run-1')!.status, 'running');
 
   // 第二个连接以 fresh state 观察 winner 已 commit 的 active attempt：guard 拒绝，零残留。
   const loserCode = errCode(() =>
-    claimIn(b, { attempt_id: 'attempt-b', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head }),
+    claimIn(b, { attempt_id: 'attempt-b', run_id: 'run-1', room_id: 'room-1', worktree_path: repo }),
   );
   assert.equal(loserCode, 'run_already_active');
   assert.equal(b.getAttempt('attempt-b'), null, 'loser claim must leave no attempt row');
@@ -144,7 +143,6 @@ function runConcurrentClaims(
   dbPath: string,
   specs: Array<{ runId: string; attemptId: string }>,
   worktree: string,
-  baselineHead: string,
 ): Promise<Array<ClaimWorkerMessage>> {
   const barrier = new SharedArrayBuffer(4);
   const messages: ClaimWorkerMessage[] = [];
@@ -159,7 +157,6 @@ function runConcurrentClaims(
           runId: spec.runId,
           attemptId: spec.attemptId,
           worktree,
-          baselineHead,
           barrier,
         },
       });
@@ -196,7 +193,6 @@ test('concurrent same-Run claims across two Workers yield exactly one winner and
       { runId: 'run-1', attemptId: 'attempt-b' },
     ],
     repo,
-    head,
   );
   // 恰好一个 winner + 一个 run_already_active；不允许 raw SQLite error（database is
   // locked 等），loser 必须是 domain ProtocolError。
@@ -232,7 +228,6 @@ test('concurrent claims for two ready Runs on the same worktree yield worktree_a
       { runId: 'run-2', attemptId: 'attempt-2' },
     ],
     repo,
-    head,
   );
   const results = messages
     .filter((m): m is Extract<ClaimWorkerMessage, { kind: 'outcome' }> => m.kind === 'outcome')
@@ -263,7 +258,7 @@ test('the active-attempt partial unique index maps a second active row to run_al
   const { fixture, repo, head } = makeFixture();
   const { a, close } = makeServices(fixture);
   submitFirstTask(a);
-  claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
 
   // repository 直写第二个 active attempt（绕过 service guard，模拟两个 claim 同时通过 guard
   // 读、再并发 insert 的窗口）：partial unique index 是最终 backstop，映射为 domain error。
@@ -277,7 +272,6 @@ test('the active-attempt partial unique index maps a second active row to run_al
     attempt_no: 2,
     status: 'running',
     worktree_path: repo,
-    baseline_head: head,
   });
   const code = errCode(() => repository.insertAttempt(second));
   assert.equal(code, 'run_already_active');
@@ -296,12 +290,12 @@ test('same canonical worktree double Run maps the loser to worktree_already_owne
   a.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   a.submitTask(makeTask({ task_id: 'task-2', run_id: 'run-2' }), PLANNER);
 
-  const first = claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  const first = claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
   assert.equal(first.created, true);
 
   // run-1 未 accepted：canonical worktree 被 partial unique index 占用，run-2 的 claim 整体回滚。
   const loserCode = errCode(() =>
-    claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: repo, baseline_head: head }),
+    claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: repo }),
   );
   assert.equal(loserCode, 'worktree_already_owned');
   assert.equal(a.getRun('run-2')!.status, 'ready', 'loser Run must stay ready');
@@ -314,7 +308,7 @@ test('same canonical worktree double Run maps the loser to worktree_already_owne
   a.acceptReview('review-1', true, REVIEWER);
   assert.equal(a.getRun('run-1')!.status, 'accepted');
 
-  const second = claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  const second = claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: repo });
   assert.equal(second.created, true);
   assert.equal(second.attempt.attempt_no, 1);
   assert.equal(a.getRun('run-2')!.status, 'running');
@@ -347,8 +341,8 @@ test('two Runs on different canonical worktrees run and settle independently', a
   a.submitTask(makeTask({ task_id: 'task-2', run_id: 'run-2' }), PLANNER);
 
   const headA = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8', env }).trim();
-  claimIn(a, { attempt_id: 'attempt-a', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: headA });
-  claimIn(a, { attempt_id: 'attempt-b', run_id: 'run-2', room_id: 'room-1', worktree_path: repoB, baseline_head: headB });
+  claimIn(a, { attempt_id: 'attempt-a', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
+  claimIn(a, { attempt_id: 'attempt-b', run_id: 'run-2', room_id: 'room-1', worktree_path: repoB });
   // 两个 Run 同时 running：不同 worktree 互不占用。
   assert.equal(a.getRun('run-1')!.status, 'running');
   assert.equal(a.getRun('run-2')!.status, 'running');
@@ -394,7 +388,7 @@ test('terminal settlement is first-writer-wins: idempotent retry, id_conflict an
   const { fixture, repo, head } = makeFixture();
   const { a, close } = makeServices(fixture);
   submitFirstTask(a);
-  claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
 
   a.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-1' }), EXECUTOR);
   const settledAt = a.getAttempt('attempt-1')!.settled_at;
@@ -423,7 +417,7 @@ test('terminal settlement is first-writer-wins: idempotent retry, id_conflict an
   a.transitionToArchitectureReview('room-1', PLANNER);
   a.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   a.submitTask(makeTask({ task_id: 'task-2', run_id: 'run-2' }), PLANNER);
-  claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: repo });
   a.cancelRun({ room_id: 'room-1', run_id: 'run-2', reason: 'stop', confirmed_by_user: true }, PLANNER);
   // Executor 即使带着 success classification settle，也按 planner 意图落 canceled（classification
   // 作废），且恰好一个 terminal Event、没有 succeeded Event。
@@ -457,10 +451,9 @@ test('cancel/retry round-trip preserves lineage freeze and attempt numbering', a
   const { fixture, repo, head } = makeFixture();
   const { a, close } = makeServices(fixture);
   submitFirstTask(a);
-  const first = claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  const first = claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
   assert.equal(first.attempt.attempt_no, 1);
   assert.equal(a.getRun('run-1')!.worktree_path, repo);
-  assert.equal(a.getRun('run-1')!.baseline_head, head);
 
   a.cancelRun({ room_id: 'room-1', run_id: 'run-1', reason: 'stop', confirmed_by_user: true }, PLANNER);
   a.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-1', status: 'canceled', result: null, failure: null, agent_session_ref: null, process_exit_code: null }), EXECUTOR);
@@ -469,18 +462,17 @@ test('cancel/retry round-trip preserves lineage freeze and attempt numbering', a
   a.retryRun('room-1', 'run-1', PLANNER);
   assert.equal(a.getRun('run-1')!.status, 'ready');
 
-  // 下一 attempt 继承同一 canonical worktree/baseline；改用不同 worktree 被 lineage gate 拒绝。
+  // 下一 attempt 继承同一 canonical worktree；改用不同 worktree 被 lineage gate 拒绝。
   const wrongWorktree = errCode(() =>
-    claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: join(repo, 'other'), baseline_head: head }),
+    claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: join(repo, 'other') }),
   );
   assert.equal(wrongWorktree, 'validation_failed');
   assert.equal(a.getAttempt('attempt-2'), null);
 
-  const second = claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head });
+  const second = claimIn(a, { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
   assert.equal(second.created, true);
   assert.equal(second.attempt.attempt_no, 2);
   assert.equal(second.attempt.worktree_path, repo);
-  assert.equal(second.attempt.baseline_head, head);
   a.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-2' }), EXECUTOR);
   assert.equal(a.getRun('run-1')!.status, 'review_required');
   close();
@@ -495,7 +487,7 @@ test('guidance is consumed by exactly the next attempt and never twice', async (
   a.addRunGuidance({ guidance_id: 'g-2', room_id: 'room-1', run_id: 'run-1', text: 'second' }, PLANNER);
 
   const first = a.claimRunAttempt(
-    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head },
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo },
     EXECUTOR,
   );
   assert.equal(first.created, true);
@@ -507,7 +499,7 @@ test('guidance is consumed by exactly the next attempt and never twice', async (
   a.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-1', status: 'failed', result: null, failure: { code: 'x', message: 'y' }, agent_session_ref: null, process_exit_code: 1 }), EXECUTOR);
   a.retryRun('room-1', 'run-1', PLANNER);
   const second = a.claimRunAttempt(
-    { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: repo, baseline_head: head },
+    { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: repo },
     EXECUTOR,
   );
   assert.equal(second.created, true);

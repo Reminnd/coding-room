@@ -260,15 +260,21 @@ Current操作边界：
 - candidate运维动作：`room_retry_run`回到`ready`后由下一`room:run`继续；`room_cancel_run`（需`confirmed_by_user`）把Run与active attempt置`cancel_requested`，Executor结算`canceled`；`room_add_run_guidance`只在Run无active attempt时接受，由下一attempt claim恰好消费一次。
 - cutover/rollback门禁：Codex Review与用户接受已经满足；v0.4 cutover仍需独立授权。此前不得把binding切到v0.4、删除v0.2/v0.3 database或对candidate worktree执行Git写操作。
 - Fix acceptance（2026-08-31）：Fix Task 1修复writer reservation、canonical terminal evidence与latest Task推导；Fix Task 2显式拒绝effective `needs_decision` empty evidence并保留两种合法形态。Fix Review `review-increment-010-codex-003`与full 353/353已通过，用户最终接受。
-- 后续Approved运维方向：[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)已确认删除`baseline_head`/HEAD equality与`git_head_missing`；first attempt仍要求clean canonical Git worktree，continuation只校验canonical worktree而不拒绝branch/commit drift。Increment 11尚未实现，因此当前可执行命令与runtime contract不变。
+- Increment 11 accepted amendment：[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)删除`baseline_head`/HEAD equality与`git_head_missing`；first attempt仍要求clean canonical Git worktree，continuation只校验canonical worktree而不拒绝branch/commit drift。Implementation/Fix已通过Review、获用户最终接受并由本次提交进入版本化`main`；active database/binding尚未cutover，因此§4.6当前可执行命令与runtime contract不变。
 
-### 4.8 Increment 11 Codex Coding dispatch（Accepted Contract）
+### 4.8 Increment 11 accepted source（已版本化/runtime未cutover）
 
-- Coding不使用Agent Room terminal v0.3 Room或Claude `room:run`；用户指定独立Codex project task，model=`gpt-5.6-sol`、reasoning effort=`medium`。
-- [Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)全文已确认；task创建仍需独立授权。
-- 当前root worktree包含未提交的Increment 10 accepted candidate与planning docs。dispatch前必须另行授权版本化这些scope并确认clean exact `main` baseline；不得直接在dirty root上叠加新Implementation后把混合Diff交付Review。
-- clean baseline形成并获得task创建授权后，Codex App使用saved project `codex-claudecode-room`创建独立worktree task；prompt完整注入Accepted Contract，不使用摘要。
-- Coding task不得commit、push、merge、rebase、reset、clean、checkout或cutover。完成后由root Codex检查完整task-owned Diff与verification，再进入Review discussion。
+- Coding已由独立Codex project task按model=`gpt-5.6-sol`、reasoning effort=`medium`完成；没有复用terminal v0.3 Room或Claude `room:run`。
+- [Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)已通过Review并获用户最终接受。Candidate `room:run`不含`--baseline-head`，支持clean unborn repository，continuation不拒绝HEAD/branch drift；wrong canonical worktree、dirty first attempt和Git command failure仍拒绝。
+- accepted source已由本次提交进入`main`；active binding/database仍为§4.6 v0.3。下一Implementation必须从提交完成后的clean exact `main` HEAD在独立worktree派发。
+- 本次`main`版本化已获授权并完成；runtime/database/binding cutover、旧database处理、push、后续task创建与worktree cleanup继续分别授权。
+
+### 4.9 Stage 3 Approved Architecture / Increment 12 Accepted planning边界
+
+- [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`、阶段=`PLAN_READY`，但尚不提供可执行Scheduler或Git command。
+- Scheduler只显式reconcile ready work，不自动启动Agent process；每次one-shot Run仍需operator授权。
+- Increment 13未来Git Controller对每次`create_worktree`、`commit_paths`或`integrate_fast_forward`执行preview → user confirmation → single execution；Architecture与Increment 12 Contract确认均不授权任何Git write。
+- Accepted v0.4 source已由本次提交版本化并保持v0.3 active；Stage 3整体接受后fresh `0.5-design`单次cutover。Coding task创建与cutover仍需独立授权。
 
 ## 5. 人工操作命令
 
@@ -362,6 +368,7 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-009-codex-005` | `approved` / 无finding / 用户已最终接受 | Fix Task 4固定`p~` framing在MCP、Runner、CLI、setup与Plugin consumer中保持raw identity/authority；unframed route在副作用前拒绝 | 独立typecheck、focused 108/108、35/35、12/12、scope 1/1与full 321/321通过；Room=`ACCEPTED`，经验回收完成；不cutover、不执行Git write |
 | `review-increment-010-codex-001` | `changes_requested` / findings与方案已确认 | 真实双connection claim泄漏SQLite lock；terminal evidence允许矛盾shape；ready snapshot未引用latest Task | [Fix Task 1](./INCREMENT_10_FIX_TASK_1.md)闭合三项finding；不cutover、不执行Git write |
 | `review-increment-010-codex-002` | `changes_requested` / finding与方案已确认 | effective `needs_decision`仍接受`result=null + failure=null`并产生durable写入 | [Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)增加最小guard与public rollback regression |
-| `review-increment-010-codex-003` | `approved` / 无finding / 用户已最终接受 | union-shaped evidence、public path、rollback、atomic claim与current Task语义全部闭合 | 独立typecheck、focused suites与full 353/353通过；Room=`ACCEPTED`，经验回收完成；未版本化、未cutover、未执行Git write |
+| `review-increment-010-codex-003` | `approved` / 无finding / 用户已最终接受 | union-shaped evidence、public path、rollback、atomic claim与current Task语义全部闭合 | 独立typecheck、focused suites与full 353/353通过；Review时未执行Git write，accepted source现已由本次提交版本化，runtime未cutover |
+| `review-increment-011-codex-002` | `approved` / 无finding / 用户已最终接受 | baseline-free public paths、invalid rollback与Plugin/文档一致性闭合 | 独立residual scan、typecheck、focused 150/150与full 355/355通过；Review时未执行Git write，accepted source现已由本次提交版本化，runtime未cutover |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。

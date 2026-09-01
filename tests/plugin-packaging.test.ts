@@ -431,21 +431,19 @@ test('skill maps every planning Room state and per-Run status to its legal actio
   }
 });
 
-test('skill keeps the worktree baseline Run-owned at claim time and the command never carries a baseline or task id', () => {
+test('skill keeps canonical worktree and session lineage Run-owned without a Git revision argument', () => {
   const skill = readText(skillPath);
-  // v0.4：baseline 不再来自 room_submit_task 响应——persisted Run 拥有 baseline（首个
-  // attempt 的 clean-Git gate 冻结），Skill 的 one-shot 命令绝不携带 --baseline-head/--task-id。
   assert.ok(
-    skill.includes('The persisted Run owns the worktree baseline'),
-    'baseline must be owned by the persisted Run',
+    skill.includes('The persisted Run owns the canonical worktree'),
+    'canonical worktree must be owned by the persisted Run',
   );
   assert.ok(
     skill.includes('frozen by the first attempt'),
-    'the first attempt claim must freeze the worktree baseline',
+    'the first attempt claim must freeze the canonical worktree',
   );
   assert.ok(
-    skill.includes('never carries a `--task-id` or `--baseline-head`'),
-    'the one-shot command must not carry a baseline or task id',
+    skill.includes('never carries a `--task-id` or Git revision argument'),
+    'the one-shot command must not carry a Git revision or task id',
   );
   assert.ok(!skill.includes('observed_baseline_head'), 'no v0.3 caller-baseline authority may remain');
   assert.ok(!skill.includes('rev-parse'), 'no git rev-parse fallback may appear');
@@ -475,7 +473,7 @@ test('skill gates launcher entry to ready Run work items or answered decision co
   ]) {
     assert.ok(skill.includes(entry), `Step 4 must allow entry ${entry}`);
   }
-  // 已 answer 的 read model：Question 不再 open，Run 的 baseline/session lineage 由 persisted Run 拥有。
+  // 已 answer 的 read model：Question 不再 open，Run 的 canonical worktree/session lineage 由 persisted Run 拥有。
   assert.ok(skill.includes('current Question is answered'), 'answered read model must be explicit');
   assert.ok(skill.includes('session lineage'), 'session lineage must be documented as per-Run');
   // answer(true)：不得 resume，也不得进入 Step 4。
@@ -528,7 +526,7 @@ test('one-shot command quotes every path/ID/URL placeholder, carries run_id and 
     commandBlock.includes('--mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli"'),
     'launcher must target the exact framed worker participant route',
   );
-  // v0.4：baseline/task id 由 claim 时从 persisted Run 冻结，命令绝不携带两者。
+  // v0.4：canonical worktree/task id 由 persisted Run/Task authority 提供，命令不携带 revision。
   assert.ok(!commandBlock.includes('--task-id'), 'one-shot command must not carry a task id');
   assert.ok(!commandBlock.includes('--baseline-head'), 'one-shot command must not carry a baseline');
   assert.ok(!commandBlock.includes('package.json'), 'launcher template must not reference a target manifest');

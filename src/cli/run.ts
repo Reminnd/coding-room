@@ -15,8 +15,8 @@ import { runClaude } from '../runner/claude-runner.ts';
 // attempt，不轮询 ready queue、不自动启动下一 Run。所有 preflight 在 spawn/claim/Event
 // 前完成且零副作用；argument/preflight/ProtocolError 与未 settle 异常写 stderr 并 non-zero
 // exit；succeeded/needs_decision/canceled 写 deterministic JSON {room,run,attempt} 并
-// exit 0，failed/interrupted 输出相同 JSON 但 exit 1。baseline 由 persisted Run 冻结值
-//（首 attempt 的 clean gate 冻结 actual HEAD）拥有，caller 无法覆盖。
+// exit 0，failed/interrupted 输出相同 JSON 但 exit 1。canonical worktree 由 persisted Run
+//（首 attempt 的 clean gate 冻结 owning repository root）拥有，caller 无法覆盖。
 
 export interface RunCliConfig {
   db: string;

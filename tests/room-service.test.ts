@@ -28,9 +28,8 @@ import {
 // operator 只保留 human profile，无 active assignment：任何 command 都必须被拒。
 const OPERATOR = { participant_id: 'operator', actor_role: 'orchestrator' as const };
 
-// 独立 literal 的 claim/settle 默认值：worktree/baseline 是 claim 的 caller-owned 输入。
+// 独立 literal 的 claim/settle 默认值：worktree 是 claim 的 caller-owned 输入。
 const WORKTREE = 'D:\\agent\\case\\project';
-const BASELINE = 'deadbeef';
 
 function makeService(): { db: DatabaseSync; service: RoomService } {
   const db = new DatabaseSync(':memory:');
@@ -60,7 +59,7 @@ function toReady(service: RoomService): void {
 
 function claim(
   service: RoomService,
-  overrides: { attempt_id?: string; run_id?: string; worktree_path?: string; baseline_head?: string } = {},
+  overrides: { attempt_id?: string; run_id?: string; worktree_path?: string } = {},
 ): void {
   service.claimRunAttempt(
     {
@@ -68,7 +67,6 @@ function claim(
       run_id: overrides.run_id ?? 'run-1',
       room_id: 'room-1',
       worktree_path: overrides.worktree_path ?? WORKTREE,
-      baseline_head: overrides.baseline_head ?? BASELINE,
     },
     EXECUTOR,
   );
@@ -175,13 +173,12 @@ test('submitTask (implementation) atomically creates a ready Run and returns the
   assert.equal(room.state, 'DISCUSSION'); // planning-only：execution 生命周期归 Run
   assert.equal(task.goal, 'goal');
   assert.equal(service.getTask('task-1')?.task_id, 'task-1');
-  // 原子创建的 ready Run：worker 冻结、worktree/baseline 尚未冻结、无 accepted_at。
+  // 原子创建的 ready Run：worker 冻结、worktree 尚未冻结、无 accepted_at。
   assert.equal(run.run_id, 'run-1');
   assert.equal(run.root_task_id, 'task-1');
   assert.equal(run.status, 'ready');
   assert.equal(run.worker_participant_id, 'claude-code-cli');
   assert.equal(run.worktree_path, null);
-  assert.equal(run.baseline_head, null);
   assert.equal(run.accepted_at, null);
   assert.equal(service.getRun('run-1')!.status, 'ready');
   // 恰好两个新 Event：run_created + task_submitted。
@@ -269,7 +266,7 @@ test('fix task gates: the run must be review_discussion and the parent task must
 
 // ---- claim ----
 
-test('claimRunAttempt freezes worktree/baseline, creates attempt #1 and moves the Run to running', () => {
+test('claimRunAttempt freezes the canonical worktree, creates attempt #1 and moves the Run to running', () => {
   const { service } = makeService();
   toReady(service);
   const eventsBefore = service.listEvents('room-1').length;
@@ -279,21 +276,18 @@ test('claimRunAttempt freezes worktree/baseline, creates attempt #1 and moves th
       run_id: 'run-1',
       room_id: 'room-1',
       worktree_path: WORKTREE,
-      baseline_head: BASELINE,
     },
     EXECUTOR,
   );
   assert.equal(created, true);
   assert.equal(run.status, 'running');
   assert.equal(run.worktree_path, WORKTREE); // 首 attempt 冻结
-  assert.equal(run.baseline_head, BASELINE);
   assert.equal(attempt.attempt_no, 1);
   assert.equal(attempt.status, 'running');
   assert.equal(attempt.worker_participant_id, 'claude-code-cli');
   assert.equal(attempt.executor_participant_id, 'local-runner');
   assert.equal(attempt.task_id, 'task-1');
   assert.equal(attempt.worktree_path, WORKTREE);
-  assert.equal(attempt.baseline_head, BASELINE);
   assert.deepEqual(guidance, []);
   assert.equal(service.getRoom('room-1')!.state, 'DISCUSSION'); // Room 保持 planning-only
   const events = service.listEvents('room-1');
@@ -308,7 +302,7 @@ test('claimRunAttempt rejects a run that is not ready or already has an active a
   claim(service);
   // 已有 active attempt：run_already_active。
   assert.equal(
-    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR)),
+    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR)),
     'run_already_active',
   );
   assert.equal(service.getAttempt('attempt-2'), null);
@@ -318,7 +312,7 @@ test('claimRunAttempt rejects a run that is not ready or already has an active a
   claim(s2);
   settle(s2, { status: 'failed', result: null, failure: { code: 'claude_exit_failed', message: 'boom' }, process_exit_code: 1 });
   assert.equal(
-    errCode(() => s2.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR)),
+    errCode(() => s2.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR)),
     'validation_failed',
   );
 });
@@ -328,7 +322,7 @@ test('claimRunAttempt rejects a non-executor actor with no partial write', () =>
   toReady(service);
   const eventsBefore = service.listEvents('room-1').length;
   assert.equal(
-    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, WORKER)),
+    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, WORKER)),
     'actor_not_allowed',
   );
   assert.equal(service.getAttempt('attempt-1'), null);
@@ -337,55 +331,57 @@ test('claimRunAttempt rejects a non-executor actor with no partial write', () =>
   assert.equal(service.listEvents('room-1').length, eventsBefore);
 });
 
-test('later attempts must reuse the frozen worktree/baseline', () => {
+test('later attempts must reuse the frozen canonical worktree', () => {
   const { service } = makeService();
   toReady(service);
   claim(service);
   settle(service, { status: 'succeeded', result: makeCodingResult(), process_exit_code: 0 });
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   service.submitTask(makeFixTask({ task_id: 'task-2', room_id: 'room-1', run_id: 'run-1' }), PLANNER); // ready
-  // 相同 canonical worktree + baseline：attempt #2 成功。
+  // 相同 canonical worktree：attempt #2 成功。
   const second = service.claimRunAttempt(
-    { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE },
+    { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE },
     EXECUTOR,
   );
   assert.equal(second.created, true);
   assert.equal(second.attempt.attempt_no, 2);
   assert.equal(second.attempt.task_id, 'task-2'); // fix Task 是当前 Task
-  // 不同 worktree 或 baseline：validation_failed。
+  // 不同 worktree：validation_failed 且 rollback；随后同 worktree 仍可成功。
   const s2 = makeService().service;
   toReady(s2);
   claim(s2);
   settle(s2, { status: 'failed', result: null, failure: { code: 'claude_exit_failed', message: 'boom' }, process_exit_code: 1 });
   s2.retryRun('room-1', 'run-1', PLANNER);
   assert.equal(
-    errCode(() => s2.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: 'D:\\other', baseline_head: BASELINE }, EXECUTOR)),
-    'validation_failed',
-  );
-  assert.equal(
-    errCode(() => s2.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: 'other' }, EXECUTOR)),
+    errCode(() => s2.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: 'D:\\other' }, EXECUTOR)),
     'validation_failed',
   );
   assert.equal(s2.getAttempt('attempt-2'), null);
+  const retried = s2.claimRunAttempt(
+    { attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE },
+    EXECUTOR,
+  );
+  assert.equal(retried.created, true);
 });
 
 test('claimRunAttempt same-ID retry is idempotent; different payload conflicts', () => {
   const { service } = makeService();
   toReady(service);
   claim(service);
-  const eventsAfterClaim = service.listEvents('room-1').length;
+  const beforeRetry = snapshot(service);
   const retry = service.claimRunAttempt(
-    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE },
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE },
     EXECUTOR,
   );
   assert.equal(retry.created, false);
   assert.equal(retry.attempt.attempt_no, 1);
-  assert.equal(service.listEvents('room-1').length, eventsAfterClaim);
+  assert.deepEqual(snapshot(service), beforeRetry, 'same-ID retry must not change durable state');
+  const beforeConflict = snapshot(service);
   assert.equal(
-    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: 'D:\\other', baseline_head: BASELINE }, EXECUTOR)),
+    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: 'D:\\other' }, EXECUTOR)),
     'id_conflict',
   );
-  assert.equal(service.listEvents('room-1').length, eventsAfterClaim);
+  assert.deepEqual(snapshot(service), beforeConflict, 'same-ID content conflict must not change durable state');
 });
 
 test('claimRunAttempt rejects a worker whose adapter is not available (worker_adapter_unavailable, zero writes)', () => {
@@ -410,7 +406,7 @@ test('claimRunAttempt rejects a worker whose adapter is not available (worker_ad
   assert.equal(service.getRun('run-1')!.worker_participant_id, 'worker-x'); // worker assignment 允许 provider-neutral
   const eventsBefore = service.listEvents('room-1').length;
   assert.equal(
-    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR)),
+    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR)),
     'worker_adapter_unavailable',
   );
   assert.equal(service.getAttempt('attempt-1'), null);
@@ -938,7 +934,7 @@ test('submitReview rejects a run that is not review_required or a stale/non-late
   const c = makeService().service;
   toFixReady(c); // attempt-1 succeeded 已 review；fix 后 attempt-2 走 failed 路径
   // 简化：直接对 fix ready Run claim attempt-2 并 settle failed。
-  c.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR);
+  c.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR);
   c.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-2', status: 'failed', result: null, failure: { code: 'x', message: 'y' }, process_exit_code: 1 }), EXECUTOR);
   assert.equal(errCode(() => c.submitReview(makeReview({ review_id: 'review-2', task_id: 'task-2', attempt_id: 'attempt-2' }), REVIEWER)), 'validation_failed');
 });
@@ -963,7 +959,7 @@ test('acceptReview rejects unconfirmed, blocking findings or a non-current revie
   // stale review：fix → 新 attempt → 新 review 后，旧 review 不能再 accept。
   const c = makeService().service;
   toFixReady(c);
-  c.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR);
+  c.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR);
   c.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-2', status: 'succeeded', result: makeCodingResult({ task_id: 'task-2' }), process_exit_code: 0 }), EXECUTOR);
   c.submitReview(makeReview({ review_id: 'review-2', task_id: 'task-2', attempt_id: 'attempt-2' }), REVIEWER);
   const eventsBefore = c.listEvents('room-1').length;
@@ -1034,7 +1030,7 @@ test('full cycle: implementation → review → fix → review → accepted (sam
   settle(service, { status: 'succeeded', result: makeCodingResult(), process_exit_code: 0 });
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   service.submitTask(makeFixTask({ task_id: 'task-2', room_id: 'room-1', run_id: 'run-1' }), PLANNER);
-  service.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR);
+  service.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR);
   service.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-2', status: 'succeeded', result: makeCodingResult({ task_id: 'task-2' }), process_exit_code: 0 }), EXECUTOR);
   service.submitReview(makeReview({ review_id: 'review-2', task_id: 'task-2', attempt_id: 'attempt-2' }), REVIEWER);
   const accepted = service.acceptReview('review-2', true, REVIEWER);
@@ -1144,7 +1140,7 @@ test('addRunGuidance is consumed exactly once by the next claim and rejected dur
     false,
   );
   // claim 消费 pending guidance。
-  const claimed = service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR);
+  const claimed = service.claimRunAttempt({ attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR);
   assert.equal(claimed.guidance.length, 1);
   assert.equal(claimed.guidance[0].guidance_id, 'g-1');
   assert.equal(service.getGuidance('g-1')!.consumed_by_attempt_id, 'attempt-1');
@@ -1172,7 +1168,7 @@ test('same-Room multi-Run requires different canonical worktrees while the first
   // run-2 使用同一 worktree：worktree_already_owned，零写入。
   const eventsBefore = service.listEvents('room-1').length;
   assert.equal(
-    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE }, EXECUTOR)),
+    errCode(() => service.claimRunAttempt({ attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: WORKTREE }, EXECUTOR)),
     'worktree_already_owned',
   );
   assert.equal(service.getAttempt('attempt-2'), null);
@@ -1180,7 +1176,7 @@ test('same-Room multi-Run requires different canonical worktrees while the first
 
   // 不同 canonical worktree：两个 Run 可同时 active。
   const claimed = service.claimRunAttempt(
-    { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: 'D:\\agent\\case\\project-b', baseline_head: 'beef' },
+    { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: 'D:\\agent\\case\\project-b' },
     EXECUTOR,
   );
   assert.equal(claimed.created, true);
@@ -1200,7 +1196,7 @@ test('an accepted Run releases the worktree lease for the next Run', () => {
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask({ task_id: 'task-2', run_id: 'run-2' }), PLANNER);
   const claimed = service.claimRunAttempt(
-    { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: BASELINE },
+    { attempt_id: 'attempt-2', run_id: 'run-2', room_id: 'room-1', worktree_path: WORKTREE },
     EXECUTOR,
   );
   assert.equal(claimed.created, true);
@@ -1536,7 +1532,6 @@ test('database reopen restores state, entities and event cursor', () => {
   assert.equal(service.getTask('task-1')!.planner_participant_id, 'codex-app');
   assert.equal(service.getRun('run-1')!.status, 'review_required');
   assert.equal(service.getRun('run-1')!.worktree_path, WORKTREE);
-  assert.equal(service.getRun('run-1')!.baseline_head, BASELINE);
   assert.equal(service.getAttempt('attempt-1')!.status, 'succeeded');
   assert.equal(service.listEvents('room-1').length, eventsBefore);
   assert.equal(service.listEvents('room-1', eventsBefore).length, 0);

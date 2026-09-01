@@ -204,8 +204,8 @@ export type CodingResult = z.infer<typeof codingResultSchema>;
 
 // ---- Run ----
 // v0.4：Run 是稳定 logical lineage（一条 Implementation/Fix chain + 一个 session lineage +
-// 一个 canonical worktree/baseline），不再承载单次 process invocation 的 evidence。
-// worktree_path/baseline_head 由首 attempt claim 时冻结，之后只读继承。
+// 一个 canonical worktree），不再承载单次 process invocation 的 evidence。
+// worktree_path 由首 attempt claim 时冻结，之后只读继承。
 export const runStatusSchema = z.enum([
   'ready',
   'running',
@@ -230,7 +230,6 @@ export const runSchema = z.object({
   worker_participant_id: id,
   // canonical worktree：首 attempt claim 时由 Git Observer 解析的 repository root 冻结。
   worktree_path: z.string().min(1).nullable(),
-  baseline_head: z.string().min(1).nullable(),
   created_at: timestamp,
   updated_at: timestamp,
   accepted_at: timestamp.nullable(),
@@ -278,7 +277,6 @@ export const runAttemptSchema = z.object({
   worker_participant_id: id,
   executor_participant_id: id,
   worktree_path: z.string().min(1),
-  baseline_head: z.string().min(1),
   // opaque adapter session reference，只由 assigned WorkerAdapter 写入与解释。
   agent_session_ref: z.string().nullable(),
   process_exit_code: z.number().int().nullable(),

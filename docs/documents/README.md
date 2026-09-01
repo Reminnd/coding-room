@@ -5,7 +5,7 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-08-31 |
+| 最后更新日期 | 2026-09-01 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
@@ -43,6 +43,7 @@
 | [ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md) | Accepted | Participant/Role 解耦、v0.3 数据切换与六阶段演进 |
 | [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md) | Proposed / decisions confirmed | Stage 2 Run/RunAttempt、atomic claim、worktree lease与0.4 cutover |
 | [ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md) | Accepted | 删除Git baseline hash contract并保留canonical worktree/live evidence |
+| [ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md) | Accepted | Stage 3 graph authority、ready scheduling、Git preview/approval与target cutover |
 
 ### 2.3 Increment 与 Fix Contracts
 
@@ -86,12 +87,15 @@
 | [Increment 9 Fix 3](./INCREMENT_9_FIX_TASK_3.md) | Accepted | 修复opaque participant identity的single-segment route encoding与public-path evidence |
 | [Increment 9 Fix 4](./INCREMENT_9_FIX_TASK_4.md) | Accepted | 修复dot-segment normalization并统一MCP/Runner/CLI/setup/Plugin route framing |
 | [Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md) | Approved | Run/RunAttempt状态、并发隔离、public commands、SQLite/Event与测试矩阵 |
+| [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md) | Approved | immutable TaskGraphRevision、Scheduler、scope conflict、acceptance policy与Git Controller |
 | [Increment 10](./INCREMENT_10_TASK_CONTRACT.md) | Accepted | Stage 2 one-shot multi-Run Execution Core Implementation Contract |
 | [Increment 10 Fix 1](./INCREMENT_10_FIX_TASK_1.md) | Accepted | 修复真实并发claim锁错误、terminal evidence一致性与ready current Task引用 |
 | [Increment 10 Fix 2](./INCREMENT_10_FIX_TASK_2.md) | Accepted | 拒绝empty `needs_decision` terminal evidence并补direct rollback Oracle |
 | [哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md) | Approved | 删除project-owned Git baseline hash validation的范围、风险、验收与执行顺序 |
 | [哈希删除 Architecture Review](./HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md) | Approved | baseline-free target schema、Git/Execution流程、失败语义与dispatch门禁 |
 | [Increment 11](./INCREMENT_11_TASK_CONTRACT.md) | Accepted | 删除Git baseline hash validation；Codex `gpt-5.6-sol`/`medium` Coding route |
+| [Increment 11 Fix 1](./INCREMENT_11_FIX_TASK_1.md) | Accepted | 补齐invalid public-path完整rollback/零副作用Oracle并同步Current文档状态 |
+| [Increment 12](./INCREMENT_12_TASK_CONTRACT.md) | Accepted | Plan/immutable revision/Approval、structured scope、one-shot Scheduler与`per_task` acceptance |
 
 ### 2.4 Agent 执行指南
 
@@ -124,4 +128,4 @@
 - Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill `description`中的未引用colon-space使front matter无法由标准YAML parser加载，测试侧局部parser误报通过。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，Increment 7已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`，Plugin与多项目配置现为Current capability，manual Codex Desktop smoke保持pending。
 - [Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob独立通过。用户授权后，candidate已从local marketplace安装，fresh-task direct/indirect/negative/boundary activation与bundled helper/reference resolution全部通过；Decision为`approved`，用户已于2026-08-28明确最终接受，Fix验收经验回收已完成。完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current capability。
 - 用户于2026-08-29明确确认[Agent Room v0.3六阶段路线](./AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9完整Contract](./INCREMENT_9_TASK_CONTRACT.md)。Review 1与Fix Review 2的finding已分别由[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)和[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)处理；Fix Review 3与Fix Review 4的route findings已分别由[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)和[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)闭合。Fix Review 5 `review-increment-009-codex-005`无finding、Decision为`approved`；用户已最终接受且完整accepted scope已进入版本化`main`。2026-08-30经独立授权完成active project runtime的v0.3 database/binding cutover；新Room已完成Stage 2 planning transition。push、旧v0.2 database删除与Claude Run仍未授权。
-- Increment 10最终Review与用户接受已完成，Current v0.3 Room=`ACCEPTED`；candidate仍未版本化或cutover。用户已确认[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)、[Architecture Review](./HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md)、[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)全文。Increment 11阶段=`PLAN_READY`，Coding route固定为独立Codex task `gpt-5.6-sol`/`medium`；clean baseline Git写入、task创建与v0.4 cutover继续分别授权。
+- Increment 10/11 accepted source与Stage 3/Increment 12 planning已由本次提交进入版本化`main`；active runtime/database/binding仍为v0.3且未cutover。[Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`，阶段=`PLAN_READY`。未来Coding route固定`gpt-5.6-sol`/`medium`，task创建、push与runtime cutover继续分别授权。

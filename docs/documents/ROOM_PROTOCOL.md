@@ -539,7 +539,7 @@ Fix Review 4证明§16.4的纯`encodeURIComponent`表示仍不能覆盖公开sch
 - Fix Review 5 `review-increment-009-codex-005`无finding，Decision为`approved`；用户确认后Room通过`review_accepted` Event sequence `217709`进入`ACCEPTED`。Current v0.2 protocol、database与binding保持权威，未执行commit、push或cutover。
 - 2026-08-30 active cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、默认Participant/Assignment完整，Task/Run/Review/Question均为空。Room初始为`DISCUSSION`，随后经逐项授权完成Increment 10 Implementation/Fix/Review lifecycle，并于2026-08-31因用户最终接受进入`ACCEPTED`、waiting actor=`null`。该Room是active v0.3 durable authority且已terminal；历史v0.2 database只读保留。
 
-## 17. Stage 2 target protocol boundary（confirmed design，尚未实现）
+## 17. Stage 2 target protocol boundary（Accepted source已版本化，runtime未cutover）
 
 用户于2026-08-30确认Stage 2三项Architecture Decision及完整Increment 10 Contract。Current exact protocol仍是§16的`0.3-design`；本节只登记已批准target `0.4-design` contract，不构成当前可调用contract、Task submission或migration授权。
 
@@ -580,7 +580,7 @@ Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current aut
 
 后续哈希删除Architecture已获确认，target amendment见§18；Increment 10 accepted candidate与Current v0.3字段不因规划文档本身自动改写。
 
-## 18. Increment 11 target protocol amendment（Architecture Approved，未实现）
+## 18. Increment 11 target protocol amendment（Accepted source已版本化，runtime未cutover）
 
 [ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md) supersede ADR-0004中的baseline部分。fresh target protocol MUST：
 
@@ -591,4 +591,18 @@ Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current aut
 - same-ID retry/conflict按删除baseline后的remaining structured content判断，Event、authority、terminal union、Question/Review/Fix/cancel/guidance与worktree lease不变；
 - fresh database直接使用无baseline schema，不读取或改写v0.2/v0.3 archive，不增加dual-read/compatibility contract。
 
-[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)已为`Accepted`，但本节仍只定义target，不是Current callable contract。用户指定Coding通过独立Codex task `gpt-5.6-sol`/`medium`完成；该task不映射为Agent Room Task/Run，也不得改写terminal v0.3 Room。实现、Review、用户接受、版本化与cutover完成前，§16继续是Current protocol authority。
+[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)均已完成Coding、Review并获用户最终接受；Fix Review `review-increment-011-codex-002`无finding，typecheck、focused 150/150与full 355/355通过。该accepted source已由本次提交进入版本化`main`，但active database/binding尚未cutover，因此§16继续是Current operational protocol authority。
+
+## 19. Stage 3 target protocol boundary（Architecture Approved）
+
+[Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)与[Accepted ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)确认以下target，不构成当前可调用contract：
+
+- 新增stable `Plan`、immutable `TaskGraphRevision`、generic `Approval`、`NodeDispatch`与`GitAction`；revision approval而非Draft或聊天文本是Scheduler唯一输入。
+- `RoleAssignment.scope_type`候选扩展为`room|plan|task`，resolution优先级为task > plan > room；approved revision引用exact Worker Assignment。
+- structured `write_scopes`使用repo-relative `file|tree` grammar；unordered overlap在revision approval前拒绝，claim并发race再次校验，actual Diff越界阻塞Git action。
+- one-shot `room_reconcile_plan`只物化existing Task/Run和ready work，不启动process或Git；Executor claim复用Stage 2 atomic transaction并增加approved revision、concurrency `1..3`与scope gate。
+- acceptance policy候选为`per_task|integration_only`；后者只允许exact一个terminal integration node，non-integration approved Review可按用户预先批准的policy成为integration dependency，final Integration仍需用户接受。
+- GitAction必须经过typed preview、`confirmed_by_user=true` Approval、single execution与`succeeded|failed|outcome_unknown` settlement；首版候选只允许`create_worktree|commit_paths|integrate_fast_forward`。
+- target不包含hash/fingerprint validator、background scheduler、automatic Agent launch、push/rebase/reset/clean/delete/merge commit或冲突自动解决。
+
+Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)，accepted source/planning已形成versioned clean baseline，阶段=`PLAN_READY`；Coding task创建、database/binding与Git operation仍需分别授权。

@@ -16,7 +16,7 @@
 1. “删除所有哈希校验”限定为删除全部 project-owned runtime hash validation；npm lockfile integrity、URL fragment、UUID与历史commit object ID不在范围内。
 2. 接受continuation不再因HEAD、branch或commit drift自动拒绝；剩余边界为canonical worktree、first-attempt clean gate、live Git evidence、Task/Run/session reference与人工Diff Review。
 
-本决定改变target protocol/schema和恢复语义，但不改变Current v0.3 runtime；实现、版本化与cutover继续分别授权。
+本决定改变target protocol/schema和恢复语义，但不改变Current v0.3 runtime。实现、Review、用户接受与获授权的`main`版本化已经完成；runtime/database/binding cutover继续单独授权。
 
 ## 2. 现状与问题
 

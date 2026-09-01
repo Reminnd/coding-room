@@ -162,13 +162,13 @@ test('Run accepts a valid run and rejects illegal status', () => {
   assert.equal(runSchema.safeParse(makeRun({ status: 'flying' as never })).success, false);
 });
 
-test('Run freezes worker identity and nullable worktree/baseline lineage fields', () => {
+test('Run freezes worker identity and nullable canonical worktree', () => {
   const { worker_participant_id: _w, ...noWorker } = makeRun();
   assert.equal(runSchema.safeParse(noWorker).success, false);
   const { root_task_id: _r, ...noRoot } = makeRun();
   assert.equal(runSchema.safeParse(noRoot).success, false);
   assert.equal(runSchema.safeParse(makeRun({ worktree_path: 'D:\\agent\\case\\project' })).success, true);
-  assert.equal(runSchema.safeParse(makeRun({ baseline_head: 'deadbeef' })).success, true);
+  assert.equal('baseline_head' in runSchema.parse(makeRun()), false);
   assert.equal(runSchema.safeParse(makeRun({ worktree_path: '' })).success, false);
   assert.equal(runSchema.safeParse(makeRun({ accepted_at: T() })).success, true);
   assert.equal(runSchema.safeParse(makeRun({ accepted_at: 42 as never })).success, false);

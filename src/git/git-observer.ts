@@ -12,11 +12,10 @@ export interface GitEvidence {
   untracked: string[];
 }
 
-// clean-baseline operation 的返回值：repository root 与完整 HEAD commit object ID 来自
-// Git CLI，三类 evidence 全空。
-export interface CleanBaseline {
+// clean-worktree operation 的返回值：canonical repository root 来自 Git CLI，三类
+// evidence 全空。
+export interface CleanWorktree {
   repositoryRoot: string;
-  baselineHead: string;
   evidence: GitEvidence;
 }
 
@@ -59,25 +58,6 @@ async function resolveWorktreeRoot(targetPath: string): Promise<string> {
   }
 }
 
-// baseline_head 必须来自 git rev-parse --verify --end-of-options HEAD^{commit} 的完整
-// object ID。HEAD 不可解析（unborn HEAD / missing object）以 exit 128 退出，在此
-// semantic boundary 映射为 git_head_missing，不根据 branch name、日志或模型报告推断。
-async function resolveBaselineHead(root: string): Promise<string> {
-  try {
-    const head = await runGit(
-      'rev-parse',
-      ['--verify', '--end-of-options', 'HEAD^{commit}'],
-      root,
-    );
-    return head.toString('utf8').trim();
-  } catch (err) {
-    if (err instanceof GitCommandError && err.exitCode === GIT_FATAL_EXIT_CODE) {
-      throw new ProtocolError('git_head_missing', 'HEAD does not resolve to a commit');
-    }
-    throw err;
-  }
-}
-
 // 从解析出的 repository root 执行三类 evidence command。命令串行执行以避免多个 git
 // process 并发刷新 index stat cache 时争抢 .git/index.lock；该刷新只更新缓存，不改变
 // commit/index/worktree 内容，因此不影响只读 invariant。任一 command 失败（含损坏
@@ -93,13 +73,12 @@ async function collectEvidence(root: string): Promise<GitEvidence> {
   };
 }
 
-// clean-baseline operation：一次明确的 application precondition check。worktree 有任一
-// staged/unstaged/untracked 变更时返回 worktree_not_clean；全空时返回 root、baseline head
-// 与 empty evidence。任一 evidence command 失败都会向上抛出，不会返回 clean baseline。
+// clean-worktree operation：一次明确的 application precondition check。worktree 有任一
+// staged/unstaged/untracked 变更时返回 worktree_not_clean；全空时返回 root 与 empty
+// evidence。任一 evidence command 失败都会向上抛出，不会返回 clean observation。
 // 只读，不修改 commit/index/worktree。
-export async function establishCleanBaseline(targetPath: string): Promise<CleanBaseline> {
+export async function establishCleanWorktree(targetPath: string): Promise<CleanWorktree> {
   const repositoryRoot = await resolveWorktreeRoot(targetPath);
-  const baselineHead = await resolveBaselineHead(repositoryRoot);
   const evidence = await collectEvidence(repositoryRoot);
 
   const dirty = evidence.staged.length > 0 || evidence.unstaged.length > 0 || evidence.untracked.length > 0;
@@ -107,7 +86,7 @@ export async function establishCleanBaseline(targetPath: string): Promise<CleanB
     throw new ProtocolError('worktree_not_clean', 'worktree has staged, unstaged or untracked changes');
   }
 
-  return { repositoryRoot, baselineHead, evidence };
+  return { repositoryRoot, evidence };
 }
 
 // completion-evidence operation：在 dirty worktree 中也能返回三类 evidence。它不要求
@@ -118,21 +97,19 @@ export async function collectCompletionEvidence(targetPath: string): Promise<Git
   return collectEvidence(repositoryRoot);
 }
 
-// continuation observation 的返回值：repository root、完整 HEAD 与三类 evidence。
+// continuation observation 的返回值：canonical repository root 与三类 live evidence。
 export interface ContinuationObservation {
   repositoryRoot: string;
-  head: string;
   evidence: GitEvidence;
 }
 
-// continuation observation：Decision/Fix resume 的只读 worktree 观察。与 clean baseline 相同，
-// 解析 owning worktree root、完整 HEAD 与 staged/unstaged/untracked evidence，但不要求 evidence
+// continuation observation：Decision/Fix resume 的只读 worktree 观察。与 clean-worktree check 相同，
+// 解析 owning worktree root 与 staged/unstaged/untracked evidence，但不要求 evidence
 // 为空——lineage 的 staged/unstaged/untracked 变更是应保留的 work，不能作为新 Implementation 的
-// dirty 拒绝。任一 observation 失败（missing repo/HEAD、evidence command fatal）都沿调用链抛出，
+// dirty 拒绝。任一 observation 失败（missing repo、evidence command fatal）都沿调用链抛出，
 // 绝不降级为空 evidence。
 export async function observeContinuation(targetPath: string): Promise<ContinuationObservation> {
   const repositoryRoot = await resolveWorktreeRoot(targetPath);
-  const head = await resolveBaselineHead(repositoryRoot);
   const evidence = await collectEvidence(repositoryRoot);
-  return { repositoryRoot, head, evidence };
+  return { repositoryRoot, evidence };
 }

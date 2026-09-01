@@ -325,7 +325,7 @@ Stage 1修改runtime自身，因此candidate开发执行由固定planning baseli
 
 
 
-### 3.14 Stage 2 confirmed design — Execution Core（尚未实现）
+### 3.14 Stage 2 confirmed design — Execution Core（Accepted source已版本化，runtime未cutover）
 
 用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)的三项方向；该确认不改变§3.13的Current v0.3 runtime：
 
@@ -361,10 +361,10 @@ Fix Task 1在task-owned worktree完成三项finding的最小修复（candidate�
 
 - [Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)补齐effective `needs_decision`的union-shaped evidence边界：拒绝`result=null + failure=null`，保留同Task result-carrying与non-null failure pause两种legal shape，并以public settlement前后完整snapshot证明invalid payload零写。
 - Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`；Codex独立验证typecheck、focused suites与full `npm test` 353/353全部通过。用户已最终接受，durable Room=`ACCEPTED`。
-- 该接受只确认Increment 10 candidate实现；版本化、v0.4 database/binding cutover、旧database处理与其它Git写操作仍需分别授权，因此§3.13的v0.3 runtime继续是Current authority，ADR-0004保持`Proposed`。
+- 该接受确认Increment 10 candidate实现；accepted source随后由本次提交进入版本化`main`。v0.4 database/binding cutover与旧database处理仍需分别授权，因此§3.13的v0.3 runtime继续是Current operational authority，ADR-0004保持`Proposed`。
 - 用户随后提出删除所有哈希校验，并已确认[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)的范围与取舍；target architecture见§3.15。该确认不改变本节Increment 10 accepted candidate或Current runtime。
 
-### 3.15 Increment 11 target：baseline-free Git lineage（Architecture Approved，未实现）
+### 3.15 Increment 11 target：baseline-free Git lineage（Accepted source已版本化，runtime未cutover）
 
 用户已确认[Architecture Review](./HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)：target `0.4-design`完整删除Run/RunAttempt/claim/schema/SQLite/consumer中的`baseline_head`及commit-object HEAD读取/比较。ADR-0005只supersede ADR-0004的baseline部分；Run/RunAttempt、atomic claim、canonical worktree lease、Executor/WorkerAdapter、terminal settlement与per-Run lifecycle继续保持。
 
@@ -372,7 +372,20 @@ target Git数据流变为：first attempt解析canonical non-bare worktree并收
 
 fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0.3 database；`git_head_missing`删除，`git_repository_missing`、`worktree_not_clean`与wrong-worktree rollback保留。npm integrity、URL fragment、UUID与历史commit evidence不属于本架构变更。
 
-[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)已获用户全文确认并转为`Accepted`。用户指定Coding使用独立Codex project task `gpt-5.6-sol`/`medium`，不走Agent Room Claude Runner；这是单Task dispatch例外，不改变Current v0.3 runtime或永久角色。Coding前必须另行授权形成clean versioned baseline和创建Codex worktree task。
+[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)均已完成Coding、Review并获用户最终接受；Fix Review `review-increment-011-codex-002`无finding，独立typecheck、focused 150/150与full 355/355通过。Baseline-free accepted source已由本次提交进入版本化`main`，但尚未执行runtime/database/binding cutover；§3.13 active v0.3 runtime继续是Current operational authority。用户指定下一Coding task继续使用独立Codex project task `gpt-5.6-sol`/`medium`，其创建仍是独立门禁。
+
+### 3.16 Stage 3 target：DAG Control Plane（Architecture Approved）
+
+[Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)与[Accepted ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)确认在§3.14–3.15 accepted candidate上新增控制面，而不重建Execution Core：
+
+- stable `Plan`拥有规划lineage，immutable `TaskGraphRevision`拥有dependency、structured write scope、assignment、priority、concurrency与acceptance policy；exact `Approval`决定Scheduler可消费的revision。
+- one-shot Scheduler只物化eligible `NodeDispatch + Task + Run`，并在claim时执行dependency/concurrency/scope gate；不spawn Worker、不执行Git write。
+- existing `Run`/`RunAttempt`/`Review`继续拥有execution、terminal evidence与acceptance；Graph只保存reference和derived readiness。
+- Git Controller成为唯一product Git write boundary，使用preview → user confirmation → single execution → durable settlement；首版候选operation为`create_worktree`、`commit_paths`、`integrate_fast_forward`。
+- 不恢复baseline、file hash、Diff fingerprint、commit hash precondition、branch mirror或timestamp validator；Git result commit ID只作为historical evidence。
+- 推荐先版本化accepted v0.4 source而不cutover，Stage 3使用fresh `0.5-design`，拆分Graph/Scheduler与Git Controller两个Increment并在Stage 3整体接受后单次cutover。
+
+用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认并为`Accepted`；本节与Contract确认均不构成Current schema、Coding task、Git或runtime授权。
 
 ## 4. 依赖方向
 

@@ -10,7 +10,6 @@ export const protocolErrorCodeSchema = z.enum([
   'validation_failed',
   'protocol_version_mismatch',
   'git_repository_missing',
-  'git_head_missing',
   'worktree_not_clean',
   'run_already_active',
   // v0.4：未 accepted Run 的 canonical worktree 已被另一 Run 持有（partial unique

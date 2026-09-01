@@ -62,7 +62,7 @@ function openDbOrExit(path: string): DatabaseSync {
 }
 
 // project path shape validation 属于 runtime configuration boundary：在打开/初始化任何
-// database 前拒绝 missing/non-directory project。Git repository/HEAD/clean gate 仍只在
+// database 前拒绝 missing/non-directory project。Git repository/clean gate 仍只在
 // 首次 Implementation submission 由 Git Observer 执行，不在 startup 提前强化。
 function validateProjectOrExit(path: string): void {
   let st;

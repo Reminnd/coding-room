@@ -49,7 +49,7 @@ function seedDb(dbPath: string): void {
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
   service.claimRunAttempt(
-    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: 'deadbeef' },
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE },
     EXECUTOR,
   );
   db.close();
@@ -63,6 +63,7 @@ test('status CLI prints deterministic pretty JSON matching the seeded Room/Run s
   const r = runStatus(['--db', dbPath, '--room-id', 'room-1']);
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stderr, '');
+  assert.equal(r.stdout.includes('baseline_head'), false, 'public status JSON must not expose the removed field');
 
   const parsed = JSON.parse(r.stdout) as Record<string, unknown>;
   // 固定 key 顺序是 formatStatus 的确定性契约。
@@ -143,7 +144,7 @@ test('status CLI shows the Fix Task for a fix-ready Run before the next claim', 
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
   service.claimRunAttempt(
-    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE, baseline_head: 'deadbeef' },
+    { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: WORKTREE },
     EXECUTOR,
   );
   service.settleRunAttempt(makeAttemptSettle({ attempt_id: 'attempt-1', result: makeCodingResult(), process_exit_code: 0 }), EXECUTOR);

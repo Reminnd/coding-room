@@ -5,6 +5,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { GitCommandError } from '../src/git/git-process.ts';
+import { getRoomStateSnapshot } from '../src/room/state-snapshot.ts';
 import { runClaude, type ClaudeRunnerInput } from '../src/runner/claude-runner.ts';
 import { RoomService } from '../src/room/room-service.ts';
 import {
@@ -71,8 +73,8 @@ function git(fixture: string, ...args: string[]): string {
 }
 
 // 建立 clean repo 并预置两个 tracked 文件，使 staged/unstaged/untracked 三类证据可在
-// baseline 之后被精确区分。
-function makeRepo(): { fixture: string; baselineHead: string } {
+// 首 attempt 之后被精确区分。
+function makeRepo(): { fixture: string } {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runner-'));
   git(fixture, 'init', '-q', '-b', 'main');
   git(fixture, 'config', '--local', 'commit.gpgsign', 'false');
@@ -81,12 +83,11 @@ function makeRepo(): { fixture: string; baselineHead: string } {
   writeFileSync(join(fixture, 'unstaged.txt'), 'base');
   git(fixture, 'add', '.');
   git(fixture, 'commit', '-q', '-m', 'base');
-  const baselineHead = git(fixture, 'rev-parse', 'HEAD').trim();
-  return { fixture, baselineHead };
+  return { fixture };
 }
 
 // 准备一个已提交 Implementation Task 的 RoomService：Room planning round 完成、Run 已由
-// submitTask 创建为 ready、尚无 attempt（首 attempt 由 Executor 冻结 worktree/baseline）。
+// submitTask 创建为 ready、尚无 attempt（首 attempt 由 Executor 冻结 canonical worktree）。
 // 带 db 的变体仅供最窄 fixture SQL 测试表达正常 public lifecycle 无法产生的损坏状态。
 function makeServiceWithDb(): { service: RoomService; db: DatabaseSync } {
   const db = new DatabaseSync(':memory:');
@@ -102,13 +103,12 @@ function makeService(): RoomService {
   return makeServiceWithDb().service;
 }
 
-// service-level claim helper：模拟 Executor 已冻结 baseline 的首 attempt claim（Executor 的
+// service-level claim helper：模拟 Executor 已冻结 canonical worktree 的首 attempt claim（Executor 的
 // Git 门禁由本文件各测试经真实 runClaude 覆盖，service claim 本身不做 Git 检查）。
 function claimAttempt(
   service: RoomService,
   attemptId: string,
   worktree: string,
-  baselineHead: string,
 ): void {
   service.claimRunAttempt(
     {
@@ -116,7 +116,6 @@ function claimAttempt(
       run_id: 'run-1',
       room_id: 'room-1',
       worktree_path: worktree,
-      baseline_head: baselineHead,
     },
     EXECUTOR,
   );
@@ -141,9 +140,9 @@ function settleSucceeded(
 
 // 完整 Implementation -> Review(changes_requested) -> Fix Task 链路：run-1 回到 ready，
 // current task 为 fix task-2，attempt-1 已 succeeded。
-function makeFixReadyService(worktree: string, baselineHead: string): RoomService {
+function makeFixReadyService(worktree: string): RoomService {
   const service = makeService();
-  claimAttempt(service, 'attempt-1', worktree, baselineHead);
+  claimAttempt(service, 'attempt-1', worktree);
   settleSucceeded(service, 'attempt-1');
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   service.submitTask(
@@ -155,9 +154,9 @@ function makeFixReadyService(worktree: string, baselineHead: string): RoomServic
 
 // decision resume 前置：attempt-1 完成 askQuestion + needs_decision settle + answer(false)，
 // Run 回到 ready、attempt-1 带 exact session。
-function makeDecisionReadyService(worktree: string, baselineHead: string): RoomService {
+function makeDecisionReadyService(worktree: string): RoomService {
   const service = makeService();
-  claimAttempt(service, 'attempt-1', worktree, baselineHead);
+  claimAttempt(service, 'attempt-1', worktree);
   service.askQuestion(makeQuestion(), WORKER);
   service.settleRunAttempt(
     makeAttemptSettle({
@@ -175,9 +174,9 @@ function makeDecisionReadyService(worktree: string, baselineHead: string): RoomS
 
 // fix resume 前置：attempt-1 succeeded + review(changes_requested) + fix task-2，current
 // task = task-2，source attempt 带 exact session。
-function makeFixContinuationReadyService(worktree: string, baselineHead: string): RoomService {
+function makeFixContinuationReadyService(worktree: string): RoomService {
   const service = makeService();
-  claimAttempt(service, 'attempt-1', worktree, baselineHead);
+  claimAttempt(service, 'attempt-1', worktree);
   settleSucceeded(service, 'attempt-1', SESSION_ID);
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   service.submitTask(
@@ -191,11 +190,10 @@ function makeFixContinuationReadyService(worktree: string, baselineHead: string)
 // 决定（'' 表示无可靠 session）。
 function makeRetryReadyService(
   worktree: string,
-  baselineHead: string,
   sessionId: string | null = SESSION_ID,
 ): RoomService {
   const service = makeService();
-  claimAttempt(service, 'attempt-1', worktree, baselineHead);
+  claimAttempt(service, 'attempt-1', worktree);
   service.settleRunAttempt(
     makeAttemptSettle({
       attempt_id: 'attempt-1',
@@ -281,6 +279,10 @@ function errCode(err: unknown): string | null {
   return (err as { code?: string }).code ?? null;
 }
 
+function durableSnapshot(service: RoomService): unknown {
+  return getRoomStateSnapshot(service, { room_id: 'room-1' });
+}
+
 // central failure settlement 的单一断言：唯一 failure mapping、一次 run_attempt_failed、
 // 零次 run_attempt_succeeded，Room 保持 DISCUSSION、Run=failed、attempt.failure.code 匹配。
 function assertFailure(
@@ -319,16 +321,20 @@ test('non-repository target rejects with git_repository_missing before claiming 
   }
 });
 
-test('unborn HEAD rejects with git_head_missing before claiming an attempt', async () => {
+test('clean unborn repository completes a first attempt', async () => {
   const service = makeService();
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-runner-unborn-'));
   git(fixture, 'init', '-q', '-b', 'main');
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID)]);
+    child.emit('close', 0, null);
+  });
   try {
-    await assert.rejects(
-      () => runClaude(makeInput(service, fixture)),
-      (err: unknown) => errCode(err) === 'git_head_missing',
-    );
-    assert.equal(service.getRun('run-1')!.status, 'ready');
+    const { run, attempt } = await runClaude(makeInput(service, fixture, { spawnProcess: spawner }));
+    assert.equal(run.status, 'review_required');
+    assert.equal(attempt.status, 'succeeded');
+    assert.equal(invocations.length, 1);
     assert.equal(service.getRoom('room-1')!.state, 'DISCUSSION');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
@@ -346,6 +352,32 @@ test('dirty worktree rejects with worktree_not_clean before claiming an attempt'
     );
     assert.equal(service.getRun('run-1')!.status, 'ready');
     assert.equal(service.getRoom('room-1')!.state, 'DISCUSSION');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('damaged index propagates Git failure before first-attempt claim, process or artifact', async () => {
+  const service = makeService();
+  const { fixture } = makeRepo();
+  writeFileSync(join(fixture, '.git', 'index'), 'corrupt-index-bytes');
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const before = durableSnapshot(service);
+  try {
+    await assert.rejects(
+      () => runClaude(makeInput(service, fixture, { spawnProcess: spawner })),
+      (err: unknown) => {
+        assert.ok(err instanceof GitCommandError);
+        assert.equal(err.command, 'diff');
+        assert.deepEqual(err.args, ['--cached', '--name-only', '-z']);
+        assert.equal(err.cwd, fixture);
+        assert.equal(err.exitCode, 128);
+        return true;
+      },
+    );
+    assert.equal(invocations.length, 0, 'damaged index must not spawn a worker process');
+    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'damaged index must not create artifacts');
+    assert.deepEqual(durableSnapshot(service), before, 'damaged index must not change durable state');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -605,10 +637,10 @@ test('a dotdot worker identity passes the runClaude framed route gate and settle
 });
 
 test('decision continuation resumes the exact lineage session and preserves a dirty worktree', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   // 保留 lineage 的 dirty 变更：decision continuation 不得要求 clean worktree。
   writeFileSync(join(fixture, 'impl-change.txt'), 'impl');
-  const service = makeDecisionReadyService(fixture, baselineHead);
+  const service = makeDecisionReadyService(fixture);
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID)]);
@@ -623,7 +655,6 @@ test('decision continuation resumes the exact lineage session and preserves a di
     assert.equal(run.run_id, 'run-1');
     assert.equal(attempt.status, 'succeeded');
     assert.equal(attempt.agent_session_ref, SESSION_ID);
-    assert.equal(run.baseline_head, baselineHead);
 
     // exact --resume 来自 source attempt session，绝不使用 --continue 或最近 session 推断。
     const args = invocations[0].args;
@@ -647,10 +678,10 @@ test('decision continuation resumes the exact lineage session and preserves a di
 });
 
 test('fix continuation resumes the reviewed lineage session and carries the full fix contract', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   // 保留 implementation Diff：fix continuation 不得要求 clean worktree。
   writeFileSync(join(fixture, 'impl-diff.txt'), 'diff');
-  const service = makeFixContinuationReadyService(fixture, baselineHead);
+  const service = makeFixContinuationReadyService(fixture);
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID, makeCodingResult({ task_id: 'task-2' }))]);
@@ -665,7 +696,6 @@ test('fix continuation resumes the reviewed lineage session and carries the full
     assert.equal(attempt.status, 'succeeded');
     assert.equal(attempt.result?.task_id, 'task-2');
     assert.equal(attempt.agent_session_ref, SESSION_ID);
-    assert.equal(run.baseline_head, baselineHead);
 
     const args = invocations[0].args;
     const resumeIndex = args.indexOf('--resume');
@@ -684,9 +714,9 @@ test('fix continuation resumes the reviewed lineage session and carries the full
 });
 
 test('answer_changes_contract=true rejects continuation before spawn, claim, artifact or Event', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   const service = makeService();
-  claimAttempt(service, 'attempt-1', fixture, baselineHead);
+  claimAttempt(service, 'attempt-1', fixture);
   service.askQuestion(makeQuestion(), WORKER);
   service.settleRunAttempt(
     makeAttemptSettle({
@@ -717,25 +747,51 @@ test('answer_changes_contract=true rejects continuation before spawn, claim, art
   }
 });
 
-test('lineage HEAD drift rejects decision continuation before spawn', async () => {
-  const { fixture, baselineHead } = makeRepo();
-  const service = makeDecisionReadyService(fixture, baselineHead);
-  // 在 lineage baseline 之后新增一个 commit，使 actual HEAD 偏离 Run.baseline_head。
+test('new commit and branch change do not block decision continuation in the same canonical worktree', async () => {
+  const { fixture } = makeRepo();
+  const service = makeDecisionReadyService(fixture);
   writeFileSync(join(fixture, 'drift.txt'), 'x');
   git(fixture, 'add', '.');
   git(fixture, 'commit', '-q', '-m', 'drift');
-  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  git(fixture, 'switch', '-q', '-c', 'continuation-branch');
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID)]);
+    child.emit('close', 0, null);
+  });
   try {
-    await assert.rejects(
-      () => runClaude(makeInput(service, fixture, { attemptId: 'attempt-2', spawnProcess: spawner })),
-      (err: unknown) => errCode(err) === 'validation_failed',
+    const { run, attempt } = await runClaude(
+      makeInput(service, fixture, { attemptId: 'attempt-2', spawnProcess: spawner }),
     );
-    assert.equal(invocations.length, 0, 'HEAD drift must not spawn');
-    assert.equal(service.getAttempt('attempt-2'), null, 'HEAD drift must not claim an attempt');
+    assert.equal(invocations.length, 1);
+    assert.equal(attempt.status, 'succeeded');
     assert.equal(service.getRoom('room-1')!.state, 'DISCUSSION');
-    assert.equal(service.getRun('run-1')!.status, 'ready');
+    assert.equal(run.status, 'review_required');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('decision continuation rejects a different canonical worktree before claim, process or artifact', async () => {
+  const { fixture: canonicalWorktree } = makeRepo();
+  const { fixture: otherWorktree } = makeRepo();
+  const service = makeDecisionReadyService(canonicalWorktree);
+  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
+  const before = durableSnapshot(service);
+  try {
+    await assert.rejects(
+      () => runClaude(
+        makeInput(service, otherWorktree, { attemptId: 'attempt-2', spawnProcess: spawner }),
+      ),
+      (err: unknown) => errCode(err) === 'validation_failed',
+    );
+    assert.equal(invocations.length, 0, 'wrong canonical worktree must not spawn a worker process');
+    assert.equal(existsSync(join(otherWorktree, '.agent-room')), false, 'wrong worktree must not create artifacts');
+    assert.equal(service.getAttempt('attempt-2'), null, 'wrong worktree must not claim an attempt');
+    assert.deepEqual(durableSnapshot(service), before, 'wrong worktree must not change durable state');
+  } finally {
+    rmSync(canonicalWorktree, { recursive: true, force: true });
+    rmSync(otherWorktree, { recursive: true, force: true });
   }
 });
 
@@ -848,7 +904,7 @@ test('git observation failure settles git_evidence_failed', async () => {
   const { fixture } = makeRepo();
   const child = new FakeClaudeProcess();
   const { spawner } = autoSpawner(child, () => {
-    // 在 clean-baseline 之后损坏 index，仅让 completion evidence 失败。
+    // 在 clean-worktree check 之后损坏 index，仅让 completion evidence 失败。
     writeFileSync(join(fixture, '.git', 'index'), 'corrupt');
     writeLines(child, [initLine(), resultLine()]);
     child.emit('close', 0, null);
@@ -1225,7 +1281,7 @@ test('needs-decision pause with git observation failure records git_evidence_fai
   const child = new FakeClaudeProcess();
   const { spawner } = autoSpawner(child, () => {
     service.askQuestion(makeQuestion(), WORKER);
-    // 在 clean-baseline 之后损坏 index，仅让 completion evidence 失败。
+    // 在 clean-worktree check 之后损坏 index，仅让 completion evidence 失败。
     writeFileSync(join(fixture, '.git', 'index'), 'corrupt');
     writeLines(child, [initLine(), resultLine(SESSION_ID, makeCodingResult({ status: 'needs_decision' }))]);
     child.emit('close', 0, null);
@@ -1314,11 +1370,11 @@ test('needs-decision pause keeps pre-question progress before question_asked and
   }
 });
 
-test('retry continuation resumes the exact lineage session with inherited baseline and preserves a dirty worktree', async () => {
-  const { fixture, baselineHead } = makeRepo();
+test('retry continuation resumes the exact lineage session and preserves a dirty worktree', async () => {
+  const { fixture } = makeRepo();
   // 保留 source attempt 未完成的变更：retry 不得要求 clean worktree，也不清理 lineage 变更。
   writeFileSync(join(fixture, 'failed-change.txt'), 'partial');
-  const service = makeRetryReadyService(fixture, baselineHead, SESSION_ID);
+  const service = makeRetryReadyService(fixture, SESSION_ID);
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID)]);
@@ -1334,7 +1390,6 @@ test('retry continuation resumes the exact lineage session with inherited baseli
     assert.equal(attempt.status, 'succeeded');
     assert.equal(attempt.result?.task_id, TASK_ID);
     assert.equal(attempt.agent_session_ref, SESSION_ID);
-    assert.equal(run.baseline_head, baselineHead, 'retry must inherit the source attempt baseline');
 
     const args = invocations[0].args;
     const resumeIndex = args.indexOf('--resume');
@@ -1362,10 +1417,10 @@ test('retry continuation resumes the exact lineage session with inherited baseli
 });
 
 test('retry with an empty source session omits --resume and starts a replacement session in the same task lineage', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   // source attempt 的 agent_session_ref 为空字符串：不得生成 --resume ''，由 Claude 创建
-  // replacement session，但 Task lineage 与 baseline 保持不变。
-  const service = makeRetryReadyService(fixture, baselineHead, '');
+  // replacement session，但 Task lineage 保持不变。
+  const service = makeRetryReadyService(fixture, '');
   const child = new FakeClaudeProcess();
   const { spawner, invocations } = autoSpawner(child, () => {
     writeLines(child, [initLine(REPLACEMENT_SESSION_ID), resultLine(REPLACEMENT_SESSION_ID)]);
@@ -1381,7 +1436,6 @@ test('retry with an empty source session omits --resume and starts a replacement
     assert.equal(attempt.status, 'succeeded');
     assert.equal(attempt.result?.task_id, TASK_ID);
     assert.equal(attempt.agent_session_ref, REPLACEMENT_SESSION_ID);
-    assert.equal(run.baseline_head, baselineHead);
 
     const args = invocations[0].args;
     assert.ok(!args.includes('--resume'), 'empty source session must omit --resume');
@@ -1397,46 +1451,38 @@ test('retry with an empty source session omits --resume and starts a replacement
   }
 });
 
-test('retry with changed HEAD rejects before spawn, claim, artifact or Event with unchanged durable snapshot', async () => {
+test('retry continues after HEAD drift in the same canonical worktree', async () => {
   const { fixture } = makeRepo();
-  // source baseline 固定为 8 位 hex，真实 HEAD 是 40 位 hex，必然 mismatch。
-  const service = makeRetryReadyService(fixture, 'deadbeef', SESSION_ID);
-  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
-  // 调用前保存完整 Room/current Task/source Run/Event/cursor，证明 reject 零副作用。
-  const snapshot = () => {
-    const events = service.listEvents('room-1');
-    return {
-      room: service.getRoom('room-1'),
-      task: service.getTask(TASK_ID),
-      run: service.getRun('run-1'),
-      events,
-      cursor: events.length === 0 ? 0 : events[events.length - 1].sequence,
-    };
-  };
-  const before = snapshot();
+  const service = makeRetryReadyService(fixture, SESSION_ID);
+  writeFileSync(join(fixture, 'new-commit.txt'), 'drift');
+  git(fixture, 'add', '.');
+  git(fixture, 'commit', '-q', '-m', 'new commit');
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeLines(child, [initLine(SESSION_ID), resultLine(SESSION_ID)]);
+    child.emit('close', 0, null);
+  });
   try {
-    await assert.rejects(
-      () => runClaude(makeInput(service, fixture, { attemptId: 'attempt-2', spawnProcess: spawner })),
-      (err: unknown) => errCode(err) === 'validation_failed',
+    const { run, attempt } = await runClaude(
+      makeInput(service, fixture, { attemptId: 'attempt-2', spawnProcess: spawner }),
     );
-    assert.equal(invocations.length, 0, 'changed HEAD must not spawn a Claude process');
-    assert.equal(service.getAttempt('attempt-2'), null, 'changed HEAD must not claim an attempt');
-    assert.equal(existsSync(join(fixture, '.agent-room')), false, 'changed HEAD must not write artifacts');
-    assert.deepEqual(snapshot(), before, 'Room/Run/Task/Event/cursor must be unchanged after rejection');
+    assert.equal(invocations.length, 1);
+    assert.equal(attempt.status, 'succeeded');
+    assert.equal(run.status, 'review_required');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
 test('a fix continuation without a reliable session rejects before spawn, claim, artifact or Event', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   const db = new DatabaseSync(':memory:');
   const service = new RoomService(db);
   service.createRoom('room-1', PLANNER);
   service.transitionToArchitectureReview('room-1', PLANNER);
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
-  claimAttempt(service, 'attempt-1', fixture, baselineHead);
+  claimAttempt(service, 'attempt-1', fixture);
   settleSucceeded(service, 'attempt-1', null); // source attempt 无 session
   service.submitReview(makeReview({ decision: 'changes_requested', findings: [makeFinding()] }), REVIEWER);
   service.submitTask(
@@ -1484,9 +1530,9 @@ test('a Run with no resolved executor assignment rejects before spawn, claim, ar
 });
 
 test('a failed Run that was not retried rejects before spawn with unchanged durable snapshot', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   const service = makeService();
-  claimAttempt(service, 'attempt-1', fixture, baselineHead);
+  claimAttempt(service, 'attempt-1', fixture);
   service.settleRunAttempt(
     makeAttemptSettle({
       attempt_id: 'attempt-1',
@@ -1522,7 +1568,7 @@ test('a failed Run that was not retried rejects before spawn with unchanged dura
 // 与 status 不一致；不引入 production mutation API。
 
 test('retry with a missing source run rejects before spawn, attempt, artifact or Event with unchanged durable snapshot', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   const service = makeService();
   const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
   const snapshot = () => {
@@ -1562,14 +1608,14 @@ test('retry with a missing source run rejects before spawn, attempt, artifact or
 });
 
 test('retry with a non-ready source run rejects before spawn, attempt, artifact or Event with unchanged durable snapshot', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   const db = new DatabaseSync(':memory:');
   const service = new RoomService(db);
   service.createRoom('room-1', PLANNER);
   service.transitionToArchitectureReview('room-1', PLANNER);
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
-  claimAttempt(service, 'attempt-1', fixture, baselineHead);
+  claimAttempt(service, 'attempt-1', fixture);
   service.settleRunAttempt(
     makeAttemptSettle({
       attempt_id: 'attempt-1',
@@ -1628,14 +1674,14 @@ test('retry with a non-ready source run rejects before spawn, attempt, artifact 
 });
 
 test('retry with a non-terminal source attempt rejects before spawn, attempt, artifact or Event with unchanged durable snapshot', async () => {
-  const { fixture, baselineHead } = makeRepo();
+  const { fixture } = makeRepo();
   const db = new DatabaseSync(':memory:');
   const service = new RoomService(db);
   service.createRoom('room-1', PLANNER);
   service.transitionToArchitectureReview('room-1', PLANNER);
   service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
   service.submitTask(makeTask(), PLANNER);
-  claimAttempt(service, 'attempt-1', fixture, baselineHead);
+  claimAttempt(service, 'attempt-1', fixture);
   service.settleRunAttempt(
     makeAttemptSettle({
       attempt_id: 'attempt-1',
@@ -1701,8 +1747,8 @@ test('retry with a non-terminal source attempt rejects before spawn, attempt, ar
 });
 
 test('retry run that fails again settles failed with terminal evidence and keeps the worktree', async () => {
-  const { fixture, baselineHead } = makeRepo();
-  const service = makeRetryReadyService(fixture, baselineHead, SESSION_ID);
+  const { fixture } = makeRepo();
+  const service = makeRetryReadyService(fixture, SESSION_ID);
   const child = new FakeClaudeProcess();
   const { spawner } = autoSpawner(child, () => {
     // retry 期间产生新的未完成变更；non-zero exit 使 retry attempt 失败。

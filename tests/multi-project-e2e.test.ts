@@ -37,7 +37,7 @@ function git(fixture: string, ...args: string[]): string {
   });
 }
 
-function makeFixture(): { fixture: string; repo: string; baselineHead: string } {
+function makeFixture(): { fixture: string; repo: string; initialHead: string } {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-multi-'));
   const repo = join(fixture, 'repo');
   mkdirSync(repo, { recursive: true });
@@ -47,8 +47,8 @@ function makeFixture(): { fixture: string; repo: string; baselineHead: string } 
   writeFileSync(join(repo, 'seed.txt'), 'base');
   git(repo, 'add', '.');
   git(repo, 'commit', '-q', '-m', 'base');
-  const baselineHead = git(repo, 'rev-parse', 'HEAD').trim();
-  return { fixture, repo, baselineHead };
+  const initialHead = git(repo, 'rev-parse', 'HEAD').trim();
+  return { fixture, repo, initialHead };
 }
 
 async function startApp(
@@ -372,9 +372,7 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     assert.ok(attemptA1.settled_at! >= attemptB1.started_at, 'A settle must be after B start');
     assert.ok(attemptB1.settled_at! >= attemptA1.started_at, 'B settle must be after A start');
     assert.equal(attemptA1.agent_session_ref, SESSION_A);
-    assert.equal(attemptA1.baseline_head, fixtureA.baselineHead);
     assert.equal(attemptB1.agent_session_ref, SESSION_B);
-    assert.equal(attemptB1.baseline_head, fixtureB.baselineHead);
     assert.deepEqual(attemptA1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
     assert.deepEqual(attemptB1.git_evidence, { staged: [], unstaged: [], untracked: ['impl-b.txt'] });
     assert.deepEqual(attemptA1.artifact_refs, [
@@ -387,8 +385,8 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     ]);
     assert.equal(existsSync(join(fixtureA.repo, '.agent-room', 'artifacts', 'attempt-a-1', 'stdout.jsonl')), true);
     assert.equal(existsSync(join(fixtureB.repo, '.agent-room', 'artifacts', 'attempt-b-1', 'stdout.jsonl')), true);
-    assert.equal(git(fixtureA.repo, 'rev-parse', 'HEAD').trim(), fixtureA.baselineHead);
-    assert.equal(git(fixtureB.repo, 'rev-parse', 'HEAD').trim(), fixtureB.baselineHead);
+    assert.equal(git(fixtureA.repo, 'rev-parse', 'HEAD').trim(), fixtureA.initialHead);
+    assert.equal(git(fixtureB.repo, 'rev-parse', 'HEAD').trim(), fixtureB.initialHead);
     verifyDbA.close();
     verifyDbB.close();
     await codexA.close();

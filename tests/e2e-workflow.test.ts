@@ -48,8 +48,8 @@ function git(fixture: string, ...args: string[]): string {
 }
 
 // fixture 根放 file-backed database；repository 在 repo 子目录，避免 room.db 作为 untracked
-// 文件污染 worktree 而违反 room:run 的 clean-baseline start gate。
-function makeFixture(): { fixture: string; repo: string; baselineHead: string } {
+// 文件污染 worktree 而违反 room:run 的 clean-worktree start gate。
+function makeFixture(): { fixture: string; repo: string; initialHead: string } {
   const fixture = mkdtempSync(join(tmpdir(), 'agent-room-e2e-'));
   const repo = join(fixture, 'repo');
   mkdirSync(repo, { recursive: true });
@@ -59,8 +59,8 @@ function makeFixture(): { fixture: string; repo: string; baselineHead: string } 
   writeFileSync(join(repo, 'seed.txt'), 'base');
   git(repo, 'add', '.');
   git(repo, 'commit', '-q', '-m', 'base');
-  const baselineHead = git(repo, 'rev-parse', 'HEAD').trim();
-  return { fixture, repo, baselineHead };
+  const initialHead = git(repo, 'rev-parse', 'HEAD').trim();
+  return { fixture, repo, initialHead };
 }
 
 async function startApp(
@@ -159,7 +159,7 @@ function autoSpawner(
 }
 
 // 经 room:run 的 main() seam 执行一次 one-shot 调用：v0.4 显式输入 --run-id 与 fresh
-// --attempt-id；baseline 由 persisted Run 冻结值拥有，caller 不能传 --baseline-head。
+// --attempt-id；canonical worktree 由 persisted Run 拥有，caller 不传 Git revision。
 async function runCli(
   url: string,
   dbPath: string,
@@ -181,7 +181,7 @@ async function runCli(
 }
 
 test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(approved) -> ACCEPTED', async () => {
-  const { fixture, repo, baselineHead } = makeFixture();
+  const { fixture, repo } = makeFixture();
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
@@ -199,7 +199,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     });
     assert.equal(task.isError, undefined);
 
-    // 2. one-shot CLI 执行首次 Implementation（clean-baseline start）。
+    // 2. one-shot CLI 执行首次 Implementation（clean-worktree start）。
     const child1 = new FakeClaudeProcess();
     const { spawner: spawner1, invocations: invocations1 } = autoSpawner(child1, () => {
       writeFileSync(join(repo, 'impl-a.txt'), 'impl');
@@ -232,7 +232,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     });
     assert.equal(fix.isError, undefined);
 
-    // 4. one-shot CLI 以 exact session/exact baseline resume 执行 Fix。
+    // 4. one-shot CLI 以 exact session、same canonical worktree resume 执行 Fix。
     const child2 = new FakeClaudeProcess();
     const { spawner: spawner2, invocations: invocations2 } = autoSpawner(child2, () => {
       writeFileSync(join(repo, 'fix-a.txt'), 'fix');
@@ -297,7 +297,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     assert.equal(events.filter((e) => e.type === 'task_submitted').length, 2);
     assert.equal(events.filter((e) => e.type === 'review_submitted').length, 2);
 
-    // 7. durable 证据从 file-backed SQLite 的第二个连接验证：attempt session/baseline 连续、
+    // 7. durable 证据从 file-backed SQLite 的第二个连接验证：attempt session 连续、
     // Git evidence 精确、artifact refs 与磁盘文件一致。连接用完即关，避免 Windows 下
     // file handle 阻塞临时目录删除。
     const verifyDb = new DatabaseSync(dbPath);
@@ -307,9 +307,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     const attempt2Row = verify.getAttempt('attempt-2')!;
     assert.equal(run1Row.status, 'accepted');
     assert.equal(attempt1Row.agent_session_ref, SESSION_ID);
-    assert.equal(attempt1Row.baseline_head, baselineHead);
     assert.equal(attempt2Row.agent_session_ref, SESSION_ID, 'fix attempt must reuse the lineage session');
-    assert.equal(attempt2Row.baseline_head, baselineHead, 'fix attempt must inherit the source baseline');
     assert.deepEqual(attempt1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-a.txt'] });
     // attempt-2 的 completion evidence 在 attempt-1 已写 artifact 之后采集：.agent-room/ 是
     // 未版本化 runtime 目录，attempt-1 的 artifact 文件以 untracked 出现在 attempt-2 evidence
@@ -340,7 +338,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
 });
 
 test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves worktree and resumes exactly', async () => {
-  const { fixture, repo, baselineHead } = makeFixture();
+  const { fixture, repo, initialHead } = makeFixture();
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
@@ -381,7 +379,7 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
     const retry = await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1', run_id: 'run-1' } });
     assert.equal((retry.structuredContent as { run: { status: string } }).run.status, 'ready');
 
-    // 3. one-shot retry：同一 Run、同一 session、继承 baseline；dirty worktree 被保留。
+    // 3. one-shot retry：同一 Run、同一 session、同一 canonical worktree；dirty worktree 被保留。
     const child2 = new FakeClaudeProcess();
     const { spawner: spawner2, invocations: invocations2 } = autoSpawner(child2, () => {
       writeFileSync(join(repo, 'retry-ok.txt'), 'ok');
@@ -404,8 +402,8 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
     assert.ok(resumeIndex >= 0, 'retry must resume the source session');
     assert.equal(invocations2[0].args[resumeIndex + 1], SESSION_ID);
 
-    // 4. durable 证据：HEAD 未变、baseline/session 继承、失败变更与新变更都在 evidence 中。
-    assert.equal(git(repo, 'rev-parse', 'HEAD').trim(), baselineHead, 'retry must not change HEAD');
+    // 4. durable 证据：Runner 未修改 HEAD、session 继承、失败变更与新变更都在 evidence 中。
+    assert.equal(git(repo, 'rev-parse', 'HEAD').trim(), initialHead, 'retry must not change HEAD');
     assert.equal(existsSync(join(repo, 'impl-wip.txt')), true, 'retry must preserve the failed attempt change');
     const verifyDb = new DatabaseSync(dbPath);
     const verify = new RoomService(verifyDb);
@@ -414,10 +412,8 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
     const attempt2Row = verify.getAttempt('attempt-2')!;
     assert.equal(run1Row.status, 'review_required'); // retry 后同一 Run 进入 review
     assert.equal(attempt1Row.status, 'failed');
-    assert.equal(attempt1Row.baseline_head, baselineHead);
     assert.equal(attempt2Row.status, 'succeeded');
     assert.equal(attempt2Row.agent_session_ref, SESSION_ID);
-    assert.equal(attempt2Row.baseline_head, baselineHead, 'retry must inherit the lineage baseline');
     assert.deepEqual(attempt1Row.git_evidence, { staged: [], unstaged: [], untracked: ['impl-wip.txt'] });
     // attempt-2 的 evidence 包含 attempt-1（失败 attempt 同样写 artifact）的 artifact 文件；
     // attempt-2 自身的 artifact 在其 evidence 采集后写入，不出现。
@@ -447,7 +443,7 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
 });
 
 test('retry with an empty source session creates a replacement session without --resume', async () => {
-  const { fixture, repo, baselineHead } = makeFixture();
+  const { fixture, repo } = makeFixture();
   const dbPath = join(fixture, 'room.db');
   const db = new DatabaseSync(dbPath);
   const service = new RoomService(db);
@@ -476,7 +472,7 @@ test('retry with an empty source session creates a replacement session without -
 
     await codex.callTool({ name: 'room_retry_run', arguments: { room_id: 'room-1', run_id: 'run-1' } });
 
-    // 2. retry：无 --resume，Claude 创建 replacement session，仍继承 baseline 与 Task lineage。
+    // 2. retry：无 --resume，Claude 创建 replacement session，仍保留 Task lineage。
     const child2 = new FakeClaudeProcess();
     const { spawner: spawner2, invocations: invocations2 } = autoSpawner(child2, () => {
       child2.stdout.write(`${initLine(REPLACEMENT_SESSION)}\n${resultLine(REPLACEMENT_SESSION)}\n`);
@@ -495,7 +491,6 @@ test('retry with an empty source session creates a replacement session without -
     const attempt2Row = verify.getAttempt('attempt-2')!;
     assert.equal(attempt2Row.status, 'succeeded');
     assert.equal(attempt2Row.agent_session_ref, REPLACEMENT_SESSION);
-    assert.equal(attempt2Row.baseline_head, baselineHead, 'replacement session still inherits the baseline');
     const state = await snapshot(codex, 'room-1');
     const events = state.events as { type: string }[];
     assert.equal(events.filter((e) => e.type === 'task_submitted').length, 1, 'replacement session keeps the task lineage');

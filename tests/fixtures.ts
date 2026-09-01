@@ -72,7 +72,7 @@ export function makeFixTask(overrides: Partial<TaskContract> = {}): TaskContract
   });
 }
 
-// v0.4 Run：稳定 logical lineage；worktree/baseline 由首 attempt claim 冻结。
+// v0.4 Run：稳定 logical lineage；canonical worktree 由首 attempt claim 冻结。
 export function makeRun(overrides: Partial<Run> = {}): Run {
   return {
     run_id: 'run-1',
@@ -81,7 +81,6 @@ export function makeRun(overrides: Partial<Run> = {}): Run {
     status: 'ready',
     worker_participant_id: 'claude-code-cli',
     worktree_path: null,
-    baseline_head: null,
     created_at: T,
     updated_at: T,
     accepted_at: null,
@@ -101,7 +100,6 @@ export function makeAttempt(overrides: Partial<RunAttempt> = {}): RunAttempt {
     worker_participant_id: 'claude-code-cli',
     executor_participant_id: 'local-runner',
     worktree_path: 'D:\\agent\\case\\project',
-    baseline_head: 'deadbeef',
     agent_session_ref: null,
     process_exit_code: null,
     started_at: T,

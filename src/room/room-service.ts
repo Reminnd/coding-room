@@ -131,15 +131,14 @@ export interface SettleAttemptInput {
   artifact_refs: string[];
 }
 
-// atomic claim 的 caller-owned 输入：attempt_id 必须 fresh；worktree_path/baseline_head 由
-// Executor 在 claim 前经 Git Observer 解析（首 attempt clean gate，后续 HEAD==baseline 校验），
-// claim 只负责冻结/继承与并发事实。
+// atomic claim 的 caller-owned 输入：attempt_id 必须 fresh；worktree_path 由 Executor 在
+// claim 前经 Git Observer 解析（首 attempt clean gate，后续 live evidence observation），
+// claim 只负责冻结/继承 canonical worktree 与并发事实。
 export interface ClaimAttemptInput {
   attempt_id: string;
   run_id: string;
   room_id: string;
   worktree_path: string;
-  baseline_head: string;
 }
 
 // application service 是唯一拥有 rooms.state 与 Run/RunAttempt.status 修改权限的模块。
@@ -282,7 +281,6 @@ export class RoomService {
       status: 'ready',
       worker_participant_id: worker.participant_id,
       worktree_path: null,
-      baseline_head: null,
       created_at: createdAt,
       updated_at: createdAt,
       accepted_at: null,
@@ -376,7 +374,7 @@ export class RoomService {
   // ---- Atomic attempt claim (executor) ----
   // 单一 transaction 内按 Contract 顺序执行：认证 authority → 验证 Run ready → 拒绝已有
   // active attempt → 解析并冻结 executor → 校验 Worker adapter → 冻结/继承 canonical
-  // worktree 与 baseline → 分配 attempt_no → 创建 running attempt → 消费 pending guidance →
+  // canonical worktree → 分配 attempt_no → 创建 running attempt → 消费 pending guidance →
   // 更新 Run → 追加 run_attempt_claimed Event。并发 loser 由 partial unique index 映射为
   // run_already_active / worktree_already_owned，零残留。
   claimRunAttempt(
@@ -388,14 +386,13 @@ export class RoomService {
       const existing = this.repo.getAttempt(claim.attempt_id);
       if (existing) {
         // same-ID retry 按 stored attempt 冻结的 executor 认证；不要求 current assignment。
-        // caller-owned 字段（run/room/worktree/baseline）与 stored 一致 → 幂等返回首次 claim
+        // caller-owned 字段（run/room/worktree）与 stored 一致 → 幂等返回首次 claim
         // 事实（含已消费 guidance）且零写入；不一致 → id_conflict。
         this.assertAttemptCommandAuthority(existing, actor, 'executor');
         if (
           existing.run_id !== claim.run_id ||
           existing.room_id !== claim.room_id ||
-          existing.worktree_path !== claim.worktree_path ||
-          existing.baseline_head !== claim.baseline_head
+          existing.worktree_path !== claim.worktree_path
         ) {
           throw new ProtocolError(
             'id_conflict',
@@ -439,23 +436,20 @@ export class RoomService {
       // 零 attempt/process/Event/artifact。worker assignment 本身允许 provider-neutral
       // 创建，因此该检查只出现在 claim boundary。
       this.assertWorkerAdapterAvailable(run.worker_participant_id);
-      // canonical worktree/baseline：首 attempt 冻结 caller 解析的 repository root + HEAD；
-      // 后续 attempt 必须使用同一 canonical worktree 且 baseline 相同（dirty evidence 由
-      // Executor 在 claim 前通过 Git Observer 校验，claim 只验证 lineage 一致性）。
+      // canonical worktree：首 attempt 冻结 caller 解析的 repository root；后续 attempt
+      // 必须使用同一 canonical worktree（live evidence 由 Executor 在 claim 前通过 Git
+      // Observer 收集，claim 只验证 lineage 一致性）。
       let worktreePath: string;
-      let baselineHead: string;
       if (run.worktree_path === null) {
         worktreePath = claim.worktree_path;
-        baselineHead = claim.baseline_head;
       } else {
-        if (run.worktree_path !== claim.worktree_path || run.baseline_head !== claim.baseline_head) {
+        if (run.worktree_path !== claim.worktree_path) {
           throw new ProtocolError(
             'validation_failed',
-            `run ${claim.run_id} is frozen to worktree ${run.worktree_path} @ ${run.baseline_head ?? ''}`,
+            `run ${claim.run_id} is frozen to worktree ${run.worktree_path}`,
           );
         }
         worktreePath = run.worktree_path;
-        baselineHead = run.baseline_head ?? '';
       }
       const createdAt = this.now();
       const attempt: RunAttempt = {
@@ -468,7 +462,6 @@ export class RoomService {
         worker_participant_id: run.worker_participant_id,
         executor_participant_id: actor.participant_id,
         worktree_path: worktreePath,
-        baseline_head: baselineHead,
         agent_session_ref: null,
         process_exit_code: null,
         started_at: createdAt,
@@ -486,13 +479,12 @@ export class RoomService {
       for (const item of guidance) {
         this.repo.updateGuidance({ ...item, consumed_by_attempt_id: attempt.attempt_id });
       }
-      // Run 冻结 worktree/baseline（首 attempt）并进入 running；同 worktree 未 accepted
+      // Run 冻结 worktree（首 attempt）并进入 running；同 worktree 未 accepted
       // 双 Run 由 partial unique index 映射为 worktree_already_owned。
       const updatedRun: Run = {
         ...run,
         status: 'running',
         worktree_path: worktreePath,
-        baseline_head: baselineHead,
         updated_at: createdAt,
       };
       resolveRunTransition(run.status, updatedRun.status, actor.actor_role);
@@ -1772,7 +1764,6 @@ const claimInputSchema = z.object({
   run_id: z.string().min(1),
   room_id: z.string().min(1),
   worktree_path: z.string().min(1),
-  baseline_head: z.string().min(1),
 });
 
 const settleInputSchema = z.object({

@@ -6,7 +6,7 @@ import type { RoomRecord } from '../room/repository.ts';
 import { RoomService } from '../room/room-service.ts';
 import {
   collectCompletionEvidence,
-  establishCleanBaseline,
+  establishCleanWorktree,
   observeContinuation,
   type GitEvidence,
 } from '../git/git-observer.ts';
@@ -78,21 +78,19 @@ export class LocalExecutor {
     }
 
     // ---- claim 前 worktree gate ----
-    // 首 attempt：clean Git gate（任一变更 → worktree_not_clean）并解析 repository root +
-    // HEAD；后续 attempt：允许 dirty evidence，但必须使用同一 canonical worktree 且 actual
-    // HEAD 等于 Run baseline。claim 只冻结/继承，不创建、切换、删除或清理 worktree。
+    // 首 attempt：clean Git gate（任一变更 → worktree_not_clean）并解析 repository root；
+    // 后续 attempt：允许 dirty evidence，但必须使用同一 canonical worktree。claim 只冻结/
+    // 继承 worktree，不创建、切换、删除或清理 worktree。
     const priorAttempt = service.latestAttemptForRun(run.run_id);
     let repositoryRoot: string;
-    let baselineHead: string;
     if (priorAttempt === null) {
-      const baseline = await establishCleanBaseline(this.input.targetWorktree);
-      repositoryRoot = baseline.repositoryRoot;
-      baselineHead = baseline.baselineHead;
+      const observation = await establishCleanWorktree(this.input.targetWorktree);
+      repositoryRoot = observation.repositoryRoot;
     } else {
-      if (run.worktree_path === null || run.baseline_head === null) {
+      if (run.worktree_path === null) {
         throw new ProtocolError(
           'validation_failed',
-          `run ${run.run_id} has attempts but no frozen worktree/baseline`,
+          `run ${run.run_id} has attempts but no frozen worktree`,
         );
       }
       const observation = await observeContinuation(this.input.targetWorktree);
@@ -102,14 +100,7 @@ export class LocalExecutor {
           `actual repository root ${observation.repositoryRoot} does not match lineage worktree ${run.worktree_path}`,
         );
       }
-      if (observation.head !== run.baseline_head) {
-        throw new ProtocolError(
-          'validation_failed',
-          `actual HEAD ${observation.head} does not match lineage baseline_head ${run.baseline_head}`,
-        );
-      }
       repositoryRoot = observation.repositoryRoot;
-      baselineHead = observation.head;
     }
 
     // ---- session lineage（per-Run，绝不跨 Run 继承）----
@@ -187,7 +178,6 @@ export class LocalExecutor {
         run_id: run.run_id,
         room_id: run.room_id,
         worktree_path: repositoryRoot,
-        baseline_head: baselineHead,
       },
       executorActor,
     );

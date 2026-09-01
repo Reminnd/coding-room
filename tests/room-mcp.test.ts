@@ -23,7 +23,7 @@ import {
   type AttemptSettleInput,
 } from './fixtures.ts';
 
-// v0.4 actor-scoped Room MCP 的端到端测试：临时 git repository 提供 claim 冻结 baseline 的
+// v0.4 actor-scoped Room MCP 的端到端测试：临时 git repository 提供 claim 冻结 worktree 的
 // fixture，in-memory RoomService 挂在 createRoomMcpApp 上 listen 临时端口，再用 in-process
 // SDK Client + StreamableHTTPClientTransport 走真实 loopback HTTP 连接验证 tool surface、
 // participant route 的 authority 映射、write tool 行为与 ProtocolError 稳定映射。
@@ -36,7 +36,7 @@ import {
 // 测试改为 claimRunAttempt + settleRunAttempt（executor one-shot boundary）。v0.3 中
 // room_submit_task 的 clean-worktree/Git gate 已整体移到 Executor claim 前（见
 // claude-runner/execution-core 测试），MCP 层不再执行任何 Git 操作；worktree_not_clean /
-// git_repository_missing / git_head_missing 三个 v0.3 submitTask 负例随行为迁移删除。
+// git_repository_missing 等 v0.3 submitTask 负例随行为迁移删除。
 
 // v0.4 actor literal：与默认 bootstrap assignment 一致（测试侧独立 literal，不导入实现）。
 const PLANNER = { participant_id: 'codex-app', actor_role: 'planner' as const };
@@ -79,7 +79,7 @@ function initRepo(fixture: string): void {
 }
 
 // executor 的 one-shot claim boundary（测试侧直接调用 service，代替 v0.3 startRun）：
-// worktree/baseline 由 fixture repo 解析，claim 成功冻结后 Run 进入 running。
+// worktree 由 fixture repo 解析，claim 成功冻结后 Run 进入 running。
 function claim(
   service: RoomService,
   fixture: string,
@@ -88,9 +88,8 @@ function claim(
   const attemptId = overrides.attempt_id ?? 'attempt-1';
   const runId = overrides.run_id ?? 'run-1';
   const roomId = overrides.room_id ?? 'room-1';
-  const head = git(fixture, 'rev-parse', 'HEAD').trim();
   const out = service.claimRunAttempt(
-    { attempt_id: attemptId, run_id: runId, room_id: roomId, worktree_path: fixture, baseline_head: head },
+    { attempt_id: attemptId, run_id: runId, room_id: roomId, worktree_path: fixture },
     EXECUTOR,
   );
   assert.equal(out.created, true);
@@ -1587,7 +1586,6 @@ test('room_add_run_guidance round-trips through the adapter and is consumed by t
         run_id: 'run-1',
         room_id: 'room-1',
         worktree_path: fixture,
-        baseline_head: git(fixture, 'rev-parse', 'HEAD').trim(),
       },
       EXECUTOR,
     );

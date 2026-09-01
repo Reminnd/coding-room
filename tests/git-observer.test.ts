@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   collectCompletionEvidence,
-  establishCleanBaseline,
+  establishCleanWorktree,
   observeContinuation,
 } from '../src/git/git-observer.ts';
 import { GitCommandError } from '../src/git/git-process.ts';
@@ -77,7 +77,6 @@ function corruptIndex(fixture: string): void {
   writeFileSync(join(fixture, '.git', 'index'), 'corrupt-index-bytes');
 }
 
-// 独立 oracle：baseline_head 期望来自测试侧直接调用 git rev-parse，不 import 实现。
 function revParseHead(fixture: string): string {
   return git(fixture, 'rev-parse', 'HEAD').trim();
 }
@@ -92,14 +91,14 @@ function assertSortedUnique(paths: string[]): void {
   assert.equal(new Set(paths).size, paths.length, 'evidence path array must be de-duplicated');
 }
 
-test('clean-baseline rejects non-repository and non-existent target paths', async () => {
+test('clean-worktree rejects non-repository and non-existent target paths', async () => {
   const nonRepo = makeFixture();
   const nonexistentParent = makeFixture();
   const nonexistent = join(nonexistentParent, 'does-not-exist');
   try {
     for (const target of [nonRepo, nonexistent]) {
       assert.equal(
-        await errorCodeAsync(() => establishCleanBaseline(target)),
+        await errorCodeAsync(() => establishCleanWorktree(target)),
         'git_repository_missing',
       );
     }
@@ -109,29 +108,25 @@ test('clean-baseline rejects non-repository and non-existent target paths', asyn
   }
 });
 
-test('clean-baseline returns git_head_missing for a worktree with no commit', async () => {
+test('clean unborn repository returns canonical root and empty evidence', async () => {
   const fixture = makeFixture();
   git(fixture, 'init', '-q', '-b', 'main');
   try {
-    assert.equal(
-      await errorCodeAsync(() => establishCleanBaseline(fixture)),
-      'git_head_missing',
-      'a committed-less worktree must not be misreported as clean baseline',
-    );
+    const observation = await establishCleanWorktree(fixture);
+    assert.equal(resolve(observation.repositoryRoot), resolve(fixture));
+    assert.deepEqual(observation.evidence, { staged: [], unstaged: [], untracked: [] });
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-test('clean repository returns full baseline_head, repository root and empty evidence', async () => {
+test('clean committed repository returns canonical root and empty evidence', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   try {
-    const baseline = await establishCleanBaseline(fixture);
-    assert.equal(baseline.baselineHead, revParseHead(fixture));
-    assert.match(baseline.baselineHead, /^[0-9a-f]{40}$/);
-    assert.equal(resolve(baseline.repositoryRoot), resolve(fixture));
-    assert.deepEqual(baseline.evidence, { staged: [], unstaged: [], untracked: [] });
+    const observation = await establishCleanWorktree(fixture);
+    assert.equal(resolve(observation.repositoryRoot), resolve(fixture));
+    assert.deepEqual(observation.evidence, { staged: [], unstaged: [], untracked: [] });
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -154,7 +149,7 @@ test('staged-only, unstaged-only and untracked-only worktrees each return worktr
   try {
     for (const fixture of [stagedOnly, unstagedOnly, untrackedOnly]) {
       assert.equal(
-        await errorCodeAsync(() => establishCleanBaseline(fixture)),
+        await errorCodeAsync(() => establishCleanWorktree(fixture)),
         'worktree_not_clean',
       );
     }
@@ -165,12 +160,12 @@ test('staged-only, unstaged-only and untracked-only worktrees each return worktr
   }
 });
 
-test('establishCleanBaseline rejects fatal evidence failure instead of returning clean baseline', async () => {
+test('establishCleanWorktree rejects fatal evidence failure instead of returning clean observation', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   corruptIndex(fixture);
   try {
-    await assertFatalEvidenceFailure(() => establishCleanBaseline(fixture), fixture);
+    await assertFatalEvidenceFailure(() => establishCleanWorktree(fixture), fixture);
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -187,12 +182,10 @@ test('collectCompletionEvidence rejects fatal evidence failure instead of return
   }
 });
 
-test('observeContinuation returns full HEAD, root and dirty evidence without requiring clean', async () => {
+test('observeContinuation returns root and dirty evidence without requiring clean', async () => {
   const { fixture } = buildCombinedFixture();
   try {
     const observation = await observeContinuation(fixture);
-    assert.equal(observation.head, revParseHead(fixture));
-    assert.match(observation.head, /^[0-9a-f]{40}$/);
     assert.equal(resolve(observation.repositoryRoot), resolve(fixture));
     assert.deepEqual(observation.evidence.staged, ['both.txt', 'staged.txt']);
     assert.deepEqual(observation.evidence.unstaged, ['both.txt', 'unstaged.txt']);
@@ -233,11 +226,13 @@ test('observeContinuation rejects a non-repository target with git_repository_mi
   }
 });
 
-test('observeContinuation returns git_head_missing for a worktree with no commit', async () => {
+test('observeContinuation accepts a worktree with no commit', async () => {
   const fixture = makeFixture();
   git(fixture, 'init', '-q', '-b', 'main'); // 无 commit → unborn HEAD
   try {
-    assert.equal(await errorCodeAsync(() => observeContinuation(fixture)), 'git_head_missing');
+    const observation = await observeContinuation(fixture);
+    assert.equal(resolve(observation.repositoryRoot), resolve(fixture));
+    assert.deepEqual(observation.evidence, { staged: [], unstaged: [], untracked: [] });
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -334,7 +329,7 @@ test('evidence arrays are de-duplicated and stable-sorted', async () => {
   }
 });
 
-test('clean-baseline and completion-evidence do not mutate HEAD or worktree', async () => {
+test('clean-worktree and completion-evidence do not mutate HEAD or worktree', async () => {
   const clean = makeFixture();
   initRepo(clean);
   const dirty = makeFixture();
@@ -344,7 +339,7 @@ test('clean-baseline and completion-evidence do not mutate HEAD or worktree', as
     for (const fixture of [clean, dirty]) {
       const before = statusSnapshot(fixture);
       await collectCompletionEvidence(fixture);
-      await errorCodeAsync(() => establishCleanBaseline(fixture));
+      await errorCodeAsync(() => establishCleanWorktree(fixture));
       const after = statusSnapshot(fixture);
       assert.deepEqual(after, before, 'Observer must not change HEAD, index or worktree');
     }

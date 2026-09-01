@@ -288,7 +288,7 @@ Verification 检测：
 
 ### 增量 10 — Stage 2 Execution Core（Accepted Contract）
 
-状态：用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)三项设计方向及[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文。Implementation与两轮Fix均已完成；最终Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，typecheck、focused suites与full `npm test` 353/353均通过。用户于2026-08-31最终接受，Current v0.3 Room=`ACCEPTED`。candidate尚未版本化或cutover，Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍不构成Current capability。
+状态：用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)三项设计方向及[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文。Implementation与两轮Fix均已完成；最终Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，typecheck、focused suites与full `npm test` 353/353均通过。用户于2026-08-31最终接受；accepted source已由本次提交进入版本化`main`。Active Room/database/binding仍为v0.3且未cutover，Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍不构成Current operational capability。
 
 目标：交付one-shot multi-Run Execution Core，使同一Room内使用不同canonical worktree的logical Runs拥有独立RunAttempt、Question、failure、Review/Fix与acceptance lifecycle，并通过SQLite并发约束和唯一terminal settlement形成可验证闭环。
 
@@ -298,17 +298,23 @@ Verification 检测：
 
 Review状态（2026-08-31，candidate）：continuation Run `-007`报告的8条Contract verification与Codex独立typecheck/full 341/341均通过，但额外decision-changing probes确认：(1) deferred transaction下真实双connection claim的loser泄漏`database is locked`；(2) `settleRunAttempt`可持久化`succeeded + result=null + failure`；(3) ready work item的`current_task_id`为null或Fix前一Task。三项solution与Fix Task 1全文已确认；Fix Contract为`Accepted`，v0.4 database/binding cutover仍是独立门禁。
 
-Fix验收（2026-08-31）：[Fix Task 1](./INCREMENT_10_FIX_TASK_1.md)闭合atomic claim、terminal evidence与ready current Task三项finding；[Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)显式拒绝effective `needs_decision`的empty evidence，并保留result-carrying与pause-failure两种合法形态。Fix Review `review-increment-010-codex-003`确认完整public path、rollback与回归无finding；用户已最终接受。`0.4-design`仍是accepted candidate，只有版本化与cutover另行授权后才能成为Current capability。
+Fix验收（2026-08-31）：[Fix Task 1](./INCREMENT_10_FIX_TASK_1.md)闭合atomic claim、terminal evidence与ready current Task三项finding；[Fix Task 2](./INCREMENT_10_FIX_TASK_2.md)显式拒绝effective `needs_decision`的empty evidence，并保留result-carrying与pause-failure两种合法形态。Fix Review `review-increment-010-codex-003`确认完整public path、rollback与回归无finding；用户已最终接受。Accepted `0.4-design` source已由本次提交进入版本化`main`；只有另行授权runtime cutover后才成为Current operational capability。
 
-### 增量 11 — 删除 Git Baseline Hash Validation（Accepted Contract）
+### 增量 11 — 删除 Git Baseline Hash Validation（Accepted）
 
-状态：用户于2026-08-31确认[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)的范围与失去HEAD/branch drift自动拒绝的取舍；[Architecture Review](./HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md)=`Approved`，[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)=`Accepted`。[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)全文已确认，状态为`Accepted`、`confirmed_by_user=true`，阶段=`PLAN_READY`。
+状态：用户于2026-08-31确认[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)的范围与失去HEAD/branch drift自动拒绝的取舍；[Architecture Review](./HASH_VALIDATION_REMOVAL_ARCHITECTURE_REVIEW.md)=`Approved`，[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)=`Accepted`。[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)均为`Accepted`。Implementation Review 1=`changes_requested`；Fix Review `review-increment-011-codex-002`无finding、Decision=`approved`；用户于2026-09-01明确最终接受，Increment 11阶段=`ACCEPTED`。
 
 目标：在v0.4首次cutover前，从target protocol、SQLite、Git Observer、Execution Core、public consumer与tests完整删除`baseline_head`/commit-object validation，同时保留first-attempt clean gate、canonical worktree lease、Git failure propagation与Run/Task/session lifecycle。
 
 Coding route：用户指定独立Codex task，model=`gpt-5.6-sol`、reasoning effort=`medium`；不走Agent Room Claude Runner，不复用terminal v0.3 Room。该路由只适用于Increment 11，不永久改变项目角色。
 
-进入Coding前门禁：完整Contract确认；分别授权版本化Increment 10 accepted scope与Increment 11 planning docs，形成clean exact baseline；再授权创建Codex project worktree task。上述门禁不授权commit/push、runtime cutover或旧database处理。
+Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f34782a698463f907`完成baseline-free candidate；Fix Task 1仅补invalid public-path完整rollback/零副作用Oracle与Current文档状态，未修改production source或Plugin。再次Review与用户最终接受均已完成，accepted source已由本次提交进入版本化`main`；runtime cutover与旧database处理仍为独立门禁。
+
+### Stage 3 — DAG Control Plane（Architecture Approved）
+
+[Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`。用户确认在accepted Stage 2/Increment 11 candidate上增加immutable `TaskGraphRevision`、generic `Approval`、structured write scope、one-shot reconcile Scheduler和preview-confirm-execute Git Controller；Scheduler只物化ready Task/Run，不启动process或执行Git write。
+
+确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source已由本次提交版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认并为`Accepted`，阶段=`PLAN_READY`；Coding task创建仍是独立门禁。
 
 ## 5. Task Contract 规则
 
@@ -335,4 +341,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–9 Stage 1均已接受并进入版本化`main`，active runtime保持v0.3。Increment 10及两份Fix Task已完成Coding、Review并获用户最终接受，durable Room=`ACCEPTED`；`0.4-design`仍未版本化或cutover。Increment 11 Architecture与[Task Contract](./INCREMENT_11_TASK_CONTRACT.md)均已确认；下一步是分别取得clean baseline Git写入与Codex task创建授权。
+Increment 1–9 Stage 1均已接受并进入版本化`main`；Increment 10/11 accepted `0.4-design` source与Stage 3/Increment 12 planning已由本次提交进入`main`，active runtime保持v0.3且未cutover。Stage 3 Architecture Review=`approved`，[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`，阶段=`PLAN_READY`。未来Coding route固定`gpt-5.6-sol`/`medium`；下一门禁是独立Coding task创建授权，runtime cutover继续单独授权。

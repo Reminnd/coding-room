@@ -18,7 +18,6 @@ export interface ClaimWorkerData {
   runId: string;
   attemptId: string;
   worktree: string;
-  baselineHead: string;
   barrier: SharedArrayBuffer;
 }
 
@@ -51,7 +50,6 @@ if (!isMainThread) {
           run_id: data.runId,
           room_id: data.roomId,
           worktree_path: data.worktree,
-          baseline_head: data.baselineHead,
         },
         EXECUTOR,
       );

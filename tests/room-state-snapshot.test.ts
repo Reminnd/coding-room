@@ -65,7 +65,6 @@ function claim(
       run_id: runId,
       room_id: 'room-1',
       worktree_path: worktree,
-      baseline_head: 'deadbeef',
     },
     EXECUTOR,
   );

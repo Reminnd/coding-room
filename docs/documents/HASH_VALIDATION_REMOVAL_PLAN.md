@@ -110,10 +110,10 @@ Git evidence继续作为当前工作区导航事实；它不替代 live reposito
 
 ## 8. 执行顺序与门禁
 
-1. 当前 Increment 10 已被用户接受，但尚未执行Git提交或v0.4 cutover；本规划保持`Draft`，不改变已接受candidate代码。
-2. 用户已确认本文范围、Architecture Review、ADR与完整[Increment 11 Task Contract](./INCREMENT_11_TASK_CONTRACT.md)；Contract为`Accepted`，但clean baseline Git写入与Codex task创建仍需分别授权。
+1. Increment 10/11已完成实现、Review与用户接受，accepted source由本次提交进入版本化`main`；active v0.3 runtime仍未cutover。
+2. 用户已确认本文范围、Architecture Review、ADR与完整[Increment 11 Task Contract](./INCREMENT_11_TASK_CONTRACT.md)；Contract与Fix均为`Accepted`，实现与验证已完成。
 3. 推荐在v0.4首次cutover前完成实现、Review与用户接受，避免先激活随后立即废弃的baseline schema。
-4. Current v0.3 Room已处于`ACCEPTED`终态；新的planning Room/binding、Increment 10版本化提交、Implementation Task submission、one-shot Run与最终cutover均为独立授权，不由本文自动获得。
+4. Current v0.3 Room已处于`ACCEPTED`终态；本次版本化授权已完成，新的planning Room/binding、后续Implementation Task submission、one-shot Run与最终cutover仍为独立授权，不由本文自动获得。
 
 ## 9. 待确认项
 

@@ -1,9 +1,8 @@
 import { execFile } from 'node:child_process';
 
 // git 的致命错误（如 “not a git repository”、“this operation must be run in a work
-// tree”、“Needed a single revision”）统一以 exit code 128 退出。repository/HEAD 前置
-// 条件的缺失由 git-observer 的 semantic boundary 据此映射为
-// git_repository_missing / git_head_missing；本模块只负责把 process 失败原样向上抛。
+// tree”）统一以 exit code 128 退出。repository 前置条件的缺失由 git-observer 据此映射为
+// git_repository_missing 等业务语义；本模块只负责把 process 失败原样向上抛。
 export const GIT_FATAL_EXIT_CODE = 128;
 
 // 大仓库的路径列表可能超过默认 1 MiB maxBuffer；给出更大上限，避免正常 worktree 因
