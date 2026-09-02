@@ -314,7 +314,7 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 
 [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`。用户确认在accepted Stage 2/Increment 11 candidate上增加immutable `TaskGraphRevision`、generic `Approval`、structured write scope、one-shot reconcile Scheduler和preview-confirm-execute Git Controller；Scheduler只物化ready Task/Run，不启动process或执行Git write。
 
-确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source已由本次提交版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认并为`Accepted`，阶段=`PLAN_READY`；Coding task创建仍是独立门禁。
+确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source已版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。Fix Review 5确认九个失效链接已闭合；派发门禁随后确认原task已存在字段完整的Fix Task 4 `final_answer`，唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受Increment 12，阶段=`ACCEPTED`；accepted source由本次提交进入版本化`main`，runtime cutover继续独立授权。
 
 ## 5. Task Contract 规则
 
@@ -341,4 +341,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–9 Stage 1均已接受并进入版本化`main`；Increment 10/11 accepted `0.4-design` source与Stage 3/Increment 12 planning已由本次提交进入`main`，active runtime保持v0.3且未cutover。Stage 3 Architecture Review=`approved`，[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`，阶段=`PLAN_READY`。未来Coding route固定`gpt-5.6-sol`/`medium`；下一门禁是独立Coding task创建授权，runtime cutover继续单独授权。
+Increment 1–12 accepted source与Stage 3 planning已进入版本化`main`，active runtime保持v0.3且未cutover。Increment 12 Fix Review 5=`approved`，Fix Task 5=`Superseded / Not Dispatched`，用户已最终接受，阶段=`ACCEPTED`。push、runtime/database/binding cutover、旧database处理与Increment 13 task继续单独授权。

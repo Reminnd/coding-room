@@ -3,7 +3,10 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
+  approvalSchema,
+  nodeDispatchSchema,
   participantProfileSchema,
+  planSchema,
   persistedTaskSchema,
   questionSchema,
   reviewSchema,
@@ -12,8 +15,10 @@ import {
   runGuidanceSchema,
   runSchema,
   taskContractSchema,
+  taskGraphRevisionSchema,
   type EventActor,
 } from '../protocol/schema.ts';
+import { PlanScheduler } from '../scheduler/plan-scheduler.ts';
 import type { RoomService } from '../room/room-service.ts';
 import {
   getRoomStateSnapshot,
@@ -22,7 +27,7 @@ import {
   roomStateSnapshotSchema,
 } from '../room/state-snapshot.ts';
 
-// v0.4 tool surface 的注册层：单一路由 /mcp/participants/:participantId 把 participant
+// v0.5 tool surface 的注册层：单一路由 /mcp/participants/:participantId 把 participant
 // identity 从 route 传入，每个 tool 映射到 frozen required role，service 层按该 role 的
 // RoleAssignment 校验 authority。不信任 caller 传入的 actor string/header；write tool 只
 // 映射 RoomService application operation，不直接访问 repository/SQLite，不复制 state
@@ -177,6 +182,23 @@ const roleAssignmentOutputSchema = z.object({
   created: z.boolean(),
 });
 
+const planOutputSchema = z.object({ plan: planSchema, created: z.boolean() });
+const revisionOutputSchema = z.object({ revision: taskGraphRevisionSchema, created: z.boolean() });
+const approvalOutputSchema = z.object({ room: roomRecordSchema, approval: approvalSchema, created: z.boolean() });
+const reconcileInputSchema = z.object({
+  room_id: z.string().min(1),
+  plan_id: z.string().min(1),
+  worktrees: z.array(z.object({
+    node_id: z.string().min(1),
+    dispatch_id: z.string().min(1),
+    worktree_path: z.string().min(1),
+  })),
+});
+const reconcileOutputSchema = z.object({
+  revision: taskGraphRevisionSchema.nullable(),
+  dispatches: z.array(nodeDispatchSchema),
+});
+
 // tool → frozen required role（与 ROOM_PROTOCOL v0.4 candidate 一致）：
 // planner = create/planning/submit/answer/retry/cancel/guidance；reviewer = review/accept；
 // worker = ask_question；orchestrator = participant/assignment 管理；executor 只经 Runner
@@ -191,6 +213,7 @@ export function registerParticipantTools(
   const reviewer: EventActor = { participant_id: participantId, actor_role: 'reviewer' };
   const worker: EventActor = { participant_id: participantId, actor_role: 'worker' };
   const orchestrator: EventActor = { participant_id: participantId, actor_role: 'orchestrator' };
+  const scheduler = new PlanScheduler(deps.service);
 
   server.registerTool(
     'room_create',
@@ -225,6 +248,30 @@ export function registerParticipantTools(
       runTool(async () => ({
         room: deps.service.transitionToWaitingForUserConfirmation(args.room_id, planner),
       })),
+  );
+
+  server.registerTool(
+    'room_create_plan',
+    { description: 'Create the Room stable Plan lineage without creating a revision or execution entity.', inputSchema: planSchema, outputSchema: planOutputSchema },
+    (args) => runTool(async () => deps.service.createPlan(args, planner)),
+  );
+
+  server.registerTool(
+    'room_create_plan_revision',
+    { description: 'Create an immutable Draft task graph revision.', inputSchema: taskGraphRevisionSchema, outputSchema: revisionOutputSchema },
+    (args) => runTool(async () => deps.service.createPlanRevision(args, planner)),
+  );
+
+  server.registerTool(
+    'room_decide_plan_revision',
+    { description: 'Record the user-confirmed terminal decision for the exact latest task graph revision.', inputSchema: approvalSchema, outputSchema: approvalOutputSchema },
+    (args) => runTool(async () => deps.service.decidePlanRevision(args, planner)),
+  );
+
+  server.registerTool(
+    'room_reconcile_plan',
+    { description: 'One-shot reconcile of the latest approved revision using operator-prepared existing worktrees. It does not launch a worker or mutate Git.', inputSchema: reconcileInputSchema, outputSchema: reconcileOutputSchema },
+    (args) => runTool(async () => scheduler.reconcile(args, orchestrator)),
   );
 
   server.registerTool(
@@ -286,7 +333,12 @@ export function registerParticipantTools(
       inputSchema: taskContractSchema,
       outputSchema: submitTaskOutputSchema,
     },
-    (args) => runTool(async () => deps.service.submitTask(args, planner)),
+    (args) => runTool(async () => {
+      if (args.type === 'implementation') {
+        throw new ProtocolError('validation_failed', 'room_submit_task only accepts type=fix; implementation requires an approved plan revision');
+      }
+      return deps.service.submitTask(args, planner);
+    }),
   );
 
   server.registerTool(

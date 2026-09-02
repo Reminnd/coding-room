@@ -54,7 +54,7 @@ const secretTokens = ['api_key', 'secret_key', 'password', 'token'];
 // key 形态需要长后缀（sk- 单独作为子串会命中 --task-id 等合法 flag，不构成凭据形态）。
 const secretPatterns: RegExp[] = [/sk-[A-Za-z0-9]{8,}/];
 
-// v0.4 public tool surface 的测试侧 literal（十五个，含 v0.4 新增 cancel/guidance）。
+// v0.5 public tool surface 的测试侧 literal（十五个，含 v0.5 新增 cancel/guidance）。
 // referenced 检查以此为准：SKILL 不得引用任何非 public room_* 标识符。
 const v04PublicTools = [
   'room_accept_review',
@@ -64,10 +64,18 @@ const v04PublicTools = [
   'room_begin_architecture_review',
   'room_cancel_run',
   'room_create',
+  'room_create_plan',
+  'room_create_plan_revision',
   'room_create_role_assignment',
+  'room_decide_plan_revision',
   'room_get_state',
+  'room_reconcile_plan',
   'room_register_participant',
   'room_request_user_confirmation',
+  'room_create_plan',
+  'room_create_plan_revision',
+  'room_decide_plan_revision',
+  'room_reconcile_plan',
   'room_retry_run',
   'room_set_participant_enabled',
   'room_submit_review',
@@ -236,7 +244,7 @@ test('shared plugin contains no project-specific values, secrets or permission m
   );
 });
 
-// 测试侧 frozen description literal：与 Increment 10 v0.4 冻结值（planning-only Room +
+// 测试侧 frozen description literal：与 Increment 10 v0.5 冻结值（planning-only Room +
 // per-Run work items + one-shot RunAttempt 入口）逐字符一致，用于 exact 断言。本局部 parser
 // 只验证冻结 metadata 子集（name plain scalar + JSON-compatible double-quoted description、
 // 恰好两个字段与负向 grammar fixture），不构成 actual installed-plugin consumer evidence：
@@ -262,7 +270,7 @@ test('skill front matter satisfies the frozen metadata subset: exact name, froze
   );
   const fm = parseFrontMatter(skill);
   assert.equal(fm.name, 'agent-room');
-  // description 必须与 Increment 10 v0.4 冻结值一致（JSON.parse 取回的内容，不含引号）。
+  // description 必须与 Increment 10 v0.5 冻结值一致（JSON.parse 取回的内容，不含引号）。
   assert.equal(fm.description, frozenDescription, 'description must equal the frozen value');
   // description 面向 discovery：setup 显式入口 + project-local binding/planning/per-Run/Question/Review-Fix。
   for (const trigger of ['set up the Agent Room', 'runtime.json', 'planning', 'one-shot RunAttempt', 'Question', 'Review/Fix']) {
@@ -274,7 +282,7 @@ test('skill front matter satisfies the frozen metadata subset: exact name, froze
   }
 });
 
-test('runtime.json template has exactly the eight v0.4 fields and its port placeholder becomes a JSON integer', () => {
+test('runtime.json template has exactly the eight v0.5 fields and its port placeholder becomes a JSON integer', () => {
   const setup = readText(projectSetupPath);
   const template = codeFenceBlocks(setup).find((b) => b.includes('agent_room_root'));
   assert.ok(template, 'runtime.json template must be a fenced block');
@@ -304,7 +312,7 @@ test('runtime.json template has exactly the eight v0.4 fields and its port place
   assert.equal(parsed.database_path, 'C:/room.db');
   assert.equal(parsed.project_path, 'C:/project');
   assert.equal(parsed.room_id, 'room-a');
-  assert.equal(parsed.protocol_version, '0.4-design');
+  assert.equal(parsed.protocol_version, '0.5-design');
   assert.equal(parsed.control_participant_id, 'codex-app');
   assert.deepEqual(parsed.archived_database_paths, [], 'fresh binding must have an empty archive array');
   assert.ok(Number.isInteger(parsed.port), 'port must be a JSON integer after substitution');
@@ -387,7 +395,7 @@ test('setup helper is discoverable, standard-library-only, and the Skill package
 
 test('skill maps every planning Room state and per-Run status to its legal action with no single-current-Run authority', () => {
   const skill = readText(skillPath);
-  // v0.4：Room 是 planning-only（三个状态），execution 状态全部在 per-Run work items。
+  // v0.5：Room 是 planning-only（三个状态），execution 状态全部在 per-Run work items。
   assert.ok(skill.includes('planning-only'), 'Room must be described as planning-only');
   const roomStateActions: Array<[string, string]> = [
     ['DISCUSSION', 'room_begin_architecture_review'],
@@ -425,7 +433,7 @@ test('skill maps every planning Room state and per-Run status to its legal actio
   }
   const referenced = new Set(skill.match(/\broom_[a-z_]+/g) ?? []);
   for (const name of referenced) {
-    // room_id 是 runtime.json 协议字段，不是 MCP tool；其余任何 room_* 标识符都必须属于 v0.4 public tools。
+    // room_id 是 runtime.json 协议字段，不是 MCP tool；其余任何 room_* 标识符都必须属于 v0.5 public tools。
     if (name === 'room_id') continue;
     assert.ok(v04PublicTools.includes(name), `skill must not reference non-public tool ${name}`);
   }
@@ -494,7 +502,7 @@ test('skill gates launcher entry to ready Run work items or answered decision co
 
 test('skill takes run_id from the durable snapshot, mints a fresh attempt_id and never mints a second id on uncertainty', () => {
   const skill = readText(skillPath);
-  // v0.4：run_id 只来自 durable snapshot 的 ready work item，Skill 自身绝不生成 Run id。
+  // v0.5：run_id 只来自 durable snapshot 的 ready work item，Skill 自身绝不生成 Run id。
   assert.ok(
     skill.includes('comes exclusively from the durable snapshot'),
     'run_id must come exclusively from the durable snapshot',
@@ -526,7 +534,7 @@ test('one-shot command quotes every path/ID/URL placeholder, carries run_id and 
     commandBlock.includes('--mcp-url "http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~claude-code-cli"'),
     'launcher must target the exact framed worker participant route',
   );
-  // v0.4：canonical worktree/task id 由 persisted Run/Task authority 提供，命令不携带 revision。
+  // v0.5：canonical worktree/task id 由 persisted Run/Task authority 提供，命令不携带 revision。
   assert.ok(!commandBlock.includes('--task-id'), 'one-shot command must not carry a task id');
   assert.ok(!commandBlock.includes('--baseline-head'), 'one-shot command must not carry a baseline');
   assert.ok(!commandBlock.includes('package.json'), 'launcher template must not reference a target manifest');
@@ -575,7 +583,7 @@ test('skill re-reads the durable Room after every invocation and reports only th
   assert.ok(skill.includes('call `room_get_state` again'), 'post-run reread must call room_get_state');
   assert.ok(skill.includes('same `room_id`'), 'reread must use the same room_id');
   assert.ok(skill.includes('durable snapshot'), 'report must follow the durable snapshot');
-  // v0.4：report 对象是 Run status 而非 Room 单一大状态。
+  // v0.5：report 对象是 Run status 而非 Room 单一大状态。
   for (const runState of ['`review_required`', '`needs_decision`', '`failed`', '`canceled`']) {
     assert.ok(skill.includes(runState), `snapshot Run states must be reportable (${runState})`);
   }

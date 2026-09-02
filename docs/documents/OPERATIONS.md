@@ -269,12 +269,26 @@ Current操作边界：
 - accepted source已由本次提交进入`main`；active binding/database仍为§4.6 v0.3。下一Implementation必须从提交完成后的clean exact `main` HEAD在独立worktree派发。
 - 本次`main`版本化已获授权并完成；runtime/database/binding cutover、旧database处理、push、后续task创建与worktree cleanup继续分别授权。
 
-### 4.9 Stage 3 Approved Architecture / Increment 12 Accepted planning边界
+### 4.9 Stage 3 Approved Architecture / Increment 12 versioned source边界
 
-- [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`、阶段=`PLAN_READY`，但尚不提供可执行Scheduler或Git command。
+- [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)及implementation已获用户最终接受，阶段=`ACCEPTED`，accepted source由本次提交进入版本化`main`。尚未cutover，因此active runtime仍不提供Stage 3 Scheduler或Git command。
 - Scheduler只显式reconcile ready work，不自动启动Agent process；每次one-shot Run仍需operator授权。
 - Increment 13未来Git Controller对每次`create_worktree`、`commit_paths`或`integrate_fast_forward`执行preview → user confirmation → single execution；Architecture与Increment 12 Contract确认均不授权任何Git write。
-- Accepted v0.4 source已由本次提交版本化并保持v0.3 active；Stage 3整体接受后fresh `0.5-design`单次cutover。Coding task创建与cutover仍需独立授权。
+- Accepted v0.4与Increment 12 source均已版本化并保持v0.3 active。Stage 3整体接受后fresh `0.5-design`单次cutover，cutover继续独立授权。
+
+### 4.10 Increment 12 manual graph workflow（versioned source）
+
+> 仅描述已版本化source；active runtime/database/binding仍为v0.3，不授权cutover。
+
+1. planner创建stable Plan与Draft revision；Draft/rejected revision reconcile返回零materialization。
+2. Room进入`WAITING_FOR_USER_CONFIRMATION`后，用户对exact revision作decision；approved decision返回`DISCUSSION`。
+3. operator为eligible node准备已有Git worktree；`room_reconcile_plan`只读解析canonical root。未映射worktree的node保持waiting。
+4. Status/MCP读取`graph_work_items.waiting_reason`：`revision_not_approved`、`dependency_not_accepted`、`worktree_required`、`dispatched`、`blocked`或`completed`。
+5. ready Run仍需单独人工授权one-shot `room:run`。Plugin不自动reconcile、launch、Review、Fix或accept。
+
+`concurrency_limit_reached`表示等待active process slot；`scope_conflict`表示与active attempt的declared scope重叠；`node_scope_violated`表示live staged/unstaged/untracked path越界。越界不会清理worktree或改写Coding Result。fresh setup生成`room-v0.5.sqlite`；只支持active v0.3→v0.5 migration或exact v0.5 reuse，v0.2/v0.4 binding均在写入前拒绝。
+
+Fix后操作语义：latest Draft/rejected存在时必须对exact latest revision重新decision，不回退旧revision；blocked dispatch不能accept或解锁descendant，恢复要求同Run successful in-scope Fix attempt后重新Review与接受；assignment replacement只影响new/undispatched node；Plan/Revision/Approval same-ID retry按stored frozen identity认证。
 
 ## 5. 人工操作命令
 

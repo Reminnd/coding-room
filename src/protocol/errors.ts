@@ -18,6 +18,10 @@ export const protocolErrorCodeSchema = z.enum([
   // v0.4：Run 冻结的 worker 不是本实现提供的唯一 claude_code_cli adapter；
   // claim 前拒绝，零副作用。
   'worker_adapter_unavailable',
+  'plan_revision_not_approved',
+  'scope_conflict',
+  'immutable_revision_violation',
+  'concurrency_limit_reached',
   'claude_start_failed',
   'room_mcp_unavailable',
   'claude_exit_failed',

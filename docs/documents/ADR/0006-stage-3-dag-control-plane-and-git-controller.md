@@ -81,3 +81,15 @@ Stage 3需要在该基础上交付immutable Task Graph、dependency-ready schedu
 - Git operation需要push、merge commit、rebase、delete或自动冲突解决；
 - 一个Room需要多个同时active Plan lineages；
 - 新provider需要不同Scheduler或Git Controller authority模型。
+
+## 7. Increment 12 accepted implementation fact（2026-09-02）
+
+Increment 12 accepted source已由本次版本化提交实现本 ADR 的 Graph/Scheduler 半段：fresh `0.5-design` schema、Plan/immutable `TaskGraphRevision`/exact Approval、structured scope、deterministic one-shot reconcile、`NodeDispatch`、claim concurrency/scope/worktree gates与`per_task` dependency。实现复用existing read-only Git Observer和Stage 2 Run lifecycle；未加入`GitAction`、managed worktree、Git mutation或`integration_only`。Active runtime/database/binding仍为v0.3，本次版本化不构成cutover。
+
+## 8. Increment 12 Fix 行为细化（2026-09-02，Accepted）
+
+Review `review-increment-012-codex-001`确认的五项代码finding均已由Fix Task 1–2闭合，后续Review与用户最终接受已完成；以下细化属于本ADR decision 2/4，不引入Increment 13能力：
+
+- decision 2细化：current execution authority严格等于Plan的exact latest revision的terminal approved Approval；newer Draft/rejected存在时旧approved revision零回退，claim的revision/node/scope/`concurrency_limit`全部来自同一current approved revision。
+- decision 5/6细化：`scope_violated`或`blocked` dispatch的Review acceptance在任何写入前拒绝；dependency readiness要求dependency Run=`accepted` + `NodeDispatch=completed` + `scope_violated=false`；恢复只由同Run successful in-scope Fix attempt的settlement transaction产生，历史Event不可改写。
+- frozen identity细化：Plan/Revision/Approval的existing same-ID retry只按stored creator/planner frozen identity认证；assignment replacement只影响new entity与new/undispatched node。

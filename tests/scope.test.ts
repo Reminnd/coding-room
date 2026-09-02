@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 测试侧 literal 声明已冻结的 Scope boundary，避免与 future implementation 同源。
-const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli']);
+const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli', 'scheduler']);
+const allowedSchedulerFiles = new Set(['plan-scheduler.ts']);
 // v0.4：runner 边界新增 Executor/WorkerAdapter seam 两个文件；Stage 2 只允许这两个新模块。
 const allowedRunnerFiles = new Set([
   'claude-process.ts',
@@ -66,7 +67,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 8 allows exact MCP/CLI/shared-read-model files, the plugin/marketplace boundary with the Skill-owned setup helper, and keeps extra modules, tools and dependency drift rejected', () => {
+test('Increment 12 allows the exact Scheduler boundary and keeps extra modules, plugin files and dependency drift rejected', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }
@@ -75,6 +76,7 @@ test('Increment 8 allows exact MCP/CLI/shared-read-model files, the plugin/marke
   assertDirFiles(join(root, 'src', 'mcp'), allowedMcpFiles);
   assertDirFiles(join(root, 'src', 'cli'), allowedCliFiles);
   assertDirFiles(join(root, 'src', 'room'), allowedRoomFiles);
+  assertDirFiles(join(root, 'src', 'scheduler'), allowedSchedulerFiles);
 
   // Increment 7/8 packaging boundary：安装一次的 shared Plugin 与 repository-local
   // marketplace 是根目录唯一新增结构；plugin 树恰好四个文件（Increment 8 新增

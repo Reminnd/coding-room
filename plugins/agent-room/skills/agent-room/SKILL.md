@@ -11,6 +11,8 @@ Run the Agent Room workflow for the current project: validate the project-local 
 
 The Agent Room coordinates user, Codex and Claude Code on a shared local Git worktree: Codex submits a Task Contract (which atomically creates a ready Run), Claude Code executes it via a one-shot Runner attempt, Codex reviews the actual Diff. Each project owns a local Room instance: a per-project Room service on a loopback port, a file-backed SQLite database, and a project-scoped MCP endpoint at `http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~<CONTROL_PARTICIPANT_ID>` (framed participant route — `p~` plus the raw participant id; the control participant is `codex-app`, so the concrete URL is `http://127.0.0.1:<PROJECT_PORT>/mcp/participants/p~codex-app`). The one-shot launcher script (`room:run`) executes exactly one RunAttempt of one Run.
 
+Increment 12 creates Implementation Runs only through `Plan` → immutable `TaskGraphRevision` → exact user `Approval` → manual one-shot `room_reconcile_plan`. Reconcile consumes operator-prepared existing worktrees, creates ready Runs, and never launches Claude or mutates Git. `room_submit_task` remains available only for a confirmed Fix on an existing `review_discussion` Run.
+
 The Room itself stays in the planning-only states `DISCUSSION` / `ARCHITECTURE_REVIEW` / `WAITING_FOR_USER_CONFIRMATION`. Execution state lives in per-Run work items: each Run has its own ready/execution/needs-decision/review/accepted lifecycle, its own worktree lease and session lineage. The snapshot's `run_work_items` list (sorted by `created_at` then `run_id`) is the authority for which Run waits on which actor; the Skill never infers a single "current Run".
 
 Codex is the fixed caller of the one-shot launcher in this workflow. The host approval mode is the operator-configured UI "帮我批准" (`approvals_reviewer=auto_review`): one approval authorizes at most one launcher invocation; a rejection means zero invocations. The Skill never modifies the approval policy, never writes active permission rules, never asks for ad-hoc npm/shell allow rules, and never falls back to an operator-run command.
@@ -51,10 +53,10 @@ node "<AGENT_ROOM_ROOT>/plugins/agent-room/skills/agent-room/scripts/setup-proje
 ```
 
    The helper reads and validates every existing file before any write, then plans or stops:
-   - No runtime binding and no `[mcp_servers.agent_room]` in `.codex/config.toml` → create a fresh v0.4 binding: `database_path` = `<PROJECT_PATH>/.agent-room/room-v0.4.sqlite` (absolute), `port` = an OS-assigned ephemeral loopback port (JSON integer in `1..65535`), `room_id` = `room-<UUID>`, `protocol_version` = `0.4-design`, `control_participant_id` = `codex-app`, `archived_database_paths` = `[]`; create or conservatively merge the three files.
-   - Valid v0.4 binding → reuse its exact `agent_room_root`, `database_path`, `port`, `room_id`, identity fields and `archived_database_paths`; only append missing matching config/gitignore entries or conservatively update a leftover v0.2 `/mcp/codex` URL to the framed participant route; semantically identical files are never rewritten.
-   - Valid v0.3 binding (eight fields with `archived_database_path`, archive input) → migrate: keep every old database byte-unchanged at its original path (never delete, rename or rewrite any of them), create `<PROJECT_PATH>/.agent-room/room-v0.4.sqlite` with a new `room_id`, reuse the port, and set `archived_database_paths` to the version-ordered archive list — the v0.2 archived path recorded in the v0.3 binding (when present) followed by the old v0.3 database path. The stored v0.3 `agent_room_root` points at the same Agent Room source tree (now v0.4), so it is reused after validation; `--agent-room-root` may be omitted, and if provided must resolve to the same directory. Migration reruns reuse the same v0.4 identity — no second database, Room, profile or assignment.
-   - Valid v0.2 binding (five fields, archive input) → migrate: keep the old database byte-unchanged at its original path (never delete, rename or rewrite it), create `<PROJECT_PATH>/.agent-room/room-v0.4.sqlite` with a new `room_id`, reuse the port, set `archived_database_paths` to `[<old v0.2 database path>]`, and update the config URL to the participant route; `--agent-room-root` is required again because the stored v0.2 root points at v0.2 code. Migration reruns reuse the same v0.4 identity — no second database, Room, profile or assignment.
+   - No runtime binding and no `[mcp_servers.agent_room]` in `.codex/config.toml` → create a fresh v0.5 binding: `database_path` = `<PROJECT_PATH>/.agent-room/room-v0.5.sqlite` (absolute), `port` = an OS-assigned ephemeral loopback port (JSON integer in `1..65535`), `room_id` = `room-<UUID>`, `protocol_version` = `0.5-design`, `control_participant_id` = `codex-app`, `archived_database_paths` = `[]`; create or conservatively merge the three files.
+   - Valid v0.5 binding → reuse its exact `agent_room_root`, `database_path`, `port`, `room_id`, identity fields and `archived_database_paths`; only append missing matching config/gitignore entries or conservatively update a leftover v0.2 `/mcp/codex` URL to the framed participant route; semantically identical files are never rewritten.
+   - Valid v0.3 binding (eight fields with `archived_database_path`, archive input) → migrate: keep every old database byte-unchanged at its original path (never delete, rename or rewrite any of them), create `<PROJECT_PATH>/.agent-room/room-v0.5.sqlite` with a new `room_id`, reuse the port, and set `archived_database_paths` to the version-ordered archive list — the v0.2 archived path recorded in the v0.3 binding (when present) followed by the old v0.3 database path. The stored v0.3 `agent_room_root` points at the same Agent Room source tree (now v0.5), so it is reused after validation; `--agent-room-root` may be omitted, and if provided must resolve to the same directory. Migration reruns reuse the same v0.5 identity — no second database, Room, profile or assignment.
+   - Valid v0.2 or v0.4 binding → stop with zero writes. Increment 12 supports only fresh v0.5 and the active v0.3→v0.5 path; it adds no v0.4 compatibility layer or direct v0.2 migration.
    - Invalid binding, `agent_room_root` mismatch, missing runtime with an existing `[mcp_servers.agent_room]`, same-URL conflict, an archive list entry equal to `database_path` (the active database must never appear in `archived_database_paths`), a config URL that is neither the framed participant route nor the leftover v0.2 `/mcp/codex` URL (for example an unframed `.../mcp/participants/codex-app` candidate URL — rejected as a binding/config mismatch, never auto-migrated), or any other runtime/config mismatch → stop with zero writes and report; ask the operator how to proceed. Never overwrite, never rename a server, never pick a second port to dodge a conflict.
    The helper prints one deterministic JSON summary: `mode` (`created`/`migrated`/`reused`), the eight runtime values, config/gitignore change summary, the exact `room:serve` command inputs and `reload_required`. This stdout is informational only — the Room never treats it as durable state.
 3. Probe the binding's loopback port:
@@ -84,7 +86,7 @@ The setup mode never enters the normal workflow: it uses only the existing `room
 
 ## Step 1 — Validate the project-local runtime binding
 
-Read the current project's `.agent-room/runtime.json`. A v0.4 binding is a JSON object containing exactly these eight required fields and no others:
+Read the current project's `.agent-room/runtime.json`. A v0.5 binding is a JSON object containing exactly these eight required fields and no others:
 
 | Field | Required shape |
 |---|---|
@@ -93,17 +95,17 @@ Read the current project's `.agent-room/runtime.json`. A v0.4 binding is a JSON 
 | `project_path` | absolute path string; after normal host path resolution must equal the current target project |
 | `port` | JSON integer in `1..65535` |
 | `room_id` | non-empty string |
-| `protocol_version` | exactly `0.4-design` |
+| `protocol_version` | exactly `0.5-design` |
 | `control_participant_id` | non-empty string; the project-scoped control participant (`codex-app`) |
 | `archived_database_paths` | JSON array of absolute path strings (may be empty); the version-ordered archived databases of previous protocol versions (no entry may equal `database_path`) |
 
 Validation rules — any violation stops the workflow and is reported; the Skill never guesses, scans or falls back to another project's configuration:
 
-- A missing field, an extra field, a wrong type, a non-absolute path, a non-integer or out-of-range `port`, an empty `room_id`, a `protocol_version` other than `0.4-design`, an empty `control_participant_id`, an `archived_database_paths` that is not an array of absolute path strings, or an archive entry equal to `database_path` → stop and report.
+- A missing field, an extra field, a wrong type, a non-absolute path, a non-integer or out-of-range `port`, an empty `room_id`, a `protocol_version` other than `0.5-design`, an empty `control_participant_id`, an `archived_database_paths` that is not an array of absolute path strings, or an archive entry equal to `database_path` → stop and report.
 - `project_path` must resolve (via the host's normal path resolution) to the current target project directory. If it resolves to any other directory → stop and report a project binding mismatch.
 - `agent_room_root` must contain the Agent Room `package.json` whose `scripts` define `room:run`. If not → stop and report; the target project does not need its own `room:run` script or package manifest.
 - `database_path` is the operator-chosen file-backed database of this project. It is not derived from any other file, and the Skill does not scan for or infer databases.
-- A v0.2 five-field or v0.3 eight-field binding is not a valid v0.4 binding: it is archive input for setup migration (see Setup mode). In the normal workflow a missing, v0.2, v0.3 or invalid binding stops and reports; setup migration is never entered implicitly.
+- A v0.2 five-field or v0.3 eight-field binding is not a valid v0.5 binding. Setup mode rejects v0.2 and accepts only v0.3 as migration input; in the normal workflow a missing, v0.2, v0.3 or invalid binding stops and reports. Setup migration is never entered implicitly.
 
 ## Step 2 — Validate the project-scoped MCP binding
 
@@ -119,7 +121,9 @@ Read the Room with `room_get_state` (the project-scoped `/mcp/participants/p~cod
 |---|---|
 | `DISCUSSION` | Only begin an Architecture Review: call `room_begin_architecture_review` (after the Architecture Review artifact is prepared). New Rooms are only created with `room_create`. |
 | `ARCHITECTURE_REVIEW` | When the plan is ready, request user confirmation: call `room_request_user_confirmation`. |
-| `WAITING_FOR_USER_CONFIRMATION` | Wait for the user's explicit confirmation. Only after the user confirms, submit the complete Accepted Task Contract via `room_submit_task` (with `confirmed_by_user: true`, `created_by: codex`, and an explicit `run_id`); the submission atomically creates the ready Run and returns the Room to `DISCUSSION`. |
+| `WAITING_FOR_USER_CONFIRMATION` | Wait for the user's explicit decision on the exact latest Draft revision. Call `room_decide_plan_revision` with `confirmed_by_user: true`; a decision returns the Room to `DISCUSSION`, and no Task/Run exists until manual reconcile. |
+
+For a new Implementation, call `room_create_plan` once, then `room_create_plan_revision` with complete `TaskSpec`, dependencies, exact worker assignment, priority and structured write scopes. After approval, select an eligible `graph_work_item`, prepare an existing Git worktree, and call `room_reconcile_plan` once with its path. Missing worktree mappings remain waiting. Never auto-reconcile, auto-launch or infer approval. If `answer_changes_contract=true`, create a new revision with fresh replacement node/task/run IDs; never resume or mutate the old node.
 
 For each Run in `run_work_items` (sorted by `created_at` then `run_id`), its `status` and `waiting_actor` decide the only legal next action for that Run:
 

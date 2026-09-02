@@ -18,6 +18,12 @@ import {
   runSchema,
   runStatusSchema,
   taskContractSchema,
+  taskGraphRevisionSchema,
+  taskSpecSchema,
+  planSchema,
+  approvalSchema,
+  nodeDispatchSchema,
+  writeScopeSchema,
   utcTimestampSchema,
 } from '../src/protocol/schema.ts';
 import {
@@ -40,11 +46,31 @@ test('RoomState enum accepts only the v0.4 planning-only values', () => {
   ]);
 });
 
-test('protocol version is the frozen 0.4-design literal', () => {
-  assert.equal(protocolVersionSchema.value, '0.4-design');
-  assert.equal(protocolVersionSchema.safeParse('0.4-design').success, true);
+test('protocol version is the frozen 0.5-design literal', () => {
+  assert.equal(protocolVersionSchema.value, '0.5-design');
+  assert.equal(protocolVersionSchema.safeParse('0.5-design').success, true);
+  assert.equal(protocolVersionSchema.safeParse('0.4-design').success, false);
   assert.equal(protocolVersionSchema.safeParse('0.3-design').success, false);
   assert.equal(protocolVersionSchema.safeParse('0.2').success, false);
+});
+
+test('0.5 graph schemas keep Draft TaskSpec unconfirmed and acceptance policy per_task only', () => {
+  const task = makeTask();
+  const { confirmed_by_user: _confirmed, ...spec } = task;
+  assert.equal(taskSpecSchema.safeParse(spec).success, true);
+  assert.equal(taskSpecSchema.safeParse(task).success, false, 'Draft TaskSpec must not contain confirmed_by_user');
+  assert.equal(planSchema.safeParse({ plan_id: 'plan-1', room_id: 'room-1', created_by_participant_id: 'codex-app', created_at: task.created_at }).success, true);
+  const revision = {
+    revision_id: 'rev-1', plan_id: 'plan-1', room_id: 'room-1', revision_no: 1,
+    supersedes_revision_id: null, concurrency_limit: 2, acceptance_policy: 'per_task',
+    nodes: [{ node_id: 'node-1', kind: 'task', task_spec: spec, dependencies: [], write_scopes: [{ path: 'src', kind: 'tree' }], worker_assignment_id: 'assignment-1', priority: 0 }],
+    created_by_participant_id: 'codex-app', created_at: task.created_at,
+  };
+  assert.equal(taskGraphRevisionSchema.safeParse(revision).success, true);
+  assert.equal(taskGraphRevisionSchema.safeParse({ ...revision, acceptance_policy: 'integration_only' }).success, false);
+  assert.equal(writeScopeSchema.safeParse({ path: '.', kind: 'tree' }).success, true);
+  assert.equal(approvalSchema.safeParse({ approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'rev-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: task.created_at }).success, true);
+  assert.equal(nodeDispatchSchema.safeParse({ dispatch_id: 'dispatch-1', revision_id: 'rev-1', node_id: 'node-1', task_id: 'task-1', run_id: 'run-1', canonical_worktree_path: 'C:/repo', status: 'dispatched', created_at: task.created_at, updated_at: task.created_at, dispatched_at: task.created_at, completed_at: null, scope_violated: false }).success, true);
 });
 
 test('Role enum accepts only the six frozen roles', () => {
@@ -71,8 +97,12 @@ test('RoleAssignment accepts valid shapes and rejects illegal scope/role', () =>
     roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'task', scope_id: 'task-1' })).success,
     true,
   );
+  assert.equal(
+    roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'plan', scope_id: 'plan-1' })).success,
+    true,
+  );
   assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'global' as never })).success, false);
-  // Fix inc9-r2：Stage 1 scope 收窄为 room|task；run/review scope 不是合法 shape。
+  // Increment 12 只增加 plan；run/review scope 仍不是合法 shape。
   assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'run' as never })).success, false);
   assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ scope_type: 'review' as never })).success, false);
   assert.equal(roleAssignmentSchema.safeParse(makeRoleAssignment({ role: 'admin' as never })).success, false);

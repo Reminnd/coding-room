@@ -156,6 +156,12 @@ new ID + current entity
 
 finding 成立不自动证明某个方案正确。Reviewer 也可能错误；未经验证的意见不得直接派发。
 
+### 7.1 Result 缺失 finding 必须绑定 exact completed turn
+
+当finding声称Coding task没有返回assistant final或结构化Result时，单次task summary中的`latestAssistantMessage=null`不足以证明结果不存在。Codex必须把证据关联到exact task ID与completed turn ID，并核对turn status、assistant message phase及Contract要求的完整字段；可读取权威task record时，不得只依赖handoff摘要或一次poll snapshot。
+
+若该finding是下一Fix Task的唯一前提，派发门禁必须重新读取同一completed turn。后续权威读取恢复到有效`final_answer`时，立即撤销finding并停止派发；不得要求执行者改写本已正确的candidate事实来迎合过期Review结论。
+
 ## 8. Review 输出与阶段
 
 每个 finding 包含：严重性、标题、文件/行号、触发路径、错误与证据、影响、规则关系、最小方向。

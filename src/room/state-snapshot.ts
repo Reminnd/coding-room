@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
+  approvalSchema,
   eventSchema,
+  nodeDispatchSchema,
   participantProfileSchema,
+  planSchema,
   persistedTaskSchema,
   questionSchema,
   reviewSchema,
@@ -12,7 +15,11 @@ import {
   runGuidanceSchema,
   runSchema,
   runStatusSchema,
+  taskGraphRevisionSchema,
   type Event,
+  type Approval,
+  type NodeDispatch,
+  type Plan,
   type ParticipantProfile,
   type PersistedTask,
   type Question,
@@ -22,6 +29,7 @@ import {
   type RunAttempt,
   type RunGuidance,
   type RunStatus,
+  type TaskGraphRevision,
 } from '../protocol/schema.ts';
 import type { RoomRecord } from './repository.ts';
 import type { RoomService } from './room-service.ts';
@@ -97,6 +105,11 @@ export interface RoomStateSnapshot {
   run_guidance: RunGuidance[];
   reviews: Review[];
   questions: Question[];
+  plans: Plan[];
+  task_graph_revisions: TaskGraphRevision[];
+  approvals: Approval[];
+  node_dispatches: NodeDispatch[];
+  graph_work_items: GraphWorkItem[];
   planning_waiting_actor: WaitingActor;
   run_work_items: RunWorkItem[];
   cursor: number;
@@ -113,11 +126,34 @@ export const roomStateSnapshotSchema = z.object({
   run_guidance: z.array(runGuidanceSchema),
   reviews: z.array(reviewSchema),
   questions: z.array(questionSchema),
+  plans: z.array(planSchema),
+  task_graph_revisions: z.array(taskGraphRevisionSchema),
+  approvals: z.array(approvalSchema),
+  node_dispatches: z.array(nodeDispatchSchema),
+  graph_work_items: z.array(z.object({
+    plan_id: z.string().min(1), revision_id: z.string().min(1), node_id: z.string().min(1),
+    task_id: z.string().min(1), run_id: z.string().min(1), dispatch_id: z.string().min(1).nullable(),
+    waiting_reason: z.enum(['revision_not_approved', 'dependency_not_accepted', 'worktree_required', 'ready', 'dispatched', 'blocked', 'completed']),
+    dependency_ready: z.boolean(), scope_violated: z.boolean(), worktree_path: z.string().min(1).nullable(),
+  })),
   planning_waiting_actor: waitingActorSchema,
   run_work_items: z.array(runWorkItemSchema),
   cursor: z.number().int().min(0),
   events: z.array(eventSchema),
 });
+
+export interface GraphWorkItem {
+  plan_id: string;
+  revision_id: string;
+  node_id: string;
+  task_id: string;
+  run_id: string;
+  dispatch_id: string | null;
+  waiting_reason: 'revision_not_approved' | 'dependency_not_accepted' | 'worktree_required' | 'ready' | 'dispatched' | 'blocked' | 'completed';
+  dependency_ready: boolean;
+  scope_violated: boolean;
+  worktree_path: string | null;
+}
 
 // Run 下一位 actor：execution 阶段由 active attempt status 细分（worker 仍在运行 vs
 // executor 必须停止/终止 process），其余由 Run status 固定映射。
@@ -161,6 +197,59 @@ export function getRoomStateSnapshot(
   const after = input.after_sequence ?? 0;
 
   const runs = service.listRuns(input.room_id);
+  const plans = service.listPlans(input.room_id);
+  const revisions = service.listTaskGraphRevisions(input.room_id);
+  const approvals = service.listApprovals(input.room_id);
+  const nodeDispatches = service.listNodeDispatches(input.room_id);
+  const revisionsById = new Map(revisions.map((revision) => [revision.revision_id, revision]));
+  const graphWorkItems: GraphWorkItem[] = [];
+  for (const plan of plans) {
+    const latest = revisions.filter((revision) => revision.plan_id === plan.plan_id).sort((a, b) => b.revision_no - a.revision_no)[0];
+    if (!latest) continue;
+    const approved = approvals.some((approval) => approval.target_id === latest.revision_id && approval.decision === 'approved');
+    const byNode = new Map(latest.nodes.map((node) => [node.node_id, node]));
+    // lineage dispatch 按 plan 内 revision_no 升序取最新，node 与 dependency readiness
+    // 共用同一 frozen dispatch lookup（Review finding inc12-r1）。
+    const dispatchByNode = new Map(
+      latest.nodes.map((node) => [
+        node.node_id,
+        nodeDispatches
+          .filter((candidate) => {
+            const source = revisionsById.get(candidate.revision_id);
+            return candidate.node_id === node.node_id && source?.plan_id === latest.plan_id && source.revision_no <= latest.revision_no;
+          })
+          .sort((left, right) => (revisionsById.get(right.revision_id)?.revision_no ?? 0) - (revisionsById.get(left.revision_id)?.revision_no ?? 0))[0] ?? null,
+      ]),
+    );
+    for (const node of latest.nodes) {
+      const dispatch = dispatchByNode.get(node.node_id) ?? null;
+      // dependency readiness 与 Scheduler 同一权威语义（Review finding inc12-r1）：
+      // dependency Run accepted + 对应 NodeDispatch completed + scope_violated=false 缺一
+      // 不可；blocked dispatch 不得经 acceptance 解锁 descendant。
+      const dependencyReady = node.dependencies.every((dependency) => {
+        const dependencyDispatch = dispatchByNode.get(dependency);
+        if (!dependencyDispatch) return false;
+        return runs.some((run) => run.run_id === dependencyDispatch.run_id && run.status === 'accepted')
+          && dependencyDispatch.status === 'completed'
+          && !dependencyDispatch.scope_violated;
+      });
+      let waitingReason: GraphWorkItem['waiting_reason'];
+      if (!approved) waitingReason = 'revision_not_approved';
+      else if (!dependencyReady) waitingReason = 'dependency_not_accepted';
+      else if (!dispatch) waitingReason = 'worktree_required';
+      else if (dispatch.status === 'blocked') waitingReason = 'blocked';
+      else if (dispatch.status === 'completed') waitingReason = 'completed';
+      else if (dispatch.status === 'dispatched') waitingReason = 'dispatched';
+      else waitingReason = 'ready';
+      graphWorkItems.push({
+        plan_id: plan.plan_id, revision_id: latest.revision_id, node_id: node.node_id,
+        task_id: node.task_spec.task_id, run_id: node.task_spec.run_id,
+        dispatch_id: dispatch?.dispatch_id ?? null, waiting_reason: waitingReason,
+        dependency_ready: dependencyReady, scope_violated: dispatch?.scope_violated ?? false,
+        worktree_path: dispatch?.canonical_worktree_path ?? null,
+      });
+    }
+  }
   // run_work_items 稳定排序：created_at 升序，同 created_at 按 run_id 字典序。
   const sortedRuns = [...runs].sort((a, b) => {
     if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
@@ -203,6 +292,11 @@ export function getRoomStateSnapshot(
     run_guidance: service.listGuidanceByRoom(input.room_id),
     reviews: service.listReviews(input.room_id),
     questions: service.listQuestions(input.room_id),
+    plans,
+    task_graph_revisions: revisions,
+    approvals,
+    node_dispatches: nodeDispatches,
+    graph_work_items: graphWorkItems,
     planning_waiting_actor: PLANNING_WAITING_ACTOR[room.state] ?? null,
     run_work_items: runWorkItems,
     cursor: allEvents.length === 0 ? 0 : allEvents[allEvents.length - 1].sequence,

@@ -3,17 +3,24 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
+  approvalSchema,
   codingResultSchema,
+  nodeDispatchSchema,
   participantProfileSchema,
+  planSchema,
   persistedTaskSchema,
   questionSchema,
   reviewSchema,
   roleAssignmentSchema,
   taskContractSchema,
+  taskGraphRevisionSchema,
+  type Approval,
   type CodingResult,
   type Event,
   type EventActor,
+  type NodeDispatch,
   type ParticipantProfile,
+  type Plan,
   type PersistedTask,
   type Question,
   type Review,
@@ -24,9 +31,19 @@ import {
   type RunAttempt,
   type RunGuidance,
   type TaskContract,
+  type TaskGraphNode,
+  type TaskGraphRevision,
 } from '../protocol/schema.ts';
 import { RoomRepository, type RoomRecord } from './repository.ts';
 import { resolveAttemptTransition, resolveRunTransition, resolveTransition } from './state-machine.ts';
+import {
+  assertNoUnorderedScopeOverlap,
+  dependencyAncestors,
+  orderedEligibleNodes,
+  scopeContainsPath,
+  scopesOverlap,
+  validateTaskGraphRevision,
+} from '../scheduler/plan-scheduler.ts';
 
 // ---- v0.4 bootstrap profiles / assignments ----
 // 创建 Room 时注册的最小 identity 集合。adapter_id 是已验收 adapter 的 key；
@@ -210,6 +227,246 @@ export class RoomService {
         actor,
       );
     });
+  }
+
+  // ---- Stage 3 planning graph ----
+  createPlan(input: unknown, actor: EventActor): { plan: Plan; created: boolean } {
+    const plan = this.parse(planSchema, input, 'Plan') as Plan;
+    return this.tx(() => {
+      const existing = this.repo.getPlan(plan.plan_id);
+      if (existing) {
+        // existing same-ID retry 只按 stored frozen creator 认证（Review finding
+        // inc12-r1）：不使用 current assignment，replacement planner 不能接管旧 Plan；
+        // content 比较复用 repository idempotency owner，同 content → created=false 且
+        // 零 Event，不同 content → id_conflict。
+        this.assertFrozenPlannerRetryAuthority(`plan ${existing.plan_id}`, existing.created_by_participant_id, actor);
+        this.repo.insertPlan(plan);
+        return { plan: existing, created: false };
+      }
+      // new Plan 创建消费 current assignment 并固化 creator identity。
+      this.requireRoom(plan.room_id);
+      this.assertAuthority(plan.room_id, actor, 'planner');
+      if (plan.created_by_participant_id !== actor.participant_id) {
+        throw new ProtocolError('actor_not_allowed', 'plan creator must be the authenticated planner');
+      }
+      const inserted = this.repo.insertPlan(plan);
+      if (inserted.created) {
+        this.repo.appendEvent({
+          room_id: plan.room_id,
+          type: 'plan_created',
+          actor,
+          entity_type: 'plan',
+          entity_id: plan.plan_id,
+          summary: `plan ${plan.plan_id} created`,
+          created_at: this.now(),
+        });
+      }
+      return { plan: this.repo.getPlan(plan.plan_id) ?? plan, created: inserted.created };
+    });
+  }
+
+  createPlanRevision(input: unknown, actor: EventActor): { revision: TaskGraphRevision; created: boolean } {
+    const revision = this.parse(taskGraphRevisionSchema, input, 'TaskGraphRevision') as TaskGraphRevision;
+    return this.tx(() => {
+      const existing = this.repo.getTaskGraphRevision(revision.revision_id);
+      if (existing) {
+        // existing same-ID retry 只按 stored frozen creator 认证（Review finding
+        // inc12-r1）：不使用 current assignment，replacement planner 不能重放 old
+        // creator entity；content 比较复用 repository idempotency owner。
+        this.assertFrozenPlannerRetryAuthority(`revision ${existing.revision_id}`, existing.created_by_participant_id, actor);
+        this.repo.insertTaskGraphRevision(revision);
+        return { revision: existing, created: false };
+      }
+      const plan = this.requirePlan(revision.plan_id);
+      if (plan.room_id !== revision.room_id) {
+        throw new ProtocolError('validation_failed', 'revision plan belongs to another room');
+      }
+      this.assertPlanAuthority(revision.room_id, revision.plan_id, actor, 'planner');
+      if (revision.created_by_participant_id !== actor.participant_id) {
+        throw new ProtocolError('actor_not_allowed', 'revision creator must be the authenticated planner');
+      }
+      const latest = this.repo.latestTaskGraphRevision(revision.plan_id);
+      const expectedNo = (latest?.revision_no ?? 0) + 1;
+      if (revision.revision_no !== expectedNo || revision.supersedes_revision_id !== (latest?.revision_id ?? null)) {
+        throw new ProtocolError('validation_failed', 'revision number and supersedes reference must extend the latest revision');
+      }
+      validateTaskGraphRevision(revision);
+      for (const node of revision.nodes) this.assertNodeWorkerAssignment(revision, node);
+      this.assertAmendmentImmutable(revision);
+      this.repo.insertTaskGraphRevision(revision);
+      this.repo.appendEvent({
+        room_id: revision.room_id,
+        type: 'task_graph_revision_created',
+        actor,
+        entity_type: 'task_graph_revision',
+        entity_id: revision.revision_id,
+        summary: `task graph revision ${revision.revision_id} created`,
+        created_at: this.now(),
+      });
+      return { revision, created: true };
+    });
+  }
+
+  decidePlanRevision(input: unknown, actor: EventActor): { room: RoomRecord; approval: Approval; created: boolean } {
+    const approval = this.parse(approvalSchema, input, 'Approval') as Approval;
+    return this.tx(() => {
+      const existing = this.repo.getApproval(approval.approval_id);
+      if (existing) {
+        // existing same-ID retry 只按 stored frozen planner 认证（Review finding
+        // inc12-r1）：不使用 current assignment，replacement planner 不能重放 old
+        // planner entity；content 比较复用 repository idempotency owner。
+        this.assertFrozenPlannerRetryAuthority(`approval ${existing.approval_id}`, existing.planner_participant_id, actor);
+        this.repo.insertApproval(approval);
+        return { room: this.requireRoom(existing.room_id), approval: existing, created: false };
+      }
+      const revision = this.requireRevision(approval.target_id);
+      if (revision.room_id !== approval.room_id) throw new ProtocolError('validation_failed', 'approval targets another room');
+      this.assertPlanAuthority(revision.room_id, revision.plan_id, actor, 'planner');
+      if (approval.planner_participant_id !== actor.participant_id) {
+        throw new ProtocolError('actor_not_allowed', 'approval planner must be the authenticated planner');
+      }
+      const room = this.requireRoom(revision.room_id);
+      if (room.state !== 'WAITING_FOR_USER_CONFIRMATION') {
+        throw new ProtocolError('validation_failed', 'revision decision requires WAITING_FOR_USER_CONFIRMATION');
+      }
+      const latest = this.repo.latestTaskGraphRevision(revision.plan_id);
+      if (latest?.revision_id !== revision.revision_id) {
+        throw new ProtocolError('plan_revision_not_approved', 'only the latest revision may receive a decision');
+      }
+      validateTaskGraphRevision(revision);
+      for (const node of revision.nodes) this.assertNodeWorkerAssignment(revision, node);
+      this.assertAmendmentImmutable(revision);
+      if (approval.decision === 'approved') assertNoUnorderedScopeOverlap(revision);
+      this.repo.insertApproval(approval);
+      this.repo.appendEvent({
+        room_id: revision.room_id,
+        type: approval.decision === 'approved' ? 'task_graph_revision_approved' : 'task_graph_revision_rejected',
+        actor,
+        entity_type: 'approval',
+        entity_id: approval.approval_id,
+        summary: `revision ${revision.revision_id} ${approval.decision}`,
+        created_at: this.now(),
+      });
+      const updatedRoom = this.applyTransition(revision.room_id, 'DISCUSSION', actor);
+      return { room: updatedRoom, approval, created: true };
+    });
+  }
+
+  reconcilePlan(
+    input: { room_id: string; plan_id: string; worktrees: Array<{ node_id: string; dispatch_id: string; canonical_worktree_path: string }> },
+    actor: EventActor,
+  ): { revision: TaskGraphRevision | null; dispatches: NodeDispatch[] } {
+    return this.tx(() => {
+      const plan = this.requirePlan(input.plan_id);
+      if (plan.room_id !== input.room_id) throw new ProtocolError('validation_failed', 'plan belongs to another room');
+      this.assertPlanAuthority(input.room_id, input.plan_id, actor, 'orchestrator');
+      // current approved revision（Review finding inc12-r1）：exact latest revision 的
+      // terminal decision 必须为 approved；Draft/rejected 时不回退旧 approved，直接返回
+      // 零 new materialization。
+      const revision = this.repo.currentApprovedTaskGraphRevision(input.plan_id);
+      if (!revision) return { revision: null, dispatches: [] };
+      validateTaskGraphRevision(revision);
+      assertNoUnorderedScopeOverlap(revision);
+      this.assertAmendmentImmutable(revision);
+      const existingDispatches = revision.nodes
+        .map((node) => this.findLineageDispatch(revision, node.node_id))
+        .filter((dispatch): dispatch is NodeDispatch => dispatch !== null);
+      const requestedNodeIds = new Set<string>();
+      const requestedDispatchIds = new Set<string>();
+      for (const mapping of input.worktrees) {
+        if (!revision.nodes.some((node) => node.node_id === mapping.node_id)) {
+          throw new ProtocolError('validation_failed', `node ${mapping.node_id} is not in revision ${revision.revision_id}`);
+        }
+        if (requestedNodeIds.has(mapping.node_id) || requestedDispatchIds.has(mapping.dispatch_id)) {
+          throw new ProtocolError('validation_failed', 'reconcile worktree mappings must use unique node and dispatch identifiers');
+        }
+        requestedNodeIds.add(mapping.node_id);
+        requestedDispatchIds.add(mapping.dispatch_id);
+      }
+      // dependency readiness 的统一权威语义（Review finding inc12-r1）：dependency 必须
+      // Run=accepted、对应 NodeDispatch=completed 且 scope_violated=false，三者缺一不可；
+      // blocked dispatch 不得经 acceptance 解锁 descendant。
+      const satisfiedRunIds = new Set(
+        this.repo
+          .listRuns(input.room_id)
+          .filter((run) => {
+            if (run.status !== 'accepted') return false;
+            const dispatch = this.repo.nodeDispatchForRun(run.run_id);
+            return dispatch !== null && dispatch.status === 'completed' && !dispatch.scope_violated;
+          })
+          .map((run) => run.run_id),
+      );
+      const eligible = orderedEligibleNodes(revision, satisfiedRunIds, new Set(existingDispatches.map((d) => d.node_id)));
+      const requested = new Map(input.worktrees.map((item) => [item.node_id, item]));
+      const result = [...existingDispatches];
+      for (const dispatch of existingDispatches) {
+        const mapping = requested.get(dispatch.node_id);
+        if (mapping && (mapping.dispatch_id !== dispatch.dispatch_id || mapping.canonical_worktree_path !== dispatch.canonical_worktree_path)) {
+          throw new ProtocolError('id_conflict', `node ${dispatch.node_id} was materialized with different dispatch content`);
+        }
+      }
+      for (const node of eligible) {
+        const mapping = requested.get(node.node_id);
+        if (!mapping) continue;
+        result.push(this.materializeApprovedGraphNode(revision, node.node_id, mapping.dispatch_id, mapping.canonical_worktree_path));
+      }
+      return { revision, dispatches: result };
+    });
+  }
+
+  private materializeApprovedGraphNode(revision: TaskGraphRevision, nodeId: string, dispatchId: string, worktreePath: string): NodeDispatch {
+    const node = revision.nodes.find((candidate) => candidate.node_id === nodeId);
+    if (!node) throw new ProtocolError('validation_failed', `node ${nodeId} is not in revision ${revision.revision_id}`);
+    const existing = this.repo.nodeDispatchForNode(revision.revision_id, nodeId);
+    if (existing) {
+      if (existing.dispatch_id !== dispatchId || existing.canonical_worktree_path !== worktreePath) {
+        throw new ProtocolError('id_conflict', `node ${nodeId} was materialized with different dispatch content`);
+      }
+      return existing;
+    }
+    const approval = this.repo.approvalForTarget('task_graph_revision', revision.revision_id);
+    if (!approval || approval.decision !== 'approved') throw new ProtocolError('plan_revision_not_approved', 'revision is not approved');
+    const assignment = this.assertGraphWorkerAssignment(revision, node.worker_assignment_id);
+    const orchestrator = this.requireResolvedAssignment(revision.room_id, 'plan', revision.plan_id, 'orchestrator');
+    const task = persistedTaskSchema.parse({
+      ...node.task_spec,
+      confirmed_by_user: true,
+      planner_participant_id: approval.planner_participant_id,
+      orchestrator_participant_id: orchestrator.participant_id,
+    });
+    this.repo.insertTask(task);
+    const createdAt = this.now();
+    const run: Run = {
+      run_id: task.run_id,
+      room_id: task.room_id,
+      root_task_id: task.task_id,
+      status: 'ready',
+      worker_participant_id: assignment.participant_id,
+      worktree_path: worktreePath,
+      created_at: createdAt,
+      updated_at: createdAt,
+      accepted_at: null,
+    };
+    this.repo.insertRun(run);
+    const dispatch = nodeDispatchSchema.parse({
+      dispatch_id: dispatchId,
+      revision_id: revision.revision_id,
+      node_id: node.node_id,
+      task_id: task.task_id,
+      run_id: task.run_id,
+      canonical_worktree_path: worktreePath,
+      status: 'dispatched',
+      created_at: createdAt,
+      updated_at: createdAt,
+      dispatched_at: createdAt,
+      completed_at: null,
+      scope_violated: false,
+    });
+    this.repo.insertNodeDispatch(dispatch);
+    this.repo.appendEvent({ room_id: revision.room_id, type: 'graph_node_materialized', actor: { participant_id: LOCAL_SERVICE_PARTICIPANT_ID, actor_role: 'orchestrator' }, entity_type: 'node_dispatch', entity_id: dispatch.dispatch_id, summary: `node ${node.node_id} materialized`, created_at: createdAt });
+    this.repo.appendEvent({ room_id: revision.room_id, type: 'run_created', actor: { participant_id: LOCAL_SERVICE_PARTICIPANT_ID, actor_role: 'orchestrator' }, entity_type: 'run', entity_id: run.run_id, summary: `run ${run.run_id} created for graph node ${node.node_id}`, created_at: createdAt });
+    this.repo.appendEvent({ room_id: revision.room_id, type: 'task_submitted', actor: { participant_id: approval.planner_participant_id, actor_role: 'planner' }, entity_type: 'task', entity_id: task.task_id, summary: `task ${task.task_id} materialized from approved revision`, created_at: createdAt });
+    return dispatch;
   }
 
   // ---- Task submission (planner) ----
@@ -451,6 +708,7 @@ export class RoomService {
         }
         worktreePath = run.worktree_path;
       }
+      this.assertGraphClaim(run, worktreePath);
       const createdAt = this.now();
       const attempt: RunAttempt = {
         attempt_id: claim.attempt_id,
@@ -586,6 +844,7 @@ export class RoomService {
           summary: `attempt ${attempt.attempt_id} settled ${target}`,
           created_at: this.now(),
         });
+        if (target === 'succeeded') this.applyScopeProjection(updated, actor);
         return { room: this.requireRoom(attempt.room_id), run: updatedRun, attempt: updated };
       }
       throw new ProtocolError('id_conflict', `attempt ${settle.attempt_id} settlement raced repeatedly`);
@@ -865,11 +1124,26 @@ export class RoomService {
       if (!currentReview || currentReview.review_id !== reviewId) {
         throw new ProtocolError('validation_failed', `review ${reviewId} is not the current review of run ${run.run_id}`);
       }
+      // scope violation 是 NodeDispatch 的 current safety projection（Review finding
+      // inc12-r1）：blocked/scope_violated dispatch 不得经 acceptance 置 completed 或
+      // 解锁 descendant；必须先由同一 Run 后续成功且全部 in-scope 的 Fix attempt 恢复。
+      // 该 gate 在写 Run/Dispatch/Event 之前，失败整体回滚。
+      const dispatch = this.repo.nodeDispatchForRun(run.run_id);
+      if (dispatch && (dispatch.scope_violated || dispatch.status === 'blocked')) {
+        throw new ProtocolError(
+          'validation_failed',
+          `review ${reviewId} run ${run.run_id} is blocked by a scope violation; a successful in-scope fix attempt must clear it before acceptance`,
+        );
+      }
       const updated: Run = { ...run, status: 'accepted', accepted_at: this.now(), updated_at: this.now() };
       resolveRunTransition(run.status, updated.status, actor.actor_role);
       // accepted 后 partial unique index 不再占用 worktree（status != 'accepted' 的 WHERE
       // 集合），canonical worktree lease 释放；lineage 字段保留为历史事实。
       this.repo.updateRun(updated);
+      if (dispatch) {
+        const completedAt = this.now();
+        this.repo.updateNodeDispatch({ ...dispatch, status: 'completed', completed_at: completedAt, updated_at: completedAt });
+      }
       this.repo.appendEvent({
         room_id: review.room_id,
         type: 'review_accepted',
@@ -881,6 +1155,54 @@ export class RoomService {
       });
       return { room: this.requireRoom(review.room_id), review, run: updated };
     });
+  }
+
+  auditAttemptWriteScope(attemptId: string, actor: EventActor): { violated: boolean; dispatch: NodeDispatch | null } {
+    return this.tx(() => {
+      const attempt = this.requireAttempt(attemptId);
+      this.assertAttemptCommandAuthority(attempt, actor, 'executor');
+      return this.markScopeViolation(attempt, actor);
+    });
+  }
+
+  private markScopeViolation(attempt: RunAttempt, actor: EventActor): { violated: boolean; dispatch: NodeDispatch | null } {
+    const dispatch = this.repo.nodeDispatchForRun(attempt.run_id);
+    if (!dispatch) return { violated: false, dispatch: null };
+    const revision = this.requireRevision(dispatch.revision_id);
+    const node = revision.nodes.find((candidate) => candidate.node_id === dispatch.node_id);
+    if (!node) throw new ProtocolError('validation_failed', `dispatch node ${dispatch.node_id} missing from revision`);
+    const paths = [...attempt.git_evidence.staged, ...attempt.git_evidence.unstaged, ...attempt.git_evidence.untracked];
+    const violated = paths.some((path) => !node.write_scopes.some((scope) => scopeContainsPath(scope, path)));
+    if (!violated || dispatch.scope_violated) return { violated, dispatch };
+    const updated = { ...dispatch, status: 'blocked' as const, scope_violated: true, updated_at: this.now() };
+    this.repo.updateNodeDispatch(updated);
+    this.repo.appendEvent({ room_id: attempt.room_id, type: 'node_scope_violated', actor, entity_type: 'node_dispatch', entity_id: dispatch.dispatch_id, summary: `node ${dispatch.node_id} produced paths outside declared write scopes`, created_at: this.now() });
+    return { violated: true, dispatch: updated };
+  }
+
+  // settle 时的 scope projection（Review finding inc12-r1）：succeeded attempt 的完整 live
+  // evidence 决定 NodeDispatch projection。任意 out-of-scope path → 沿用 markScopeViolation
+  // 置 blocked/scope_violated（已 blocked 时零写入，历史 node_scope_violated Event 保留）；
+  // 全部 in-scope 且该 attempt 是同一 Run 的 Fix attempt → 清除 blocked projection 恢复
+  // dispatched，不新增 Event type（attempt terminal Event 已是审计事实）。failed/
+  // interrupted/needs_decision/canceled 与非 Fix attempt 不改变 projection。
+  private applyScopeProjection(attempt: RunAttempt, actor: EventActor): void {
+    const dispatch = this.repo.nodeDispatchForRun(attempt.run_id);
+    if (!dispatch) return;
+    const revision = this.requireRevision(dispatch.revision_id);
+    const node = revision.nodes.find((candidate) => candidate.node_id === dispatch.node_id);
+    if (!node) throw new ProtocolError('validation_failed', `dispatch node ${dispatch.node_id} missing from revision`);
+    const paths = [...attempt.git_evidence.staged, ...attempt.git_evidence.unstaged, ...attempt.git_evidence.untracked];
+    const violated = paths.some((path) => !node.write_scopes.some((scope) => scopeContainsPath(scope, path)));
+    if (violated) {
+      this.markScopeViolation(attempt, actor);
+      return;
+    }
+    const task = this.repo.getTask(attempt.task_id);
+    if (task?.type === 'fix' && (dispatch.scope_violated || dispatch.status === 'blocked')) {
+      const restored: NodeDispatch = { ...dispatch, status: 'dispatched', scope_violated: false, updated_at: this.now() };
+      this.repo.updateNodeDispatch(restored);
+    }
   }
 
   // ---- Retry (planner) ----
@@ -1133,6 +1455,15 @@ export class RoomService {
     if (scopeType !== 'room' && scopeId !== null) {
       const exact = this.repo.latestAssignment(roomId, scopeType, scopeId, role);
       if (exact) return exact;
+      if (scopeType === 'task') {
+        const task = this.repo.getTask(scopeId);
+        const dispatch = task ? this.repo.nodeDispatchForRun(task.run_id) : null;
+        const revision = dispatch ? this.repo.getTaskGraphRevision(dispatch.revision_id) : null;
+        if (revision) {
+          const planAssignment = this.repo.latestAssignment(roomId, 'plan', revision.plan_id, role);
+          if (planAssignment) return planAssignment;
+        }
+      }
     }
     return this.repo.latestAssignment(roomId, 'room', null, role);
   }
@@ -1190,6 +1521,17 @@ export class RoomService {
   getRoleAssignment(assignmentId: string): RoleAssignment | null {
     return this.repo.getRoleAssignment(assignmentId);
   }
+
+  getPlan(planId: string): Plan | null { return this.repo.getPlan(planId); }
+  getTaskGraphRevision(revisionId: string): TaskGraphRevision | null { return this.repo.getTaskGraphRevision(revisionId); }
+  getApproval(approvalId: string): Approval | null { return this.repo.getApproval(approvalId); }
+  getNodeDispatch(dispatchId: string): NodeDispatch | null { return this.repo.getNodeDispatch(dispatchId); }
+  nodeDispatchForRun(runId: string): NodeDispatch | null { return this.repo.nodeDispatchForRun(runId); }
+  listPlans(roomId: string): Plan[] { return this.repo.listPlans(roomId); }
+  listTaskGraphRevisions(roomId: string): TaskGraphRevision[] { return this.repo.listTaskGraphRevisions(roomId); }
+  currentApprovedTaskGraphRevision(planId: string): TaskGraphRevision | null { return this.repo.currentApprovedTaskGraphRevision(planId); }
+  listApprovals(roomId: string): Approval[] { return this.repo.listApprovals(roomId); }
+  listNodeDispatches(roomId: string): NodeDispatch[] { return this.repo.listNodeDispatches(roomId); }
 
   listTasks(roomId: string): PersistedTask[] {
     return this.repo.listTasks(roomId);
@@ -1340,6 +1682,90 @@ export class RoomService {
     }
   }
 
+  private assertPlanAuthority(roomId: string, planId: string, actor: EventActor, requiredRole: 'planner' | 'orchestrator'): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== requiredRole) {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} cannot act as ${requiredRole}`);
+    }
+    const assignment = this.resolveAssignment(roomId, 'plan', planId, requiredRole);
+    if (!assignment || assignment.participant_id !== actor.participant_id) {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} has no active ${requiredRole} assignment for plan ${planId}`);
+    }
+    this.assertAssignable(assignment);
+  }
+
+  private assertGraphWorkerAssignment(revision: TaskGraphRevision, assignmentId: string): RoleAssignment {
+    const assignment = this.repo.getRoleAssignment(assignmentId);
+    if (!assignment || assignment.room_id !== revision.room_id || assignment.role !== 'worker') {
+      throw new ProtocolError('validation_failed', `worker assignment ${assignmentId} is not compatible with revision room`);
+    }
+    const active = this.resolveAssignment(revision.room_id, 'plan', revision.plan_id, 'worker');
+    if (!active || active.assignment_id !== assignment.assignment_id) {
+      throw new ProtocolError('validation_failed', `worker assignment ${assignmentId} is not active for plan ${revision.plan_id}`);
+    }
+    this.assertAssignable(assignment);
+    return assignment;
+  }
+
+  // existing entity same-ID retry 的 frozen planner 认证（Review finding inc12-r1）：
+  // Plan/Revision/Approval 的 existing 分支只按 stored creator/planner participant 与
+  // required role 认证，不消费 current assignment；replacement/unknown/disabled/
+  // wrong-role 一律 actor_not_allowed 且在 transaction 内零写入。
+  private assertFrozenPlannerRetryAuthority(entityLabel: string, frozenParticipantId: string, actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'planner') {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} cannot act as planner`);
+    }
+    if (actor.participant_id !== frozenParticipantId) {
+      throw new ProtocolError('actor_not_allowed', `only stored planner ${frozenParticipantId} may retry ${entityLabel}`);
+    }
+  }
+
+  // node worker assignment 校验（Review finding inc12-r1）：已 dispatch 的 inherited node
+  // 只验证 frozen identity 一致性——assignment 存在、同 Room、role=worker 且 lineage Run
+  // 的 frozen worker 与其一致，不要求 assignment 仍 active（replacement 只路由 future
+  // materialization）；new/undispatched node 继续要求 exact current active assignment。
+  private assertNodeWorkerAssignment(revision: TaskGraphRevision, node: TaskGraphNode): void {
+    const lineage = this.findLineageDispatch(revision, node.node_id);
+    if (!lineage) {
+      this.assertGraphWorkerAssignment(revision, node.worker_assignment_id);
+      return;
+    }
+    const assignment = this.repo.getRoleAssignment(node.worker_assignment_id);
+    if (!assignment || assignment.room_id !== revision.room_id || assignment.role !== 'worker') {
+      throw new ProtocolError('validation_failed', `worker assignment ${node.worker_assignment_id} is not compatible with revision room`);
+    }
+    const run = this.repo.getRun(lineage.run_id);
+    if (!run || run.worker_participant_id !== assignment.participant_id) {
+      throw new ProtocolError('immutable_revision_violation', `dispatched node ${node.node_id} worker must stay frozen`);
+    }
+  }
+
+  private assertAmendmentImmutable(revision: TaskGraphRevision): void {
+    if (revision.supersedes_revision_id === null) return;
+    const prior = this.requireRevision(revision.supersedes_revision_id);
+    const earlierRevisions = new Map(
+      this.repo.listTaskGraphRevisions(revision.room_id)
+        .filter((candidate) => candidate.plan_id === revision.plan_id && candidate.revision_no < revision.revision_no)
+        .map((candidate) => [candidate.revision_id, candidate]),
+    );
+    const priorDispatches = this.repo.listNodeDispatches(revision.room_id)
+      .filter((dispatch) => earlierRevisions.has(dispatch.revision_id));
+    for (const dispatch of priorDispatches) {
+      const dispatchedRevision = earlierRevisions.get(dispatch.revision_id);
+      const oldNode = dispatchedRevision?.nodes.find((node) => node.node_id === dispatch.node_id);
+      const newNode = revision.nodes.find((node) => node.node_id === dispatch.node_id);
+      if (!oldNode || !newNode || JSON.stringify(oldNode) !== JSON.stringify(newNode)) {
+        throw new ProtocolError('immutable_revision_violation', `dispatched node ${dispatch.node_id} cannot be changed or removed`);
+      }
+      const oldAncestors = [...dependencyAncestors(dispatchedRevision!.nodes, dispatch.node_id)].sort();
+      const newAncestors = [...dependencyAncestors(revision.nodes, dispatch.node_id)].sort();
+      if (JSON.stringify(oldAncestors) !== JSON.stringify(newAncestors)) {
+        throw new ProtocolError('immutable_revision_violation', `dispatched node ${dispatch.node_id} ancestor relation cannot change`);
+      }
+    }
+  }
+
   private assertParticipantActive(actor: EventActor): void {
     const profile = this.repo.getParticipant(actor.participant_id);
     if (!profile) {
@@ -1384,6 +1810,13 @@ export class RoomService {
         'validation_failed',
         `assignment ${assignment.assignment_id} with scope_type ${assignment.scope_type} requires scope_id`,
       );
+    }
+    if (assignment.scope_type === 'plan') {
+      const plan = this.requirePlan(assignment.scope_id);
+      if (plan.room_id !== assignment.room_id) {
+        throw new ProtocolError('validation_failed', `assignment ${assignment.assignment_id} references plan from another room`);
+      }
+      return;
     }
     const task = this.requireTask(assignment.scope_id);
     if (task.room_id !== assignment.room_id) {
@@ -1715,6 +2148,62 @@ export class RoomService {
     const room = this.repo.getRoom(roomId);
     if (!room) throw new ProtocolError('entity_not_found', `room ${roomId} not found`);
     return room;
+  }
+
+  private assertGraphClaim(run: Run, worktreePath: string): void {
+    const dispatch = this.repo.nodeDispatchForRun(run.run_id);
+    // Direct service calls remain an internal Stage 2 test seam; the MCP boundary no longer
+    // exposes implementation submission. Every graph-created Run has a dispatch and is gated.
+    if (!dispatch) return;
+    // claim gate 统一消费同一 exact current approved snapshot（Review finding inc12-r1）：
+    // node、write_scopes 与 concurrency_limit 都来自 current revision，dispatch source
+    // revision 只保留历史 materialization reference，不再混用其 limit 或 node 定义。
+    const sourceRevision = this.requireRevision(dispatch.revision_id);
+    const current = this.repo.currentApprovedTaskGraphRevision(sourceRevision.plan_id);
+    const currentNode = current?.nodes.find((candidate) => candidate.node_id === dispatch.node_id);
+    const dispatchedNode = sourceRevision.nodes.find((candidate) => candidate.node_id === dispatch.node_id);
+    if (!current || !currentNode || !dispatchedNode || JSON.stringify(currentNode) !== JSON.stringify(dispatchedNode)) {
+      throw new ProtocolError('plan_revision_not_approved', `run ${run.run_id} is not from the current approved revision`);
+    }
+    if (dispatch.canonical_worktree_path !== worktreePath) {
+      throw new ProtocolError('validation_failed', `claim worktree does not match node dispatch ${dispatch.dispatch_id}`);
+    }
+    const active = this.repo.listAttemptsByRoom(run.room_id).filter((attempt) =>
+      attempt.status === 'running' || attempt.status === 'decision_requested' || attempt.status === 'cancel_requested');
+    if (active.length >= current.concurrency_limit) {
+      throw new ProtocolError('concurrency_limit_reached', `room ${run.room_id} reached graph concurrency limit ${current.concurrency_limit}`);
+    }
+    for (const attempt of active) {
+      const otherDispatch = this.repo.nodeDispatchForRun(attempt.run_id);
+      if (!otherDispatch) continue;
+      const otherNode = current.nodes.find((candidate) => candidate.node_id === otherDispatch.node_id);
+      if (otherNode && scopesOverlap(currentNode.write_scopes, otherNode.write_scopes)) {
+        throw new ProtocolError('scope_conflict', `run ${run.run_id} overlaps active run ${attempt.run_id}`);
+      }
+    }
+  }
+
+  private requirePlan(planId: string): Plan {
+    const plan = this.repo.getPlan(planId);
+    if (!plan) throw new ProtocolError('entity_not_found', `plan ${planId} not found`);
+    return plan;
+  }
+
+  private findLineageDispatch(revision: TaskGraphRevision, nodeId: string): NodeDispatch | null {
+    const revisionNumbers = new Map(
+      this.repo.listTaskGraphRevisions(revision.room_id)
+        .filter((candidate) => candidate.plan_id === revision.plan_id && candidate.revision_no <= revision.revision_no)
+        .map((candidate) => [candidate.revision_id, candidate.revision_no]),
+    );
+    return this.repo.listNodeDispatches(revision.room_id)
+      .filter((dispatch) => dispatch.node_id === nodeId && revisionNumbers.has(dispatch.revision_id))
+      .sort((left, right) => (revisionNumbers.get(right.revision_id) ?? 0) - (revisionNumbers.get(left.revision_id) ?? 0))[0] ?? null;
+  }
+
+  private requireRevision(revisionId: string): TaskGraphRevision {
+    const revision = this.repo.getTaskGraphRevision(revisionId);
+    if (!revision) throw new ProtocolError('entity_not_found', `revision ${revisionId} not found`);
+    return revision;
   }
 
   private requireTask(taskId: string): PersistedTask {

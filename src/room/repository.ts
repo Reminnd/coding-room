@@ -3,9 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { ProtocolError } from '../protocol/errors.ts';
 import { PROTOCOL_VERSION } from '../protocol/schema.ts';
 import type {
+  Approval,
   Event,
   EventActor,
+  NodeDispatch,
   ParticipantProfile,
+  Plan,
   PersistedTask,
   Question,
   Review,
@@ -15,6 +18,7 @@ import type {
   Run,
   RunAttempt,
   RunGuidance,
+  TaskGraphRevision,
 } from '../protocol/schema.ts';
 
 // rooms.state 的持久化 shape。协议未定义独立 Room entity，这里只保存 room_id、
@@ -26,7 +30,7 @@ export interface RoomRecord {
   updated_at: string;
 }
 
-type EntityTable = 'tasks' | 'reviews' | 'questions' | 'participants' | 'role_assignments';
+type EntityTable = 'tasks' | 'reviews' | 'questions' | 'participants' | 'role_assignments' | 'plans' | 'task_graph_revisions' | 'approvals' | 'node_dispatches';
 
 const TABLE_ID_COLUMN: Record<EntityTable, string> = {
   tasks: 'task_id',
@@ -34,6 +38,10 @@ const TABLE_ID_COLUMN: Record<EntityTable, string> = {
   questions: 'question_id',
   participants: 'participant_id',
   role_assignments: 'assignment_id',
+  plans: 'plan_id',
+  task_graph_revisions: 'revision_id',
+  approvals: 'approval_id',
+  node_dispatches: 'dispatch_id',
 };
 
 interface JsonRow {
@@ -76,7 +84,7 @@ export class RoomRepository {
     if (!tables.has('protocol_metadata')) {
       throw new ProtocolError(
         'protocol_version_mismatch',
-        'database is a v0.2 archive without protocol metadata; v0.4 writable open refused',
+        'database is a v0.2 archive without protocol metadata; v0.5 writable open refused',
       );
     }
     const row = this.db
@@ -159,6 +167,37 @@ export class RoomRepository {
         assignment_id TEXT PRIMARY KEY,
         content_json TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS plans (
+        plan_id TEXT PRIMARY KEY,
+        room_id TEXT NOT NULL,
+        content_json TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_room ON plans(room_id);
+      CREATE TABLE IF NOT EXISTS task_graph_revisions (
+        revision_id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL,
+        room_id TEXT NOT NULL,
+        revision_no INTEGER NOT NULL,
+        content_json TEXT NOT NULL,
+        UNIQUE(plan_id, revision_no)
+      );
+      CREATE TABLE IF NOT EXISTS approvals (
+        approval_id TEXT PRIMARY KEY,
+        room_id TEXT NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        content_json TEXT NOT NULL,
+        UNIQUE(target_type, target_id)
+      );
+      CREATE TABLE IF NOT EXISTS node_dispatches (
+        dispatch_id TEXT PRIMARY KEY,
+        revision_id TEXT NOT NULL,
+        node_id TEXT NOT NULL,
+        task_id TEXT NOT NULL UNIQUE,
+        run_id TEXT NOT NULL UNIQUE,
+        content_json TEXT NOT NULL,
+        UNIQUE(revision_id, node_id)
+      );
       CREATE TABLE IF NOT EXISTS events (
         event_id TEXT PRIMARY KEY,
         room_id TEXT NOT NULL,
@@ -217,6 +256,103 @@ export class RoomRepository {
     this.db
       .prepare('UPDATE questions SET content_json = ? WHERE question_id = ?')
       .run(JSON.stringify(question), question.question_id);
+  }
+
+  // ---- Stage 3 graph authority ----
+  getPlan(planId: string): Plan | null { return this.getEntity<Plan>('plans', 'plan_id', planId); }
+  insertPlan(plan: Plan): { created: boolean } {
+    try {
+      return this.insertProjectedEntity('plans', 'plan_id', plan.plan_id, ['room_id'], [plan.room_id], plan);
+    } catch (err) {
+      if (isSqliteUniqueError(err) && err.message.includes('plans.room_id')) {
+        throw new ProtocolError('validation_failed', `room ${plan.room_id} already has a plan`);
+      }
+      throw err;
+    }
+  }
+  listPlans(roomId: string): Plan[] { return this.listEntitiesByRoom<Plan>('plans', roomId); }
+
+  getTaskGraphRevision(revisionId: string): TaskGraphRevision | null {
+    return this.getEntity<TaskGraphRevision>('task_graph_revisions', 'revision_id', revisionId);
+  }
+  insertTaskGraphRevision(revision: TaskGraphRevision): { created: boolean } {
+    try {
+      return this.insertProjectedEntity(
+        'task_graph_revisions', 'revision_id', revision.revision_id,
+        ['plan_id', 'room_id', 'revision_no'], [revision.plan_id, revision.room_id, revision.revision_no], revision,
+      );
+    } catch (err) {
+      if (isSqliteUniqueError(err) && err.message.includes('task_graph_revisions.plan_id')) {
+        throw new ProtocolError('validation_failed', `revision number ${revision.revision_no} already exists for plan ${revision.plan_id}`);
+      }
+      throw err;
+    }
+  }
+  listTaskGraphRevisions(roomId: string): TaskGraphRevision[] {
+    return this.listEntitiesByRoom<TaskGraphRevision>('task_graph_revisions', roomId);
+  }
+  latestTaskGraphRevision(planId: string): TaskGraphRevision | null {
+    const row = this.db.prepare('SELECT content_json FROM task_graph_revisions WHERE plan_id = ? ORDER BY revision_no DESC LIMIT 1').get(planId) as JsonRow | undefined;
+    return row ? JSON.parse(row.content_json) as TaskGraphRevision : null;
+  }
+  // current execution authority（Review finding inc12-r1）：Plan 的 exact latest revision
+  // 只有在其 terminal decision exact 为 approved 时才是 current approved revision；newer
+  // Draft/rejected 存在时不回退旧 approved，旧 revision 只是历史。推导只使用 immutable
+  // revision、Approval 与既有 revision_no 顺序事实，不引入 current pointer 或缓存。
+  currentApprovedTaskGraphRevision(planId: string): TaskGraphRevision | null {
+    const latest = this.latestTaskGraphRevision(planId);
+    if (!latest) return null;
+    const approval = this.approvalForTarget('task_graph_revision', latest.revision_id);
+    if (!approval || approval.decision !== 'approved') return null;
+    return latest;
+  }
+
+  getApproval(approvalId: string): Approval | null { return this.getEntity<Approval>('approvals', 'approval_id', approvalId); }
+  approvalForTarget(targetType: string, targetId: string): Approval | null {
+    const row = this.db.prepare('SELECT content_json FROM approvals WHERE target_type = ? AND target_id = ? LIMIT 1').get(targetType, targetId) as JsonRow | undefined;
+    return row ? JSON.parse(row.content_json) as Approval : null;
+  }
+  insertApproval(approval: Approval): { created: boolean } {
+    try {
+      return this.insertProjectedEntity(
+        'approvals', 'approval_id', approval.approval_id,
+        ['room_id', 'target_type', 'target_id'], [approval.room_id, approval.target_type, approval.target_id], approval,
+      );
+    } catch (err) {
+      if (isSqliteUniqueError(err) && err.message.includes('approvals.target_type')) {
+        throw new ProtocolError('id_conflict', `target ${approval.target_id} already has a terminal decision`);
+      }
+      throw err;
+    }
+  }
+  listApprovals(roomId: string): Approval[] { return this.listEntitiesByRoom<Approval>('approvals', roomId); }
+
+  getNodeDispatch(dispatchId: string): NodeDispatch | null { return this.getEntity<NodeDispatch>('node_dispatches', 'dispatch_id', dispatchId); }
+  nodeDispatchForNode(revisionId: string, nodeId: string): NodeDispatch | null {
+    const row = this.db.prepare('SELECT content_json FROM node_dispatches WHERE revision_id = ? AND node_id = ?').get(revisionId, nodeId) as JsonRow | undefined;
+    return row ? JSON.parse(row.content_json) as NodeDispatch : null;
+  }
+  nodeDispatchForRun(runId: string): NodeDispatch | null {
+    const row = this.db.prepare('SELECT content_json FROM node_dispatches WHERE run_id = ?').get(runId) as JsonRow | undefined;
+    return row ? JSON.parse(row.content_json) as NodeDispatch : null;
+  }
+  insertNodeDispatch(dispatch: NodeDispatch): { created: boolean } {
+    try {
+      return this.insertProjectedEntity(
+        'node_dispatches', 'dispatch_id', dispatch.dispatch_id,
+        ['revision_id', 'node_id', 'task_id', 'run_id'], [dispatch.revision_id, dispatch.node_id, dispatch.task_id, dispatch.run_id], dispatch,
+      );
+    } catch (err) {
+      if (isSqliteUniqueError(err)) throw new ProtocolError('id_conflict', `node ${dispatch.node_id} is already dispatched`);
+      throw err;
+    }
+  }
+  updateNodeDispatch(dispatch: NodeDispatch): void {
+    this.db.prepare('UPDATE node_dispatches SET content_json = ? WHERE dispatch_id = ?').run(JSON.stringify(dispatch), dispatch.dispatch_id);
+  }
+  listNodeDispatches(roomId: string): NodeDispatch[] {
+    const rows = this.db.prepare(`SELECT d.content_json FROM node_dispatches d JOIN task_graph_revisions r ON r.revision_id = d.revision_id WHERE r.room_id = ? ORDER BY d.rowid ASC`).all(roomId) as unknown as JsonRow[];
+    return rows.map((row) => JSON.parse(row.content_json) as NodeDispatch);
   }
 
   // ---- Runs（projection columns 与 content_json 同步维护）----
@@ -670,6 +806,26 @@ export class RoomRepository {
     this.db
       .prepare(`INSERT INTO ${table} (${idColumn}, content_json) VALUES (?, ?)`)
       .run(id, contentJson);
+    return { created: true };
+  }
+
+  private insertProjectedEntity(
+    table: EntityTable,
+    idColumn: string,
+    id: string,
+    columns: readonly string[],
+    values: readonly (string | number | null)[],
+    content: unknown,
+  ): { created: boolean } {
+    const contentJson = JSON.stringify(content);
+    const existing = this.db.prepare(`SELECT content_json FROM ${table} WHERE ${idColumn} = ?`).get(id) as JsonRow | undefined;
+    if (existing) {
+      if (existing.content_json === contentJson) return { created: false };
+      throw new ProtocolError('id_conflict', `${table} id ${id} already exists with different content`);
+    }
+    const names = [idColumn, ...columns, 'content_json'];
+    const placeholders = names.map(() => '?').join(', ');
+    this.db.prepare(`INSERT INTO ${table} (${names.join(', ')}) VALUES (${placeholders})`).run(id, ...values, contentJson);
     return { created: true };
   }
 

@@ -5,7 +5,7 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-09-01 |
+| 最后更新日期 | 2026-09-02 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
@@ -96,6 +96,11 @@
 | [Increment 11](./INCREMENT_11_TASK_CONTRACT.md) | Accepted | 删除Git baseline hash validation；Codex `gpt-5.6-sol`/`medium` Coding route |
 | [Increment 11 Fix 1](./INCREMENT_11_FIX_TASK_1.md) | Accepted | 补齐invalid public-path完整rollback/零副作用Oracle并同步Current文档状态 |
 | [Increment 12](./INCREMENT_12_TASK_CONTRACT.md) | Accepted | Plan/immutable revision/Approval、structured scope、one-shot Scheduler与`per_task` acceptance |
+| [Increment 12 Fix 1](./INCREMENT_12_FIX_TASK_1.md) | Accepted | 修复exact latest revision、scope recovery、current concurrency、replacement freeze与new entity retry authority |
+| [Increment 12 Fix 2](./INCREMENT_12_FIX_TASK_2.md) | Accepted | 补齐完整rollback Oracle、逐实体public MCP retry evidence与Coding Result provenance |
+| [Increment 12 Fix 3](./INCREMENT_12_FIX_TASK_3.md) | Accepted | 更正Development Log的Fix 1/2 verification provenance与current next-step |
+| [Increment 12 Fix 4](./INCREMENT_12_FIX_TASK_4.md) | Accepted | 消除candidate失效Contract链接并补齐结构化Coding Result |
+| [Increment 12 Fix 5](./INCREMENT_12_FIX_TASK_5.md) | Superseded / Not Dispatched | 派发门禁恢复到既有完整Fix 4 assistant final，Review 5唯一finding失效 |
 
 ### 2.4 Agent 执行指南
 
@@ -128,4 +133,4 @@
 - Increment 7严格重执行已从clean exact baseline `b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`完成，Review 1三项finding已闭合；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4 `review-increment-007-codex-004`确认Decision resume gate闭合，但Skill `description`中的未引用colon-space使front matter无法由标准YAML parser加载，测试侧局部parser误报通过。用户已确认finding与最小方案，[Fix Task 3](./INCREMENT_7_FIX_TASK_3.md)已完成Coding；Review `review-increment-007-codex-005`独立验证无finding、Decision为`approved`，用户已明确接受，Increment 7已进入版本化 `main` commit `97005f54555f6485c79f15860a58fe79c3ed593d`，Plugin与多项目配置现为Current capability，manual Codex Desktop smoke保持pending。
 - [Increment 8 Accepted Contract](./INCREMENT_8_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_8_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)均已完成。Fix Review 3 `review-increment-008-codex-003`确认table-context finding已闭合、代码与direct regression无finding；focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob独立通过。用户授权后，candidate已从local marketplace安装，fresh-task direct/indirect/negative/boundary activation与bundled helper/reference resolution全部通过；Decision为`approved`，用户已于2026-08-28明确最终接受，Fix验收经验回收已完成。完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current capability。
 - 用户于2026-08-29明确确认[Agent Room v0.3六阶段路线](./AGENT_ROOM_V03_ROADMAP.md)、[ADR-0003](./ADR/0003-participant-role-and-v03-evolution.md)与[Increment 9完整Contract](./INCREMENT_9_TASK_CONTRACT.md)。Review 1与Fix Review 2的finding已分别由[Fix Task 1](./INCREMENT_9_FIX_TASK_1.md)和[Fix Task 2](./INCREMENT_9_FIX_TASK_2.md)处理；Fix Review 3与Fix Review 4的route findings已分别由[Fix Task 3](./INCREMENT_9_FIX_TASK_3.md)和[Fix Task 4](./INCREMENT_9_FIX_TASK_4.md)闭合。Fix Review 5 `review-increment-009-codex-005`无finding、Decision为`approved`；用户已最终接受且完整accepted scope已进入版本化`main`。2026-08-30经独立授权完成active project runtime的v0.3 database/binding cutover；新Room已完成Stage 2 planning transition。push、旧v0.2 database删除与Claude Run仍未授权。
-- Increment 10/11 accepted source与Stage 3/Increment 12 planning已由本次提交进入版本化`main`；active runtime/database/binding仍为v0.3且未cutover。[Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`，阶段=`PLAN_READY`。未来Coding route固定`gpt-5.6-sol`/`medium`，task创建、push与runtime cutover继续分别授权。
+- Increment 12已从exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`完成Implementation与Fix。Fix Review 5确认链接finding已闭合；派发门禁随后从原task恢复到字段完整的Fix Task 4 `final_answer`，因此唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受，阶段=`ACCEPTED`；完整accepted scope由本次提交进入版本化`main`。Active runtime仍为v0.3，push、cutover、旧database处理与Increment 13未授权。

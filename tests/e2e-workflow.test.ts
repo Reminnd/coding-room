@@ -16,6 +16,8 @@ import {
   makeFixTask,
   makeReview,
   makeTask,
+  ORCHESTRATOR,
+  PLANNER,
 } from './fixtures.ts';
 import {
   FakeClaudeProcess,
@@ -144,6 +146,22 @@ function resultLine(sessionId = SESSION_ID, codingResult = makeCodingResult()): 
   });
 }
 
+function materializeImplementation(service: RoomService, repo: string): void {
+  const task = makeTask({ created_at: '2026-09-01T00:00:00.000Z' });
+  const { confirmed_by_user: _confirmed, confirmed_findings: _findings, ...taskSpec } = task;
+  service.createPlan({ plan_id: 'plan-1', room_id: 'room-1', created_by_participant_id: 'codex-app', created_at: task.created_at }, PLANNER);
+  const worker = service.listRoleAssignments('room-1').find((assignment) => assignment.role === 'worker');
+  assert.ok(worker);
+  service.createPlanRevision({
+    revision_id: 'revision-1', plan_id: 'plan-1', room_id: 'room-1', revision_no: 1,
+    supersedes_revision_id: null, concurrency_limit: 1, acceptance_policy: 'per_task',
+    nodes: [{ node_id: 'node-1', kind: 'task', task_spec: { ...taskSpec, type: 'implementation', parent_task_id: null, based_on_review_id: null }, dependencies: [], write_scopes: [{ path: '.', kind: 'tree' }], worker_assignment_id: worker.assignment_id, priority: 0 }],
+    created_by_participant_id: 'codex-app', created_at: task.created_at,
+  }, PLANNER);
+  service.decidePlanRevision({ approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: task.created_at }, PLANNER);
+  service.reconcilePlan({ room_id: 'room-1', plan_id: 'plan-1', worktrees: [{ node_id: 'node-1', dispatch_id: 'dispatch-1', canonical_worktree_path: repo }] }, ORCHESTRATOR);
+}
+
 // 挂到 setImmediate 的 drive：确保 startClaudeProcess 同步挂载 handler 后才写 stdout/close。
 function autoSpawner(
   child: FakeClaudeProcess,
@@ -193,11 +211,7 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
     assert.equal((created.structuredContent as { created: boolean }).created, true);
     await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
-    const task = await codex.callTool({
-      name: 'room_submit_task',
-      arguments: makeTask() as unknown as Record<string, unknown>,
-    });
-    assert.equal(task.isError, undefined);
+    materializeImplementation(service, repo);
 
     // 2. one-shot CLI 执行首次 Implementation（clean-worktree start）。
     const child1 = new FakeClaudeProcess();
@@ -288,9 +302,10 @@ test('full workflow: Implementation -> Review(finding) -> Fix resume -> Review(a
       current_review_id: 'review-2',
       current_question_id: null,
     });
-    assert.equal(finalState.cursor, 13);
+    assert.equal(finalState.cursor, 17);
     const events = finalState.events as { type: string; sequence: number }[];
-    assert.equal(events.length, 13);
+    assert.equal(events.length, 17);
+    assert.equal(events.filter((e) => e.type === 'graph_node_materialized').length, 1);
     assert.equal(events[events.length - 1].type, 'review_accepted');
     assert.equal(events.filter((e) => e.type === 'run_attempt_claimed').length, 2);
     assert.equal(events.filter((e) => e.type === 'run_attempt_succeeded').length, 2);
@@ -348,10 +363,7 @@ test('failure recovery: failed run -> room_retry_run -> one-shot retry preserves
     await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
-    await codex.callTool({
-      name: 'room_submit_task',
-      arguments: makeTask() as unknown as Record<string, unknown>,
-    });
+    materializeImplementation(service, repo);
 
     // 1. 首次 run 失败：non-zero exit，且失败期间产生可观察 worktree 变更。
     const child1 = new FakeClaudeProcess();
@@ -453,10 +465,7 @@ test('retry with an empty source session creates a replacement session without -
     await codex.callTool({ name: 'room_create', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
     await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
-    await codex.callTool({
-      name: 'room_submit_task',
-      arguments: makeTask() as unknown as Record<string, unknown>,
-    });
+    materializeImplementation(service, repo);
 
     // 1. 首次 run 在 init 前失败：source session 缺失（null）。
     const child1 = new FakeClaudeProcess();

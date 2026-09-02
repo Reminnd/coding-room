@@ -10,7 +10,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { runCliMain, type RunCliIo } from '../src/cli/run.ts';
 import { createRoomMcpApp } from '../src/mcp/http.ts';
 import { RoomService } from '../src/room/room-service.ts';
-import { makeCodingResult, makeQuestion, makeReview, makeTask } from './fixtures.ts';
+import { makeCodingResult, makeQuestion, makeReview, makeTask, ORCHESTRATOR, PLANNER } from './fixtures.ts';
 import { FakeClaudeProcess, type FakeSpawn, type SpawnInvocation } from './runner-fixtures/claude-process-fake.ts';
 
 // 跨项目并行隔离的端到端测试：Project A/B 各自拥有独立 Room service、loopback port、
@@ -88,6 +88,19 @@ async function plan(client: Client, roomId: string): Promise<void> {
   await client.callTool({ name: 'room_create', arguments: { room_id: roomId } });
   await client.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: roomId } });
   await client.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: roomId } });
+}
+
+function materialize(service: RoomService, roomId: string, taskId: string, runId: string, repo: string): void {
+  const task = makeTask({ task_id: taskId, room_id: roomId, run_id: runId, created_at: '2026-09-01T00:00:00.000Z' });
+  const { confirmed_by_user: _confirmed, confirmed_findings: _findings, ...taskSpec } = task;
+  const planId = `plan-${roomId}`;
+  const revisionId = `revision-${roomId}`;
+  service.createPlan({ plan_id: planId, room_id: roomId, created_by_participant_id: 'codex-app', created_at: task.created_at }, PLANNER);
+  const worker = service.listRoleAssignments(roomId).find((assignment) => assignment.role === 'worker');
+  assert.ok(worker);
+  service.createPlanRevision({ revision_id: revisionId, plan_id: planId, room_id: roomId, revision_no: 1, supersedes_revision_id: null, concurrency_limit: 1, acceptance_policy: 'per_task', nodes: [{ node_id: `node-${roomId}`, kind: 'task', task_spec: { ...taskSpec, type: 'implementation', parent_task_id: null, based_on_review_id: null }, dependencies: [], write_scopes: [{ path: '.', kind: 'tree' }], worker_assignment_id: worker.assignment_id, priority: 0 }], created_by_participant_id: 'codex-app', created_at: task.created_at }, PLANNER);
+  service.decidePlanRevision({ approval_id: `approval-${roomId}`, room_id: roomId, target_type: 'task_graph_revision', target_id: revisionId, decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: task.created_at }, PLANNER);
+  service.reconcilePlan({ room_id: roomId, plan_id: planId, worktrees: [{ node_id: `node-${roomId}`, dispatch_id: `dispatch-${roomId}`, canonical_worktree_path: repo }] }, ORCHESTRATOR);
 }
 
 function recordingIo(): {
@@ -174,15 +187,9 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
   try {
     // 各自完成 planning gate，提交各自 Task。
     await plan(codexA, 'room-a');
-    await codexA.callTool({
-      name: 'room_submit_task',
-      arguments: makeTask({ task_id: 'task-a-1', room_id: 'room-a', run_id: 'run-a-1' }) as unknown as Record<string, unknown>,
-    });
+    materialize(serviceA, 'room-a', 'task-a-1', 'run-a-1', fixtureA.repo);
     await plan(codexB, 'room-b');
-    await codexB.callTool({
-      name: 'room_submit_task',
-      arguments: makeTask({ task_id: 'task-b-1', room_id: 'room-b', run_id: 'run-b-1' }) as unknown as Record<string, unknown>,
-    });
+    materialize(serviceB, 'room-b', 'task-b-1', 'run-b-1', fixtureB.repo);
 
     // barrier-gate：两个 fake child 都 spawn 后 drive 才允许交错执行；每个 drive 只在自己
     // 的 read 门后写入 stdout/close，保证 cross-database 观察落在对方仍 in-flight 的窗口。
@@ -332,17 +339,19 @@ test('two projects run parallel one-shot runs with cross-database entity isolati
     assert.equal(itemB.current_question_id, null, 'B must not see A question');
     assert.equal(itemB.current_review_id, 'review-b-1');
     // Event 序列：A 只有 question pause 事件，B 只有完成 + review 事件。
-    assert.equal(stateA.cursor, 8);
-    assert.equal(stateB.cursor, 8);
+    assert.equal(stateA.cursor, 12);
+    assert.equal(stateB.cursor, 12);
     const eventsA = stateA.events as { type: string; room_id: string }[];
     const eventsB = stateB.events as { type: string; room_id: string }[];
-    assert.equal(eventsA.length, 8);
+    assert.equal(eventsA.length, 12);
+    assert.equal(eventsA.filter((e) => e.type === 'graph_node_materialized').length, 1);
     assert.equal(eventsA.filter((e) => e.type === 'run_attempt_claimed').length, 1);
     assert.equal(eventsA.filter((e) => e.type === 'question_asked').length, 1);
     assert.equal(eventsA.filter((e) => e.type === 'run_attempt_needs_decision').length, 1);
     assert.equal(eventsA.filter((e) => e.type === 'run_attempt_succeeded').length, 0);
     assert.equal(eventsA.filter((e) => e.type === 'review_submitted').length, 0);
-    assert.equal(eventsB.length, 8);
+    assert.equal(eventsB.length, 12);
+    assert.equal(eventsB.filter((e) => e.type === 'graph_node_materialized').length, 1);
     assert.equal(eventsB.filter((e) => e.type === 'run_attempt_succeeded').length, 1);
     assert.equal(eventsB.filter((e) => e.type === 'review_submitted').length, 1);
     assert.equal(eventsB.filter((e) => e.type === 'question_asked').length, 0);

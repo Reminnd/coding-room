@@ -605,4 +605,24 @@ Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current aut
 - GitAction必须经过typed preview、`confirmed_by_user=true` Approval、single execution与`succeeded|failed|outcome_unknown` settlement；首版候选只允许`create_worktree|commit_paths|integrate_fast_forward`。
 - target不包含hash/fingerprint validator、background scheduler、automatic Agent launch、push/rebase/reset/clean/delete/merge commit或冲突自动解决。
 
-Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)，accepted source/planning已形成versioned clean baseline，阶段=`PLAN_READY`；Coding task创建、database/binding与Git operation仍需分别授权。
+Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并由本次提交进入版本化`main`，阶段=`ACCEPTED`。Active v0.3 protocol保持Current；database/binding cutover与Increment 13 Git operation仍需分别授权。
+
+## 18. Increment 12 accepted source — protocol `0.5-design`
+
+> 状态：Accepted / Versioned source；active v0.3 database/binding不变。
+
+- Entity：`Plan`、immutable `TaskGraphRevision`（`acceptance_policy=per_task`）、generic `Approval(target_type=task_graph_revision)`、`NodeDispatch`。`TaskSpec`是strict schema，不接受`confirmed_by_user`；materialization才补exact `true`。
+- Assignment resolution：`task > plan > room`；Plan scope必须引用same-Room existing Plan。
+- Commands：`room_create_plan`、`room_create_plan_revision`、`room_decide_plan_revision`、`room_reconcile_plan`；public `room_submit_task`对Implementation返回`validation_failed`，Fix path保留。
+- Transaction：revision decision重新验证latest lineage、DAG、assignment、scope overlap与amendment immutability；reconcile只消费latest approved revision；claim原子验证revision、Room active attempts、active scopes与dispatch worktree。
+- Scope grammar：repo-relative POSIX `path`、`kind=file|tree`，root only `.` tree；absolute、empty、backslash、glob、empty/`.`/`..` component拒绝；overlap按component boundary判断。
+- Stable errors：`plan_revision_not_approved`、`scope_conflict`、`immutable_revision_violation`、`concurrency_limit_reached`。
+- Events：`plan_created`、`task_graph_revision_created`、`task_graph_revision_approved|rejected`、`graph_node_materialized`、`node_scope_violated`。
+- Snapshot：增加`plans`、`task_graph_revisions`、`approvals`、`node_dispatches`、ordered `graph_work_items`；只返回目标Room数据。
+
+Fix后exact语义：
+
+- current revision authority是Plan的exact latest `TaskGraphRevision`且存在terminal `decision=approved` Approval；latest为Draft/rejected或不存在时不可执行，reconcile零materialization，旧revision Run的新claim以`plan_revision_not_approved`零写入拒绝。
+- `NodeDispatch.scope_violated=true`或`status=blocked`时`acceptReview`在任何durable写入前返回`validation_failed`；dependency readiness同时要求dependency Run=`accepted`、dispatch=`completed`、`scope_violated=false`。
+- 只有同Run的successful Fix attempt且live staged/unstaged/untracked路径全部in-scope时，settlement transaction内清除`scope_violated`并恢复`dispatched`；其它terminal结果或非Fix attempt均不恢复，不新增Event type。
+- Plan/Revision/Approval existing same-ID retry先按stored frozen creator/planner participant与required role认证，再比较normalized caller-owned content；enabled frozen identity的same-content retry返回existing且`created=false`、零Event，different content=`id_conflict`，replacement/unknown/disabled/wrong-role=`actor_not_allowed`。只有new entity创建消费current assignment。

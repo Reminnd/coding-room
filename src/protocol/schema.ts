@@ -3,10 +3,10 @@ import { z } from 'zod';
 // 标识符是稳定的 opaque string。
 const id = z.string().min(1);
 
-// v0.4 protocol version：新 database 必须持久化并在 writable open 前校验 exact value；
+// v0.5 protocol version：新 database 必须持久化并在 writable open 前校验 exact value；
 // 缺失 metadata 的 v0.2 database 与 v0.3 database 都分类为 archive，以
 // protocol_version_mismatch 拒绝，绝不原地改写。
-export const PROTOCOL_VERSION = '0.4-design';
+export const PROTOCOL_VERSION = '0.5-design';
 export const protocolVersionSchema = z.literal(PROTOCOL_VERSION);
 
 // 严格 UTC ISO 8601 timestamp：z.iso.datetime() 只接受以 Z 结尾的合法 UTC datetime，
@@ -55,9 +55,9 @@ export const participantProfileSchema = z.object({
 });
 export type ParticipantProfile = z.infer<typeof participantProfileSchema>;
 
-// Stage 1 scope 收窄为 room|task（Review finding inc9-r2）：run|review scope 在出现真实
-// pre-creation consumer 前不进入 schema/public command，MCP boundary 直接拒绝。
-export const roleAssignmentScopeSchema = z.enum(['room', 'task']);
+// Increment 12 增加 Plan scope；run/review scope 在出现真实 pre-creation consumer 前不进入
+// schema/public command，MCP boundary 直接拒绝。
+export const roleAssignmentScopeSchema = z.enum(['room', 'plan', 'task']);
 
 export const roleAssignmentSchema = z.object({
   assignment_id: id,
@@ -152,6 +152,98 @@ export const taskContractSchema = z
     }
   });
 export type TaskContract = z.infer<typeof taskContractSchema>;
+
+// Draft graph content deliberately omits the user-confirmation literal. Only an exact
+// approved revision may be materialized into a formal TaskContract.
+export const taskSpecSchema = z.object({
+  task_id: id,
+  room_id: id,
+  run_id: id,
+  type: z.literal('implementation'),
+  parent_task_id: z.null(),
+  based_on_review_id: z.null(),
+  background: z.string(),
+  goal: z.string().min(1),
+  requirements: z.array(z.string()),
+  non_goals: z.array(z.string()),
+  architecture_decisions: z.array(z.string()),
+  scope: z.array(z.string()),
+  constraints: z.array(z.string()),
+  acceptance_criteria: z.array(z.string()),
+  verification: z.array(verificationStepSchema),
+  documentation_updates: z.array(documentationUpdateSchema),
+  question_policy: z.string(),
+  created_by: z.literal('codex'),
+  created_at: timestamp,
+}).strict();
+export type TaskSpec = z.infer<typeof taskSpecSchema>;
+
+export const writeScopeSchema = z.object({
+  path: z.string().min(1),
+  kind: z.enum(['file', 'tree']),
+});
+export type WriteScope = z.infer<typeof writeScopeSchema>;
+
+export const taskGraphNodeSchema = z.object({
+  node_id: id,
+  kind: z.literal('task'),
+  task_spec: taskSpecSchema,
+  dependencies: z.array(id),
+  write_scopes: z.array(writeScopeSchema).min(1),
+  worker_assignment_id: id,
+  priority: z.number().int(),
+});
+export type TaskGraphNode = z.infer<typeof taskGraphNodeSchema>;
+
+export const planSchema = z.object({
+  plan_id: id,
+  room_id: id,
+  created_by_participant_id: id,
+  created_at: timestamp,
+});
+export type Plan = z.infer<typeof planSchema>;
+
+export const taskGraphRevisionSchema = z.object({
+  revision_id: id,
+  plan_id: id,
+  room_id: id,
+  revision_no: z.number().int().positive(),
+  supersedes_revision_id: id.nullable(),
+  concurrency_limit: z.number().int().min(1).max(3),
+  acceptance_policy: z.literal('per_task'),
+  nodes: z.array(taskGraphNodeSchema).min(1),
+  created_by_participant_id: id,
+  created_at: timestamp,
+});
+export type TaskGraphRevision = z.infer<typeof taskGraphRevisionSchema>;
+
+export const approvalSchema = z.object({
+  approval_id: id,
+  room_id: id,
+  target_type: z.literal('task_graph_revision'),
+  target_id: id,
+  decision: z.enum(['approved', 'rejected']),
+  confirmed_by_user: z.literal(true),
+  planner_participant_id: id,
+  created_at: timestamp,
+});
+export type Approval = z.infer<typeof approvalSchema>;
+
+export const nodeDispatchSchema = z.object({
+  dispatch_id: id,
+  revision_id: id,
+  node_id: id,
+  task_id: id,
+  run_id: id,
+  canonical_worktree_path: z.string().min(1).nullable(),
+  status: z.enum(['waiting', 'ready', 'dispatched', 'blocked', 'completed']),
+  created_at: timestamp,
+  updated_at: timestamp,
+  dispatched_at: timestamp.nullable(),
+  completed_at: timestamp.nullable(),
+  scope_violated: z.boolean(),
+});
+export type NodeDispatch = z.infer<typeof nodeDispatchSchema>;
 
 // 持久化 Task 在 TaskContract 基础上固化提交时 resolved 的 planner/orchestrator identity；
 // 提交后 assignment 变化不改写既有 Task。
@@ -371,6 +463,10 @@ const entityTypeSchema = z.enum([
   'run_guidance',
   'review',
   'question',
+  'plan',
+  'task_graph_revision',
+  'approval',
+  'node_dispatch',
 ]);
 
 export const eventSchema = z.object({

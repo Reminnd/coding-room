@@ -17,17 +17,17 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 // 到达 DISCUSSION）。不启动真实/付费 Claude、不执行 room:run、不访问 network、不依赖
 // 固定 port 或 global Codex settings。
 //
-// Increment 10 v0.4 port：fresh/migration setup 现生成 v0.4 八字段 binding
-// （ordered archived_database_paths array、database_path=room-v0.4.sqlite、
-// protocol_version=0.4-design）；v0.2/v0.3 binding 是 archive 输入（只迁移不复用），
-// 旧 database 保持原路径与逐 byte 内容不变；snapshot 断言改用 v0.4 的
+// Increment 10 v0.5 port：fresh/migration setup 现生成 v0.5 八字段 binding
+// （ordered archived_database_paths array、database_path=room-v0.5.sqlite、
+// protocol_version=0.5-design）；v0.2/v0.3 binding 是 archive 输入（只迁移不复用），
+// 旧 database 保持原路径与逐 byte 内容不变；snapshot 断言改用 v0.5 的
 // planning_waiting_actor/run_work_items（current_* 字段已移除）。
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const helperPath = join(root, 'plugins', 'agent-room', 'skills', 'agent-room', 'scripts', 'setup-project.ts');
 const servePath = join(root, 'src', 'mcp', 'serve.ts');
 
-// 与 helper 冻结的 GITIGNORE_ENTRIES 顺序一致：v0.4 database 条目追加，旧版本条目保留
+// 与 helper 冻结的 GITIGNORE_ENTRIES 顺序一致：v0.5 database 条目追加，旧版本条目保留
 //（archived database 继续以原路径存在于 .agent-room）。
 const GITIGNORE_ENTRIES = [
   '.agent-room/runtime.json',
@@ -35,12 +35,12 @@ const GITIGNORE_ENTRIES = [
   '.agent-room/room.sqlite-*',
   '.agent-room/room-v0.3.sqlite',
   '.agent-room/room-v0.3.sqlite-*',
-  '.agent-room/room-v0.4.sqlite',
-  '.agent-room/room-v0.4.sqlite-*',
+  '.agent-room/room-v0.5.sqlite',
+  '.agent-room/room-v0.5.sqlite-*',
   '.agent-room/artifacts/',
 ];
 
-// v0.4 八字段：五字段 + protocol_version + control_participant_id +
+// v0.5 八字段：五字段 + protocol_version + control_participant_id +
 // archived_database_paths（有序 array）。
 const V04_FIELDS = [
   'agent_room_root',
@@ -154,7 +154,7 @@ function stopChild(child: ChildProcess | undefined): Promise<void> {
   });
 }
 
-test('fresh setup creates the exact eight-field v0.4 binding, project config and ignore rules from an operator-provided root', () => {
+test('fresh setup creates the exact eight-field v0.5 binding, project config and ignore rules from an operator-provided root', () => {
   const fixture = makeProject();
   try {
     const r = runHelper(fixture, ['--agent-room-root', root]);
@@ -170,12 +170,12 @@ test('fresh setup creates the exact eight-field v0.4 binding, project config and
     assert.equal(summary.mode, 'created');
     const rt = summary.runtime;
     assert.equal(rt.agent_room_root, root);
-    assert.equal(rt.database_path, join(fixture, '.agent-room', 'room-v0.4.sqlite'));
+    assert.equal(rt.database_path, join(fixture, '.agent-room', 'room-v0.5.sqlite'));
     assert.equal(rt.project_path, fixture);
     assert.ok(Number.isInteger(rt.port) && (rt.port as number) >= 1 && (rt.port as number) <= 65535);
     assert.match(rt.room_id as string, /^room-[0-9a-f-]{36}$/);
-    // v0.4 binding 额外三字段：frozen protocol version、control participant 与有序 archive array。
-    assert.equal(rt.protocol_version, '0.4-design');
+    // v0.5 binding 额外三字段：frozen protocol version、control participant 与有序 archive array。
+    assert.equal(rt.protocol_version, '0.5-design');
     assert.equal(rt.control_participant_id, 'codex-app');
     assert.deepEqual(rt.archived_database_paths, []);
     assert.equal(summary.config.action, 'created');
@@ -401,7 +401,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
       const configBefore = readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8');
       const r = runHelper(fixture, ['--agent-room-root', root]);
       assert.notEqual(r.status, 0);
-      assert.match(r.stderr, /must contain exactly the v0\.2 five fields, the v0\.3 eight fields, or the v0\.4 eight fields/);
+      assert.match(r.stderr, /must contain exactly the v0\.2 five fields, the v0\.3 eight fields, or the v0\.5 eight fields/);
       assert.equal(readFileSync(runtimePath, 'utf8'), JSON.stringify(extended, null, 2) + '\n');
       assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), configBefore);
     } finally {
@@ -472,7 +472,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
   }
 });
 
-test('existing v0.4 binding with a non-codex-app control identity fails before any write with all three files byte-identical', () => {
+test('existing v0.5 binding with a non-codex-app control identity fails before any write with all three files byte-identical', () => {
   // Fix inc9-fr2-5：existing binding 只在 control_participant_id exact 为 codex-app 时复用；
   // mismatch 必须在 runtime/config/gitignore 任何 write 前失败。tamper 只改 runtime.json
   // 的 control_participant_id 值（仍为八字段），public CLI 必须以非零 exit 拒绝且逐 byte 零写入。
@@ -501,7 +501,7 @@ test('existing v0.4 binding with a non-codex-app control identity fails before a
   }
 });
 
-test('existing v0.4 binding with an unframed candidate config URL fails as a binding/config mismatch with zero writes and no auto-migration', () => {
+test('existing v0.5 binding with an unframed candidate config URL fails as a binding/config mismatch with zero writes and no auto-migration', () => {
   // Fix inc9-fr4：既有 binding 的 config 若保留旧 unframed candidate URL（如
   // .../mcp/participants/codex-app），它既不是 framed participant route 也不是 leftover
   // v0.2 /mcp/codex URL，helper 必须按 binding/config mismatch 在任何写入前拒绝
@@ -659,10 +659,10 @@ test('valid runtime with dotted agent_room/other keys nested inside an unrelated
   }
 });
 
-// Fix inc9-r6 + Increment 10 v0.4：valid v0.2 binding 的 migration public CLI。旧 database
-// 保持原路径与逐 byte 内容不变（archive），生成独立 v0.4 identity；archived_database_paths
+// Fix inc9-r6 + Increment 10 v0.5：valid v0.2 binding 的 migration public CLI。旧 database
+// 保持原路径与逐 byte 内容不变（archive），生成独立 v0.5 identity；archived_database_paths
 // 只含旧 v0.2 database；migration rerun 复用同一 identity 且 mode=reused；conflict 零写入。
-test('v0.2 binding migration preserves the old database byte-for-byte, creates an independent v0.4 identity and is idempotent', () => {
+test('v0.2 binding is rejected byte-for-byte before direct v0.5 migration', () => {
   const fixture = makeProject();
   try {
     // 测试侧 literal 建立 valid v0.2 五字段 binding 与真实 v0.2 SQLite archive。
@@ -698,85 +698,28 @@ test('v0.2 binding migration preserves the old database byte-for-byte, creates a
     const legacyConfig = `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/codex"\n`;
     writeFileSync(join(fixture, '.codex', 'config.toml'), legacyConfig);
 
-    // migration 要求 operator 再提供一次 --agent-room-root；缺失时零写入。
+    // Increment 12 only supports active v0.3→v0.5. A v0.2 binding remains archive-only.
     const withoutRoot = runHelper(fixture, []);
     assert.notEqual(withoutRoot.status, 0);
-    assert.match(withoutRoot.stderr, /--agent-room-root is required to migrate/);
+    assert.match(withoutRoot.stderr, /v0\.2 binding is archive-only/);
     assert.deepEqual(readFileSync(oldDb), oldDbBytes);
     assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), legacyConfig);
 
     const r = runHelper(fixture, ['--agent-room-root', root]);
-    assert.equal(r.status, 0, r.stderr);
-    const summary = JSON.parse(r.stdout) as {
-      mode: string;
-      runtime: Record<string, unknown>;
-      config: { action: string };
-      gitignore: { action: string };
-      reload_required: boolean;
-    };
-    assert.equal(summary.mode, 'migrated');
-    const rt = summary.runtime;
-    assert.equal(rt.agent_room_root, root);
-    assert.equal(rt.database_path, join(fixture, '.agent-room', 'room-v0.4.sqlite'));
-    assert.equal(rt.project_path, fixture);
-    assert.equal(rt.port, legacyPort, 'migration must reuse the v0.2 port');
-    assert.match(rt.room_id as string, /^room-[0-9a-f-]{36}$/);
-    assert.notEqual(rt.room_id, 'room-v02-1', 'migration must generate a new room_id');
-    assert.equal(rt.protocol_version, '0.4-design');
-    assert.equal(rt.control_participant_id, 'codex-app');
-    assert.deepEqual(rt.archived_database_paths, [oldDb], 'old database path becomes the only archive entry');
-    assert.equal(summary.config.action, 'updated');
-    assert.equal(summary.gitignore.action, 'created');
-    assert.equal(summary.reload_required, true);
-
-    // 磁盘证据：旧 database 逐 byte 不变（helper 从不打开旧 database）；runtime 为恰好
-    // 八字段 v0.4 binding；config 指向 participant route；新 v0.4 database 只由 serve 初始化。
-    assert.deepEqual(readFileSync(oldDb), oldDbBytes, 'v0.2 archive must be preserved byte-for-byte');
-    const runtimeOnDisk = JSON.parse(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'));
-    assert.deepEqual(runtimeOnDisk, rt);
-    assert.deepEqual(Object.keys(runtimeOnDisk).sort(), V04_FIELDS);
-    assert.equal(
-      readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'),
-      `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/participants/p~codex-app"\n`,
-    );
-    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.4.sqlite')), false);
-
-    // migration rerun：mode=reused、identity 稳定、三文件 byte-identical、旧 database 不变。
-    const runtimeBefore = readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8');
-    const configBefore = readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8');
-    const gitignoreBefore = readFileSync(join(fixture, '.gitignore'), 'utf8');
-    const r2 = runHelper(fixture, []);
-    assert.equal(r2.status, 0, r2.stderr);
-    const second = JSON.parse(r2.stdout);
-    assert.equal(second.mode, 'reused');
-    assert.deepEqual(second.runtime, rt, 'migration rerun must reuse the exact v0.4 identity');
-    assert.equal(second.config.action, 'unchanged');
-    assert.equal(second.reload_required, false);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /v0\.2 binding is archive-only/);
     assert.deepEqual(readFileSync(oldDb), oldDbBytes);
-    assert.equal(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'), runtimeBefore);
-    assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), configBefore);
-    assert.equal(readFileSync(join(fixture, '.gitignore'), 'utf8'), gitignoreBefore);
-
-    // conflict（config URL 被改成其它值）：零写入，四份文件 byte-identical，不生成新 database。
-    const conflictConfig = `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/other"\n`;
-    writeFileSync(join(fixture, '.codex', 'config.toml'), conflictConfig);
-    const r3 = runHelper(fixture, []);
-    assert.notEqual(r3.status, 0);
-    assert.match(r3.stderr, /config conflict: \[mcp_servers\.agent_room\] url is/);
-    assert.deepEqual(readFileSync(oldDb), oldDbBytes);
-    assert.equal(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'), runtimeBefore);
-    assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), conflictConfig);
-    assert.equal(readFileSync(join(fixture, '.gitignore'), 'utf8'), gitignoreBefore);
-    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.4.sqlite')), false);
+    assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), legacyConfig);
+    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.5.sqlite')), false);
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
 
-// Increment 10 v0.4：v0.3→v0.4 migration 的 ordered archive array。旧 v0.3 database 与
+// Increment 10 v0.5：v0.3→v0.5 migration 的 ordered archive array。旧 v0.3 database 与
 // v0.3 binding 记录的 v0.2 archived database 都保持原路径与逐 byte 内容不变，archives 按
-// 版本先后排序 [v0.2, v0.3]；生成新 room-v0.4.sqlite、新 room_id 与 control participant，
-// 复用 port；migration rerun 复用同一 v0.4 identity。
+// 版本先后排序 [v0.2, v0.3]；生成新 room-v0.5.sqlite、新 room_id 与 control participant，
+// 复用 port；migration rerun 复用同一 v0.5 identity。
 test('v0.3 binding migration preserves both old databases byte-for-byte and archives them in version order', () => {
   const fixture = makeProject();
   try {
@@ -812,7 +755,7 @@ test('v0.3 binding migration preserves both old databases byte-for-byte and arch
         2,
       ) + '\n',
     );
-    // v0.3 framed participant route 与 v0.4 expectedUrl 完全一致，migration 不改写 config。
+    // v0.3 framed participant route 与 v0.5 expectedUrl 完全一致，migration 不改写 config。
     const framedConfig = `[mcp_servers.agent_room]\nurl = "http://127.0.0.1:${legacyPort}/mcp/participants/p~codex-app"\n`;
     mkdirSync(join(fixture, '.codex'), { recursive: true });
     writeFileSync(join(fixture, '.codex', 'config.toml'), framedConfig);
@@ -826,11 +769,11 @@ test('v0.3 binding migration preserves both old databases byte-for-byte and arch
     };
     assert.equal(summary.mode, 'migrated');
     const rt = summary.runtime;
-    assert.equal(rt.database_path, join(fixture, '.agent-room', 'room-v0.4.sqlite'));
+    assert.equal(rt.database_path, join(fixture, '.agent-room', 'room-v0.5.sqlite'));
     assert.equal(rt.port, legacyPort, 'migration must reuse the v0.3 port');
     assert.match(rt.room_id as string, /^room-[0-9a-f-]{36}$/);
     assert.notEqual(rt.room_id, 'room-v03-1', 'migration must generate a new room_id');
-    assert.equal(rt.protocol_version, '0.4-design');
+    assert.equal(rt.protocol_version, '0.5-design');
     assert.equal(rt.control_participant_id, 'codex-app');
     assert.deepEqual(
       rt.archived_database_paths,
@@ -839,10 +782,10 @@ test('v0.3 binding migration preserves both old databases byte-for-byte and arch
     );
     assert.equal(summary.config.action, 'unchanged', 'framed route needs no URL rewrite');
 
-    // 磁盘证据：两个旧 database 逐 byte 不变；新 v0.4 database 只由 serve 初始化。
+    // 磁盘证据：两个旧 database 逐 byte 不变；新 v0.5 database 只由 serve 初始化。
     assert.deepEqual(readFileSync(v02Db), v02Bytes, 'v0.2 archive must be preserved byte-for-byte');
     assert.deepEqual(readFileSync(v03Db), v03Bytes, 'v0.3 archive must be preserved byte-for-byte');
-    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.4.sqlite')), false);
+    assert.equal(existsSync(join(fixture, '.agent-room', 'room-v0.5.sqlite')), false);
     assert.equal(readFileSync(join(fixture, '.codex', 'config.toml'), 'utf8'), framedConfig);
 
     // migration rerun：mode=reused、identity 稳定、archive list 不变。
@@ -851,7 +794,7 @@ test('v0.3 binding migration preserves both old databases byte-for-byte and arch
     assert.equal(r2.status, 0, r2.stderr);
     const second = JSON.parse(r2.stdout);
     assert.equal(second.mode, 'reused');
-    assert.deepEqual(second.runtime, rt, 'migration rerun must reuse the exact v0.4 identity');
+    assert.deepEqual(second.runtime, rt, 'migration rerun must reuse the exact v0.5 identity');
     assert.deepEqual(readFileSync(v02Db), v02Bytes);
     assert.deepEqual(readFileSync(v03Db), v03Bytes);
     assert.equal(readFileSync(join(fixture, '.agent-room', 'runtime.json'), 'utf8'), runtimeBefore);
@@ -916,7 +859,7 @@ test('actual loopback setup E2E: serve boundary plus reload continuation room_cr
     const recreated = await client.callTool({ name: 'room_create', arguments: { room_id: roomId } });
     assert.equal((recreated.structuredContent as { created: boolean }).created, false);
 
-    // 最终 room_get_state 返回同一 Room 且 state=DISCUSSION；v0.4 snapshot 无 current_*
+    // 最终 room_get_state 返回同一 Room 且 state=DISCUSSION；v0.5 snapshot 无 current_*
     // 字段：planning-only Room 用 planning_waiting_actor，Task/Run/attempt/review/question
     // 与 run_work_items 均为空数组。
     const state = await client.callTool({ name: 'room_get_state', arguments: { room_id: roomId } });
@@ -932,7 +875,7 @@ test('actual loopback setup E2E: serve boundary plus reload continuation room_cr
     assert.deepEqual(snapshot.reviews, []);
     assert.deepEqual(snapshot.questions, []);
     assert.deepEqual(snapshot.run_work_items, []);
-    assert.equal((snapshot as Record<string, unknown>).current_task, undefined, 'v0.4 snapshot must not expose current_*');
+    assert.equal((snapshot as Record<string, unknown>).current_task, undefined, 'v0.5 snapshot must not expose current_*');
     const events = snapshot.events as { type: string; sequence: number }[];
     assert.equal(events.length, 1, 'setup continuation must create exactly one Room event');
     assert.equal(events[0].type, 'room_created');

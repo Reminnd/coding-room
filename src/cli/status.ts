@@ -10,8 +10,7 @@ import { getRoomStateSnapshot, type RoomStateSnapshot } from '../room/state-snap
 // database/schema；对有效 database 只读 snapshot，不创建 Room/entity/Event，不执行 state
 // transition。invalid args / entity / protocol failure 写 stderr 并 non-zero exit。
 //
-// v0.4：multi-Run 输出 planning_waiting_actor 与全部 run_work_items（稳定排序），不存在单一
-// current Run 造成的覆盖。
+// v0.5：在 multi-Run 输出上增加 graph_work_items；两者均由共享 snapshot 稳定输出。
 
 interface StatusConfig {
   db: string;
@@ -67,6 +66,10 @@ function formatStatus(snapshot: RoomStateSnapshot): string {
     state: snapshot.room.state,
     planning_waiting_actor: snapshot.planning_waiting_actor,
     cursor: snapshot.cursor,
+    plans: snapshot.plans,
+    task_graph_revisions: snapshot.task_graph_revisions,
+    approvals: snapshot.approvals,
+    graph_work_items: snapshot.graph_work_items,
     runs: snapshot.run_work_items.map((item) => ({
       run_id: item.run_id,
       status: item.run_status,

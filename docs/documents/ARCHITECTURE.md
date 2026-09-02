@@ -385,7 +385,7 @@ fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0
 - 不恢复baseline、file hash、Diff fingerprint、commit hash precondition、branch mirror或timestamp validator；Git result commit ID只作为historical evidence。
 - 推荐先版本化accepted v0.4 source而不cutover，Stage 3使用fresh `0.5-design`，拆分Graph/Scheduler与Git Controller两个Increment并在Stage 3整体接受后单次cutover。
 
-用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认并为`Accepted`；本节与Contract确认均不构成Current schema、Coding task、Git或runtime授权。
+用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并由本次提交进入版本化`main`，未引入超出本节Approved architecture的新决策。Active runtime/database/binding仍为v0.3，未执行cutover；本节也不授权Increment 13 Git operation。
 
 ## 4. 依赖方向
 
@@ -570,3 +570,18 @@ runtime/
 - 公共 protocol、SQLite schema、package metadata、lockfile、central entry point 和跨模块 wiring 是 integration boundary；默认串行修改，不分配给多个 worker。
 - Codex 拥有 task decomposition、接口冻结、Review 和 integration plan；Claude Code 只拥有其模块 Task 的 Coding；用户保留 branch/worktree、提交、集成和最终接受权限。branch、worktree 和 baseline 作为 Git dispatch metadata 记录，不扩展当前 Room Task schema。
 - 首轮试点不实现 scheduler、自动 merge、冲突解决、generic Agent adapter 或 Room parallel-run state。是否将这些能力产品化仍按第 13 节重新评估。
+
+## 15. Increment 12 accepted source — DAG Scheduler Foundation
+
+> 状态：Accepted / Versioned source；active runtime/database/binding仍为v0.3，未执行cutover。
+
+`src/scheduler/plan-scheduler.ts`形成最小Scheduler boundary：纯函数验证DAG、POSIX component write scope、dependency readiness与确定性顺序；`PlanScheduler.reconcile`复用只读Git Observer canonicalize operator-prepared existing worktree，再调用Room application transaction。SQLite新增`plans`、`task_graph_revisions`、`approvals`、`node_dispatches`；Graph保存依赖与scope，Stage 2 `Run`/`RunAttempt`/`Review`继续拥有execution与acceptance。
+
+依赖方向为`MCP → PlanScheduler → Git Observer(read-only) + RoomService → Repository`。reconcile不启动process、不创建或切换worktree、不执行任何Git write。approved revision materialization在一个`BEGIN IMMEDIATE` transaction内创建`NodeDispatch + Task + Run + Events`；claim在现有atomic transaction内增加latest approved revision、`concurrency_limit`、scope overlap与frozen worktree gate。successful attempt的live path evidence在同一settlement transaction内审计；越界保持Run=`review_required`，把NodeDispatch标为`blocked`。
+
+Fix后权威语义：
+
+- current execution authority是Plan的exact latest revision及其terminal approved Approval；newer Draft/rejected revision存在时不回退旧approved revision。
+- claim的revision、node、write scope与`concurrency_limit`全部来自同一current approved revision；历史NodeDispatch reference不覆盖amendment后的current limit。
+- `scope_violated=true`或`blocked` dispatch在`acceptReview`任何写入前被拒绝；dependency readiness同时要求dependency Run=`accepted`、NodeDispatch=`completed`且`scope_violated=false`。恢复只能由同Run后续successful in-scope Fix attempt在同一settlement transaction内产生。
+- assignment replacement只影响future entity：已dispatch node保留frozen worker assignment与Run worker，new/undispatched node使用current active assignment。

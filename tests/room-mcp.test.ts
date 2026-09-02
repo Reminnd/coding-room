@@ -215,7 +215,7 @@ function resultText(result: unknown): string {
   return typeof text === 'string' ? text : '';
 }
 
-test('a participant route exposes exactly the fifteen v0.4 tools', async () => {
+test('a participant route exposes exactly the nineteen v0.5 tools', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
@@ -230,8 +230,12 @@ test('a participant route exposes exactly the fifteen v0.4 tools', async () => {
       'room_begin_architecture_review',
       'room_cancel_run',
       'room_create',
+      'room_create_plan',
+      'room_create_plan_revision',
       'room_create_role_assignment',
+      'room_decide_plan_revision',
       'room_get_state',
+      'room_reconcile_plan',
       'room_register_participant',
       'room_request_user_confirmation',
       'room_retry_run',
@@ -417,7 +421,7 @@ test('room_get_state shows the Fix Task for a fix-ready Run before the next clai
   }
 });
 
-test('room_submit_task creates a ready Run, freezes the bootstrap worker and returns the Room to DISCUSSION', async () => {
+test('room_submit_task rejects direct Implementation with zero Task/Run write', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
@@ -429,19 +433,10 @@ test('room_submit_task creates a ready Run, freezes the bootstrap worker and ret
     const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
     const result = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
-    assert.equal(result.isError, undefined);
-    const out = result.structuredContent as {
-      created: boolean;
-      room: { state: string };
-      task: { task_id: string };
-      run: { run_id: string; status: string; worker_participant_id: string };
-    };
-    assert.equal(out.created, true);
-    assert.equal(out.room.state, 'DISCUSSION');
-    assert.equal(out.task.task_id, 'task-1');
-    assert.equal(out.run.run_id, 'run-1');
-    assert.equal(out.run.status, 'ready');
-    assert.equal(out.run.worker_participant_id, 'claude-code-cli');
+    assert.equal(result.isError, true);
+    assert.equal(errorPayload(result).code, 'validation_failed');
+    assert.equal(service.listTasks('room-1').length, 0);
+    assert.equal(service.listRuns('room-1').length, 0);
     await codex.close();
   } finally {
     await close();
@@ -449,7 +444,7 @@ test('room_submit_task creates a ready Run, freezes the bootstrap worker and ret
   }
 });
 
-test('room_submit_task same-content retry is idempotent and different-content conflicts', async () => {
+test('room_create_plan same-content retry is idempotent and different-content conflicts', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
@@ -460,20 +455,188 @@ test('room_submit_task same-content retry is idempotent and different-content co
   try {
     const codex = await connect(url, CODEX_ROUTE);
     await codex.listTools();
-    const first = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
+    const plan = { plan_id: 'plan-1', room_id: 'room-1', created_by_participant_id: 'codex-app', created_at: '2026-09-01T00:00:00.000Z' };
+    const first = await codex.callTool({ name: 'room_create_plan', arguments: plan });
     assert.equal((first.structuredContent as { created: boolean }).created, true);
 
-    const retry = await codex.callTool({ name: 'room_submit_task', arguments: makeTask() as unknown as Record<string, unknown> });
+    const retry = await codex.callTool({ name: 'room_create_plan', arguments: plan });
     assert.equal(retry.isError, undefined);
-    const retryOut = retry.structuredContent as { created: boolean; room: { state: string }; run: { status: string } };
+    const retryOut = retry.structuredContent as { created: boolean };
     assert.equal(retryOut.created, false);
-    assert.equal(retryOut.room.state, 'DISCUSSION');
-    assert.equal(retryOut.run.status, 'ready');
 
-    const conflict = await codex.callTool({ name: 'room_submit_task', arguments: makeTask({ goal: 'changed' }) as unknown as Record<string, unknown> });
+    const conflict = await codex.callTool({ name: 'room_create_plan', arguments: { ...plan, created_at: '2026-09-01T00:00:01.000Z' } });
     assert.equal(conflict.isError, true);
     assert.equal(errorPayload(conflict).code, 'id_conflict');
     await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('Plan/Revision/Approval frozen same-ID retries follow stored identity on the public MCP routes', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  const createdAt = '2026-09-01T00:00:00.000Z';
+  const later = '2026-09-01T00:00:01.000Z';
+  const plan = { plan_id: 'plan-1', room_id: 'room-1', created_by_participant_id: 'codex-app', created_at: createdAt };
+  service.createPlan(plan, PLANNER);
+  const worker = service.listRoleAssignments('room-1').find((assignment) => assignment.role === 'worker');
+  assert.ok(worker);
+  const task = makeTask({ created_at: createdAt });
+  const { confirmed_by_user: _confirmed, confirmed_findings: _findings, ...taskSpec } = task;
+  const revision = {
+    revision_id: 'revision-1', plan_id: 'plan-1', room_id: 'room-1', revision_no: 1,
+    supersedes_revision_id: null, concurrency_limit: 2, acceptance_policy: 'per_task',
+    nodes: [{ node_id: 'node-1', kind: 'task', task_spec: { ...taskSpec, type: 'implementation', parent_task_id: null, based_on_review_id: null }, dependencies: [], write_scopes: [{ path: '.', kind: 'tree' }], worker_assignment_id: worker.assignment_id, priority: 1 }],
+    created_by_participant_id: 'codex-app', created_at: createdAt,
+  };
+  service.createPlanRevision(revision, PLANNER);
+  const approvalArgs = { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: createdAt };
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, CODEX_ROUTE);
+    const operator = await connect(url, OPERATOR_ROUTE);
+    await codex.listTools();
+    await operator.listTools();
+    // 测试侧 zero-write Oracle（Review finding inc12-fr2）：每次 same-content retry /
+    // id_conflict / actor_not_allowed 前后各读一次完整 room_get_state 并 deepEqual；不得
+    // 用 selected collection、Event count 或 shared service query 代替 public evidence。
+    // reader 可指定 route：disabled frozen participant 自身不可再读 room_get_state，该
+    // 阶段改经 codex2 route 读取同一完整 response。
+    const zeroWrite = async (reader: Client, operation: () => Promise<void>) => {
+      const before = await snapshot(reader, 'room-1');
+      await operation();
+      assert.deepEqual(await snapshot(reader, 'room-1'), before);
+    };
+    // same-content（created=false）与 different-content（id_conflict）：Plan 与 Revision
+    // 逐操作经 frozen planner 自身 route，前后完整 room_get_state deepEqual
+    await zeroWrite(codex, async () => {
+      const planRetry = await codex.callTool({ name: 'room_create_plan', arguments: plan });
+      assert.equal((planRetry.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const revisionRetry = await codex.callTool({ name: 'room_create_plan_revision', arguments: revision });
+      assert.equal((revisionRetry.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const planConflict = await codex.callTool({ name: 'room_create_plan', arguments: { ...plan, created_at: later } });
+      assert.equal(planConflict.isError, true);
+      assert.equal(errorPayload(planConflict).code, 'id_conflict');
+    });
+    await zeroWrite(codex, async () => {
+      const revisionConflict = await codex.callTool({ name: 'room_create_plan_revision', arguments: { ...revision, created_at: later } });
+      assert.equal(revisionConflict.isError, true);
+      assert.equal(errorPayload(revisionConflict).code, 'id_conflict');
+    });
+    // wrong-role/identity 代表：operator route 以 planner-role tool 重放 frozen entity。
+    // MCP 每个 tool 固定 actor role，role 层（actor_role !== planner）不可经任何 public
+    // tool 表达，该分支由 service direct regression 的 REVIEWER case 直接覆盖。
+    await zeroWrite(codex, async () => {
+      const operatorRetry = await operator.callTool({ name: 'room_create_plan', arguments: plan });
+      assert.equal(operatorRetry.isError, true);
+      assert.equal(errorPayload(operatorRetry).code, 'actor_not_allowed');
+    });
+    // Approval 新创建（codex-app 此时仍是 active planner）+ frozen same-ID retry
+    await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
+    await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
+    const decision = await codex.callTool({ name: 'room_decide_plan_revision', arguments: approvalArgs });
+    assert.equal(decision.isError, undefined);
+    assert.equal((decision.structuredContent as { created: boolean }).created, true);
+    await zeroWrite(codex, async () => {
+      const approvalRetry = await codex.callTool({ name: 'room_decide_plan_revision', arguments: approvalArgs });
+      assert.equal((approvalRetry.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const approvalConflict = await codex.callTool({ name: 'room_decide_plan_revision', arguments: { ...approvalArgs, created_at: later } });
+      assert.equal(approvalConflict.isError, true);
+      assert.equal(errorPayload(approvalConflict).code, 'id_conflict');
+    });
+    // replacement：注册 codex-app-2 并建立 orchestrator/planner assignment（codex-app-2
+    // 成为 current active planner），其 route 不得接管 old frozen entity
+    const register = await codex.callTool({
+      name: 'room_register_participant',
+      arguments: makeParticipant({
+        participant_id: 'codex-app-2',
+        display_name: 'Codex App 2',
+        kind: 'agent',
+        provider: 'codex',
+        adapter_id: 'codex_app',
+        capabilities: ['planning', 'reviewing', 'supervising'],
+      }) as unknown as Record<string, unknown>,
+    });
+    assert.equal(register.isError, undefined);
+    await codex.callTool({ name: 'room_create_role_assignment', arguments: makeRoleAssignment({ assignment_id: 'orchestrator-2', role: 'orchestrator', participant_id: 'codex-app-2' }) as unknown as Record<string, unknown> });
+    const codex2 = await connect(url, '/mcp/participants/p~codex-app-2');
+    await codex2.listTools();
+    await codex2.callTool({ name: 'room_create_role_assignment', arguments: makeRoleAssignment({ assignment_id: 'planner-2', role: 'planner', participant_id: 'codex-app-2' }) as unknown as Record<string, unknown> });
+    // replacement 生效后三类 entity 逐操作 actor_not_allowed 且零写入
+    await zeroWrite(codex, async () => {
+      const planReplacement = await codex2.callTool({ name: 'room_create_plan', arguments: plan });
+      assert.equal(planReplacement.isError, true);
+      assert.equal(errorPayload(planReplacement).code, 'actor_not_allowed');
+    });
+    await zeroWrite(codex, async () => {
+      const revisionReplacement = await codex2.callTool({ name: 'room_create_plan_revision', arguments: revision });
+      assert.equal(revisionReplacement.isError, true);
+      assert.equal(errorPayload(revisionReplacement).code, 'actor_not_allowed');
+    });
+    await zeroWrite(codex, async () => {
+      const approvalReplacement = await codex2.callTool({ name: 'room_decide_plan_revision', arguments: approvalArgs });
+      assert.equal(approvalReplacement.isError, true);
+      assert.equal(errorPayload(approvalReplacement).code, 'actor_not_allowed');
+    });
+    // frozen identity 在 replacement 生效后仍可 same-content retry（不消费 current
+    // assignment）：Plan/Revision/Approval 逐实体 created=false 且零写入
+    await zeroWrite(codex, async () => {
+      const frozenAfterReplacement = await codex.callTool({ name: 'room_create_plan', arguments: plan });
+      assert.equal((frozenAfterReplacement.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const frozenRevisionAfterReplacement = await codex.callTool({ name: 'room_create_plan_revision', arguments: revision });
+      assert.equal((frozenRevisionAfterReplacement.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const frozenApprovalAfterReplacement = await codex.callTool({ name: 'room_decide_plan_revision', arguments: approvalArgs });
+      assert.equal((frozenApprovalAfterReplacement.structuredContent as { created: boolean }).created, false);
+    });
+    // disabled/re-enable：disabled frozen identity 对三类 entity 逐操作 actor_not_allowed
+    // 且零写入；re-enable 后 same-content retry 逐实体恢复 created=false 且零写入。
+    // disabled 期间 codex-app 自身不可读 room_get_state，零写 Oracle 改经 codex2 route。
+    await codex2.callTool({ name: 'room_set_participant_enabled', arguments: { participant_id: 'codex-app', enabled: false } });
+    await zeroWrite(codex2, async () => {
+      const disabledPlan = await codex.callTool({ name: 'room_create_plan', arguments: plan });
+      assert.equal(disabledPlan.isError, true);
+      assert.equal(errorPayload(disabledPlan).code, 'actor_not_allowed');
+    });
+    await zeroWrite(codex2, async () => {
+      const disabledRevision = await codex.callTool({ name: 'room_create_plan_revision', arguments: revision });
+      assert.equal(disabledRevision.isError, true);
+      assert.equal(errorPayload(disabledRevision).code, 'actor_not_allowed');
+    });
+    await zeroWrite(codex2, async () => {
+      const disabledApproval = await codex.callTool({ name: 'room_decide_plan_revision', arguments: approvalArgs });
+      assert.equal(disabledApproval.isError, true);
+      assert.equal(errorPayload(disabledApproval).code, 'actor_not_allowed');
+    });
+    await codex2.callTool({ name: 'room_set_participant_enabled', arguments: { participant_id: 'codex-app', enabled: true } });
+    await zeroWrite(codex, async () => {
+      const reenabledPlan = await codex.callTool({ name: 'room_create_plan', arguments: plan });
+      assert.equal((reenabledPlan.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const reenabledRevision = await codex.callTool({ name: 'room_create_plan_revision', arguments: revision });
+      assert.equal((reenabledRevision.structuredContent as { created: boolean }).created, false);
+    });
+    await zeroWrite(codex, async () => {
+      const reenabledApproval = await codex.callTool({ name: 'room_decide_plan_revision', arguments: approvalArgs });
+      assert.equal((reenabledApproval.structuredContent as { created: boolean }).created, false);
+    });
+    await codex.close();
+    await codex2.close();
+    await operator.close();
   } finally {
     await close();
     rmSync(fixture, { recursive: true, force: true });
@@ -511,6 +674,45 @@ test('room_submit_task fix task attaches to the review_discussion Run and return
     assert.equal(out.task.type, 'fix');
     assert.equal(out.run.run_id, 'run-1');
     assert.equal(out.run.status, 'ready');
+    await codex.close();
+  } finally {
+    await close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('Plan/Revision/Approval/reconcile public route materializes one graph work item', async () => {
+  const fixture = makeFixture();
+  initRepo(fixture);
+  const service = new RoomService(new DatabaseSync(':memory:'));
+  service.createRoom('room-1', PLANNER);
+  const { url, close } = await startApp(service, fixture);
+  try {
+    const codex = await connect(url, CODEX_ROUTE);
+    const createdAt = '2026-09-01T00:00:00.000Z';
+    const task = makeTask({ created_at: createdAt });
+    const { confirmed_by_user: _confirmed, confirmed_findings: _findings, ...taskSpec } = task;
+    const plan = await codex.callTool({ name: 'room_create_plan', arguments: { plan_id: 'plan-1', room_id: 'room-1', created_by_participant_id: 'codex-app', created_at: createdAt } });
+    assert.equal(plan.isError, undefined);
+    const worker = service.listRoleAssignments('room-1').find((assignment) => assignment.role === 'worker');
+    assert.ok(worker);
+    const revision = await codex.callTool({ name: 'room_create_plan_revision', arguments: {
+      revision_id: 'revision-1', plan_id: 'plan-1', room_id: 'room-1', revision_no: 1,
+      supersedes_revision_id: null, concurrency_limit: 2, acceptance_policy: 'per_task',
+      nodes: [{ node_id: 'node-1', kind: 'task', task_spec: { ...taskSpec, type: 'implementation', parent_task_id: null, based_on_review_id: null }, dependencies: [], write_scopes: [{ path: '.', kind: 'tree' }], worker_assignment_id: worker.assignment_id, priority: 1 }],
+      created_by_participant_id: 'codex-app', created_at: createdAt,
+    } });
+    assert.equal(revision.isError, undefined);
+    const draft = await codex.callTool({ name: 'room_reconcile_plan', arguments: { room_id: 'room-1', plan_id: 'plan-1', worktrees: [{ node_id: 'node-1', dispatch_id: 'dispatch-1', worktree_path: fixture }] } });
+    assert.equal((draft.structuredContent as { dispatches: unknown[] }).dispatches.length, 0);
+    await codex.callTool({ name: 'room_begin_architecture_review', arguments: { room_id: 'room-1' } });
+    await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
+    const decision = await codex.callTool({ name: 'room_decide_plan_revision', arguments: { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: createdAt } });
+    assert.equal(decision.isError, undefined);
+    const reconciled = await codex.callTool({ name: 'room_reconcile_plan', arguments: { room_id: 'room-1', plan_id: 'plan-1', worktrees: [{ node_id: 'node-1', dispatch_id: 'dispatch-1', worktree_path: fixture }] } });
+    assert.equal((reconciled.structuredContent as { dispatches: unknown[] }).dispatches.length, 1);
+    const state = await snapshot(codex, 'room-1');
+    assert.equal((state.graph_work_items as Array<{ waiting_reason: string }>)[0].waiting_reason, 'dispatched');
     await codex.close();
   } finally {
     await close();

@@ -2,15 +2,128 @@
 
 ## 当前状态
 
-- 日期：2026-09-01
-- 项目阶段：`PLAN_READY`；Increment 10与Increment 11均已获用户最终接受，Stage 3 Architecture Review=`approved`、ADR-0006=`Accepted`，[Increment 12 Task Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`
-- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10/11 accepted source与Stage 3/Increment 12 planning已由本次提交进入版本化`main`；active runtime/database/binding保持v0.3且未cutover
-- Implementation Task：[Increment 12 Task Contract](./INCREMENT_12_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`，尚未派发；Increment 10 Contract与Fix Task 1–2均为`Accepted`、`confirmed_by_user=true`且已提交。Increment 9 Contract与Fix 1–4均为`Accepted`且v0.3 cutover已完成
-- Previous Increment：Increment 1–8均已接受并进入版本化`main`
-- 业务代码：`main` source由本次提交进入accepted protocol `0.4-design` baseline-free Execution Core；active project runtime/database/binding仍为protocol `0.3-design` Stage 1，未执行cutover
-- Git repository：root branch=`main`；本次版本化提交的parent=`c449f40aebe3ff018610c59f34782a698463f907`，提交范围为已Review的Increment 10/11 source/tests/Plugin及Stage 3/Increment 12 planning文档。未授权push、额外branch/worktree、独立Coding task创建、runtime/database/binding cutover或旧v0.2/v0.3 database删除
+- 日期：2026-09-02
+- 项目阶段：`ACCEPTED`；用户已最终接受Increment 12，Fix Review 5=`approved`，[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`
+- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–12 accepted source与Stage 3 planning由本次提交进入版本化`main`；active runtime/database/binding保持v0.3且未cutover
+- Implementation Task：[Increment 12 Task Contract](./INCREMENT_12_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_12_FIX_TASK_1.md)至[Fix Task 4](./INCREMENT_12_FIX_TASK_4.md)均为`Accepted`、`confirmed_by_user=true`并已完成Coding；[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)曾获确认，但因派发门禁证明其唯一finding不成立而标记`Superseded / Not Dispatched`。Increment 10 Contract与Fix Task 1–2均为`Accepted`、`confirmed_by_user=true`且已提交
+- Previous Increment：Increment 1–11均已接受并进入版本化`main`
+- 业务代码：`main` source由本次提交增加accepted protocol `0.5-design` Graph/Scheduler foundation；active project runtime/database/binding仍为protocol `0.3-design` Stage 1，未执行cutover
+- Git repository：root branch=`main`由本次提交纳入Increment 12完整accepted scope。未授权push、runtime/database/binding cutover、旧v0.2/v0.3 database处理、detached candidate cleanup或Increment 13
 
 ## 已完成
+
+### 2026-09-02 — Increment 12完整accepted scope版本化
+
+- 用户另行明确授权“版本化该candidate”；Codex把exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`上的20个implementation/test/Plugin路径与最终Codex权威文档合并到`main`，未包含candidate的`src/runner/executor.ts` stat-cache假变化。
+- 版本化范围包含protocol `0.5-design` Plan/immutable revision/Approval、structured scope、one-shot Scheduler、NodeDispatch、public MCP/Status/Plugin/setup、Fix Task 1–4、Fix Task 5审计处置与验收经验回收；不包含Increment 13 Git Controller、runtime cutover或旧database处理。
+- 代码与测试路径在合并后逐文件与accepted candidate完全一致；因此不重复运行已通过的typecheck/focused 190/190/full 373/373，只运行能检测集成偏差的exact file comparison、Git Diff检查与文档门禁。
+- Documentation impact audit：`documentation: updated`。候选架构、协议与manual graph workflow已合并为Accepted/versioned source事实；active runtime/database/binding仍为v0.3。
+
+### 2026-09-02 — Increment 12用户最终接受与Fix验收经验回收
+
+- 用户明确最终接受Increment 12 Implementation、Fix Task 1–4与更正后的Fix Review 5；阶段从`REVIEW_DISCUSSION`进入`ACCEPTED`，无unresolved finding或open question。Fix Task 5保持`Superseded / Not Dispatched`。
+- candidate仍位于原detached worktree，HEAD=`51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`并保持0 staged；本次接受不把未版本化candidate提升为Current implementation，active runtime/database/binding继续为v0.3。
+- Fix验收经验回收新增Codex Review规则：result缺失finding必须关联exact completed turn的status、message phase与完整required fields，并在派发前重新读取权威task result；单次summary中的`latestAssistantMessage=null`不得单独证明final不存在。该规则写入`CODEX_REVIEW_AND_PLANNING.md`，不改变Claude Coding指南、Room protocol、ADR或runtime state。
+- 自approved Review后production/test inputs未变化，不重复运行typecheck或测试；Review 3的focused 190/190与full 373/373、Fix 4文档门禁及本次task final核验继续构成验收证据。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、Architecture、Room Protocol、MVP Plan、Operations、Fix Task 5处置、Codex Review指南与本日志；candidate尚未versioned，Git/runtime写操作继续独立授权。
+
+### 2026-09-02 — Increment 12 Fix Review 5证据更正与Fix Task 5停止派发
+
+- Fix Task 5派发门禁重新读取原candidate task `01a05c82-6144-7911-b2fc-31cc8ba3cfd5`，确认最新completed turn `01a06042-85df-7961-9d11-b9c6a010b041`存在`phase=final_answer`的Fix Task 4 Coding Result。
+- 该assistant final包含`task_id`、`status`、`stage`、`exact_baseline`、`current_head`、`summary`、`changed_files`、`acceptance_criteria`、`verification`、`tests`、`documentation_changes`、`deviations`、`unresolved`与`questions`；candidate Development Log关于result已返回的陈述与task事实一致。
+- Review 5唯一finding `inc12-fr5-structured-coding-result-still-missing`的前提失效；Decision从`changes_requested`更正为`approved`。Fix Task 5未派发，未调用`gpt-5.6-luna`，并标记`Superseded / Not Dispatched`；阶段进入`REVIEW_DISCUSSION`，等待用户最终接受。
+- 派发门禁其余事实保持成立：candidate HEAD exact、detached、0 staged、relative-link missing count=`0`，candidate未新增Fix 5 Contract副本。未修改candidate，未执行Git/runtime/database/binding写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan、Fix Task 5状态与本日志；Architecture、Room Protocol、ADR、Operations、production/test与active runtime语义不变。
+
+### 2026-09-02 — Increment 12 Fix Task 5全文确认
+
+- 用户明确确认[Increment 12 Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)完整Contract并授权派发；Contract转为`Accepted`、`confirmed_by_user=true`，阶段进入`FIX_PLAN_READY`。
+- 执行继续复用原candidate task `01a05c82-6144-7911-b2fc-31cc8ba3cfd5`，model=`gpt-5.6-luna`、reasoning effort=`max`；不创建新task/worktree。
+- 派发前必须核对candidate exact HEAD、detached、0 staged、relative-link zero-missing、Review 5错误断言仍存在与单文件scope；门禁失败时不派发或修改candidate。
+- 本次确认不授权stage、commit、push、runtime/database/binding cutover、旧database处理或其它Git/runtime写操作。
+- Documentation impact audit：`documentation: updated`。同步Accepted Contract、Project Rules、文档中心、MVP Plan与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 12 Fix Review 5方案确认与Fix Task 5 Draft
+
+- 用户确认`inc12-fr5-structured-coding-result-still-missing`与最窄方案：复用原candidate task，只更正candidate Development Log关于assistant final已返回的错误事实、更新Fix 5/Review 6 lifecycle，并由原task实际返回字段完整的结构化assistant final；不修改或重跑production/tests。
+- Codex创建Draft [Increment 12 Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)，candidate唯一changed file为`docs/documents/DEVELOPMENT_LOG.md`；代码测试明确not_run，因为Review 3已独立通过且production/test inputs保持不变。
+- 推荐执行路由继续为原candidate task `01a05c82-6144-7911-b2fc-31cc8ba3cfd5`、`gpt-5.6-luna`/`max`；该路由与完整Contract一并等待确认，不创建新task/worktree。
+- 完整Contract尚未由用户确认，因此`confirmed_by_user=false`、阶段=`WAITING_FOR_USER_CONFIRMATION`。未派发、修改candidate、启动Claude/Agent Room Run、stage、commit、push或执行runtime/database/binding cutover。
+- Documentation impact audit：`documentation: updated`。新增Fix Task 5 Draft并同步Project Rules、文档中心、MVP Plan与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 12 Fix Review 5（changes_requested）
+
+- Review ID：`review-increment-012-codex-005`。输入包含Accepted Fix Task 4、exact baseline/current detached HEAD `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`、完整candidate Diff、原task最新turn状态及用户handoff；candidate保持0 staged。
+- Review 4链接finding已闭合：candidate Development Log共解析104个relative Markdown links，missing count=`0`；九个Fix 1/2/3 Contract link regex无残留，candidate未新增Contract副本、stub或redirect；current status、阻塞项与下一步均指向Fix 4完成后等待Review 5。
+- 原结论（已由后续派发门禁证据更正）：初始snapshot把`latestAssistantMessage`报告为`null`，据此形成`inc12-fr5-structured-coding-result-still-missing`（low）。后续对同一completed turn的权威task读取恢复到字段完整的Fix Task 4 `final_answer`，证明该finding前提不成立；以本日志顶部“证据更正”记录为当前结论。
+- 独立验证：candidate relative-link resolver `missing_count=0`；Fix Contract link residual scan无命中；无merge marker；`git diff --check` exit 0；HEAD exact、detached、0 staged。依Contract未重跑typecheck、focused suites或`npm test`，因为Fix 4未修改production/test inputs，Review 3的190/190与373/373证据保持有效。
+- Review Decision：`changes_requested`。阶段进入`REVIEW_DISCUSSION`；用户确认finding与最小方案前不生成或派发下一Fix Task，不修改candidate或执行Git/runtime写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan、Fix Task 4执行状态与本日志；production、architecture、Room protocol、ADR、Operations及active runtime语义不变。
+
+### 2026-09-02 — Increment 12 Fix Task 4全文确认
+
+- 用户明确确认[Increment 12 Fix Task 4](./INCREMENT_12_FIX_TASK_4.md)完整Contract并授权派发；Contract转为`Accepted`、`confirmed_by_user=true`，阶段进入`FIX_PLAN_READY`。
+- 用户要求启用subagent；Codex仅启用一个只读subagent独立核对Contract字段、candidate baseline/0 staged、scope与`gpt-5.6-luna`/`max`路由，不授权subagent修改candidate或派发。
+- 正式Coding继续复用原candidate task `01a05c82-6144-7911-b2fc-31cc8ba3cfd5`；不得创建新task/worktree，不授权Git/runtime/database/binding写操作。
+- 只读subagent与主Codex均确认派发门禁通过；完整Accepted Contract已内联发送到原candidate task，阶段进入`CODING`。
+- Documentation impact audit：`documentation: updated`。同步Accepted Contract、Project Rules、文档中心、MVP Plan与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 12 Fix Review 4方案确认与Fix Task 4 Draft
+
+- 用户确认`inc12-fr4-candidate-contract-links`、`inc12-fr4-structured-coding-result`及最窄方案：candidate Development Log内九个main-workspace-only Fix Contract链接改为非链接text/code，原candidate task直接补交字段完整的结构化Coding Result；不复制Contract、不修改或重跑production/tests。
+- 用户指定确认后继续复用原candidate task `01a05c82-6144-7911-b2fc-31cc8ba3cfd5`，model=`gpt-5.6-luna`、reasoning effort=`max`；不创建新task/worktree。
+- Codex创建Draft [Increment 12 Fix Task 4](./INCREMENT_12_FIX_TASK_4.md)，candidate唯一changed file为`docs/documents/DEVELOPMENT_LOG.md`，同时要求assistant final包含完整Coding Result fields；Fix完成后current状态指向Review 5。
+- 完整Contract尚未由用户确认，因此`confirmed_by_user=false`、阶段=`WAITING_FOR_USER_CONFIRMATION`。未派发、修改candidate、启动Claude/Agent Room Run、stage、commit、push或执行runtime/database/binding cutover。
+- Documentation impact audit：`documentation: updated`。新增Fix Task 4 Draft并同步Project Rules、文档中心、MVP Plan、Fix Task 3执行状态与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 12 Fix Review 4（changes_requested）
+
+- Review ID：`review-increment-012-codex-004`。输入包含Accepted Fix Task 3、exact baseline与current detached HEAD `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`、用户返回的completion metadata、完整candidate Development Log Diff及27-path cumulative candidate状态；0 staged。
+- Fix 3目标事实正确：Fix 1 historical verification不再取得Fix 2的完整public snapshot、single-winner control或Revision/Approval disabled/re-enable MCP evidence；Review 2 evidence gap与Fix 2 closure ownership可追溯；current status、阻塞项与下一步均已指向Fix 3完成后等待Review 4，active runtime继续为v0.3。
+- Finding `inc12-fr4-candidate-contract-links`（low）：candidate Development Log共有九个相对链接指向candidate worktree中不存在的`INCREMENT_12_FIX_TASK_1.md`、`INCREMENT_12_FIX_TASK_2.md`与`INCREMENT_12_FIX_TASK_3.md`；其中Fix 3新增current/entry链接直接不可达。Accepted Fix Task 3明确要求relative links有效，并说明Fix 3 Contract只存在于主工作区。最窄方向是在candidate Development Log内把main-workspace-only Contract引用改为非链接的code/text reference，不复制Contract、不新增candidate文件。
+- Finding `inc12-fr4-structured-coding-result`（low）：completed task未返回assistant final；用户handoff仅含`task_id`、`status`、`stage`、`based_on_review`、`exact_baseline`与`current_head`，缺少Accepted Contract要求的`summary`、`changed_files`、acceptance criteria/verification、deviations、unresolved/questions。最窄方向为由原task补交结构化Coding Result，不修改production/test或补造验证。
+- 独立文档验证：candidate `git diff --check` exit 0；Development Log无merge marker；HEAD exact、detached、0 staged。relative-link解析检出上述九项missing target。依Accepted Contract未重跑typecheck、focused suites或`npm test`，因为production/test inputs未变化，Review 3的190/190与373/373证据保持有效。
+- Review Decision：`changes_requested`。阶段进入`REVIEW_DISCUSSION`；用户确认finding与方案前不生成或派发下一Fix Task，不修改candidate或执行Git/runtime写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan与本日志的Review 4事实；production、architecture、Room protocol、ADR、Operations与active runtime语义不变。
+
+### 2026-09-02 — Increment 12 Fix Task 3全文确认与执行路由
+
+- 用户明确确认[Increment 12 Fix Task 3](./INCREMENT_12_FIX_TASK_3.md)全文；Contract转为`Accepted`、`confirmed_by_user=true`。
+- 执行路由固定为原candidate Codex task `01a05c82-6144-7911-b2fc-31cc8ba3cfd5`，model=`gpt-5.6-luna`、reasoning effort=`max`；该task的`cwd`为原detached candidate worktree，不创建新task/worktree。
+- Accepted Contract已完整发送到原candidate task，阶段进入`CODING`；candidate唯一允许修改`docs/documents/DEVELOPMENT_LOG.md`，不授权Git/runtime/database/binding写操作。
+- Documentation impact audit：`documentation: updated`。同步Accepted Contract、Project Rules、文档中心、MVP Plan与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 12 Fix Review 3方案确认与Fix Task 3 Draft
+
+- 用户确认`inc12-fr3-development-log-provenance`与最窄documentation-only方案：只更正candidate `DEVELOPMENT_LOG.md`，按真实阶段分开Fix 1/2 verification facts，并把current阻塞项/下一步更新为Fix Task 3完成后等待Review 4；不得修改或重跑tests/production。
+- Codex创建Draft [Increment 12 Fix Task 3](./INCREMENT_12_FIX_TASK_3.md)，唯一candidate changed file为`docs/documents/DEVELOPMENT_LOG.md`；代码测试明确not_run because Review 3已独立通过且production/test inputs保持不变。
+- 完整Contract尚未由用户确认，因此`confirmed_by_user=false`、阶段=`WAITING_FOR_USER_CONFIRMATION`。未修改candidate、创建/派发task、启动Claude/Agent Room Run、stage、commit、push或执行runtime/database/binding cutover。
+- Documentation impact audit：`documentation: updated`。新增Fix Task 3 Draft并同步Project Rules、文档中心、MVP Plan与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 12 Fix Review 3（changes_requested）
+
+- Review ID：`review-increment-012-codex-003`。输入包含Accepted Implementation/Fix Task 1/Fix Task 2 Contract、exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`、Fix 2 Coding Result、Review 1/2 findings及完整27-path task-owned staged/unstaged/untracked candidate Diff；worktree保持detached、0 staged。
+- Fix 2 behavior正确：`tests/plan-scheduler.test.ts`逐操作比较stale Draft/rejected reconcile/claim与blocked acceptance/descendant reconcile的完整public snapshot，并以独立control DB重放race winner证明limit 1/2/3及amendment loser无residue；`tests/room-mcp.test.ts`通过public route逐实体闭合Plan/Revision/Approval的same-content、id conflict、replacement、replacement后frozen success、disabled与re-enable，所有零写操作均比较完整`room_get_state`。Production source、schema、Plugin、runtime与MCP surface未因Fix 2改变。
+- Finding `inc12-fr3-development-log-provenance`（low）：candidate `docs/documents/DEVELOPMENT_LOG.md`无日期的“阻塞项/下一步”仍称Fix Task 1 Coding完成并等待Review；旧“Increment 12 Fix Task 1 Coding验证”段落又把Fix Task 2才闭合的完整snapshot与逐实体MCP matrix记在Fix 1名下。该文档同时给出互斥的current/provenance事实，违反Fix 2对historical correction与current changed-files分离的要求。最窄方向仅为修正candidate Development Log：阻塞/下一步指向Fix Task 2 Review 3，并把Fix 1与Fix 2验证事实按真实阶段分开；不得修改test、production或其它候选文档。
+- 独立验证：`npm run typecheck`通过；focused core 98/98、public 54/54、scope/setup 38/38通过；full `npm test` 373/373通过，0 fail/skip/todo；residual scan唯一命中既有`tests/protocol.test.ts:70` negative `integration_only` literal；`git diff --check`通过；HEAD exact、0 staged。
+- Review Decision：`changes_requested`。阶段进入`REVIEW_DISCUSSION`；用户确认finding与方案前不生成Fix Task 3、不修改candidate或执行Git/runtime写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan与本日志的Review/阶段/验证事实；production语义未变化，Architecture、Room Protocol、ADR与Operations保持不变。
+
+### 2026-09-02 — Increment 12 Fix Task 2全文确认
+
+- 用户确认[Increment 12 Fix Task 2](./INCREMENT_12_FIX_TASK_2.md)完整Contract；文档状态从`Draft / Awaiting Full Contract Confirmation`更新为`Accepted`，`confirmed_by_user=true`，阶段进入`FIX_PLAN_READY`。
+- Contract的goal、三项confirmed finding、test/result-only requirements、non-goals、architecture decisions、scope、constraints、acceptance criteria、verification、documentation update与question policy保持不变。
+- 用户选择自行人工派发到原detached candidate worktree；Codex不创建Codex task、不启动Claude/Agent Room Run、不修改candidate。stage、commit、push、runtime/database/binding cutover与旧database处理仍未授权。
+- 本次仅更新Contract与阶段文档；production/test输入未变化，因此不重复运行代码测试。Documentation impact audit：`documentation: updated`；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-01 — Increment 12 Fix Review 2方案确认与Fix Task 2 Draft
+
+- 用户确认Review `review-increment-012-codex-002`三项finding与最小方案：`tests/plan-scheduler.test.ts`补完整public snapshot rollback与并发single-winner control Oracle；`tests/room-mcp.test.ts`补Plan/Revision/Approval逐实体replacement后frozen-success及disabled/re-enable public matrix；更正Fix Task 1 Coding Result changed-files provenance。
+- Codex创建Draft [Increment 12 Fix Task 2](./INCREMENT_12_FIX_TASK_2.md)，范围严格为两份test与candidate `DEVELOPMENT_LOG.md`，禁止修改production source、MCP surface、schema、protocol、Plugin、Git/hash或Increment 13能力。
+- MCP wrong-role无法通过现有public tool表达，因为route与tool固定派生required planner role；Contract保留RoomService中Plan/Revision/Approval各一个REVIEWER direct regression，不为测试扩展产品接口。
+- Fix Task 1 provenance correction冻结为：production paths包含`src/room/repository.ts`、`src/room/room-service.ts`、`src/room/state-snapshot.ts`、`src/scheduler/plan-scheduler.ts`；Fix Task 2最终`changed_files`只列本次实际Diff，并在`summary`与本日志更正前次遗漏。
+- 完整Contract尚未由用户确认，因此`confirmed_by_user=false`、阶段=`WAITING_FOR_USER_CONFIRMATION`。未修改candidate、创建/派发task、启动Claude/Agent Room Run、stage、commit、push或执行runtime/database/binding cutover。
+- Documentation impact audit：`documentation: updated`。新增Fix Task 2 Draft并同步Project Rules、文档中心、MVP Plan与本日志；production semantics未变化，Architecture、Room Protocol、ADR与Operations保持不变。
 
 ### 2026-09-01 — Increment 10/11与Stage 3 planning版本化
 
@@ -1515,8 +1628,28 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-无未解决Increment 10/11 Review finding；accepted source/planning已由本次提交进入版本化`main`。Active runtime保持v0.3且未cutover。Stage 3 Architecture Review=`approved`、ADR-0006=`Accepted`、Increment 12 Task Contract=`Accepted`，阶段=`PLAN_READY`。独立Coding task创建、push、旧v0.2/v0.3 database处理与runtime cutover继续分别授权。
+Increment 12已获用户最终接受并由本次提交进入版本化`main`，无unresolved finding或open question。Active runtime保持v0.3且未cutover。
 
 ## 下一步
 
-下一步取得独立Coding task创建授权，并从提交完成后的clean live`main`记录exact baseline HEAD。Coding route固定`gpt-5.6-sol`/`medium`；不包含push、runtime cutover或旧database处理权限。
+下一步由用户另行决定push、runtime/database/binding cutover、旧database处理或Increment 13规划/Task；Fix Task 5不再派发，detached candidate cleanup未授权。
+
+### 2026-09-01 — Increment 12 Fix Review 2
+
+- Review `review-increment-012-codex-002`覆盖exact lineage baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`上的完整26-path candidate Diff；detached HEAD保持不变，0 staged。
+- 生产结论：Review 1的exact latest revision、current concurrency、scope violation recovery、dispatched worker freeze与Plan/Revision/Approval frozen retry行为已由代码与direct regressions闭合，未发现新的production finding。
+- Finding `inc12-fr2-complete-rollback-oracle`（medium）：stale revision、concurrency loser与blocked acceptance测试只比较selected entities/Attempt count，未按Accepted Fix Contract比较完整public snapshot与cursor，不能支持“完整零写”结论。
+- Finding `inc12-fr2-mcp-retry-matrix`（medium）：public MCP regression对replacement后frozen-success及disabled/re-enable只执行Plan；Revision/Approval只覆盖replacement拒绝，未完成Contract点名的逐实体public matrix。wrong-role本身无法由固定tool-role的MCP route表达，继续由service direct case覆盖，不属于本finding。
+- Finding `inc12-fr2-coding-result-files`（low）：本次Coding Result的`changed_files`未列出实际Fix修改的`src/room/room-service.ts`，并缺少`src/room/state-snapshot.ts`的独立path记录，与candidate Development Log及Git事实不一致。
+- 独立验证：`npm run typecheck`通过；focused core 98/98、public 54/54、setup/scope 38/38通过；full `npm test` 373/373通过，0 fail/skip/todo；`git diff --check` clean。
+- Review Decision=`changes_requested`；阶段进入`REVIEW_DISCUSSION`，等待用户确认最小test/result-only方案。未修改candidate代码/测试，未执行Git/runtime写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan与本日志的Review 2事实；Architecture、Room Protocol、ADR与Current Operations不变，因为生产行为没有新增变化且candidate尚未接受。
+
+### 2026-09-01 — Increment 12 Review 1 与 Accepted Fix Task 1
+
+- Increment 12 candidate从exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`形成于`C:/Users/RM/.codex/worktrees/a1da/codex-claudecode-room`；Review覆盖24个tracked logical changes与2个untracked files，`src/runner/executor.ts`仅为stat-cache `.M`、无逻辑Diff。
+- Codex独立验证`npm run typecheck`、受影响96/96、full 367/367与`git diff --check`通过；测试绿灯不能覆盖五项可达缺陷：stale approved fallback、stale amendment concurrency、scope blocked acceptance bypass、dispatched worker replacement deadlock与new entity retry authority不一致。
+- 原Coding task因usage limit结束且未返回结构化Coding Result；候选Development Log把自述段落标为Coding Result，构成provenance finding。Fix只更正候选事实，不补造旧结果。
+- Review Decision=`changes_requested`。用户确认全部finding与推荐方案：[Increment 12 Fix Task 1](./INCREMENT_12_FIX_TASK_1.md)转为`Accepted`、`review_fixes_only=true`，阶段=`FIX_PLAN_READY`。
+- 用户选择人工派发Claude Code；Codex未启动Claude、未创建Codex task或Agent Room Task/Run，未执行任何Git/runtime/database/binding写操作。
+- Documentation impact audit：`documentation: updated`。新增Accepted Fix Contract并同步文档中心、共享规则、MVP计划与开发状态；candidate架构/协议/运维内容由Fix Coding按confirmed behavior更新，未提升为Current。
