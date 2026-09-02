@@ -385,7 +385,7 @@ fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0
 - 不恢复baseline、file hash、Diff fingerprint、commit hash precondition、branch mirror或timestamp validator；Git result commit ID只作为historical evidence。
 - 推荐先版本化accepted v0.4 source而不cutover，Stage 3使用fresh `0.5-design`，拆分Graph/Scheduler与Git Controller两个Increment并在Stage 3整体接受后单次cutover。
 
-用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并由本次提交进入版本化`main`，未引入超出本节Approved architecture的新决策。Active runtime/database/binding仍为v0.3，未执行cutover；本节也不授权Increment 13 Git operation。
+用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并进入版本化`main`。用户又于2026-09-02确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor通过one-shot `room:git` CLI承担Git mutation，planner decision仍经`codex-app` MCP，`integration_only`首版只支持single fast-forward lineage，Coding使用独立Codex worktree task且不cutover active v0.3。Contract=`Accepted`，但以上target尚未实现，不构成Current capability或Git operation授权。
 
 ## 4. 依赖方向
 

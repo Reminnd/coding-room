@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：ACCEPTED / Increment 12完整accepted scope由本次提交进入版本化`main`；Fix Task 5未派发并已标记`Superseded`；active runtime保持protocol v0.3且未cutover
+> 当前规划阶段：PLAN_READY / Increment 13完整Task Contract=`Accepted`、`confirmed_by_user=true`；active v0.3 durable Room保持terminal且未cutover
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -136,6 +136,8 @@ Increment 11获得的一次性执行路由例外已完成：Implementation与Fix
 
 Stage 3的[Architecture Review](./docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./docs/documents/ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`。Increment 12从exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`形成；Review `review-increment-012-codex-001`的六项finding已由Accepted [Increment 12 Fix Task 1](./docs/documents/INCREMENT_12_FIX_TASK_1.md)处理。Fix Review `review-increment-012-codex-002`的三项test/evidence与Coding Result finding已由Accepted [Increment 12 Fix Task 2](./docs/documents/INCREMENT_12_FIX_TASK_2.md)处理。Fix Review 3 `review-increment-012-codex-003`的Development Log provenance finding已由Accepted [Increment 12 Fix Task 3](./docs/documents/INCREMENT_12_FIX_TASK_3.md)更正；Fix Review 4 `review-increment-012-codex-004`的两项low finding由[Increment 12 Fix Task 4](./docs/documents/INCREMENT_12_FIX_TASK_4.md)处理。Fix Review 5 `review-increment-012-codex-005`确认九个失效链接已闭合。派发门禁重新读取原candidate task后确认Fix Task 4的completed turn实际存在字段完整的`final_answer`，因此Review 5唯一finding失效、Decision更正为`approved`；[Increment 12 Fix Task 5](./docs/documents/INCREMENT_12_FIX_TASK_5.md)未派发并标记`Superseded / Not Dispatched`。用户已明确最终接受Increment 12，阶段=`ACCEPTED`；accepted implementation、tests、Plugin与权威文档由本次提交进入版本化`main`。Active runtime/database/binding仍为v0.3，push、cutover、旧database处理与Increment 13均未授权。
 
+用户于2026-09-02确认[Increment 13 Git Controller Architecture Review](./docs/documents/INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)三项推荐，并随后明确确认[Increment 13完整Task Contract](./docs/documents/INCREMENT_13_TASK_CONTRACT.md)。Review Decision=`approved`；Contract=`Accepted`、`confirmed_by_user=true`，documented planning阶段=`PLAN_READY`。确认不自动授权Coding task创建、规划文档版本化、GitAction或runtime写入。
+
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
 ## 7. 工作流与门禁
@@ -260,6 +262,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/AGENT_ROOM_V03_ROADMAP.md](./docs/documents/AGENT_ROOM_V03_ROADMAP.md) | Agent Room v0.3六阶段路线、阶段门禁与人工控制点 | Codex | v0.3阶段规划与跨阶段架构校验 | Accepted |
 | [docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md) | Stage 2 Run/RunAttempt、并发隔离、public commands、SQLite/Event与测试矩阵Architecture Review | Codex | Stage 2架构、Contract与Review | Approved |
 | [docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md) | Stage 3 immutable graph、Scheduler、scope conflict、acceptance policy与Git Controller Architecture Review | Codex | Stage 3架构、Contract与Review | Approved |
+| [docs/documents/INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md](./docs/documents/INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md) | Increment 13 Git Controller transport、ff-only integration范围与pre-cutover Coding route评审 | Codex | Increment 13规划与Task Contract生成 | Approved |
 | [docs/documents/OPERATIONS.md](./docs/documents/OPERATIONS.md) | 人工运维接口、架构/结构、命令、状态/制品与恢复视图 | Codex | 人工运维；每次 Review 后维护 | Current |
 | [docs/documents/INCREMENT_1_TASK_CONTRACT.md](./docs/documents/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
 | [docs/documents/INCREMENT_1_FIX_TASK_1.md](./docs/documents/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
@@ -310,6 +313,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_12_FIX_TASK_3.md](./docs/documents/INCREMENT_12_FIX_TASK_3.md) | Increment 12 Development Log Fix 1/2 verification provenance与current next-step文档修正 | Codex | Increment 12 Fix 3 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_12_FIX_TASK_4.md](./docs/documents/INCREMENT_12_FIX_TASK_4.md) | Increment 12 candidate失效Contract链接与结构化Coding Result闭合 | Codex | Increment 12 Fix 4 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_12_FIX_TASK_5.md](./docs/documents/INCREMENT_12_FIX_TASK_5.md) | Increment 12结构化Coding Result闭合的历史Fix Contract；派发门禁证明finding失效 | Codex | 审计记录，不得派发 | Superseded / Not Dispatched |
+| [docs/documents/INCREMENT_13_TASK_CONTRACT.md](./docs/documents/INCREMENT_13_TASK_CONTRACT.md) | typed GitAction、fixed-actor one-shot Git Controller与single-lineage integration_only完整Implementation Contract | Codex | Increment 13 Coding与Review | Accepted |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -395,7 +399,11 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-09-02：用户明确确认[Increment 12 Fix Task 5](./docs/documents/INCREMENT_12_FIX_TASK_5.md)完整Contract并授权派发到原candidate task，指定model=`gpt-5.6-luna`、reasoning effort=`max`。Contract转为`Accepted`、`confirmed_by_user=true`，阶段=`FIX_PLAN_READY`；派发前继续核对candidate exact HEAD、detached、0 staged、relative-link zero-missing与单文件scope，未授权Git/runtime写操作。
 - 2026-09-02：Fix Task 5派发门禁重新读取原candidate task，确认最新completed turn `01a06042-85df-7961-9d11-b9c6a010b041`存在`phase=final_answer`的结构化Fix Task 4 Coding Result，且包含Contract要求的全部字段。该证据推翻Review 5唯一finding的前提；Decision更正为`approved`，Fix Task 5=`Superseded / Not Dispatched`，阶段=`REVIEW_DISCUSSION`并等待用户最终接受。candidate未修改，未调用`gpt-5.6-luna`，未执行Git/runtime写操作。
 - 2026-09-02：用户明确最终接受Increment 12 candidate与更正后的Fix Review 5；阶段进入`ACCEPTED`，无unresolved finding或open question。Fix验收经验回收新增Codex-only规则：result缺失finding必须绑定exact completed turn并在派发前重新读取权威task result，单次summary中的`latestAssistantMessage=null`不得单独证明final不存在。随后用户另行授权版本化完整candidate；accepted implementation、tests、Plugin与最终文档由本次提交进入`main`。未授权push、branch/worktree cleanup或runtime/database/binding写操作。
+- 2026-09-02：用户明确开始Increment 13（Git Controller + `integration_only`）规划。live Git为clean `main`、`HEAD=f010c456d8354e3c02d75fc5389cb68265586488`；active binding仍为v0.3，而installed Agent Room workflow要求v0.4，正常Room workflow与setup/cutover均未执行。Codex新增Reviewing [Increment 13 Architecture Review](./docs/documents/INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)，推荐fixed-actor `room:git` one-shot CLI、single fast-forward lineage和独立Codex worktree Coding route；三项等待用户确认，Decision=`needs_discussion`，阶段=`ARCHITECTURE_REVIEW`。
+- 2026-09-02：用户确认Increment 13 Architecture Review三项推荐。Review提升为`Approved`；Codex据此创建完整Draft [Increment 13 Task Contract](./docs/documents/INCREMENT_13_TASK_CONTRACT.md)，冻结typed preview/Approval/single execution/unknown settlement、fixed `local-runner` actor、single-lineage `integration_only`及独立Codex worktree Coding route。Contract尚未全文确认，`confirmed_by_user=false`，阶段=`WAITING_FOR_USER_CONFIRMATION`；未创建task、执行GitAction、版本化或runtime/database/binding写操作。
+- 2026-09-02：用户明确确认[Increment 13完整Task Contract](./docs/documents/INCREMENT_13_TASK_CONTRACT.md)。Contract提升为`Accepted`、`confirmed_by_user=true`，阶段=`PLAN_READY`；确认不授权Coding task创建、stage/commit/push、GitAction或runtime/database/binding cutover。Active v0.3 binding不满足installed v0.4 workflow，未提交durable Room Task或调用launcher。
+- 2026-09-02：用户随后明确授权把Increment 13规划文档与Accepted Contract提交到`main`形成clean baseline，并从该baseline创建独立Codex worktree task，model=`gpt-5.6-sol`、reasoning effort=`medium`。提交scope只含规划文档；GitAction、push、runtime/database/binding cutover与旧database处理仍未授权。
 
 ## 14. 当前阶段
 
-Increment 1–12 accepted source与Stage 3 planning均已进入版本化`main`。Active project runtime/database/binding继续是protocol v0.3，尚未cutover。Stage 3 Architecture Review=`Approved`、ADR-0006=`Accepted`；Increment 12 Fix Review 5=`approved`，Fix Task 5未派发并已`Superseded`，阶段=`ACCEPTED`。push、runtime cutover、旧database处理与Increment 13继续分别授权。
+Increment 1–12 accepted source与Stage 3 planning均已进入版本化`main`。Active project runtime/database/binding继续是protocol v0.3，durable Room保持terminal且尚未cutover。Increment 13 Architecture Review=`approved`，完整Task Contract=`Accepted`、`confirmed_by_user=true`，documented planning阶段=`PLAN_READY`。用户已授权本次规划文档版本化及从其clean exact baseline创建独立Codex Coding task；GitAction、push、runtime cutover与旧database处理继续分别授权。

@@ -605,7 +605,7 @@ Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current aut
 - GitAction必须经过typed preview、`confirmed_by_user=true` Approval、single execution与`succeeded|failed|outcome_unknown` settlement；首版候选只允许`create_worktree|commit_paths|integrate_fast_forward`。
 - target不包含hash/fingerprint validator、background scheduler、automatic Agent launch、push/rebase/reset/clean/delete/merge commit或冲突自动解决。
 
-Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并由本次提交进入版本化`main`，阶段=`ACCEPTED`。Active v0.3 protocol保持Current；database/binding cutover与Increment 13 Git operation仍需分别授权。
+Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Stage 3 Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并进入版本化`main`。用户于2026-09-02进一步确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)的fixed-actor `room:git`、single fast-forward lineage与pre-cutover Coding route，并确认完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)。Contract=`Accepted`、`confirmed_by_user=true`，documented planning阶段=`PLAN_READY`。Active v0.3 protocol保持Current；GitAction、`integration_only`与database/binding cutover均不可调用并继续分别授权。
 
 ## 18. Increment 12 accepted source — protocol `0.5-design`
 

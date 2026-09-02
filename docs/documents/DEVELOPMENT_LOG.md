@@ -3,14 +3,47 @@
 ## 当前状态
 
 - 日期：2026-09-02
-- 项目阶段：`ACCEPTED`；用户已最终接受Increment 12，Fix Review 5=`approved`，[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`
+- 项目阶段：`PLAN_READY`；Increment 13 Architecture Review=`approved`，完整[Task Contract](./INCREMENT_13_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–12 accepted source与Stage 3 planning由本次提交进入版本化`main`；active runtime/database/binding保持v0.3且未cutover
-- Implementation Task：[Increment 12 Task Contract](./INCREMENT_12_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_12_FIX_TASK_1.md)至[Fix Task 4](./INCREMENT_12_FIX_TASK_4.md)均为`Accepted`、`confirmed_by_user=true`并已完成Coding；[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)曾获确认，但因派发门禁证明其唯一finding不成立而标记`Superseded / Not Dispatched`。Increment 10 Contract与Fix Task 1–2均为`Accepted`、`confirmed_by_user=true`且已提交
+- Implementation Task：[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)为`Accepted`、`confirmed_by_user=true`，尚未派发；Increment 12 Task Contract与Fix Task 1–4均为`Accepted`并已完成Coding，Fix Task 5为`Superseded / Not Dispatched`
 - Previous Increment：Increment 1–11均已接受并进入版本化`main`
 - 业务代码：`main` source由本次提交增加accepted protocol `0.5-design` Graph/Scheduler foundation；active project runtime/database/binding仍为protocol `0.3-design` Stage 1，未执行cutover
-- Git repository：root branch=`main`由本次提交纳入Increment 12完整accepted scope。未授权push、runtime/database/binding cutover、旧v0.2/v0.3 database处理、detached candidate cleanup或Increment 13
+- Git repository：root branch=`main`，pre-versioning planning evidence `HEAD=f010c456d8354e3c02d75fc5389cb68265586488`；用户已授权由本次提交版本化Increment 13规划文档并从提交后的clean exact baseline创建独立Codex Coding task，push与runtime/database/binding写操作未授权
 
 ## 已完成
+
+### 2026-09-02 — Increment 13规划baseline与独立Coding task授权
+
+- 用户明确授权：(1) 将Increment 13规划文档与Accepted Contract提交到`main`形成clean baseline；(2) 从该baseline创建独立Codex worktree Coding task，model=`gpt-5.6-sol`、reasoning effort=`medium`。
+- 提交范围只包含Increment 13 Architecture Review、Accepted Contract及其Project Rules/Architecture/Protocol/ADR/MVP/Operations/Development/索引同步，不包含业务代码、测试、implementation config或active binding。
+- Coding task必须完整读取[Increment 13 Accepted Contract](./INCREMENT_13_TASK_CONTRACT.md)，不得以摘要替代；task不映射到terminal v0.3 Room，不执行commit/push或runtime/database/binding cutover。
+- GitAction与product Git mutation仍不在本次授权范围；Contract中的real Git tests只允许在test-owned temporary repositories运行。
+
+### 2026-09-02 — Increment 13完整Task Contract确认
+
+- 用户明确确认[Increment 13完整Task Contract](./INCREMENT_13_TASK_CONTRACT.md)；Contract提升为`Accepted`、`confirmed_by_user=true`，documented planning阶段从`WAITING_FOR_USER_CONFIRMATION`进入`PLAN_READY`。
+- Accepted Contract冻结typed GitAction、fixed `local-runner` Git Controller、exact preview/user Approval/single execution/outcome_unknown、`create_worktree|commit_paths|integrate_fast_forward`及single-lineage `integration_only`完整闭环。
+- 本次确认不授权规划文档版本化、独立Codex Coding task创建、GitAction、stage/commit/push、Plugin reinstall或runtime/database/binding cutover。
+- active project binding仍为`0.3-design`，installed Agent Room workflow要求v0.4；normal workflow因此停止，未提交durable Room Task、未调用setup或launcher。
+- 未运行代码测试：本轮只更新已确认Contract与权威状态，没有implementation candidate。Documentation impact audit：`documentation: updated`。
+
+### 2026-09-02 — Increment 13 Architecture Decision确认与Task Contract Draft
+
+- 用户确认Increment 13 Architecture Review三项推荐：fixed `local-runner` actor的one-shot `room:git` CLI；`integration_only`首版仅支持single fast-forward lineage；完整Contract确认后使用独立Codex worktree task `gpt-5.6-sol`/`medium`且active v0.3不cutover。
+- [Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)提升为`Approved`、Decision=`approved`；三项决定只收口实现路线，不等于确认完整Contract或授权外部副作用。
+- 新增完整Draft [Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)，冻结typed GitAction、generic Approval consumer、cursor/live facts、single execution/outcome_unknown、三个exact Git operation、fixed actor、single-lineage policy、测试矩阵与文档更新；`confirmed_by_user=false`。
+- documented planning阶段进入`WAITING_FOR_USER_CONFIRMATION`。未创建Coding task，未执行GitAction、stage/commit/push、Plugin reinstall或runtime/database/binding cutover。
+- normal Agent Room workflow仍受v0.3 binding与installed workflow v0.4要求不匹配所阻塞；本轮没有调用setup或launcher。
+- 未运行代码测试：本轮只有规划文档，无Increment 13 implementation candidate。Documentation impact audit：`documentation: updated`。
+
+### 2026-09-02 — Increment 13 Architecture Review启动
+
+- 用户明确开始Increment 13（Git Controller + `integration_only`）规划；本轮不包含Coding、GitAction、runtime cutover或Task派发授权。
+- live Git为clean `main`，exact `HEAD=f010c456d8354e3c02d75fc5389cb68265586488`。Increment 12 accepted source中不存在GitAction、Git mutation或`integration_only`；现有Git process使用无shell argument array，Git Observer保持只读。
+- normal Agent Room workflow被binding门禁阻塞：project runtime是`protocol_version=0.3-design`，installed workflow只接受v0.4；setup migration必须显式授权，本轮未调用Room MCP、setup或launcher。
+- 新增Reviewing [Increment 13 Git Controller Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)。推荐：(1) fixed `local-runner` actor的one-shot `room:git` CLI；(2) `integration_only`首版只支持single fast-forward lineage，以保持`create_worktree|commit_paths|integrate_fast_forward` allowlist；(3)完整Contract确认后使用独立Codex worktree task `gpt-5.6-sol`/`medium`，保持active v0.3不cutover。
+- Review Decision=`needs_discussion`，阶段=`ARCHITECTURE_REVIEW`。三项决定确认后才生成完整Increment 13 Task Contract Draft；task创建、Git写入、Plugin reinstall、v0.5 cutover与版本化继续分别授权。
+- 未运行代码测试：当前没有Increment 13 candidate，重复执行Increment 12 regression不会改变上述transport/ff-only/runtime规划判断。Documentation impact audit：`documentation: updated`。
 
 ### 2026-09-02 — Increment 12完整accepted scope版本化
 
@@ -1628,11 +1661,11 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Increment 12已获用户最终接受并由本次提交进入版本化`main`，无unresolved finding或open question。Active runtime保持v0.3且未cutover。
+Active runtime保持v0.3且未cutover；当前binding不能进入installed Agent Room normal workflow。GitAction、push、runtime/database/binding写操作与旧database处理仍未授权。
 
 ## 下一步
 
-下一步由用户另行决定push、runtime/database/binding cutover、旧database处理或Increment 13规划/Task；Fix Task 5不再派发，detached candidate cleanup未授权。
+按本次授权先提交Increment 13规划文档，读取clean live exact `main` HEAD，再创建独立Codex worktree Coding task并等待其Coding Result。GitAction与runtime写操作仍不在授权范围内。
 
 ### 2026-09-01 — Increment 12 Fix Review 2
 

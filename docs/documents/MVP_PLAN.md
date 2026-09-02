@@ -316,6 +316,8 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 
 确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source已版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。Fix Review 5确认九个失效链接已闭合；派发门禁随后确认原task已存在字段完整的Fix Task 4 `final_answer`，唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受Increment 12，阶段=`ACCEPTED`；accepted source由本次提交进入版本化`main`，runtime cutover继续独立授权。
 
+用户于2026-09-02确认[Increment 13 Git Controller Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)三项推荐及[Increment 13完整Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor的one-shot `room:git` CLI；existing allowlist下的single fast-forward lineage；保持v0.3 active并使用独立Codex worktree task完成candidate。Review Decision=`approved`，Contract=`Accepted`、`confirmed_by_user=true`，阶段=`PLAN_READY`；用户已授权本次规划文档版本化和Coding task创建，GitAction与runtime写入仍未授权。
+
 ## 5. Task Contract 规则
 
 每个 increment 只有满足以下条件后，才能转换为独立 Task Contract：
@@ -341,4 +343,4 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–12 accepted source与Stage 3 planning已进入版本化`main`，active runtime保持v0.3且未cutover。Increment 12 Fix Review 5=`approved`，Fix Task 5=`Superseded / Not Dispatched`，用户已最终接受，阶段=`ACCEPTED`。push、runtime/database/binding cutover、旧database处理与Increment 13 task继续单独授权。
+Increment 1–12 accepted source与Stage 3 planning已进入版本化`main`，active runtime保持v0.3且未cutover。Increment 13 Architecture Review与完整Task Contract均已确认，阶段=`PLAN_READY`。用户已授权由本次提交形成规划baseline，并从提交后的clean exact `main`创建独立Codex Coding task；GitAction及runtime/database/binding cutover仍未授权。

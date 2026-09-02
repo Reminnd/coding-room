@@ -93,3 +93,13 @@ Review `review-increment-012-codex-001`确认的五项代码finding均已由Fix 
 - decision 2细化：current execution authority严格等于Plan的exact latest revision的terminal approved Approval；newer Draft/rejected存在时旧approved revision零回退，claim的revision/node/scope/`concurrency_limit`全部来自同一current approved revision。
 - decision 5/6细化：`scope_violated`或`blocked` dispatch的Review acceptance在任何写入前拒绝；dependency readiness要求dependency Run=`accepted` + `NodeDispatch=completed` + `scope_violated=false`；恢复只由同Run successful in-scope Fix attempt的settlement transaction产生，历史Event不可改写。
 - frozen identity细化：Plan/Revision/Approval的existing same-ID retry只按stored creator/planner frozen identity认证；assignment replacement只影响new entity与new/undispatched node。
+
+## 9. Increment 13 实施细化（2026-09-02，Accepted）
+
+用户确认[Increment 13 Architecture Review](../INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)三项细化，均属于本ADR既有Git Controller与acceptance policy decision：
+
+1. Git Controller由fixed `local-runner` actor通过one-shot `room:git` CLI执行preview/execute/reconcile；planner decision继续经`codex-app` MCP，二者不共享mutation authority。
+2. 在首版allowlist不增加merge commit、cherry-pick或rebase的前提下，`integration_only`只支持single fast-forward lineage；parallel branch fan-in不属于首版。
+3. 完整[Increment 13 Contract](../INCREMENT_13_TASK_CONTRACT.md)确认后使用独立Codex worktree task `gpt-5.6-sol`/`medium`实现candidate，active v0.3保持不cutover；该Contract已于2026-09-02获用户全文确认并提升为`Accepted`。
+
+这些细化不改变本ADR的Accepted状态。Contract全文确认现已完成，但Coding task、GitAction、版本化或runtime/database/binding cutover仍未授权。

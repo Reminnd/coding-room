@@ -275,6 +275,8 @@ Current操作边界：
 - Scheduler只显式reconcile ready work，不自动启动Agent process；每次one-shot Run仍需operator授权。
 - Increment 13未来Git Controller对每次`create_worktree`、`commit_paths`或`integrate_fast_forward`执行preview → user confirmation → single execution；Architecture与Increment 12 Contract确认均不授权任何Git write。
 - Accepted v0.4与Increment 12 source均已版本化并保持v0.3 active。Stage 3整体接受后fresh `0.5-design`单次cutover，cutover继续独立授权。
+- 用户已确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：由fixed `local-runner` actor的one-shot `room:git` CLI承担preview/execute/reconcile，planner decision继续经`codex-app` MCP；首版`integration_only`限制为single fast-forward lineage。Contract=`Accepted`，但命令与policy尚未实现、不可执行。
+- 当前project binding为v0.3，而installed Agent Room workflow只接受v0.4；normal workflow、setup与cutover均未在本轮调用。用户已授权本次Increment 13规划文档版本化和独立Codex Coding task创建；最终v0.5 cutover继续独立授权。
 
 ### 4.10 Increment 12 manual graph workflow（versioned source）
 

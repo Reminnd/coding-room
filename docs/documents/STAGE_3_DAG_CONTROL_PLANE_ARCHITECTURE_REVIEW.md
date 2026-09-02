@@ -454,6 +454,8 @@ flowchart LR
 2. **Increment拆分**：Increment 12先交付Graph/Approval/Scheduler + `per_task`且零Git write；Increment 13再交付Git Controller + `integration_only`。
 3. **首版Git operation集合**：只允许`create_worktree`、`commit_paths`、`integrate_fast_forward`；继续排除push/rebase/reset/clean/delete/merge commit/conflict resolution。
 
+2026-09-02，用户进一步确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)的实施细化：Git Controller使用fixed `local-runner` actor的one-shot `room:git` CLI；`integration_only`首版只允许single fast-forward lineage；完整Contract确认后使用独立Codex worktree task且保持active v0.3不cutover。用户随后确认完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)，Contract=`Accepted`、阶段=`PLAN_READY`；Coding task创建、Git/runtime写入与cutover仍未授权。
+
 ## 18. Review Decision
 
 `approved`
