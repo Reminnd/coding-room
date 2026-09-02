@@ -16,7 +16,7 @@ On an explicit operator request, the Agent Room Skill runs its setup mode with t
 node "<AGENT_ROOM_ROOT>/plugins/agent-room/skills/agent-room/scripts/setup-project.ts" --agent-room-root "<AGENT_ROOM_ROOT>"
 ```
 
-The helper prints one deterministic JSON summary: `mode` (`created`/`migrated`/`reused`), the eight runtime values, config/gitignore change summary, the exact `room:serve` command inputs and `reload_required`. This stdout is informational only — the Room never treats it as durable state. Running the helper with `--probe` prints `{"port_open":true|false}` for the binding's loopback port.
+The helper validates that the selected Agent Room root exposes `room:serve`, `room:run` and the one-shot `room:git` controller boundary. It prints one deterministic JSON summary: `mode` (`created`/`migrated`/`reused`), the eight runtime values, config/gitignore change summary, the exact `room:serve` command inputs and `reload_required`. This stdout is informational only — the Room never treats it as durable state. Running the helper with `--probe` prints `{"port_open":true|false}` for the binding's loopback port.
 
 The Skill then starts the existing `room:serve` when the port is closed (host background process boundary, bounded wait for the existing listening success signal), reports Codex Desktop reload required and stops. After the reload the operator runs the setup continuation: the Skill re-validates the binding and the MCP URL, calls `room_get_state`, creates the exact Room once via `room_create` when it does not exist yet, and verifies the same Room reaches `DISCUSSION`. Setup never invokes the one-shot launcher (`room:run`), never starts a Claude process and never mutates Git.
 
@@ -78,3 +78,7 @@ Add the following lines to the target project's existing `.gitignore` (merge; ne
 ```
 
 The runtime binding, the local database files (current and archived) and the local artifact directory must not be versioned.
+
+## 4. Versioned v0.5 Git Controller identity
+
+A fresh v0.5 Room created after setup bootstraps `local-runner` with capabilities `execution` and `git_control`, plus Room-scoped `executor` and `git_controller` assignments. `codex-app` remains the project control participant and records user decisions through `room_decide_git_action`; it never receives Git mutation authority. Git execution is available only through the one-shot `room:git` script after an exact persisted preview and user Approval. Increment 13 source is accepted and versioned, but the active project remains v0.3 until separately cut over; setup does not execute a GitAction.

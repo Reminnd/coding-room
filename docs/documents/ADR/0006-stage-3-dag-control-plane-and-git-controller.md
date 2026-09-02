@@ -102,4 +102,10 @@ Review `review-increment-012-codex-001`确认的五项代码finding均已由Fix 
 2. 在首版allowlist不增加merge commit、cherry-pick或rebase的前提下，`integration_only`只支持single fast-forward lineage；parallel branch fan-in不属于首版。
 3. 完整[Increment 13 Contract](../INCREMENT_13_TASK_CONTRACT.md)确认后使用独立Codex worktree task `gpt-5.6-sol`/`medium`实现candidate，active v0.3保持不cutover；该Contract已于2026-09-02获用户全文确认并提升为`Accepted`。
 
-这些细化不改变本ADR的Accepted状态。Contract全文确认现已完成，但Coding task、GitAction、版本化或runtime/database/binding cutover仍未授权。
+这些细化不改变本ADR的Accepted状态。Implementation与两轮Fix已通过Review并获用户最终接受；完整accepted source由本次提交版本化。真实项目GitAction与runtime/database/binding cutover仍未授权。
+
+## 10. Increment 13 实现事实（2026-09-02，Accepted / Versioned source）
+
+独立worktree已从exact baseline `c7b4c2db0095632194940df40b49e0788257f099`形成Increment 13 implementation：typed GitAction/Approval、fixed `local-runner` Git Controller、one-shot `room:git`、single reservation与`outcome_unknown`、三个allowlisted operation及single-lineage `integration_only`均已实现。Fix Review 3无finding、用户已最终接受，完整source由本次提交版本化；active v0.3 runtime仍未cutover。
+
+用户在Coding进行中明确把执行模型从原计划的`gpt-5.6-sol`/`medium`改为`gpt-5.6-luna`/`max`；scope、baseline、architecture decisions与observable protocol均未改变。active v0.3 runtime/database/binding仍未cutover，本次未执行项目GitAction、commit或push。

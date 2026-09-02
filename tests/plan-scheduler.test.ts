@@ -76,6 +76,19 @@ test('graph validation rejects missing dependency, cycle and unordered scope con
   assert.throws(() => assertNoUnorderedScopeOverlap(overlap), (error: unknown) => (error as { code?: string }).code === 'scope_conflict');
 });
 
+test('integration_only accepts one terminal total-order lineage and rejects fan-in shapes', () => {
+  const { revision } = setup();
+  const componentA = revision.nodes[0];
+  const componentB: TaskGraphRevision['nodes'][number] = { ...componentA, node_id: 'node-b', task_spec: spec('task-b', 'run-b'), dependencies: ['node-a'], write_scopes: [{ path: 'src/b', kind: 'tree' }] };
+  const integration: TaskGraphRevision['nodes'][number] = { ...componentA, node_id: 'node-i', kind: 'integration', task_spec: spec('task-i', 'run-i'), dependencies: ['node-b'], write_scopes: [{ path: '.', kind: 'tree' }] };
+  const linear: TaskGraphRevision = { ...revision, acceptance_policy: 'integration_only', nodes: [componentA, componentB, integration] };
+  validateTaskGraphRevision(linear);
+  assert.throws(() => validateTaskGraphRevision({ ...linear, nodes: [componentA, componentB] }), (error: unknown) => (error as { code?: string }).code === 'validation_failed');
+  assert.throws(() => validateTaskGraphRevision({ ...linear, nodes: [componentA, componentB, integration, { ...integration, node_id: 'node-j', task_spec: spec('task-j', 'run-j') }] }), (error: unknown) => (error as { code?: string }).code === 'validation_failed');
+  const parallelB: TaskGraphRevision['nodes'][number] = { ...componentB, dependencies: [] };
+  assert.throws(() => validateTaskGraphRevision({ ...linear, nodes: [componentA, parallelB, { ...integration, dependencies: ['node-a', 'node-b'] }] }), (error: unknown) => (error as { code?: string }).code === 'validation_failed');
+});
+
 test('Draft reconcile is empty; approval materializes one Task/Run/Dispatch and retry has no duplicate', () => {
   const { service, revision } = setup();
   assert.deepEqual(service.reconcilePlan({ room_id: 'room-1', plan_id: 'plan-1', worktrees: [{ node_id: 'node-a', dispatch_id: 'dispatch-a', canonical_worktree_path: 'C:/repo-a' }] }, ORCHESTRATOR).dispatches, []);

@@ -197,3 +197,11 @@ Regression期望必须使用测试侧literal，并分别覆盖slash、`.`与`..`
 当 Contract 冻结多个互斥合法 payload shape 时，先把每个 shape 写成直接 boolean condition，再显式拒绝不属于 union 的 empty/overlap shape；不要以“某字段非空时才校验”的单边 guard 留下空分支，也不要为两个分支创建通用 validator framework。
 
 若 operation 存在 cancel-wins 或其它 effective-target canonicalization，先确定 effective target，再执行该 target 的 payload union validation。回归必须直接调用公开 operation，分别证明每个合法 shape 成功、empty/overlap shape 返回冻结 error，并对非法调用前后的完整 public durable snapshot做 `deepEqual`；已有合法分支测试不得删除、skip或弱化。
+
+## 15. Independent-Connection Reservation Race Regression
+
+Contract要求真实reservation竞争时，每个contender使用自己的database connection、service与public controller/application boundary。test-only subclass或fixture可以在调用`super`进入production reservation transaction之前设置bounded barrier；所有contender到达后同时放行。不要在首个调用已经写入`executing`或terminal state后再启动第二个调用，也不要为测试向production source增加hook。
+
+Worker必须返回结构化outcome与本地external mutation count；主测试聚合后断言exact一个mutation、一个success和Contract冻结的stable loser。完成后关闭Worker connection，用fresh read connection读取race完整public snapshot，并与从同一seed执行一次相同public operation得到的control snapshot比较；只归一化Contract允许的temp path、Event UUID或wall-clock字段。harness必须有bounded timeout、Worker error/non-zero exit处理与fixture cleanup，避免failure变成挂起。
+
+若Contract逐项列出`previewed|approved|succeeded|failed|outcome_unknown`等status的same-ID retry，逐status直接调用public operation并断言stored result、`created=false`、零observer/process/Event与完整snapshot不变；不得以一个terminal case代表全部terminal状态。

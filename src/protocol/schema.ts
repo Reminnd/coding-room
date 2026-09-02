@@ -186,7 +186,7 @@ export type WriteScope = z.infer<typeof writeScopeSchema>;
 
 export const taskGraphNodeSchema = z.object({
   node_id: id,
-  kind: z.literal('task'),
+  kind: z.enum(['task', 'integration']),
   task_spec: taskSpecSchema,
   dependencies: z.array(id),
   write_scopes: z.array(writeScopeSchema).min(1),
@@ -210,7 +210,7 @@ export const taskGraphRevisionSchema = z.object({
   revision_no: z.number().int().positive(),
   supersedes_revision_id: id.nullable(),
   concurrency_limit: z.number().int().min(1).max(3),
-  acceptance_policy: z.literal('per_task'),
+  acceptance_policy: z.enum(['per_task', 'integration_only']),
   nodes: z.array(taskGraphNodeSchema).min(1),
   created_by_participant_id: id,
   created_at: timestamp,
@@ -220,7 +220,7 @@ export type TaskGraphRevision = z.infer<typeof taskGraphRevisionSchema>;
 export const approvalSchema = z.object({
   approval_id: id,
   room_id: id,
-  target_type: z.literal('task_graph_revision'),
+  target_type: z.enum(['task_graph_revision', 'git_action_preview']),
   target_id: id,
   decision: z.enum(['approved', 'rejected']),
   confirmed_by_user: z.literal(true),
@@ -236,7 +236,7 @@ export const nodeDispatchSchema = z.object({
   task_id: id,
   run_id: id,
   canonical_worktree_path: z.string().min(1).nullable(),
-  status: z.enum(['waiting', 'ready', 'dispatched', 'blocked', 'completed']),
+  status: z.enum(['awaiting_git', 'waiting', 'ready', 'dispatched', 'blocked', 'completed']),
   created_at: timestamp,
   updated_at: timestamp,
   dispatched_at: timestamp.nullable(),
@@ -244,6 +244,90 @@ export const nodeDispatchSchema = z.object({
   scope_violated: z.boolean(),
 });
 export type NodeDispatch = z.infer<typeof nodeDispatchSchema>;
+
+// ---- GitAction ----
+// The preview is an exact operation-discriminated union.  There is no public argv or
+// generic command field: the controller maps each arm to one fixed argument grammar.
+export const gitEvidenceSchema = z.object({
+  staged: z.array(z.string()),
+  unstaged: z.array(z.string()),
+  untracked: z.array(z.string()),
+}).strict();
+export type GitEvidence = z.infer<typeof gitEvidenceSchema>;
+
+export const createWorktreePreviewSchema = z.object({
+  operation: z.literal('create_worktree'),
+  repository_root: z.string().min(1),
+  source_ref: z.string().min(1),
+  new_branch: z.string().min(1),
+  worktree_path: z.string().min(1),
+  preview_event_sequence: z.number().int().positive(),
+}).strict();
+
+export const commitPathsPreviewSchema = z.object({
+  operation: z.literal('commit_paths'),
+  repository_root: z.string().min(1),
+  worktree_path: z.string().min(1),
+  branch: z.string().min(1),
+  paths: z.array(z.string().min(1)).min(1),
+  commit_message: z.string().min(1),
+  git_evidence: gitEvidenceSchema,
+  preview_event_sequence: z.number().int().positive(),
+}).strict();
+
+export const integrateFastForwardPreviewSchema = z.object({
+  operation: z.literal('integrate_fast_forward'),
+  repository_root: z.string().min(1),
+  source_branch: z.string().min(1),
+  target_branch: z.string().min(1),
+  target_worktree_path: z.string().min(1),
+  git_evidence: gitEvidenceSchema,
+  preview_event_sequence: z.number().int().positive(),
+}).strict();
+
+export const gitActionPreviewSchema = z.discriminatedUnion('operation', [
+  createWorktreePreviewSchema,
+  commitPathsPreviewSchema,
+  integrateFastForwardPreviewSchema,
+]);
+export type GitActionPreview = z.infer<typeof gitActionPreviewSchema>;
+
+export const gitActionResultSchema = z.object({
+  command_exit_code: z.number().int().nullable(),
+  resulting_commit_id: z.string().min(1).nullable(),
+  message: z.string().nullable(),
+  git_evidence: gitEvidenceSchema.nullable(),
+}).strict();
+export type GitActionResult = z.infer<typeof gitActionResultSchema>;
+
+export const gitActionStatusSchema = z.enum([
+  'previewed', 'approved', 'executing', 'succeeded', 'failed', 'outcome_unknown',
+]);
+export type GitActionStatus = z.infer<typeof gitActionStatusSchema>;
+
+export const gitActionSchema = z.object({
+  git_action_id: id,
+  room_id: id,
+  revision_id: id,
+  node_id: id,
+  operation: z.enum(['create_worktree', 'commit_paths', 'integrate_fast_forward']),
+  status: gitActionStatusSchema,
+  git_controller_participant_id: id,
+  preview_event_sequence: z.number().int().positive(),
+  approval_id: id.nullable(),
+  preview: gitActionPreviewSchema,
+  result: gitActionResultSchema.nullable(),
+  created_at: timestamp,
+  settled_at: timestamp.nullable(),
+}).strict().superRefine((value, ctx) => {
+  if (value.operation !== value.preview.operation) {
+    ctx.addIssue({ code: 'custom', path: ['preview', 'operation'], message: 'preview operation must match action operation' });
+  }
+  if (value.preview_event_sequence !== value.preview.preview_event_sequence) {
+    ctx.addIssue({ code: 'custom', path: ['preview_event_sequence'], message: 'action and preview sequence must match' });
+  }
+});
+export type GitAction = z.infer<typeof gitActionSchema>;
 
 // 持久化 Task 在 TaskContract 基础上固化提交时 resolved 的 planner/orchestrator identity；
 // 提交后 assignment 变化不改写既有 Task。
@@ -344,12 +428,6 @@ export const attemptStatusSchema = z.enum([
   'interrupted',
 ]);
 export type AttemptStatus = z.infer<typeof attemptStatusSchema>;
-
-const gitEvidenceSchema = z.object({
-  staged: z.array(z.string()),
-  unstaged: z.array(z.string()),
-  untracked: z.array(z.string()),
-});
 
 const runFailureSchema = z.object({
   code: z.string(),
@@ -467,6 +545,7 @@ const entityTypeSchema = z.enum([
   'task_graph_revision',
   'approval',
   'node_dispatch',
+  'git_action',
 ]);
 
 export const eventSchema = z.object({

@@ -111,7 +111,7 @@ test('createRoom sets initial state DISCUSSION and appends first event', () => {
   assert.equal(events[0].actor_role, 'orchestrator');
 });
 
-test('createRoom bootstraps the three room-member participants and five room-scope assignments', () => {
+test('createRoom bootstraps the three room-member participants and six room-scope assignments', () => {
   const { service } = makeService();
   service.createRoom('room-1', PLANNER);
   // operator 保留 human profile 但无 assignment（Fix inc9-r4），因此不是 room member；
@@ -123,18 +123,19 @@ test('createRoom bootstraps the three room-member participants and five room-sco
   );
   assert.deepEqual(participants.map((p) => p.enabled), [true, true, true]);
   const assignments = service.listRoleAssignments('room-1');
-  assert.equal(assignments.length, 5);
+  assert.equal(assignments.length, 6);
   assert.deepEqual(
     assignments.map((a) => `${a.role}:${a.participant_id}`).sort(),
     [
       'executor:local-runner',
+      'git_controller:local-runner',
       'orchestrator:codex-app',
       'planner:codex-app',
       'reviewer:codex-app',
       'worker:claude-code-cli',
     ],
   );
-  assert.deepEqual(assignments.map((a) => a.scope_type), ['room', 'room', 'room', 'room', 'room']);
+  assert.deepEqual(assignments.map((a) => a.scope_type), ['room', 'room', 'room', 'room', 'room', 'room']);
 });
 
 test('createRoom rejects a caller without the planner assignment and rolls back the bootstrap', () => {

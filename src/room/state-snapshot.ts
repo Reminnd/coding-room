@@ -3,6 +3,7 @@ import { ProtocolError } from '../protocol/errors.ts';
 import {
   approvalSchema,
   eventSchema,
+  gitActionSchema,
   nodeDispatchSchema,
   participantProfileSchema,
   planSchema,
@@ -17,6 +18,7 @@ import {
   runStatusSchema,
   taskGraphRevisionSchema,
   type Event,
+  type GitAction,
   type Approval,
   type NodeDispatch,
   type Plan,
@@ -109,7 +111,9 @@ export interface RoomStateSnapshot {
   task_graph_revisions: TaskGraphRevision[];
   approvals: Approval[];
   node_dispatches: NodeDispatch[];
+  git_actions: GitAction[];
   graph_work_items: GraphWorkItem[];
+  plan_work_items: PlanWorkItem[];
   planning_waiting_actor: WaitingActor;
   run_work_items: RunWorkItem[];
   cursor: number;
@@ -130,12 +134,16 @@ export const roomStateSnapshotSchema = z.object({
   task_graph_revisions: z.array(taskGraphRevisionSchema),
   approvals: z.array(approvalSchema),
   node_dispatches: z.array(nodeDispatchSchema),
+  git_actions: z.array(gitActionSchema),
   graph_work_items: z.array(z.object({
     plan_id: z.string().min(1), revision_id: z.string().min(1), node_id: z.string().min(1),
     task_id: z.string().min(1), run_id: z.string().min(1), dispatch_id: z.string().min(1).nullable(),
-    waiting_reason: z.enum(['revision_not_approved', 'dependency_not_accepted', 'worktree_required', 'ready', 'dispatched', 'blocked', 'completed']),
+    waiting_reason: z.enum(['revision_not_approved', 'dependency_not_accepted', 'worktree_required', 'awaiting_git', 'ready', 'dispatched', 'blocked', 'completed']),
     dependency_ready: z.boolean(), scope_violated: z.boolean(), worktree_path: z.string().min(1).nullable(),
+    git_waiting_reason: z.enum(['worktree_required', 'commit_required', 'final_fast_forward_required', 'action_failed', 'outcome_unknown']).nullable(),
+    commit_gate_satisfied: z.boolean(),
   })),
+  plan_work_items: z.array(z.object({ plan_id: z.string().min(1), revision_id: z.string().min(1), completed: z.boolean() })),
   planning_waiting_actor: waitingActorSchema,
   run_work_items: z.array(runWorkItemSchema),
   cursor: z.number().int().min(0),
@@ -149,11 +157,15 @@ export interface GraphWorkItem {
   task_id: string;
   run_id: string;
   dispatch_id: string | null;
-  waiting_reason: 'revision_not_approved' | 'dependency_not_accepted' | 'worktree_required' | 'ready' | 'dispatched' | 'blocked' | 'completed';
+  waiting_reason: 'revision_not_approved' | 'dependency_not_accepted' | 'worktree_required' | 'awaiting_git' | 'ready' | 'dispatched' | 'blocked' | 'completed';
   dependency_ready: boolean;
   scope_violated: boolean;
   worktree_path: string | null;
+  git_waiting_reason: 'worktree_required' | 'commit_required' | 'final_fast_forward_required' | 'action_failed' | 'outcome_unknown' | null;
+  commit_gate_satisfied: boolean;
 }
+
+export interface PlanWorkItem { plan_id: string; revision_id: string; completed: boolean }
 
 // Run 下一位 actor：execution 阶段由 active attempt status 细分（worker 仍在运行 vs
 // executor 必须停止/终止 process），其余由 Run status 固定映射。
@@ -201,8 +213,10 @@ export function getRoomStateSnapshot(
   const revisions = service.listTaskGraphRevisions(input.room_id);
   const approvals = service.listApprovals(input.room_id);
   const nodeDispatches = service.listNodeDispatches(input.room_id);
+  const gitActions = service.listGitActions(input.room_id);
   const revisionsById = new Map(revisions.map((revision) => [revision.revision_id, revision]));
   const graphWorkItems: GraphWorkItem[] = [];
+  const planWorkItems: PlanWorkItem[] = [];
   for (const plan of plans) {
     const latest = revisions.filter((revision) => revision.plan_id === plan.plan_id).sort((a, b) => b.revision_no - a.revision_no)[0];
     if (!latest) continue;
@@ -240,15 +254,42 @@ export function getRoomStateSnapshot(
       else if (dispatch.status === 'blocked') waitingReason = 'blocked';
       else if (dispatch.status === 'completed') waitingReason = 'completed';
       else if (dispatch.status === 'dispatched') waitingReason = 'dispatched';
+      else if (dispatch.status === 'awaiting_git') waitingReason = 'awaiting_git';
       else waitingReason = 'ready';
+      const nodeActions = gitActions.filter((action) => action.revision_id === latest.revision_id && action.node_id === node.node_id);
+      const latestAction = nodeActions.at(-1) ?? null;
+      let gitWaitingReason: GraphWorkItem['git_waiting_reason'] = null;
+      if (latestAction?.status === 'failed') gitWaitingReason = 'action_failed';
+      else if (latestAction?.status === 'outcome_unknown') gitWaitingReason = 'outcome_unknown';
+      else if (dispatch?.status === 'awaiting_git' && dispatch.canonical_worktree_path === null) gitWaitingReason = 'worktree_required';
+      else if (dispatch?.status === 'awaiting_git') gitWaitingReason = 'commit_required';
+      else if (latest.acceptance_policy === 'integration_only' && node.kind === 'integration'
+        && runs.some((run) => run.run_id === dispatch?.run_id && run.status === 'accepted')
+        && dispatch?.status === 'completed'
+        && !nodeActions.some((action) => action.operation === 'integrate_fast_forward' && action.status === 'succeeded')) {
+        gitWaitingReason = 'final_fast_forward_required';
+      }
       graphWorkItems.push({
         plan_id: plan.plan_id, revision_id: latest.revision_id, node_id: node.node_id,
         task_id: node.task_spec.task_id, run_id: node.task_spec.run_id,
         dispatch_id: dispatch?.dispatch_id ?? null, waiting_reason: waitingReason,
         dependency_ready: dependencyReady, scope_violated: dispatch?.scope_violated ?? false,
         worktree_path: dispatch?.canonical_worktree_path ?? null,
+        git_waiting_reason: gitWaitingReason,
+        commit_gate_satisfied: dispatch?.status === 'completed',
       });
     }
+    const terminal = latest.nodes.find((node) => node.kind === 'integration') ?? null;
+    const terminalDispatch = terminal ? dispatchByNode.get(terminal.node_id) ?? null : null;
+    const terminalAccepted = Boolean(terminalDispatch && runs.some((run) => run.run_id === terminalDispatch.run_id && run.status === 'accepted'));
+    const finalFastForward = Boolean(terminal && gitActions.some((action) => action.revision_id === latest.revision_id && action.node_id === terminal.node_id && action.operation === 'integrate_fast_forward' && action.status === 'succeeded'));
+    const completed = latest.acceptance_policy === 'integration_only'
+      ? terminalAccepted && terminalDispatch?.status === 'completed' && finalFastForward
+      : latest.nodes.every((node) => {
+        const dispatch = dispatchByNode.get(node.node_id);
+        return Boolean(dispatch && dispatch.status === 'completed' && runs.some((run) => run.run_id === dispatch.run_id && run.status === 'accepted'));
+      });
+    planWorkItems.push({ plan_id: plan.plan_id, revision_id: latest.revision_id, completed });
   }
   // run_work_items 稳定排序：created_at 升序，同 created_at 按 run_id 字典序。
   const sortedRuns = [...runs].sort((a, b) => {
@@ -296,7 +337,9 @@ export function getRoomStateSnapshot(
     task_graph_revisions: revisions,
     approvals,
     node_dispatches: nodeDispatches,
+    git_actions: gitActions,
     graph_work_items: graphWorkItems,
+    plan_work_items: planWorkItems,
     planning_waiting_actor: PLANNING_WAITING_ACTOR[room.state] ?? null,
     run_work_items: runWorkItems,
     cursor: allEvents.length === 0 ? 0 : allEvents[allEvents.length - 1].sequence,

@@ -4,6 +4,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
   approvalSchema,
+  gitActionSchema,
   nodeDispatchSchema,
   participantProfileSchema,
   planSchema,
@@ -185,13 +186,14 @@ const roleAssignmentOutputSchema = z.object({
 const planOutputSchema = z.object({ plan: planSchema, created: z.boolean() });
 const revisionOutputSchema = z.object({ revision: taskGraphRevisionSchema, created: z.boolean() });
 const approvalOutputSchema = z.object({ room: roomRecordSchema, approval: approvalSchema, created: z.boolean() });
+const gitActionDecisionOutputSchema = z.object({ approval: approvalSchema, action: gitActionSchema, created: z.boolean() });
 const reconcileInputSchema = z.object({
   room_id: z.string().min(1),
   plan_id: z.string().min(1),
   worktrees: z.array(z.object({
     node_id: z.string().min(1),
     dispatch_id: z.string().min(1),
-    worktree_path: z.string().min(1),
+    worktree_path: z.string().min(1).nullable().optional(),
   })),
 });
 const reconcileOutputSchema = z.object({
@@ -266,6 +268,12 @@ export function registerParticipantTools(
     'room_decide_plan_revision',
     { description: 'Record the user-confirmed terminal decision for the exact latest task graph revision.', inputSchema: approvalSchema, outputSchema: approvalOutputSchema },
     (args) => runTool(async () => deps.service.decidePlanRevision(args, planner)),
+  );
+
+  server.registerTool(
+    'room_decide_git_action',
+    { description: 'Record the user-confirmed terminal decision for an exact unstale GitAction preview. This never executes Git.', inputSchema: approvalSchema, outputSchema: gitActionDecisionOutputSchema },
+    (args) => runTool(async () => deps.service.decideGitAction(args, planner)),
   );
 
   server.registerTool(

@@ -124,7 +124,8 @@ function parseArgs(argv: string[]): { mode: 'setup'; agentRoomRoot?: string } | 
   return { mode: 'setup', agentRoomRoot };
 }
 
-// agent_room_root 必须解析为 absolute path，且其 package.json 同时定义 room:serve 与 room:run。
+// agent_room_root 必须解析为 absolute path，且其 package.json 定义 service、Runner 与
+// fixed Git Controller 的三个 one-shot/runtime scripts。
 function validateAgentRoomRoot(rootInput: string): string {
   const root = resolve(rootInput);
   if (!existsSync(root)) fail(`agent_room_root is not an existing directory: ${root}`);
@@ -142,9 +143,10 @@ function validateAgentRoomRoot(rootInput: string): string {
     typeof scripts !== 'object' ||
     scripts === null ||
     !isString((scripts as Record<string, unknown>)['room:serve']) ||
-    !isString((scripts as Record<string, unknown>)['room:run'])
+    !isString((scripts as Record<string, unknown>)['room:run']) ||
+    !isString((scripts as Record<string, unknown>)['room:git'])
   ) {
-    fail(`agent_room_root package.json must define both room:serve and room:run scripts: ${pkgPath}`);
+    fail(`agent_room_root package.json must define room:serve, room:run and room:git scripts: ${pkgPath}`);
   }
   return root;
 }

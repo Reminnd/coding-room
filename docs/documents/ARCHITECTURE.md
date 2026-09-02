@@ -385,7 +385,7 @@ fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0
 - 不恢复baseline、file hash、Diff fingerprint、commit hash precondition、branch mirror或timestamp validator；Git result commit ID只作为historical evidence。
 - 推荐先版本化accepted v0.4 source而不cutover，Stage 3使用fresh `0.5-design`，拆分Graph/Scheduler与Git Controller两个Increment并在Stage 3整体接受后单次cutover。
 
-用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并进入版本化`main`。用户又于2026-09-02确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor通过one-shot `room:git` CLI承担Git mutation，planner decision仍经`codex-app` MCP，`integration_only`首版只支持single fast-forward lineage，Coding使用独立Codex worktree task且不cutover active v0.3。Contract=`Accepted`，但以上target尚未实现，不构成Current capability或Git operation授权。
+用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并进入版本化`main`。用户又于2026-09-02确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor通过one-shot `room:git` CLI承担Git mutation，planner decision仍经`codex-app` MCP，`integration_only`首版只支持single fast-forward lineage，Coding使用独立Codex worktree task且不cutover active v0.3。Implementation与两轮Fix已通过Review、获用户最终接受并由本次提交版本化；active v0.3仍不提供该能力，版本化不构成Git operation或cutover授权。
 
 ## 4. 依赖方向
 
@@ -585,3 +585,13 @@ Fix后权威语义：
 - claim的revision、node、write scope与`concurrency_limit`全部来自同一current approved revision；历史NodeDispatch reference不覆盖amendment后的current limit。
 - `scope_violated=true`或`blocked` dispatch在`acceptReview`任何写入前被拒绝；dependency readiness同时要求dependency Run=`accepted`、NodeDispatch=`completed`且`scope_violated=false`。恢复只能由同Run后续successful in-scope Fix attempt在同一settlement transaction内产生。
 - assignment replacement只影响future entity：已dispatch node保留frozen worker assignment与Run worker，new/undispatched node使用current active assignment。
+
+## 16. Increment 13 accepted source — Git Controller 与 single-lineage integration
+
+> 状态：Accepted / Versioned source。Implementation lineage来自exact baseline `c7b4c2db0095632194940df40b49e0788257f099`；active v0.3 runtime/database/binding未cutover。
+
+依赖方向固定为`room:git CLI → GitController → fixed Git process + read-only Git Observer → RoomService → Repository`。Planner只通过既有Codex MCP创建`git_action_preview` Approval decision；fixed `local-runner`持有`git_controller` role并负责preview、reservation、execute、settlement与reconcile。MCP不启动Git process，Git process不在SQLite transaction内运行。
+
+每个`GitAction`依次冻结exact preview、用户decision、single reservation和terminal result。execute在重新观察live repository facts后，以transaction将`approved → executing`；提交后才执行allowlist中的`create_worktree`、`commit_paths`或`integrate_fast_forward`。成功或失败由第二个transaction结算；execution ownership丢失时，reconcile只读取live evidence并写`outcome_unknown`，不推断成功、不重试、不reset或cleanup。
+
+`integration_only`只接受single fast-forward lineage：revision恰有一个terminal `integration` node，所有component均能到达该node且component之间存在total order。component Review approved后仅policy-accepted，non-empty successful `commit_paths`后才完成dispatch并解锁下游；terminal Integration Run仍走既有Review与用户acceptance，最终`integrate_fast_forward`成功后derived Plan completion才为true。parallel fan-in、merge commit、cherry-pick与rebase不属于本版source。

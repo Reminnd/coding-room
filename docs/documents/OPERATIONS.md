@@ -273,10 +273,10 @@ Current操作边界：
 
 - [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)及implementation已获用户最终接受，阶段=`ACCEPTED`，accepted source由本次提交进入版本化`main`。尚未cutover，因此active runtime仍不提供Stage 3 Scheduler或Git command。
 - Scheduler只显式reconcile ready work，不自动启动Agent process；每次one-shot Run仍需operator授权。
-- Increment 13未来Git Controller对每次`create_worktree`、`commit_paths`或`integrate_fast_forward`执行preview → user confirmation → single execution；Architecture与Increment 12 Contract确认均不授权任何Git write。
+- Increment 13 Git Controller对每次`create_worktree`、`commit_paths`或`integrate_fast_forward`执行preview → user confirmation → single execution；版本化source不授权任何真实项目Git write。
 - Accepted v0.4与Increment 12 source均已版本化并保持v0.3 active。Stage 3整体接受后fresh `0.5-design`单次cutover，cutover继续独立授权。
-- 用户已确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：由fixed `local-runner` actor的one-shot `room:git` CLI承担preview/execute/reconcile，planner decision继续经`codex-app` MCP；首版`integration_only`限制为single fast-forward lineage。Contract=`Accepted`，但命令与policy尚未实现、不可执行。
-- 当前project binding为v0.3，而installed Agent Room workflow只接受v0.4；normal workflow、setup与cutover均未在本轮调用。用户已授权本次Increment 13规划文档版本化和独立Codex Coding task创建；最终v0.5 cutover继续独立授权。
+- 用户已确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：由fixed `local-runner` actor的one-shot `room:git` CLI承担preview/execute/reconcile，planner decision继续经`codex-app` MCP；首版`integration_only`限制为single fast-forward lineage。Implementation与两轮Fix已通过Review、获用户最终接受并由本次提交版本化；active v0.3未cutover，仍不可用于当前项目runtime。
+- 当前project binding为v0.3，而versioned Agent Room workflow要求v0.5；normal workflow、setup与cutover均未在本轮调用。最终v0.5 cutover继续独立授权。
 
 ### 4.10 Increment 12 manual graph workflow（versioned source）
 
@@ -319,6 +319,7 @@ npm test
 | 查询 Room state snapshot | `npm run room:status -- --db <path> --room-id <id>` | Available |
 | 调用 MCP | service 启动后使用 `/mcp/codex` 或 `/mcp/claude` | Available |
 | 执行一个 Runner Run | `npm run room:run -- ...` | Available（one-shot；要求既有database与已启动的Room service） |
+| 执行一个 GitAction | `npm run room:git -- preview|execute|reconcile ...` | Versioned v0.5 source available；active v0.3未cutover |
 
 ## 6. 状态、存储与制品
 
@@ -388,3 +389,16 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 | `review-increment-011-codex-002` | `approved` / 无finding / 用户已最终接受 | baseline-free public paths、invalid rollback与Plugin/文档一致性闭合 | 独立residual scan、typecheck、focused 150/150与full 355/355通过；Review时未执行Git write，accepted source现已由本次提交版本化，runtime未cutover |
 
 后续每次 Review 调用 `backend-doc-authoring` skill，并按 [Codex 项目文档编写与维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) 审计；存在运维影响时更新本节，无影响时在 Review Verification Summary 报告 `documentation: no_change`。
+
+### 4.11 Increment 13 manual Git workflow（versioned source）
+
+> 本节只描述accepted/versioned source；active v0.3 binding未cutover。不得在当前项目执行这些GitAction，除非另行授权cutover与具体action。
+
+1. 先用one-shot `room:git preview`传入operation所需的全部typed参数。CLI只观察canonical repository/worktree、branch/ref、live evidence和Room cursor，输出exact frozen preview；此步不执行Git mutation。
+2. 将完整preview展示给用户。用户确认后，planner才通过既有`room_decide_git_action` MCP tool对`target_type=git_action_preview`作exact Approval decision；不得由Plugin、CLI或Controller自动决定。
+3. 对同一approved `git_action_id`取得一次host approval，只运行一次`npm run room:git -- execute ...`。Controller重新观察live facts并原子reserve后，才执行固定argv allowlist；terminal或executing action不得retry/replay。
+4. 若process返回，读取Room snapshot中的terminal result与live evidence。若process ownership丢失，只运行一次`room:git reconcile`把action记为`outcome_unknown`；不推断成功、不重试、不reset、不cleanup，后续由用户检查repository并决定新计划。
+
+典型waiting read model以`waiting_reason/git_waiting_reason`表示：missing managed worktree=`awaiting_git/worktree_required`；component Review已policy-accepted但未commit=`awaiting_git/commit_required`；terminal Integration已接受但尚未final ff=`completed/final_fast_forward_required`。`failed`或`outcome_unknown`均不解锁dependency或derived Plan completion。
+
+Versioned source命令入口为`npm run room:git -- preview|execute|reconcile ...`，fixed actor始终是`local-runner`/`git_controller`。Plugin只指导人工preview-confirm-execute与post-action snapshot reread；不自动调用CLI、launcher、Review、acceptance、retry或cleanup。

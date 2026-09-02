@@ -23,6 +23,7 @@ import {
   planSchema,
   approvalSchema,
   nodeDispatchSchema,
+  gitActionSchema,
   writeScopeSchema,
   utcTimestampSchema,
 } from '../src/protocol/schema.ts';
@@ -54,7 +55,7 @@ test('protocol version is the frozen 0.5-design literal', () => {
   assert.equal(protocolVersionSchema.safeParse('0.2').success, false);
 });
 
-test('0.5 graph schemas keep Draft TaskSpec unconfirmed and acceptance policy per_task only', () => {
+test('0.5 graph schemas keep Draft TaskSpec unconfirmed and expose both frozen acceptance policies', () => {
   const task = makeTask();
   const { confirmed_by_user: _confirmed, ...spec } = task;
   assert.equal(taskSpecSchema.safeParse(spec).success, true);
@@ -67,10 +68,26 @@ test('0.5 graph schemas keep Draft TaskSpec unconfirmed and acceptance policy pe
     created_by_participant_id: 'codex-app', created_at: task.created_at,
   };
   assert.equal(taskGraphRevisionSchema.safeParse(revision).success, true);
-  assert.equal(taskGraphRevisionSchema.safeParse({ ...revision, acceptance_policy: 'integration_only' }).success, false);
+  assert.equal(taskGraphRevisionSchema.safeParse({ ...revision, acceptance_policy: 'integration_only' }).success, true);
+  assert.equal(taskGraphRevisionSchema.safeParse({ ...revision, acceptance_policy: 'automatic' }).success, false);
   assert.equal(writeScopeSchema.safeParse({ path: '.', kind: 'tree' }).success, true);
   assert.equal(approvalSchema.safeParse({ approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'rev-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: task.created_at }).success, true);
   assert.equal(nodeDispatchSchema.safeParse({ dispatch_id: 'dispatch-1', revision_id: 'rev-1', node_id: 'node-1', task_id: 'task-1', run_id: 'run-1', canonical_worktree_path: 'C:/repo', status: 'dispatched', created_at: task.created_at, updated_at: task.created_at, dispatched_at: task.created_at, completed_at: null, scope_violated: false }).success, true);
+});
+
+test('GitAction schema is a strict operation-discriminated union', () => {
+  const action = {
+    git_action_id: 'git-1', room_id: 'room-1', revision_id: 'rev-1', node_id: 'node-1',
+    operation: 'commit_paths', status: 'previewed', git_controller_participant_id: 'local-runner',
+    preview_event_sequence: 9, approval_id: null,
+    preview: { operation: 'commit_paths', repository_root: 'C:/repo', worktree_path: 'C:/repo/wt', branch: 'codex/a', paths: ['src/a.ts'], commit_message: 'feat(core): add a', git_evidence: { staged: [], unstaged: [], untracked: ['src/a.ts'] }, preview_event_sequence: 9 },
+    result: null, created_at: makeTask().created_at, settled_at: null,
+  };
+  assert.equal(gitActionSchema.safeParse(action).success, true);
+  assert.equal(gitActionSchema.safeParse({ ...action, argv: ['reset', '--hard'] }).success, false);
+  assert.equal(gitActionSchema.safeParse({ ...action, preview: { ...action.preview, source_ref: 'main' } }).success, false);
+  assert.equal(gitActionSchema.safeParse({ ...action, operation: 'create_worktree' }).success, false);
+  assert.equal(gitActionSchema.safeParse({ ...action, preview_event_sequence: 10 }).success, false);
 });
 
 test('Role enum accepts only the six frozen roles', () => {

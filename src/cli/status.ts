@@ -69,7 +69,9 @@ function formatStatus(snapshot: RoomStateSnapshot): string {
     plans: snapshot.plans,
     task_graph_revisions: snapshot.task_graph_revisions,
     approvals: snapshot.approvals,
+    git_actions: snapshot.git_actions,
     graph_work_items: snapshot.graph_work_items,
+    plan_work_items: snapshot.plan_work_items,
     runs: snapshot.run_work_items.map((item) => ({
       run_id: item.run_id,
       status: item.run_status,

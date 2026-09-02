@@ -215,7 +215,7 @@ function resultText(result: unknown): string {
   return typeof text === 'string' ? text : '';
 }
 
-test('a participant route exposes exactly the nineteen v0.5 tools', async () => {
+test('a participant route exposes exactly the twenty v0.5 tools', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
@@ -233,6 +233,7 @@ test('a participant route exposes exactly the nineteen v0.5 tools', async () => 
       'room_create_plan',
       'room_create_plan_revision',
       'room_create_role_assignment',
+      'room_decide_git_action',
       'room_decide_plan_revision',
       'room_get_state',
       'room_reconcile_plan',
@@ -681,7 +682,7 @@ test('room_submit_task fix task attaches to the review_discussion Run and return
   }
 });
 
-test('Plan/Revision/Approval/reconcile public route materializes one graph work item', async () => {
+test('Plan/Revision/reconcile and GitAction decision cross the public MCP route', async () => {
   const fixture = makeFixture();
   initRepo(fixture);
   const service = new RoomService(new DatabaseSync(':memory:'));
@@ -709,10 +710,15 @@ test('Plan/Revision/Approval/reconcile public route materializes one graph work 
     await codex.callTool({ name: 'room_request_user_confirmation', arguments: { room_id: 'room-1' } });
     const decision = await codex.callTool({ name: 'room_decide_plan_revision', arguments: { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: createdAt } });
     assert.equal(decision.isError, undefined);
-    const reconciled = await codex.callTool({ name: 'room_reconcile_plan', arguments: { room_id: 'room-1', plan_id: 'plan-1', worktrees: [{ node_id: 'node-1', dispatch_id: 'dispatch-1', worktree_path: fixture }] } });
+    const reconciled = await codex.callTool({ name: 'room_reconcile_plan', arguments: { room_id: 'room-1', plan_id: 'plan-1', worktrees: [{ node_id: 'node-1', dispatch_id: 'dispatch-1', worktree_path: null }] } });
     assert.equal((reconciled.structuredContent as { dispatches: unknown[] }).dispatches.length, 1);
-    const state = await snapshot(codex, 'room-1');
-    assert.equal((state.graph_work_items as Array<{ waiting_reason: string }>)[0].waiting_reason, 'dispatched');
+    let state = await snapshot(codex, 'room-1');
+    assert.equal((state.graph_work_items as Array<{ waiting_reason: string }>)[0].waiting_reason, 'awaiting_git');
+    service.previewGitAction({ git_action_id: 'git-action-1', room_id: 'room-1', revision_id: 'revision-1', node_id: 'node-1', preview: { operation: 'create_worktree', repository_root: fixture, source_ref: 'main', new_branch: 'codex/node-1', worktree_path: join(fixture, '..', 'node-1-worktree') } }, { participant_id: 'local-runner', actor_role: 'git_controller' });
+    const gitDecision = await codex.callTool({ name: 'room_decide_git_action', arguments: { approval_id: 'git-approval-1', room_id: 'room-1', target_type: 'git_action_preview', target_id: 'git-action-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: createdAt } });
+    assert.equal(gitDecision.isError, undefined);
+    state = await snapshot(codex, 'room-1');
+    assert.equal((state.git_actions as Array<{ status: string }>)[0].status, 'approved');
     await codex.close();
   } finally {
     await close();
@@ -1969,7 +1975,7 @@ test('codex-app route registers participants, toggles enabled and creates role a
     assert.equal(p2?.enabled, true);
     const assignments = state.role_assignments as { assignment_id: string; role: string; participant_id: string }[];
     assert.ok(assignments.some((a) => a.assignment_id === 'a-p2' && a.role === 'planner' && a.participant_id === 'p2'));
-    assert.equal(assignments.length, 6);
+    assert.equal(assignments.length, 7);
     await codex.close();
   } finally {
     await close();

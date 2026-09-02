@@ -75,13 +75,17 @@ test('status CLI prints deterministic pretty JSON matching the seeded Room/Run s
     'plans',
     'task_graph_revisions',
     'approvals',
+    'git_actions',
     'graph_work_items',
+    'plan_work_items',
     'runs',
   ]);
   assert.deepEqual(parsed.plans, []);
   assert.deepEqual(parsed.task_graph_revisions, []);
   assert.deepEqual(parsed.approvals, []);
+  assert.deepEqual(parsed.git_actions, []);
   assert.deepEqual(parsed.graph_work_items, []);
+  assert.deepEqual(parsed.plan_work_items, []);
   // 值来自测试侧 seed fixture 的独立 literal，不从实现导入。
   assert.equal(parsed.room_id, 'room-1');
   assert.equal(parsed.state, 'DISCUSSION');

@@ -11,7 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 // Increment 8 setup focused regression + actual loopback E2E：以本仓库自身作为
-// agent_room_root（其 package.json 同时定义 room:serve 与 room:run），在 temporary
+// agent_room_root（其 package.json 定义 room:serve、room:run 与 room:git），在 temporary
 // target project 中运行 Skill-owned helper、启动 existing room:serve boundary，并模拟
 // Codex Desktop reload 后的 project-scoped MCP continuation（room_create/room_get_state
 // 到达 DISCUSSION）。不启动真实/付费 Claude、不执行 room:run、不访问 network、不依赖
@@ -284,7 +284,7 @@ test('invalid roots, conflicts and mismatches stop before any write and leave ev
       writeFileSync(join(fixture, 'package.json'), JSON.stringify({ scripts: { build: 'node x' } }));
       const r = runHelper(fixture, ['--agent-room-root', fixture]);
       assert.notEqual(r.status, 0);
-      assert.match(r.stderr, /room:serve and room:run scripts/);
+      assert.match(r.stderr, /room:serve, room:run and room:git scripts/);
       assert.equal(existsSync(join(fixture, '.agent-room')), false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
@@ -417,7 +417,7 @@ test('existing binding conflicts stop with zero writes: section/dotted url misma
       try {
         writeFileSync(
           join(fakeRoot, 'package.json'),
-          JSON.stringify({ scripts: { 'room:serve': 'node x', 'room:run': 'node x' } }),
+          JSON.stringify({ scripts: { 'room:serve': 'node x', 'room:run': 'node x', 'room:git': 'node x' } }),
         );
         const before = snapshotFiles(fixture);
         const r = runHelper(fixture, ['--agent-room-root', fakeRoot]);
@@ -927,10 +927,11 @@ test('setup helper is standard-library-only and never triggers the launcher, Cla
     assert.ok(spec.startsWith('node:'), `non-standard import in helper: ${spec}`);
   }
   // 不触发 one-shot launcher / Claude process / MCP tool / Git mutation（setup 边界证据）：
-  // helper 校验 root package.json 的 room:serve/room:run script 名（positive），但自身不
+  // helper 校验 root package.json 的 room:serve/room:run/room:git script 名（positive），但自身不
   // import child_process，因此不可能启动 launcher、Claude 或任何 process（behavioral gate）。
   assert.ok(helperSource.includes('room:serve'), 'helper must validate the room:serve script');
   assert.ok(helperSource.includes('room:run'), 'helper must validate the room:run script');
+  assert.ok(helperSource.includes('room:git'), 'helper must validate the room:git script');
   assert.ok(!helperSource.includes('room_submit_task'), 'helper must never submit a Task');
   assert.ok(!helperSource.includes('room_create'), 'helper must never create a Room (Skill MCP continuation owns it)');
   assert.ok(!helperSource.includes('room_get_state'), 'helper must never read Room state');

@@ -18,7 +18,8 @@ const allowedRunnerFiles = new Set([
   'worker-adapter.ts',
 ]);
 const allowedMcpFiles = new Set(['http.ts', 'tools.ts', 'serve.ts']);
-const allowedCliFiles = new Set(['status.ts', 'run.ts']);
+const allowedCliFiles = new Set(['status.ts', 'run.ts', 'git.ts']);
+const allowedGitFiles = new Set(['git-observer.ts', 'git-process.ts', 'git-controller.ts']);
 const allowedRoomFiles = new Set([
   'state-machine.ts',
   'repository.ts',
@@ -67,7 +68,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 12 allows the exact Scheduler boundary and keeps extra modules, plugin files and dependency drift rejected', () => {
+test('Increment 13 allows the exact Git Controller boundary and keeps extra modules, plugin files and dependency drift rejected', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }
@@ -77,6 +78,7 @@ test('Increment 12 allows the exact Scheduler boundary and keeps extra modules, 
   assertDirFiles(join(root, 'src', 'cli'), allowedCliFiles);
   assertDirFiles(join(root, 'src', 'room'), allowedRoomFiles);
   assertDirFiles(join(root, 'src', 'scheduler'), allowedSchedulerFiles);
+  assertDirFiles(join(root, 'src', 'git'), allowedGitFiles);
 
   // Increment 7/8 packaging boundary：安装一次的 shared Plugin 与 repository-local
   // marketplace 是根目录唯一新增结构；plugin 树恰好四个文件（Increment 8 新增
@@ -96,4 +98,18 @@ test('Increment 12 allows the exact Scheduler boundary and keeps extra modules, 
   };
   assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['@modelcontextprotocol/sdk', 'zod']);
   assert.deepEqual(Object.keys(pkg.devDependencies).sort(), ['@types/express', '@types/node', 'typescript']);
+});
+
+test('Git mutation grammar stays inside Git Controller and excludes banned operations', () => {
+  const controller = readFileSync(join(root, 'src', 'git', 'git-controller.ts'), 'utf8');
+  for (const banned of ["'reset'", "'clean'", "'checkout'", "'rebase'", "'cherry-pick'", "'push'", "'pull'", "'fetch'"]) {
+    assert.equal(controller.includes(banned), false, `Git Controller must not expose ${banned}`);
+  }
+  assert.equal(controller.includes("['add', '-b'"), true);
+  assert.equal(controller.includes("['--', ...preview.paths]"), true);
+  assert.equal(controller.includes("['--ff-only'"), true);
+  for (const relative of ['room/room-service.ts', 'scheduler/plan-scheduler.ts', 'mcp/tools.ts']) {
+    const source = readFileSync(join(root, 'src', relative), 'utf8');
+    assert.equal(/execFile|spawn\(|runGit\(/u.test(source), false, `${relative} must not execute Git`);
+  }
 });

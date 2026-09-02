@@ -115,11 +115,12 @@ test('freshly created room: one event, planner waiting, no work items, bootstrap
     s.participants.map((p) => p.participant_id).sort(),
     ['claude-code-cli', 'codex-app', 'local-runner'],
   );
-  assert.equal(s.role_assignments.length, 5);
+  assert.equal(s.role_assignments.length, 6);
   assert.deepEqual(
     s.role_assignments.map((a) => `${a.role}:${a.participant_id}`).sort(),
     [
       'executor:local-runner',
+      'git_controller:local-runner',
       'orchestrator:codex-app',
       'planner:codex-app',
       'reviewer:codex-app',

@@ -54,7 +54,7 @@ const secretTokens = ['api_key', 'secret_key', 'password', 'token'];
 // key 形态需要长后缀（sk- 单独作为子串会命中 --task-id 等合法 flag，不构成凭据形态）。
 const secretPatterns: RegExp[] = [/sk-[A-Za-z0-9]{8,}/];
 
-// v0.5 public tool surface 的测试侧 literal（十五个，含 v0.5 新增 cancel/guidance）。
+// v0.5 public tool surface 的测试侧 literal（含 GitAction planner decision）。
 // referenced 检查以此为准：SKILL 不得引用任何非 public room_* 标识符。
 const v04PublicTools = [
   'room_accept_review',
@@ -67,6 +67,7 @@ const v04PublicTools = [
   'room_create_plan',
   'room_create_plan_revision',
   'room_create_role_assignment',
+  'room_decide_git_action',
   'room_decide_plan_revision',
   'room_get_state',
   'room_reconcile_plan',
@@ -97,6 +98,7 @@ const workflowTools = [
   'room_accept_review',
   'room_cancel_run',
   'room_add_run_guidance',
+  'room_decide_git_action',
 ];
 
 // —— YAML front matter 局部 parser（测试侧 literal；不导入 candidate validator/schema）——

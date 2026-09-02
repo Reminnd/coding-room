@@ -105,6 +105,35 @@ export function validateTaskGraphRevision(revision: TaskGraphRevision): void {
     visited.add(id);
   };
   for (const node of revision.nodes) visit(node.node_id);
+
+  if (revision.acceptance_policy === 'integration_only') {
+    const integrations = revision.nodes.filter((node) => node.kind === 'integration');
+    if (integrations.length !== 1) {
+      throw new ProtocolError('validation_failed', 'integration_only requires exactly one integration node');
+    }
+    const integration = integrations[0];
+    if (revision.nodes.some((node) => node.dependencies.includes(integration.node_id))) {
+      throw new ProtocolError('validation_failed', 'integration node must be terminal');
+    }
+    const integrationAncestors = dependencyAncestors(revision.nodes, integration.node_id);
+    const components = revision.nodes.filter((node) => node.kind !== 'integration');
+    if (components.some((node) => !integrationAncestors.has(node.node_id))) {
+      throw new ProtocolError('validation_failed', 'every component must reach the integration node');
+    }
+    for (let i = 0; i < components.length; i++) {
+      for (let j = i + 1; j < components.length; j++) {
+        const left = components[i];
+        const right = components[j];
+        const leftAncestors = dependencyAncestors(revision.nodes, left.node_id);
+        const rightAncestors = dependencyAncestors(revision.nodes, right.node_id);
+        if (!leftAncestors.has(right.node_id) && !rightAncestors.has(left.node_id)) {
+          throw new ProtocolError('validation_failed', 'integration_only components must form a total dependency order');
+        }
+      }
+    }
+  } else if (revision.nodes.some((node) => node.kind === 'integration')) {
+    throw new ProtocolError('validation_failed', 'integration nodes require integration_only policy');
+  }
 }
 
 export function assertNoUnorderedScopeOverlap(revision: TaskGraphRevision): void {
@@ -155,11 +184,15 @@ export class PlanScheduler {
   }
 
   async reconcile(
-    input: { room_id: string; plan_id: string; worktrees: Array<{ node_id: string; dispatch_id: string; worktree_path: string }> },
+    input: { room_id: string; plan_id: string; worktrees: Array<{ node_id: string; dispatch_id: string; worktree_path?: string | null }> },
     actor: EventActor,
   ): Promise<ReturnType<RoomService['reconcilePlan']>> {
-    const canonical = [] as Array<{ node_id: string; dispatch_id: string; canonical_worktree_path: string }>;
+    const canonical = [] as Array<{ node_id: string; dispatch_id: string; canonical_worktree_path: string | null }>;
     for (const mapping of input.worktrees) {
+      if (mapping.worktree_path == null) {
+        canonical.push({ node_id: mapping.node_id, dispatch_id: mapping.dispatch_id, canonical_worktree_path: null });
+        continue;
+      }
       const observation = await observeContinuation(mapping.worktree_path);
       canonical.push({
         node_id: mapping.node_id,

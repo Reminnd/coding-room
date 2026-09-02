@@ -5,6 +5,7 @@ import { ProtocolError } from '../protocol/errors.ts';
 import {
   approvalSchema,
   codingResultSchema,
+  gitActionSchema,
   nodeDispatchSchema,
   participantProfileSchema,
   planSchema,
@@ -18,6 +19,9 @@ import {
   type CodingResult,
   type Event,
   type EventActor,
+  type GitAction,
+  type GitActionPreview,
+  type GitActionResult,
   type NodeDispatch,
   type ParticipantProfile,
   type Plan,
@@ -87,7 +91,7 @@ export const BOOTSTRAP_PARTICIPANTS: readonly Omit<ParticipantProfile, 'created_
     kind: 'service',
     provider: 'local',
     adapter_id: 'local_runner',
-    capabilities: ['execution'],
+    capabilities: ['execution', 'git_control'],
     config_ref: null,
     enabled: true,
   },
@@ -95,8 +99,7 @@ export const BOOTSTRAP_PARTICIPANTS: readonly Omit<ParticipantProfile, 'created_
 
 // bootstrap room-scope assignments：codex-app 是 single control orchestrator 兼
 // planner/reviewer，Claude Code CLI 是 worker，local service 是 executor。operator 只保留
-// human profile，不持有 active assignment（Review finding inc9-r4）。git_controller 在
-// Stage 2 只可登记 assignment 不执行，因此 bootstrap 不分配。
+// human profile不持有active assignment；local-runner同时承担executor与Git Controller。
 export const BOOTSTRAP_ASSIGNMENTS: readonly Omit<
   RoleAssignment,
   'assignment_id' | 'room_id' | 'created_at'
@@ -106,6 +109,7 @@ export const BOOTSTRAP_ASSIGNMENTS: readonly Omit<
   { scope_type: 'room', scope_id: null, role: 'reviewer', participant_id: 'codex-app' },
   { scope_type: 'room', scope_id: null, role: 'worker', participant_id: 'claude-code-cli' },
   { scope_type: 'room', scope_id: null, role: 'executor', participant_id: 'local-runner' },
+  { scope_type: 'room', scope_id: null, role: 'git_controller', participant_id: 'local-runner' },
 ];
 
 // Runner / system Event 使用的 local service participant。
@@ -156,6 +160,23 @@ export interface ClaimAttemptInput {
   run_id: string;
   room_id: string;
   worktree_path: string;
+}
+
+type WithoutPreviewSequence<T> = T extends unknown ? Omit<T, 'preview_event_sequence'> : never;
+export type GitActionPreviewIntent = WithoutPreviewSequence<GitActionPreview>;
+
+export interface PreviewGitActionInput {
+  git_action_id: string;
+  room_id: string;
+  revision_id: string;
+  node_id: string;
+  preview: GitActionPreviewIntent;
+}
+
+export interface SettleGitActionInput {
+  git_action_id: string;
+  status: 'succeeded' | 'failed';
+  result: GitActionResult;
 }
 
 // application service 是唯一拥有 rooms.state 与 Run/RunAttempt.status 修改权限的模块。
@@ -309,6 +330,9 @@ export class RoomService {
 
   decidePlanRevision(input: unknown, actor: EventActor): { room: RoomRecord; approval: Approval; created: boolean } {
     const approval = this.parse(approvalSchema, input, 'Approval') as Approval;
+    if (approval.target_type !== 'task_graph_revision') {
+      throw new ProtocolError('validation_failed', 'plan revision decision requires target_type=task_graph_revision');
+    }
     return this.tx(() => {
       const existing = this.repo.getApproval(approval.approval_id);
       if (existing) {
@@ -352,8 +376,188 @@ export class RoomService {
     });
   }
 
+  previewGitAction(input: PreviewGitActionInput, actor: EventActor): { action: GitAction; created: boolean } {
+    return this.tx(() => {
+      const existing = this.repo.getGitAction(input.git_action_id);
+      if (existing) {
+        this.assertFrozenGitController(existing, actor);
+        const { preview_event_sequence: _sequence, ...storedPreview } = existing.preview;
+        if (JSON.stringify({ room_id: existing.room_id, revision_id: existing.revision_id, node_id: existing.node_id, preview: storedPreview }) !==
+            JSON.stringify({ room_id: input.room_id, revision_id: input.revision_id, node_id: input.node_id, preview: input.preview })) {
+          throw new ProtocolError('id_conflict', `git action id ${input.git_action_id} already exists with different content`);
+        }
+        return { action: existing, created: false };
+      }
+      this.assertAuthority(input.room_id, actor, 'git_controller');
+      const revision = this.requireRevision(input.revision_id);
+      const current = this.repo.currentApprovedTaskGraphRevision(revision.plan_id);
+      if (revision.room_id !== input.room_id || current?.revision_id !== revision.revision_id) {
+        throw new ProtocolError('plan_revision_not_approved', 'git action requires the current approved revision');
+      }
+      const node = revision.nodes.find((candidate) => candidate.node_id === input.node_id);
+      if (!node) throw new ProtocolError('validation_failed', `node ${input.node_id} is not in revision ${revision.revision_id}`);
+      const dispatch = this.findLineageDispatch(revision, node.node_id);
+      if (!dispatch || dispatch.scope_violated || dispatch.status === 'blocked') {
+        throw new ProtocolError('validation_failed', `node ${node.node_id} has no eligible dispatch`);
+      }
+      this.validateGitPreviewForDispatch(revision, node, dispatch, input.preview);
+      const createdAt = this.now();
+      const event = this.repo.appendEvent({
+        room_id: input.room_id,
+        type: 'git_action_previewed',
+        actor,
+        entity_type: 'git_action',
+        entity_id: input.git_action_id,
+        summary: `git action ${input.git_action_id} previewed for ${input.preview.operation}`,
+        created_at: createdAt,
+      });
+      const preview = { ...input.preview, preview_event_sequence: event.sequence } as GitActionPreview;
+      const action = gitActionSchema.parse({
+        git_action_id: input.git_action_id,
+        room_id: input.room_id,
+        revision_id: input.revision_id,
+        node_id: input.node_id,
+        operation: input.preview.operation,
+        status: 'previewed',
+        git_controller_participant_id: actor.participant_id,
+        preview_event_sequence: event.sequence,
+        approval_id: null,
+        preview,
+        result: null,
+        created_at: createdAt,
+        settled_at: null,
+      }) as GitAction;
+      this.repo.insertGitAction(action);
+      return { action, created: true };
+    });
+  }
+
+  authorizeGitActionPreview(roomId: string, gitActionId: string, actor: EventActor): GitAction | null {
+    const existing = this.repo.getGitAction(gitActionId);
+    if (existing) {
+      this.assertFrozenGitController(existing, actor);
+      return existing;
+    }
+    this.assertAuthority(roomId, actor, 'git_controller');
+    return null;
+  }
+
+  authorizeGitAction(gitActionId: string, actor: EventActor): GitAction {
+    const action = this.requireGitAction(gitActionId);
+    this.assertFrozenGitController(action, actor);
+    return action;
+  }
+
+  decideGitAction(input: unknown, actor: EventActor): { approval: Approval; action: GitAction; created: boolean } {
+    const approval = this.parse(approvalSchema, input, 'Approval') as Approval;
+    if (approval.target_type !== 'git_action_preview') {
+      throw new ProtocolError('validation_failed', 'git action decision requires target_type=git_action_preview');
+    }
+    return this.tx(() => {
+      const existing = this.repo.getApproval(approval.approval_id);
+      if (existing) {
+        this.assertFrozenPlannerRetryAuthority(`approval ${existing.approval_id}`, existing.planner_participant_id, actor);
+        this.repo.insertApproval(approval);
+        const existingAction = this.requireGitAction(existing.target_id);
+        return { approval: existing, action: existingAction, created: false };
+      }
+      const action = this.requireGitAction(approval.target_id);
+      if (action.room_id !== approval.room_id) throw new ProtocolError('validation_failed', 'approval targets another room');
+      this.assertPlanAuthority(action.room_id, this.requireRevision(action.revision_id).plan_id, actor, 'planner');
+      if (approval.planner_participant_id !== actor.participant_id) {
+        throw new ProtocolError('actor_not_allowed', 'approval planner must be the authenticated planner');
+      }
+      if (action.status !== 'previewed' || action.approval_id !== null) {
+        throw new ProtocolError('git_action_already_terminal', `git action ${action.git_action_id} already has a decision`);
+      }
+      if (this.currentCursor(action.room_id) !== action.preview_event_sequence) {
+        throw new ProtocolError('git_preview_stale', `git action ${action.git_action_id} preview is stale`);
+      }
+      this.repo.insertApproval(approval);
+      const event = this.repo.appendEvent({
+        room_id: action.room_id,
+        type: approval.decision === 'approved' ? 'git_action_approved' : 'git_action_rejected',
+        actor,
+        entity_type: 'approval',
+        entity_id: approval.approval_id,
+        summary: `git action ${action.git_action_id} ${approval.decision}`,
+        created_at: this.now(),
+      });
+      const updated = gitActionSchema.parse({
+        ...action,
+        status: approval.decision === 'approved' ? 'approved' : 'previewed',
+        approval_id: approval.approval_id,
+      }) as GitAction;
+      this.repo.updateGitAction(updated);
+      // event is deliberately the last write: execute reserves only when this exact decision
+      // remains the current Room fact.
+      void event;
+      return { approval, action: updated, created: true };
+    });
+  }
+
+  reserveGitAction(gitActionId: string, observedPreview: GitActionPreviewIntent, actor: EventActor): GitAction {
+    return this.tx(() => {
+      const action = this.requireGitAction(gitActionId);
+      this.assertFrozenGitController(action, actor);
+      if (action.status === 'executing' || this.isTerminalGitAction(action)) {
+        throw new ProtocolError('git_action_already_terminal', `git action ${gitActionId} cannot be executed again`);
+      }
+      const approval = action.approval_id ? this.repo.getApproval(action.approval_id) : null;
+      if (!approval || approval.decision !== 'approved' || action.status !== 'approved') {
+        throw new ProtocolError('git_action_not_approved', `git action ${gitActionId} is not approved`);
+      }
+      const approvalEvent = this.repo.listEvents(action.room_id).find((event) => event.entity_id === approval.approval_id && event.type === 'git_action_approved');
+      if (!approvalEvent || this.currentCursor(action.room_id) !== approvalEvent.sequence) {
+        throw new ProtocolError('git_preview_stale', `git action ${gitActionId} approval is stale`);
+      }
+      const { preview_event_sequence: _sequence, ...expected } = action.preview;
+      if (JSON.stringify(expected) !== JSON.stringify(observedPreview)) {
+        throw new ProtocolError('git_preview_stale', `git action ${gitActionId} Git facts changed`);
+      }
+      const executing = gitActionSchema.parse({ ...action, status: 'executing' }) as GitAction;
+      if (!this.repo.updateGitActionIfStatus(executing, 'approved')) {
+        throw new ProtocolError('git_action_already_terminal', `git action ${gitActionId} lost execution reservation`);
+      }
+      this.repo.appendEvent({ room_id: action.room_id, type: 'git_action_executing', actor, entity_type: 'git_action', entity_id: gitActionId, summary: `git action ${gitActionId} executing`, created_at: this.now() });
+      return executing;
+    });
+  }
+
+  settleGitAction(input: SettleGitActionInput, actor: EventActor): GitAction {
+    return this.tx(() => {
+      const action = this.requireGitAction(input.git_action_id);
+      this.assertFrozenGitController(action, actor);
+      if (this.isTerminalGitAction(action)) {
+        if (action.status === input.status && JSON.stringify(action.result) === JSON.stringify(input.result)) return action;
+        throw new ProtocolError('git_action_already_terminal', `git action ${action.git_action_id} is already terminal`);
+      }
+      if (action.status !== 'executing') throw new ProtocolError('git_action_not_approved', `git action ${action.git_action_id} is not executing`);
+      const settledAt = this.now();
+      const settled = gitActionSchema.parse({ ...action, status: input.status, result: input.result, settled_at: settledAt }) as GitAction;
+      this.repo.updateGitAction(settled);
+      if (input.status === 'succeeded') this.applySuccessfulGitAction(settled, settledAt);
+      this.repo.appendEvent({ room_id: action.room_id, type: input.status === 'succeeded' ? 'git_action_succeeded' : 'git_action_failed', actor, entity_type: 'git_action', entity_id: action.git_action_id, summary: `git action ${action.git_action_id} ${input.status}`, created_at: settledAt });
+      return settled;
+    });
+  }
+
+  reconcileGitAction(gitActionId: string, result: GitActionResult, actor: EventActor): GitAction {
+    return this.tx(() => {
+      const action = this.requireGitAction(gitActionId);
+      this.assertFrozenGitController(action, actor);
+      if (this.isTerminalGitAction(action)) return action;
+      if (action.status !== 'executing') throw new ProtocolError('validation_failed', `git action ${gitActionId} is not executing`);
+      const settledAt = this.now();
+      const updated = gitActionSchema.parse({ ...action, status: 'outcome_unknown', result, settled_at: settledAt }) as GitAction;
+      this.repo.updateGitAction(updated);
+      this.repo.appendEvent({ room_id: action.room_id, type: 'git_action_outcome_unknown', actor, entity_type: 'git_action', entity_id: gitActionId, summary: `git action ${gitActionId} outcome unknown`, created_at: settledAt });
+      return updated;
+    });
+  }
+
   reconcilePlan(
-    input: { room_id: string; plan_id: string; worktrees: Array<{ node_id: string; dispatch_id: string; canonical_worktree_path: string }> },
+    input: { room_id: string; plan_id: string; worktrees: Array<{ node_id: string; dispatch_id: string; canonical_worktree_path: string | null }> },
     actor: EventActor,
   ): { revision: TaskGraphRevision | null; dispatches: NodeDispatch[] } {
     return this.tx(() => {
@@ -368,6 +572,9 @@ export class RoomService {
       validateTaskGraphRevision(revision);
       assertNoUnorderedScopeOverlap(revision);
       this.assertAmendmentImmutable(revision);
+      if (revision.acceptance_policy === 'integration_only') {
+        this.projectIntegrationPolicyAcceptance(revision, actor);
+      }
       const existingDispatches = revision.nodes
         .map((node) => this.findLineageDispatch(revision, node.node_id))
         .filter((dispatch): dispatch is NodeDispatch => dispatch !== null);
@@ -414,7 +621,7 @@ export class RoomService {
     });
   }
 
-  private materializeApprovedGraphNode(revision: TaskGraphRevision, nodeId: string, dispatchId: string, worktreePath: string): NodeDispatch {
+  private materializeApprovedGraphNode(revision: TaskGraphRevision, nodeId: string, dispatchId: string, worktreePath: string | null): NodeDispatch {
     const node = revision.nodes.find((candidate) => candidate.node_id === nodeId);
     if (!node) throw new ProtocolError('validation_failed', `node ${nodeId} is not in revision ${revision.revision_id}`);
     const existing = this.repo.nodeDispatchForNode(revision.revision_id, nodeId);
@@ -455,10 +662,10 @@ export class RoomService {
       task_id: task.task_id,
       run_id: task.run_id,
       canonical_worktree_path: worktreePath,
-      status: 'dispatched',
+      status: worktreePath === null ? 'awaiting_git' : 'dispatched',
       created_at: createdAt,
       updated_at: createdAt,
-      dispatched_at: createdAt,
+      dispatched_at: worktreePath === null ? null : createdAt,
       completed_at: null,
       scope_violated: false,
     });
@@ -1135,6 +1342,15 @@ export class RoomService {
           `review ${reviewId} run ${run.run_id} is blocked by a scope violation; a successful in-scope fix attempt must clear it before acceptance`,
         );
       }
+      let graphNode: TaskGraphNode | null = null;
+      let graphRevision: TaskGraphRevision | null = null;
+      if (dispatch) {
+        graphRevision = this.requireRevision(dispatch.revision_id);
+        graphNode = graphRevision.nodes.find((node) => node.node_id === dispatch.node_id) ?? null;
+        if (graphRevision.acceptance_policy === 'integration_only' && graphNode?.kind !== 'integration') {
+          throw new ProtocolError('validation_failed', `component run ${run.run_id} is accepted only by integration_only reconciliation`);
+        }
+      }
       const updated: Run = { ...run, status: 'accepted', accepted_at: this.now(), updated_at: this.now() };
       resolveRunTransition(run.status, updated.status, actor.actor_role);
       // accepted 后 partial unique index 不再占用 worktree（status != 'accepted' 的 WHERE
@@ -1142,7 +1358,17 @@ export class RoomService {
       this.repo.updateRun(updated);
       if (dispatch) {
         const completedAt = this.now();
-        this.repo.updateNodeDispatch({ ...dispatch, status: 'completed', completed_at: completedAt, updated_at: completedAt });
+        const attempt = this.repo.latestAttemptForRun(run.run_id);
+        const hasChanges = Boolean(attempt && (
+          attempt.git_evidence.staged.length > 0 || attempt.git_evidence.unstaged.length > 0 || attempt.git_evidence.untracked.length > 0
+        ));
+        const awaitsCommit = graphRevision?.acceptance_policy === 'integration_only' && graphNode?.kind === 'integration' && hasChanges;
+        this.repo.updateNodeDispatch({
+          ...dispatch,
+          status: awaitsCommit ? 'awaiting_git' : 'completed',
+          completed_at: awaitsCommit ? null : completedAt,
+          updated_at: completedAt,
+        });
       }
       this.repo.appendEvent({
         room_id: review.room_id,
@@ -1532,6 +1758,8 @@ export class RoomService {
   currentApprovedTaskGraphRevision(planId: string): TaskGraphRevision | null { return this.repo.currentApprovedTaskGraphRevision(planId); }
   listApprovals(roomId: string): Approval[] { return this.repo.listApprovals(roomId); }
   listNodeDispatches(roomId: string): NodeDispatch[] { return this.repo.listNodeDispatches(roomId); }
+  getGitAction(gitActionId: string): GitAction | null { return this.repo.getGitAction(gitActionId); }
+  listGitActions(roomId: string): GitAction[] { return this.repo.listGitActions(roomId); }
 
   listTasks(roomId: string): PersistedTask[] {
     return this.repo.listTasks(roomId);
@@ -1613,6 +1841,149 @@ export class RoomService {
 
   private now(): string {
     return new Date().toISOString();
+  }
+
+  private currentCursor(roomId: string): number {
+    const events = this.repo.listEvents(roomId);
+    return events.at(-1)?.sequence ?? 0;
+  }
+
+  private projectIntegrationPolicyAcceptance(revision: TaskGraphRevision, actor: EventActor): void {
+    for (const node of revision.nodes) {
+      if (node.kind === 'integration') continue;
+      const dispatch = this.findLineageDispatch(revision, node.node_id);
+      if (!dispatch || dispatch.scope_violated || dispatch.status === 'blocked') continue;
+      const run = this.repo.getRun(dispatch.run_id);
+      const review = run ? this.repo.latestReviewForRun(run.run_id) : null;
+      if (!run || run.status !== 'review_discussion' || review?.decision !== 'approved') continue;
+      const acceptedAt = this.now();
+      this.repo.updateRun({ ...run, status: 'accepted', accepted_at: acceptedAt, updated_at: acceptedAt });
+      this.repo.updateNodeDispatch({ ...dispatch, status: 'awaiting_git', completed_at: null, updated_at: acceptedAt });
+      this.repo.appendEvent({
+        room_id: revision.room_id,
+        type: 'run_policy_accepted',
+        actor,
+        entity_type: 'run',
+        entity_id: run.run_id,
+        summary: `run ${run.run_id} accepted by integration_only policy and awaits commit`,
+        created_at: acceptedAt,
+      });
+    }
+  }
+
+  private requireGitAction(gitActionId: string): GitAction {
+    const action = this.repo.getGitAction(gitActionId);
+    if (!action) throw new ProtocolError('entity_not_found', `git action ${gitActionId} not found`);
+    return action;
+  }
+
+  private assertFrozenGitController(action: GitAction, actor: EventActor): void {
+    this.assertParticipantActive(actor);
+    if (actor.actor_role !== 'git_controller' || actor.participant_id !== action.git_controller_participant_id) {
+      throw new ProtocolError('actor_not_allowed', `participant ${actor.participant_id} does not own git action ${action.git_action_id}`);
+    }
+    const assignment = this.resolveAssignment(action.room_id, 'room', null, 'git_controller');
+    if (!assignment || assignment.participant_id !== actor.participant_id) {
+      throw new ProtocolError('actor_not_allowed', `git controller ${actor.participant_id} is no longer active`);
+    }
+    this.assertAssignable(assignment);
+  }
+
+  private isTerminalGitAction(action: GitAction): boolean {
+    return action.status === 'succeeded' || action.status === 'failed' || action.status === 'outcome_unknown';
+  }
+
+  private validateGitPreviewForDispatch(
+    revision: TaskGraphRevision,
+    node: TaskGraphNode,
+    dispatch: NodeDispatch,
+    preview: GitActionPreviewIntent,
+  ): void {
+    if (preview.operation === 'create_worktree') {
+      if (dispatch.status !== 'awaiting_git' || dispatch.canonical_worktree_path !== null) {
+        throw new ProtocolError('validation_failed', `dispatch ${dispatch.dispatch_id} does not await worktree creation`);
+      }
+      const componentAncestors = [...dependencyAncestors(revision.nodes, node.node_id)]
+        .filter((ancestorId) => revision.nodes.find((candidate) => candidate.node_id === ancestorId)?.kind !== 'integration');
+      if (revision.acceptance_policy === 'integration_only' && componentAncestors.length > 0) {
+        const maximalPredecessors = componentAncestors.filter((candidateId) => componentAncestors.every((otherId) =>
+          candidateId === otherId || !dependencyAncestors(revision.nodes, otherId).has(candidateId)));
+        if (maximalPredecessors.length !== 1) {
+          throw new ProtocolError('validation_failed', `node ${node.node_id} must have one maximal component predecessor`);
+        }
+        const predecessor = revision.nodes.find((candidate) => candidate.node_id === maximalPredecessors[0]);
+        if (!predecessor) {
+          throw new ProtocolError('validation_failed', `node ${node.node_id} has no valid component predecessor`);
+        }
+        const commit = this.repo.latestGitActionForNode(revision.revision_id, predecessor.node_id, 'commit_paths');
+        if (!commit || commit.status !== 'succeeded' || commit.preview.operation !== 'commit_paths' || preview.source_ref !== commit.preview.branch) {
+          throw new ProtocolError('validation_failed', `worktree source_ref must be the predecessor committed branch for node ${node.node_id}`);
+        }
+      }
+      return;
+    }
+
+    if (preview.operation === 'commit_paths') {
+      if (dispatch.canonical_worktree_path !== preview.worktree_path || dispatch.status !== 'awaiting_git') {
+        throw new ProtocolError('validation_failed', `dispatch ${dispatch.dispatch_id} does not await commit`);
+      }
+      const run = this.requireRun(dispatch.run_id);
+      if (run.status !== 'accepted') throw new ProtocolError('validation_failed', `run ${run.run_id} is not accepted`);
+      const create = this.repo.latestGitActionForNode(revision.revision_id, node.node_id, 'create_worktree');
+      if (create?.status === 'succeeded' && create.preview.operation === 'create_worktree' && preview.branch !== create.preview.new_branch) {
+        throw new ProtocolError('validation_failed', `commit branch must match the managed worktree branch for node ${node.node_id}`);
+      }
+      if (!/^(feat|fix|refactor|perf|test|docs|build|ci|chore)(\([a-z0-9][a-z0-9-]*\))?!?: .+$/u.test(preview.commit_message)) {
+        throw new ProtocolError('validation_failed', 'commit message must follow Conventional Commits');
+      }
+      const unique = [...new Set(preview.paths)].sort();
+      if (unique.length !== preview.paths.length || JSON.stringify(unique) !== JSON.stringify(preview.paths)) {
+        throw new ProtocolError('validation_failed', 'commit paths must be unique and sorted');
+      }
+      const live = [...new Set([
+        ...preview.git_evidence.staged,
+        ...preview.git_evidence.unstaged,
+        ...preview.git_evidence.untracked,
+      ])].sort();
+      if (JSON.stringify(live) !== JSON.stringify(preview.paths)) {
+        throw new ProtocolError('validation_failed', 'commit paths must equal live Git evidence');
+      }
+      if (preview.paths.some((path) => !node.write_scopes.some((scope) => scopeContainsPath(scope, path)))) {
+        throw new ProtocolError('scope_conflict', `commit paths exceed node ${node.node_id} write scopes`);
+      }
+      return;
+    }
+
+    if (node.kind !== 'integration') throw new ProtocolError('validation_failed', 'fast-forward requires the integration node');
+    const run = this.requireRun(dispatch.run_id);
+    if (run.status !== 'accepted' || dispatch.status !== 'completed') {
+      throw new ProtocolError('validation_failed', 'fast-forward requires accepted integration run and satisfied commit gate');
+    }
+    if (preview.source_branch === preview.target_branch) {
+      throw new ProtocolError('validation_failed', 'source and target branch must differ');
+    }
+    const create = this.repo.latestGitActionForNode(revision.revision_id, node.node_id, 'create_worktree');
+    if (!create || create.status !== 'succeeded' || create.preview.operation !== 'create_worktree' || preview.source_branch !== create.preview.new_branch) {
+      throw new ProtocolError('validation_failed', 'fast-forward source must be the terminal integration branch');
+    }
+  }
+
+  private applySuccessfulGitAction(action: GitAction, settledAt: string): void {
+    const dispatch = this.findLineageDispatch(this.requireRevision(action.revision_id), action.node_id);
+    if (!dispatch) throw new ProtocolError('entity_not_found', `dispatch for git action ${action.git_action_id} not found`);
+    if (action.preview.operation === 'create_worktree') {
+      const path = action.preview.worktree_path;
+      const run = this.requireRun(dispatch.run_id);
+      this.repo.updateRun({ ...run, worktree_path: path, updated_at: settledAt });
+      this.repo.updateNodeDispatch({
+        ...dispatch,
+        canonical_worktree_path: path,
+        status: 'ready',
+        updated_at: settledAt,
+      });
+    } else if (action.preview.operation === 'commit_paths') {
+      this.repo.updateNodeDispatch({ ...dispatch, status: 'completed', completed_at: settledAt, updated_at: settledAt });
+    }
   }
 
   private bootstrapRoom(roomId: string, createdAt: string): void {
@@ -1751,6 +2122,16 @@ export class RoomService {
     );
     const priorDispatches = this.repo.listNodeDispatches(revision.room_id)
       .filter((dispatch) => earlierRevisions.has(dispatch.revision_id));
+    if (priorDispatches.length > 0) {
+      if (revision.acceptance_policy !== prior.acceptance_policy) {
+        throw new ProtocolError('immutable_revision_violation', 'acceptance policy cannot change after dispatch');
+      }
+      const oldIntegration = prior.nodes.filter((node) => node.kind === 'integration');
+      const newIntegration = revision.nodes.filter((node) => node.kind === 'integration');
+      if (JSON.stringify(oldIntegration) !== JSON.stringify(newIntegration)) {
+        throw new ProtocolError('immutable_revision_violation', 'integration node cannot change after dispatch');
+      }
+    }
     for (const dispatch of priorDispatches) {
       const dispatchedRevision = earlierRevisions.get(dispatch.revision_id);
       const oldNode = dispatchedRevision?.nodes.find((node) => node.node_id === dispatch.node_id);
@@ -2155,6 +2536,13 @@ export class RoomService {
     // Direct service calls remain an internal Stage 2 test seam; the MCP boundary no longer
     // exposes implementation submission. Every graph-created Run has a dispatch and is gated.
     if (!dispatch) return;
+    const currentTask = this.repo.latestTaskForRun(run.run_id);
+    if (dispatch.status === 'awaiting_git' || dispatch.canonical_worktree_path === null) {
+      throw new ProtocolError('validation_failed', `node dispatch ${dispatch.dispatch_id} awaits Git worktree setup`);
+    }
+    if (dispatch.status !== 'ready' && dispatch.status !== 'dispatched' && !(dispatch.status === 'blocked' && currentTask?.type === 'fix')) {
+      throw new ProtocolError('validation_failed', `node dispatch ${dispatch.dispatch_id} is not claimable (status ${dispatch.status})`);
+    }
     // claim gate 统一消费同一 exact current approved snapshot（Review finding inc12-r1）：
     // node、write_scopes 与 concurrency_limit 都来自 current revision，dispatch source
     // revision 只保留历史 materialization reference，不再混用其 limit 或 node 定义。
@@ -2167,6 +2555,10 @@ export class RoomService {
     }
     if (dispatch.canonical_worktree_path !== worktreePath) {
       throw new ProtocolError('validation_failed', `claim worktree does not match node dispatch ${dispatch.dispatch_id}`);
+    }
+    if (dispatch.status === 'ready') {
+      const dispatchedAt = this.now();
+      this.repo.updateNodeDispatch({ ...dispatch, status: 'dispatched', dispatched_at: dispatchedAt, updated_at: dispatchedAt });
     }
     const active = this.repo.listAttemptsByRoom(run.room_id).filter((attempt) =>
       attempt.status === 'running' || attempt.status === 'decision_requested' || attempt.status === 'cancel_requested');

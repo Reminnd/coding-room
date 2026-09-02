@@ -299,3 +299,11 @@ Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时
 当 terminal evidence、request payload 或 persisted result 允许多个互斥合法形态时，Review 不能只检查“字段存在时是否合法”。先把合法集合写成精确 union，再验证 union 之外的空形态和重叠形态均被拒绝。例如合法形态为 `result + no failure` 或 `no result + failure` 时，`result=null + failure=null` 与 `result + failure` 都必须有明确结论。
 
 若 command 先根据 cancel、override 或 persisted state 计算 effective target，union validation 必须针对 effective target 执行，避免把其它 target 的 canonical empty payload误判为非法。Direct regression 至少覆盖每个合法分支、empty/overlap invalid branch，以及 invalid command 前后完整 public durable snapshot deepEqual；不能用共享 helper、单个 error assertion或其它合法分支的 green test替代。
+
+## 18. 并发 Reservation Evidence 必须在竞争边界前对齐
+
+当Contract要求两个或多个独立connection/process同时竞争同一reservation时，Review必须确认每个contender已完成各自service初始化，并在进入production reservation transaction之前通过test-only barrier会合，再同时继续调用同一public operation。首个contender已经提交`executing`或其它terminal/projection状态后才启动第二次调用，只证明后续调用能观察已提交状态，不证明atomic reservation race。
+
+Race Oracle至少同时包含：独立connections、跨contender合计exact一个external mutation、一个success、stable loser error，以及由fresh connection读取的完整public durable snapshot。若行为存在合法非确定字段，应与同一seed和同一public operation的single-execution control比较，只归一化Contract允许变化的字段；不得删除其它durable字段或只比较selected entity/Event count。barrier timeout、Worker error/exit与cleanup只属于test harness，不为此增加production hook或并发framework。
+
+当Contract明确列出一个status集合的same-ID retry语义时，每个可达status都必须有对应direct evidence；不能用某个terminal status代表其它terminal status。每个case仍按既有规则断言stored result/`created=false`、零external invocation与完整public snapshot不变。

@@ -3,14 +3,114 @@
 ## 当前状态
 
 - 日期：2026-09-02
-- 项目阶段：`PLAN_READY`；Increment 13 Architecture Review=`approved`，完整[Task Contract](./INCREMENT_13_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`
-- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–12 accepted source与Stage 3 planning由本次提交进入版本化`main`；active runtime/database/binding保持v0.3且未cutover
-- Implementation Task：[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)为`Accepted`、`confirmed_by_user=true`，尚未派发；Increment 12 Task Contract与Fix Task 1–4均为`Accepted`并已完成Coding，Fix Task 5为`Superseded / Not Dispatched`
+- 项目阶段：`ACCEPTED`；用户已明确最终接受Increment 13 Implementation、Fix Task 1–2与Fix Review 3，并授权由本次提交版本化完整accepted scope
+- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–12 accepted source与Stage 3 planning已进入版本化`main`；Increment 13 accepted source由本次提交进入版本化`main`；active runtime/database/binding保持v0.3且未cutover
+- Implementation Task：[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)均为`Accepted`且Coding已完成；Fix Review 3=`approved`，用户已最终接受；Increment 12 Task Contract与Fix Task 1–4均为`Accepted`并已完成Coding，Fix Task 5为`Superseded / Not Dispatched`
 - Previous Increment：Increment 1–11均已接受并进入版本化`main`
-- 业务代码：`main` source由本次提交增加accepted protocol `0.5-design` Graph/Scheduler foundation；active project runtime/database/binding仍为protocol `0.3-design` Stage 1，未执行cutover
-- Git repository：root branch=`main`，pre-versioning planning evidence `HEAD=f010c456d8354e3c02d75fc5389cb68265586488`；用户已授权由本次提交版本化Increment 13规划文档并从提交后的clean exact baseline创建独立Codex Coding task，push与runtime/database/binding写操作未授权
+- 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环。active project runtime/database/binding仍为protocol `0.3-design` Stage 1，未执行cutover
+- Git repository：root branch=`main`；完整accepted scope由本次提交版本化，implementation lineage baseline为`c7b4c2db0095632194940df40b49e0788257f099`；未push，真实项目GitAction与runtime/database/binding写操作仍未授权
 
 ## 已完成
+
+### 2026-09-02 — Increment 13完整accepted scope版本化
+
+- 用户明确授权把完整accepted Increment 13 candidate版本化到`main`，commit message=`feat(git): add controlled Git integration workflow`。集成基线为`c7b4c2db0095632194940df40b49e0788257f099`；candidate与root均为0 staged，最终scope精确为38 paths：32个accepted implementation/test/Plugin/candidate-document paths，加6个Codex最终Review、Fix、接受与经验回收文档paths。
+- 集成保留typed GitAction、fixed `local-runner` one-shot `room:git`、single reservation/settlement/reconcile、三个allowlisted Git operation、single-lineage `integration_only`、simultaneous reservation与terminal retry regression；重叠`MVP_PLAN`/`DEVELOPMENT_LOG`同时保留candidate实现事实与Codex Review/acceptance事实。
+- Final verification：`npm run typecheck`通过；`node --test "tests/git-controller.test.ts" "tests/git-controller-cli.test.ts"`为9/9；`npm test`为385/385，0 fail/skip/todo；`git diff --check`通过；76个Markdown文件relative-link scan为0 missing，merge marker与当前状态回退扫描均为0。
+- Versioning boundary：accepted source由本次提交进入版本化`main`，active project runtime/database/binding仍为v0.3且未cutover。本次未执行push、真实项目GitAction、Plugin reinstall、candidate worktree cleanup或runtime/database/binding写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、Architecture、Room Protocol、ADR、MVP Plan、Operations、文档中心、Plugin setup reference与本日志为`Accepted / Versioned source`，同时保留active v0.3边界。
+
+### 2026-09-02 — Increment 13用户最终接受与Fix经验回收
+
+- 用户明确最终接受Increment 13 Implementation、[Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)与Fix Review 3 `review-increment-013-codex-003`；阶段从`REVIEW_DISCUSSION`进入`ACCEPTED`，无unresolved finding或open question。
+- 接受不等于版本化或runtime授权：candidate继续位于detached worktree，尚未进入`main`或Current capability；未执行stage、commit、push、真实项目GitAction、Plugin reinstall或runtime/database/binding cutover。
+- 经验回收以Review 2 finding、用户确认方案、Accepted Fix Task 2、实际Worker regression、full snapshot control、独立验证与最终接受为证据。新增可复用规则：要求真实并发reservation时，各contender必须使用独立connection并在production reservation/transaction前由test-only barrier对齐；race结果需与同seed single-execution control的完整public snapshot比较。terminal same-ID retry与Result provenance已有Current指南完整覆盖，不重复扩写。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan、Codex/Claude指南与本日志；Architecture、Room Protocol、ADR与Operations不变，因为接受未改变已确认product behavior，且candidate尚未版本化或cutover。
+
+### 2026-09-02 — Increment 13 Fix Review 3
+
+- Review `review-increment-013-codex-003`覆盖exact baseline `c7b4c2db0095632194940df40b49e0788257f099`上的完整candidate Diff、本次字段完整的Fix Task 2 Coding Result、Accepted Implementation/Fix Contract、source、tests与candidate documentation；candidate保持detached HEAD、0 staged，未执行Git写操作。
+- `inc13-fr2-reservation-not-simultaneous`已闭合：两个Worker各自持有独立`DatabaseSync`、`RoomService`与`GitController`，在`super.reserveGitAction`前经test-only barrier同时进入public execute；exact一个mutation、一个`succeeded`与一个`git_action_already_terminal` loser，fresh third connection读取的完整race snapshot与single-execute control仅按Event UUID/wall-clock归一化后等价。
+- `inc13-fr2-failed-preview-retry-missing`已闭合：`commit-a-failed` terminal action经同ID/同content public preview retry返回`created=false`与stored failed action；零observer/process call，cursor、Events与完整public snapshot逐字段不变。
+- `inc13-fr2-structured-coding-result-missing`已闭合：本次assistant final包含Accepted Fix Task 2要求的全部字段，并如实记录Fix Task 1 historical completed turn缺少assistant final，不补造历史Result。无scope、observable-contract或architecture deviation，无unresolved finding或open question。
+- Independent verification：`npm run typecheck`通过；`node --test "tests/git-controller.test.ts" "tests/git-controller-cli.test.ts"`为9/9；`npm test`为385/385，0 fail/skip/todo；`git diff --check`通过。Review Decision=`approved`，阶段进入`REVIEW_DISCUSSION`并等待用户最终接受。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan与本日志的Review 3/阶段/验证事实；Architecture、Room Protocol、ADR与Operations不变，因为production behavior未新增变化且candidate尚未接受或提升为Current。
+
+### 2026-09-02 — Increment 13 Fix Task 2 Coding candidate
+
+- Fix Contract与范围：用户确认`review-increment-013-codex-002`三项evidence/provenance finding及最小`review_fixes_only`方案；继续复用原candidate task/worktree与exact baseline `c7b4c2db0095632194940df40b49e0788257f099`，不修改production source、protocol、schema、MCP、CLI、Plugin、runtime或binding。
+- Review 2 confirmed solution：两个Worker各持同一test-owned file-backed SQLite的独立connection，经test-side start/reservation barrier同时进入public `GitController.execute`，以control snapshot证明exact一个reservation/mutation与stable loser；复用`commit-a-failed` public path补齐same-ID same-content failed preview retry的零observer/process、零Event与完整snapshot不变；本次Fix Result如实说明历史Fix Task 1 completed turn `01a061cf-928a-7192-be87-4a6f3ec80c84`的`items=[]`且无assistant final，不伪造历史结果。
+- Actual changed files：`tests/git-controller.test.ts`、`tests/git-action-execute-worker.ts`、`docs/documents/DEVELOPMENT_LOG.md`。Fix 2未改动Fix Task 1 production files；changed_files与本次实际Diff一致。
+- Verification：`npm run typecheck`通过；`node --test "tests/git-controller.test.ts" "tests/git-controller-cli.test.ts"`为9/9；`node --test "tests/plan-scheduler.test.ts" "tests/room-service.test.ts" "tests/room-state-snapshot.test.ts"`为90/90；`node --test "tests/room-mcp.test.ts" "tests/status-cli.test.ts" "tests/scope.test.ts"`为53/53；`npm test`为385/385；`git diff --check`通过；最终HEAD/detached/0-staged核对通过。
+- Deviation与unresolved：无scope、observable-contract或architecture deviation；仅记录Fix Task 1历史assistant final缺失的provenance事实。无unresolved finding、无open question；待完成全量验证后由Codex执行独立Fix Review 3。
+- 状态与文档：candidate保持`Candidate / Review Required`，项目阶段保持`REVIEW_REQUIRED`并等待独立Fix Review 3；active v0.3 runtime/database/binding未cutover且bytes未改，未执行真实项目GitAction、stage、commit、push、merge、rebase、reset、clean、checkout或其它Git写操作。`documentation: updated`。
+
+### 2026-09-02 — Increment 13 Fix Task 2派发
+
+- 用户给出任务类型模型矩阵并授权按该安排派发。本Fix属于regression tests、public-path coverage与证据补全，因此选择`gpt-5.6-luna`、reasoning effort=`max`。
+- 原candidate task `01a06171-2d2e-7831-9e77-1a9d4395fdf2`为idle；派发门禁确认candidate `HEAD=c7b4c2db0095632194940df40b49e0788257f099`、detached、0 staged，`tests/git-action-execute-worker.ts`尚不存在，现有concurrency case仍在首个action=`executing`后调用second execute，`commit-a-failed`仍无same-ID preview retry，最新completed Fix turn仍无assistant final。
+- 完整Accepted Contract已内联发送到原task，model=`gpt-5.6-luna`、reasoning effort=`max`；阶段进入`CODING`。未创建新task/worktree，未调用Agent Room launcher，未执行GitAction、stage、commit、push或runtime/database/binding写操作。
+- Documentation impact audit：`documentation: updated`。同步Fix Task 2、Project Rules、文档中心、MVP Plan、Fix Task 1与本日志的派发事实；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 13 Fix Task 2全文确认
+
+- 用户明确确认[Increment 13 Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)完整Contract；文档状态从`Draft / Awaiting Full Contract Confirmation`更新为`Accepted`，`confirmed_by_user=true`，阶段进入`FIX_PLAN_READY`。
+- 本次确认不自动授权派发。原candidate task、candidate worktree和task-owned Diff均未修改；未发送Fix指令，未启动Agent Room/Claude Run，未执行GitAction、stage、commit、push或runtime/database/binding写操作。
+- Active project binding仍为protocol `0.3-design`，不满足installed Agent Room Skill的`0.4-design`正常workflow前提；未隐式执行setup/cutover或使用其它Room authority。
+- Documentation impact audit：`documentation: updated`。同步Fix Task 2、Project Rules、文档中心、MVP Plan、Fix Task 1与本日志；Architecture、Room Protocol、ADR与Operations无语义变化。
+
+### 2026-09-02 — Increment 13 Fix Review 2方案确认与Fix Task 2 Draft
+
+- 用户确认Review `review-increment-013-codex-002`三项finding与最小方案：使用两个Worker thread及两个independent SQLite connections形成simultaneous reservation竞争；补充`failed` same-ID/same-content preview retry；由原candidate task返回字段完整的结构化assistant final。
+- Codex创建Draft [Increment 13 Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)，`review_fixes_only=true`、`confirmed_by_user=false`；implementation scope仅包含Git Controller direct test、一个test-only Worker helper、candidate Development Log与原task结构化assistant final，禁止production source、protocol/schema、MCP、Plugin和Git/runtime写操作。
+- 完整Contract尚未确认，阶段=`WAITING_FOR_USER_CONFIRMATION`；未修改candidate、未派发Task，未执行GitAction、stage、commit、push或runtime/database/binding写操作。
+- 本轮仅维护规划文档；candidate输入与Review验证事实未变化，因此未重跑代码测试。Documentation impact audit：`documentation: updated`；Architecture、Room Protocol、ADR与Operations不变。
+
+### 2026-09-02 — Increment 13 Fix Review 2
+
+- Review `review-increment-013-codex-002`覆盖exact baseline `c7b4c2db0095632194940df40b49e0788257f099`上的完整candidate Diff；candidate保持detached HEAD、0 staged。Fix 1的DAG maximal predecessor、successful settlement exception与delayed same-ID preview retry三项production修复均已闭合，未发现新的production finding。
+- Finding `inc13-fr2-reservation-not-simultaneous`（medium）：two-connection测试先等待首个Git mutation process启动，确认action已经`executing`后才调用第二个execute；它只证明已提交executing状态对另一连接可见，未证明两个independent SQLite connections同时竞争同一approved action reservation。
+- Finding `inc13-fr2-failed-preview-retry-missing`（medium）：same-ID same-content preview direct matrix覆盖`previewed`、`approved`、`succeeded`与`outcome_unknown`，但已有`failed` action未执行相同public retry、零observer/零Event/完整snapshot Oracle，不满足Accepted Fix Contract明确列举的五状态验收。
+- Finding `inc13-fr2-structured-coding-result-missing`（low）：原candidate task最新completed Fix turn `01a061cf-928a-7192-be87-4a6f3ec80c84`的`items=[]`，不存在assistant final；candidate Development Log不能替代字段完整的Fix Coding Result。
+- 独立验证：`npm run typecheck`通过；Git Controller/CLI 9/9、core 90/90、public/scope 53/53通过；full `npm test` 385/385通过，0 fail/skip/todo；`git diff --check` clean。
+- Review Decision=`changes_requested`；阶段进入`REVIEW_DISCUSSION`。用户确认三项最小方案前，不生成或派发下一Fix Task；未修改candidate代码/测试，未执行GitAction、stage、commit、push或runtime/database/binding写操作。
+- Documentation impact audit：`documentation: updated`。同步Project Rules、文档中心、MVP Plan、Fix Task 1状态与本日志；Architecture、Room Protocol、ADR与Operations不变，因为production行为没有新增变化且candidate尚未接受。
+
+### 2026-09-02 — Increment 13 Review 1 finding 与 Fix Task 1确认
+
+- Independent Review `review-increment-013-codex-001`核对exact baseline、完整candidate Diff与Coding Result；`npm run typecheck`及full 382/382通过，但确认predecessor array-order、successful settlement crash gap、delayed same-ID preview retry与two-connection evidence四项finding，Decision=`changes_requested`。
+- 用户明确确认四项finding与最小解决方向。Codex创建[Increment 13 Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)，Contract=`Accepted`、`confirmed_by_user=true`、`review_fixes_only=true`，阶段=`FIX_PLAN_READY`。
+- 派发门禁确认原candidate exact HEAD=`c7b4c2db0095632194940df40b49e0788257f099`、detached、0 staged、四项finding位置与scope均未漂移；完整Contract已内联发送到原candidate task `01a06171-2d2e-7831-9e77-1a9d4395fdf2`，阶段=`CODING`。
+- Fix只允许修改Git Controller/RoomService最窄owner、direct regression及candidate Development Log；不改变protocol/schema/MCP/Plugin/runtime、Git allowlist、fixed actor或single-lineage architecture。
+- Documentation impact audit：`documentation: updated`。新增Fix Contract并同步`PROJECT_RULES.md`、文档中心、MVP与本日志；Architecture、ROOM_PROTOCOL、ADR和OPERATIONS无新的target行为变化。
+- 未执行stage、commit、push、merge、rebase、reset、clean、checkout、真实项目GitAction或runtime/database/binding cutover。
+
+### 2026-09-02 — Increment 13 Fix Task 1 Coding candidate
+
+- Fix Contract与范围：用户确认`review-increment-013-codex-001`四项finding及最小`review_fixes_only`方案；继续复用原candidate task/worktree、exact baseline `c7b4c2db0095632194940df40b49e0788257f099`与`gpt-5.6-luna`/`max`，未扩大scope或改变observable protocol、schema、Git allowlist、fixed actor、runtime binding。
+- Source：`src/git/git-controller.ts`在任何observer/process前按stored frozen authority与caller-owned command intent处理existing same-ID preview；把successful mutation的success settlement移出execution failure catch，使settlement exception保留`executing`并由显式reconcile进入`outcome_unknown`。`src/room/room-service.ts`按DAG reachability推导唯一maximal non-integration component predecessor，拒绝非唯一结果且保持零写。
+- Tests：`tests/git-controller.test.ts`增加create/commit delayed same-ID retry、different-content conflict、wrong/disabled/replaced actor零observer与完整snapshot、success settlement fault、explicit reconcile、reordered/redundant total-order predecessor及A branch拒绝；并发execute改为同一test-owned file-backed SQLite database上的两个independent connections，断言单reservation、单mutation、stable loser与一致durable snapshot。
+- Verification：`npm run typecheck`通过；`node --test "tests/git-controller.test.ts" "tests/git-controller-cli.test.ts"`为9/9；`node --test "tests/plan-scheduler.test.ts" "tests/room-service.test.ts" "tests/room-state-snapshot.test.ts"`为90/90；`node --test "tests/room-mcp.test.ts" "tests/status-cli.test.ts" "tests/scope.test.ts"`为53/53；`npm test`为385/385；`git diff --check`通过。
+- 状态与文档：candidate保持`Candidate / Review Required`，项目阶段进入`REVIEW_REQUIRED`并等待独立Fix Review 2；active v0.3 runtime/database/binding未cutover且bytes未改，未执行真实项目GitAction、commit、push、merge、rebase、reset、clean、checkout或其它Git写操作。`documentation: updated`。
+
+### 2026-09-02 — Increment 13 independent Codex Review
+
+- Review Decision=`changes_requested`，阶段进入`REVIEW_DISCUSSION`；candidate继续保持`Candidate / Review Required`，不得提升为Current或cutover。
+- Implementation findings：Git Controller在existing same-ID preview retry前重新观察已变化的external Git facts；successful mutation后的settlement exception被误归类为action failure；`integration_only` predecessor按`dependencies`数组末项而非reachability最大前驱选择。
+- Verification finding：concurrent execute regression只共享一个in-memory `RoomService`/SQLite connection，未覆盖Accepted Contract要求的两个independent SQLite connections。
+- Independent verification：`npm run typecheck`通过；`npm test`为382/382；`git diff --check`通过；relative Markdown links全部可解析；未发现merge marker。全绿结果不覆盖上述未断言public path与failure boundary。
+- Documentation impact audit：`ROOM_PROTOCOL.md`已改为actual `git_action_approved|git_action_rejected` decision Event与`approval` entity reference；`OPERATIONS.md`已对齐snapshot的`waiting_reason/git_waiting_reason`字段。`documentation: updated`。
+- 未执行commit、push、merge、rebase、reset、clean、checkout、真实项目GitAction或runtime/database/binding cutover；用户确认finding与解决方向前不得生成或派发Fix Task。
+- Deviation与问题：唯一deviation为用户明确要求的model/effort override；无scope或observable-contract deviation，无open question。未commit、push、merge、rebase、reset、clean、checkout或cutover。
+
+### 2026-09-02 — Increment 13 Implementation Coding candidate
+
+- Dispatch与baseline：在现有独立worktree从clean exact `HEAD=c7b4c2db0095632194940df40b49e0788257f099`开始，未创建或切换真实branch/worktree。用户在执行中明确将Coding model从原计划的`gpt-5.6-sol`/`medium`改为`gpt-5.6-luna`/`max`；Contract、baseline、scope与architecture decisions均未改变。
+- Source：新增strict GitAction/Approval protocol、Repository CRUD/conditional transition、Room preview/decision/reservation/settlement/reconcile、fixed `local-runner` Git Controller、one-shot `room:git` CLI、MCP decision tool、snapshot/status Git waiting read model，以及single-lineage `integration_only` validation与acceptance/commit/final-ff gates。
+- Tests：使用test-owned temporary repositories验证real `create_worktree`、exact-path Conventional Commit、ff-only integration、stale/rejected/terminal零mutation、CLI public path与完整integration lifecycle；protocol/service/snapshot/scheduler/MCP/status/Plugin/setup/scope regression同步更新。真实项目未执行GitAction。
+- Plugin与setup：唯一Skill增加manual preview → user decision → single execute/reconcile边界；setup只验证runtime root同时提供`room:serve`、`room:run`、`room:git`。未安装/reload Plugin，未启动service、Claude或Agent Room Run。
+- Verification：`npm run typecheck`通过；Contract focused suites全部通过（protocol/service/snapshot 102/102、Git Controller/CLI 6/6、scheduler/execution 25/25、MCP/status/E2E 54/54、Plugin/setup/multi-project 37/37、scope 2/2）；最终`npm test`全量382/382通过；`git diff --check`、relative Markdown link scan、merge-marker scan与final scope/immutability核对均通过。
+- Documentation：Architecture、Protocol、MVP、Operations、ADR与本日志均只标记`Candidate / Review Required`；active v0.3保持Current且bytes未变。
 
 ### 2026-09-02 — Increment 13规划baseline与独立Coding task授权
 
@@ -1665,7 +1765,7 @@ Active runtime保持v0.3且未cutover；当前binding不能进入installed Agent
 
 ## 下一步
 
-按本次授权先提交Increment 13规划文档，读取clean live exact `main` HEAD，再创建独立Codex worktree Coding task并等待其Coding Result。GitAction与runtime写操作仍不在授权范围内。
+完整accepted Increment 13 source由本次提交进入版本化`main`。下一门禁为独立授权runtime/database/binding cutover；push、真实项目GitAction与Plugin reinstall仍未授权。
 
 ### 2026-09-01 — Increment 12 Fix Review 2
 

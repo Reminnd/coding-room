@@ -605,7 +605,7 @@ Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current aut
 - GitAction必须经过typed preview、`confirmed_by_user=true` Approval、single execution与`succeeded|failed|outcome_unknown` settlement；首版候选只允许`create_worktree|commit_paths|integrate_fast_forward`。
 - target不包含hash/fingerprint validator、background scheduler、automatic Agent launch、push/rebase/reset/clean/delete/merge commit或冲突自动解决。
 
-Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Stage 3 Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并进入版本化`main`。用户于2026-09-02进一步确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)的fixed-actor `room:git`、single fast-forward lineage与pre-cutover Coding route，并确认完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)。Contract=`Accepted`、`confirmed_by_user=true`，documented planning阶段=`PLAN_READY`。Active v0.3 protocol保持Current；GitAction、`integration_only`与database/binding cutover均不可调用并继续分别授权。
+Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Stage 3 Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并进入版本化`main`。用户于2026-09-02进一步确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)的fixed-actor `room:git`、single fast-forward lineage与pre-cutover Coding route，并确认完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)。Contract=`Accepted`、`confirmed_by_user=true`；Implementation与两轮Fix已通过Review、获用户最终接受并由本次提交版本化。Active v0.3 protocol保持Current；GitAction、`integration_only`与database/binding cutover仍不可用于当前项目并继续分别授权。
 
 ## 18. Increment 12 accepted source — protocol `0.5-design`
 
@@ -626,3 +626,16 @@ Fix后exact语义：
 - `NodeDispatch.scope_violated=true`或`status=blocked`时`acceptReview`在任何durable写入前返回`validation_failed`；dependency readiness同时要求dependency Run=`accepted`、dispatch=`completed`、`scope_violated=false`。
 - 只有同Run的successful Fix attempt且live staged/unstaged/untracked路径全部in-scope时，settlement transaction内清除`scope_violated`并恢复`dispatched`；其它terminal结果或非Fix attempt均不恢复，不新增Event type。
 - Plan/Revision/Approval existing same-ID retry先按stored frozen creator/planner participant与required role认证，再比较normalized caller-owned content；enabled frozen identity的same-content retry返回existing且`created=false`、零Event，different content=`id_conflict`，replacement/unknown/disabled/wrong-role=`actor_not_allowed`。只有new entity创建消费current assignment。
+
+## 20. Increment 13 accepted source — protocol `0.5-design`
+
+> 状态：Accepted / Versioned source；active protocol仍为v0.3，本节不可作为runtime cutover声明。
+
+- `TaskGraphNode.kind = task | integration`；`TaskGraphRevision.acceptance_policy = per_task | integration_only`。`integration_only`强制唯一terminal integration node与single total-order component lineage；`per_task`拒绝integration node。
+- `Approval.target_type = task_graph_revision | git_action_preview`。Revision decision与GitAction decision复用同一durable entity，但public command分别校验exact target type、current revision、actor assignment与`confirmed_by_user`。
+- `NodeDispatch.status`增加`awaiting_git`。eligible missing-worktree node先materialize `NodeDispatch + Task + Run`并等待`create_worktree`；component policy acceptance后等待`commit_paths`；terminal integration acceptance后可等待final fast-forward。
+- `GitAction`是strict discriminated union：`create_worktree`冻结repository/source/new branch/worktree；`commit_paths`冻结canonical worktree/branch/sorted exact paths/Conventional Commit message/live evidence；`integrate_fast_forward`冻结source/target branch、clean target worktree与evidence。状态为`previewed | approved | executing | succeeded | failed | outcome_unknown`；rejected Approval保留action=`previewed`但永久不可执行。
+- 生命周期Events为`git_action_previewed`、`git_action_approved|git_action_rejected`、`git_action_executing`、`git_action_succeeded`、`git_action_failed`、`git_action_outcome_unknown`。decision Event引用`approval` entity，其余生命周期Event引用`git_action` entity。preview冻结当时Room Event cursor；execute若cursor或live facts变化，以`git_preview_stale`零process拒绝。
+- same-ID same-content preview retry返回existing并零Event；different content=`id_conflict`。未批准=`git_action_not_approved`；executing或terminal action不可replay=`git_action_already_terminal`。并发reservation只有一个caller取得`executing`。
+- successful `create_worktree` settlement原子绑定Run/Dispatch canonical path并推进ready；successful non-empty `commit_paths`完成component dispatch；successful final fast-forward形成derived Plan completion。failed/outcome_unknown不解锁dependency，reconcile不猜测binding或commit结果。
+- Room snapshot增加ordered `git_actions`和`plan_work_items`，graph item公开`git_waiting_reason`与`commit_gate_satisfied`；Status CLI与Plugin消费同一read model。

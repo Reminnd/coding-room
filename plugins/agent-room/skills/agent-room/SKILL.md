@@ -45,7 +45,7 @@ Entry: the operator explicitly asks to initialize the Agent Room for the current
 
 ### Phase 1 — establish the binding and start the service
 
-1. Validate `agent_room_root`: resolve it to an absolute path and confirm the directory contains the Agent Room `package.json` whose scripts define both `room:serve` and `room:run`. Stop before any project write if this fails.
+1. Validate `agent_room_root`: resolve it to an absolute path and confirm the directory contains the Agent Room `package.json` whose scripts define `room:serve`, `room:run` and `room:git`. Stop before any project write if this fails.
 2. Run the Skill-owned deterministic helper from the target project working directory:
 
 ```text
@@ -155,6 +155,24 @@ npm --prefix "<AGENT_ROOM_ROOT>" run room:run -- --db "<DATABASE_PATH>" --projec
 4. **Approval**: present the same exact command to the operator and request exactly one eligible escalation through the host UI approval (the operator-configured "帮我批准" / `approvals_reviewer=auto_review`). Approval authorizes at most one invocation; rejection means zero invocations — report the rejection. Never modify the approval policy, never write an active `prefix_rule` or equivalent allow/sandbox rule, never request arbitrary npm/shell allow rules, and never fall back to an operator-run command.
 5. **Execute once** when approved.
 6. **After the command returns** — regardless of exit code, stdout or model self-report — call `room_get_state` again for the same `room_id` and verify the same `run_id` in `run_work_items` and its latest attempt (`current_attempt_id`). Report only the durable snapshot state: `review_required`, `needs_decision`, `failed`, `canceled`, or whatever the Run actually shows. If the approval result or the process outcome is uncertain, re-read the Room first, and only then decide or ask the operator; never re-execute or mint a second `attempt_id` while the claim is unconfirmed.
+
+## GitAction workflow — explicit preview, decision and one-shot execution
+
+When the durable snapshot reports an eligible `git_waiting_reason`, Git mutation remains a separate operator-controlled workflow. The fixed Git actor is the enabled, current `local-runner` participant with the Room-scoped `git_controller` assignment and `git_control` capability; the control participant never executes Git.
+
+1. Select exactly one eligible operation and a fresh `git_action_id`. Run one `room:git preview` command from the target project directory through the validated Agent Room root. The command includes `--db`, `--git-action-id`, `--room-id`, `--revision-id`, `--node-id`, `--operation` and only that operation's typed fields. Preview observes live Git facts and persists the exact typed intent; it performs zero Git mutation.
+2. Re-read `room_get_state` and show the operator the exact persisted preview, including its action ID, operation, repository/worktree/branch/path fields and `preview_event_sequence`. Do not summarize away fields.
+3. Ask the operator whether to approve that exact preview. Only after explicit confirmation call `room_decide_git_action` as the planner with a fresh `approval_id`, `target_type=git_action_preview`, `target_id=<GIT_ACTION_ID>`, the exact decision and `confirmed_by_user=true`. Rejection means zero execute invocation; any later proposal uses a fresh action ID and preview.
+4. For an approved and still-unstale action, present the exact one-shot execution command and request one host execution approval:
+
+```text
+npm --prefix "<AGENT_ROOM_ROOT>" run room:git -- execute --db "<DATABASE_PATH>" --git-action-id "<GIT_ACTION_ID>"
+```
+
+   One approval authorizes at most one invocation. Rejection means zero invocation. Never add an allow rule, execute automatically, retry, clean up, or substitute another Git command.
+5. After the command returns, re-read `room_get_state` and report only the durable action status/result and Git waiting projection. `failed` and `outcome_unknown` are terminal and are never replayed. An `executing` action whose process ownership was lost may only use the explicit read-only `room:git reconcile` command after operator direction; reconciliation marks `outcome_unknown` and never infers success or starts Git.
+
+The fixed operation allowlist is `create_worktree`, `commit_paths` and `integrate_fast_forward`. It does not include arbitrary argv, shell execution, push/fetch/pull, merge commits, cherry-pick, rebase, reset, checkout, clean, branch/worktree deletion, force, amend or conflict resolution. `room_reconcile_plan` only projects eligibility and materializes durable work; it never invokes `room:git` or `room:run`.
 
 ## Optional — manual status viewing
 

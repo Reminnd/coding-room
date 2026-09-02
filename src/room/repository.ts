@@ -6,6 +6,7 @@ import type {
   Approval,
   Event,
   EventActor,
+  GitAction,
   NodeDispatch,
   ParticipantProfile,
   Plan,
@@ -30,7 +31,7 @@ export interface RoomRecord {
   updated_at: string;
 }
 
-type EntityTable = 'tasks' | 'reviews' | 'questions' | 'participants' | 'role_assignments' | 'plans' | 'task_graph_revisions' | 'approvals' | 'node_dispatches';
+type EntityTable = 'tasks' | 'reviews' | 'questions' | 'participants' | 'role_assignments' | 'plans' | 'task_graph_revisions' | 'approvals' | 'node_dispatches' | 'git_actions';
 
 const TABLE_ID_COLUMN: Record<EntityTable, string> = {
   tasks: 'task_id',
@@ -42,6 +43,7 @@ const TABLE_ID_COLUMN: Record<EntityTable, string> = {
   task_graph_revisions: 'revision_id',
   approvals: 'approval_id',
   node_dispatches: 'dispatch_id',
+  git_actions: 'git_action_id',
 };
 
 interface JsonRow {
@@ -198,6 +200,15 @@ export class RoomRepository {
         content_json TEXT NOT NULL,
         UNIQUE(revision_id, node_id)
       );
+      CREATE TABLE IF NOT EXISTS git_actions (
+        git_action_id TEXT PRIMARY KEY,
+        room_id TEXT NOT NULL,
+        revision_id TEXT NOT NULL,
+        node_id TEXT NOT NULL,
+        operation TEXT NOT NULL,
+        status TEXT NOT NULL,
+        content_json TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS events (
         event_id TEXT PRIMARY KEY,
         room_id TEXT NOT NULL,
@@ -353,6 +364,37 @@ export class RoomRepository {
   listNodeDispatches(roomId: string): NodeDispatch[] {
     const rows = this.db.prepare(`SELECT d.content_json FROM node_dispatches d JOIN task_graph_revisions r ON r.revision_id = d.revision_id WHERE r.room_id = ? ORDER BY d.rowid ASC`).all(roomId) as unknown as JsonRow[];
     return rows.map((row) => JSON.parse(row.content_json) as NodeDispatch);
+  }
+
+  // ---- GitActions ----
+  getGitAction(gitActionId: string): GitAction | null {
+    return this.getEntity<GitAction>('git_actions', 'git_action_id', gitActionId);
+  }
+  insertGitAction(action: GitAction): { created: boolean } {
+    return this.insertProjectedEntity(
+      'git_actions', 'git_action_id', action.git_action_id,
+      ['room_id', 'revision_id', 'node_id', 'operation', 'status'],
+      [action.room_id, action.revision_id, action.node_id, action.operation, action.status], action,
+    );
+  }
+  updateGitAction(action: GitAction): void {
+    this.db.prepare('UPDATE git_actions SET status = ?, content_json = ? WHERE git_action_id = ?')
+      .run(action.status, JSON.stringify(action), action.git_action_id);
+  }
+  updateGitActionIfStatus(action: GitAction, expectedStatus: GitAction['status']): boolean {
+    const result = this.db.prepare(
+      'UPDATE git_actions SET status = ?, content_json = ? WHERE git_action_id = ? AND status = ?',
+    ).run(action.status, JSON.stringify(action), action.git_action_id, expectedStatus);
+    return result.changes > 0;
+  }
+  listGitActions(roomId: string): GitAction[] {
+    return this.listEntitiesByRoom<GitAction>('git_actions', roomId);
+  }
+  latestGitActionForNode(revisionId: string, nodeId: string, operation?: GitAction['operation']): GitAction | null {
+    const row = (operation
+      ? this.db.prepare('SELECT content_json FROM git_actions WHERE revision_id = ? AND node_id = ? AND operation = ? ORDER BY rowid DESC LIMIT 1').get(revisionId, nodeId, operation)
+      : this.db.prepare('SELECT content_json FROM git_actions WHERE revision_id = ? AND node_id = ? ORDER BY rowid DESC LIMIT 1').get(revisionId, nodeId)) as JsonRow | undefined;
+    return row ? JSON.parse(row.content_json) as GitAction : null;
   }
 
   // ---- Runs（projection columns 与 content_json 同步维护）----
