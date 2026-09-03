@@ -228,13 +228,13 @@ existing room:serve ──> Codex Desktop reload boundary
 - 用户已确认Fix Review 2 finding与最小方案，[Increment 8 Fix Task 2](./INCREMENT_8_FIX_TASK_2.md)为`Accepted`/`FIX_PLAN_READY`：只让existing narrow classifier保留判断冻结dotted assignment是否位于TOML top-level所需的最小table context，并补unrelated-table public CLI direct regression。Skill/helper、Room authority、reload lifecycle、production dependency direction与protocol version均不改变；actual installed-plugin consumer evaluation仍需另行授权。
 - Fix Review 3 `review-increment-008-codex-003`确认该table-context修复与public CLI regression无finding，focused/full自动化验证通过。用户随后授权local marketplace registration、candidate install与actual installed-plugin consumer evaluation；installed cache与workspace Plugin逐文件一致，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部符合预期，故Decision更新为`approved`。用户于2026-08-28明确最终接受，完整accepted scope由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`，automatic setup现为Current capability。这不改变Accepted architecture、Room authority、reload lifecycle、production dependency direction或protocol version。
 
-### 3.13 Current implementation — Protocol v0.3 Participant / Role Foundation
+### 3.13 Historical implementation — Protocol v0.3 Participant / Role Foundation
 
-> 状态：Current / 已进入版本化`main` / active project runtime已于2026-08-30完成独立授权的v0.3 database/binding cutover。当前project Room为`DISCUSSION`，仍保持single active Run与人工授权边界；fixed actor与v0.2 dual route不再是active runtime authority。
+> 状态：Historical runtime / 已进入版本化`main`。v0.3曾于2026-08-30完成active cutover；2026-09-02已被§17的active v0.5 runtime替代。v0.2/v0.3 database均按原路径只读归档，不迁移、不删除。
 
 Fix Review 2的direct public-path evidence曾确认candidate尚未闭合完整frozen authority：production Runner仍以固定`local-runner`执行resolved Task-scope executor Run；`acceptReview`仍按Room default而非Task-scope/frozen reviewer授权；Task/Run/Review在assignment replacement后无法合法same-ID retry；被替换orchestrator仍可通过historical assignment管理Participant；setup复用只要求非空`control_participant_id`却固定生成`codex-app` URL。用户确认的最小方向已由Fix Task 2及后续Fix闭环（见§3.13.2–3.13.4）；该段保留为Review历史，不再描述Current缺口。
 
-v0.3 Stage 1把identity与authority分离，但不提前实现Stage 2–6：
+v0.3 Stage 1把identity与authority分离，但不提前实现Stage 2–6；以下保留为历史架构基线：
 
 ```mermaid
 flowchart LR
@@ -372,7 +372,7 @@ target Git数据流变为：first attempt解析canonical non-bare worktree并收
 
 fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0.3 database；`git_head_missing`删除，`git_repository_missing`、`worktree_not_clean`与wrong-worktree rollback保留。npm integrity、URL fragment、UUID与历史commit evidence不属于本架构变更。
 
-[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)均已完成Coding、Review并获用户最终接受；Fix Review `review-increment-011-codex-002`无finding，独立typecheck、focused 150/150与full 355/355通过。Baseline-free accepted source已由本次提交进入版本化`main`，但尚未执行runtime/database/binding cutover；§3.13 active v0.3 runtime继续是Current operational authority。用户指定下一Coding task继续使用独立Codex project task `gpt-5.6-sol`/`medium`，其创建仍是独立门禁。
+[Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)均已完成Coding、Review并获用户最终接受；Fix Review `review-increment-011-codex-002`无finding，独立typecheck、focused 150/150与full 355/355通过。Baseline-free accepted source已进入版本化`main`；截至该接受时§3.13 v0.3 runtime仍是operational authority，其能力现已随§17 v0.5 cutover生效。
 
 ### 3.16 Stage 3 target：DAG Control Plane（Architecture Approved）
 
@@ -385,7 +385,7 @@ fresh target SQLite不含baseline column，不迁移或backfill archived v0.2/v0
 - 不恢复baseline、file hash、Diff fingerprint、commit hash precondition、branch mirror或timestamp validator；Git result commit ID只作为historical evidence。
 - 推荐先版本化accepted v0.4 source而不cutover，Stage 3使用fresh `0.5-design`，拆分Graph/Scheduler与Git Controller两个Increment并在Stage 3整体接受后单次cutover。
 
-用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并进入版本化`main`。用户又于2026-09-02确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor通过one-shot `room:git` CLI承担Git mutation，planner decision仍经`codex-app` MCP，`integration_only`首版只支持single fast-forward lineage，Coding使用独立Codex worktree task且不cutover active v0.3。Implementation与两轮Fix已通过Review、获用户最终接受并由本次提交版本化；active v0.3仍不提供该能力，版本化不构成Git operation或cutover授权。
+用户已确认版本/cutover顺序、Increment 12/13拆分和Git allowlist，Architecture Decision=`approved`。[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)已获全文确认；Increment 12 Graph/Approval/Scheduler已完成Review、获用户最终接受并进入版本化`main`。用户又于2026-09-02确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor通过one-shot `room:git` CLI承担Git mutation，planner decision仍经`codex-app` MCP，`integration_only`首版只支持single fast-forward lineage，Coding使用独立Codex worktree task且不cutover active v0.3。Implementation与两轮Fix已通过Review、获用户最终接受并由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化；active runtime随后按§17完成v0.5 cutover，但版本化与cutover均不构成具体GitAction授权。
 
 ## 4. 依赖方向
 
@@ -573,7 +573,7 @@ runtime/
 
 ## 15. Increment 12 accepted source — DAG Scheduler Foundation
 
-> 状态：Accepted / Versioned source；active runtime/database/binding仍为v0.3，未执行cutover。
+> 状态：Accepted / Versioned / Active v0.5 capability；具体active binding与cutover事实见§17。
 
 `src/scheduler/plan-scheduler.ts`形成最小Scheduler boundary：纯函数验证DAG、POSIX component write scope、dependency readiness与确定性顺序；`PlanScheduler.reconcile`复用只读Git Observer canonicalize operator-prepared existing worktree，再调用Room application transaction。SQLite新增`plans`、`task_graph_revisions`、`approvals`、`node_dispatches`；Graph保存依赖与scope，Stage 2 `Run`/`RunAttempt`/`Review`继续拥有execution与acceptance。
 
@@ -588,10 +588,20 @@ Fix后权威语义：
 
 ## 16. Increment 13 accepted source — Git Controller 与 single-lineage integration
 
-> 状态：Accepted / Versioned source。Implementation lineage来自exact baseline `c7b4c2db0095632194940df40b49e0788257f099`；active v0.3 runtime/database/binding未cutover。
+> 状态：Accepted / Versioned / Active v0.5 capability。Implementation lineage来自exact baseline `c7b4c2db0095632194940df40b49e0788257f099`；具体active binding与cutover事实见§17。
 
 依赖方向固定为`room:git CLI → GitController → fixed Git process + read-only Git Observer → RoomService → Repository`。Planner只通过既有Codex MCP创建`git_action_preview` Approval decision；fixed `local-runner`持有`git_controller` role并负责preview、reservation、execute、settlement与reconcile。MCP不启动Git process，Git process不在SQLite transaction内运行。
 
 每个`GitAction`依次冻结exact preview、用户decision、single reservation和terminal result。execute在重新观察live repository facts后，以transaction将`approved → executing`；提交后才执行allowlist中的`create_worktree`、`commit_paths`或`integrate_fast_forward`。成功或失败由第二个transaction结算；execution ownership丢失时，reconcile只读取live evidence并写`outcome_unknown`，不推断成功、不重试、不reset或cleanup。
 
 `integration_only`只接受single fast-forward lineage：revision恰有一个terminal `integration` node，所有component均能到达该node且component之间存在total order。component Review approved后仅policy-accepted，non-empty successful `commit_paths`后才完成dispatch并解锁下游；terminal Integration Run仍走既有Review与用户acceptance，最终`integrate_fast_forward`成功后derived Plan completion才为true。parallel fan-in、merge commit、cherry-pick与rebase不属于本版source。
+
+## 17. Current runtime — Protocol v0.5 cutover
+
+> 状态：Current。2026-09-02经用户独立授权完成v0.3→v0.5 database/binding cutover；source authority为commit `004969190215e354fc468e824d9c5e798f01e4fc`。
+
+- active binding为exact八字段：`protocol_version=0.5-design`、`database_path=D:\agent\case\codex-claudecode-room\.agent-room\room-v0.5.sqlite`、`room_id=room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`、`port=59665`、`control_participant_id=codex-app`；project MCP保持framed route `/mcp/participants/p~codex-app`。
+- `archived_database_paths`按`[room.sqlite, room-v0.3.sqlite]`排序。migration未打开或改写旧database；cutover前后长度与SHA-256一致，旧文件继续只读保留。
+- `room:serve`使用v0.5 source与新database监听原port。reload continuation只通过project-scoped MCP创建一次同ID Room并再次读取；snapshot为Room=`DISCUSSION`、`planning_waiting_actor=planner`、cursor=`1`、唯一Event=`room_created`，所有Plan/Revision/Approval/Task/Run/Attempt/Review/Question/GitAction集合为空。
+- bootstrap authority为`codex-app → planner/reviewer/orchestrator`、`claude-code-cli → worker`、`local-runner → executor/git_controller`；`local-runner` capabilities包含`execution`与`git_control`。Git mutation仍只允许经exact preview、用户Approval与one-shot `room:git`执行，cutover本身未创建或执行GitAction。
+- setup在Room可读且处于`DISCUSSION`后停止；未自动开始Architecture Review、创建Plan/Task/Run、调用`room:run`或清理旧database/worktree。service仍为本地manual process，不新增service manager、automatic restart或health scheduler。

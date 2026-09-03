@@ -462,13 +462,13 @@ Codex Review 读取实时 repository。已保存 Git evidence 用于导航和检
 3. 更新受影响 ADR 和 Documentation Map；
 4. 在同一个已 Review 增量中完成对应 implementation 与 integration test。
 
-## 16. Protocol v0.3 Current boundary
+## 16. Protocol v0.3 historical boundary
 
-> 状态：Current / 已进入版本化`main` / active project runtime已于2026-08-30完成v0.3 database/binding cutover。§1–15的串行state/lifecycle/error基线在v0.3继续适用，其中fixed Actor、`claude_session_id`、v0.2 database与dual route已由§16替代；§16是当前`0.3-design` Stage 1增量contract。完整字段和验收以Increment 9 Accepted Contract及四份Fix Contract为准。
+> 状态：Historical runtime / 已进入版本化`main`。v0.3曾于2026-08-30完成active cutover，已于2026-09-02被§21的active `0.5-design` runtime替代。§1–16继续记录串行protocol与Stage 1历史基线；完整字段和验收以Increment 9 Accepted Contract及四份Fix Contract为准。
 
 Fix Review 2确认§16.1的五项candidate偏差：Runner executor actor未使用resolved participant；Review acceptance未使用Task-scope/frozen reviewer；Task/Run/Review replacement后的same-ID retry无合法authority路径；historical orchestrator仍可执行Participant管理；binding validation未强制control identity与`codex-app` route一致。用户确认后，Fix Task 2按§16.2完成Coding；Fix Review 3已确认这五项闭合，remaining finding仅为§16.3的participant route segment encoding，Fix Task 3 Fix Coding已按§16.4完成。完整Stage 1 scope已获接受、进入版本化`main`并完成独立cutover，以上偏差仅为历史Review事实。
 
-v0.3 Current protocol不再使用fixed `Actor`作为authority：
+v0.3 historical protocol不再使用fixed `Actor`作为authority：
 
 ```text
 ParticipantProfile
@@ -477,7 +477,7 @@ ParticipantProfile
   → frozen Task / Run / Review / Event identity
 ```
 
-### 16.1 Current exact contract（Increment 9 实现已落地，2026-08-29；2026-08-30 cutover）
+### 16.1 Historical exact contract（Increment 9 实现已落地，2026-08-29；2026-08-30 cutover）
 
 - `Role = planner | worker | reviewer | executor | git_controller | orchestrator`。
 - `ParticipantProfile`字段冻结为`participant_id`、`display_name`、`kind=human|agent|service`、`provider`、`adapter_id`、`capabilities`、`config_ref`（opaque，不存secret）、`enabled`、`created_at`。
@@ -495,7 +495,7 @@ ParticipantProfile
 - v0.2 database不迁移、不backfill、不改写历史actor/session；binding切换后只读保留。setup migration创建`room-v0.3.sqlite`与新room_id，复用port，保守改写遗留`/mcp/codex` URL到participant route；migration rerun幂等复用同一v0.3 identity，`archived_database_path`永不等于新`database_path`。Review finding inc9-r6已增加setup helper public CLI direct regression：mode=migrated时旧database逐byte不变、conflict零写入、rerun mode=reused且identity稳定。
 - v0.2 `agent_room_root`（stored指向v0.2代码）不能复用为v0.3 root：migration/reuse要求operator再提供一次`--agent-room-root`（candidate实现的最小选择，记录在Coding Result deviation）。
 
-Stage 1仍只允许single active Run；Plan-scope Assignment和Approval snapshot在Stage 3出现真实TaskGraph/Git action consumer时定义。v0.3 source已通过Review、获用户接受并进入版本化`main`，active project database/binding现已完成独立授权的cutover。
+Stage 1只允许single active Run；Plan-scope Assignment和Approval snapshot在Stage 3出现真实TaskGraph/Git action consumer时定义。v0.3 source已通过Review、获用户接受并进入版本化`main`，其active project database/binding历史期截至2026-09-02 v0.5 cutover。
 
 ### 16.2 Fix Task 2 candidate contract 细化（Fix Coding与Fix Review 3确认已完成，2026-08-29）
 
@@ -537,7 +537,7 @@ Fix Review 4证明§16.4的纯`encodeURIComponent`表示仍不能覆盖公开sch
 - direct regression（期望值均为测试侧literal framed route，未从production导出framing helper/constant）：MCP public path注册并分配`.`/`..`后经`/mcp/participants/p~.`与`/mcp/participants/p~..`调用实际`room_ask_question`成功，Event actor与Run冻结均为raw identity；unframed `.../mcp/participants/.`/`.../mcp/participants/..`被WHATWG URL归一化出participant route，POST 404且Event list零变化。production `runClaude`以`.`/`..` Task-scope worker穿过route gate、claim与`run_completed` terminal settlement（Run冻结raw identity），unframed encoded mcpConfig在spawn/claim前`validation_failed`且零spawn/Run/Event/artifact。public `room:run` CLI以framed `p~.`/`p~..` mcp-url完成fake-process Run，unframed URL preflight失败且完整durable read-model snapshot逐字段不变。setup public CLI三路径（fresh/migrated/reused）生成framed URL；unframed candidate config（section与frozen dotted两种形态）非零exit且三文件逐byte不变。`worker/2`回归更新为framed `p~worker%2F2`（raw多segment与unframed encoded仍拒绝）。
 - 验证事实：typecheck exit 0；room-mcp/claude-runner/runner-cli 108/108；plugin-setup/plugin-packaging 35/35；e2e-workflow/multi-project-e2e/room-serve 12/12；scope 1/1；full 321/321；`git diff --check`无错误。schema、database、protocol version、Room state、assignment/frozen authority、retry ordering与Event identity未变；全部Fix 1–3回归保持通过；v0.3仍为candidate，未执行cutover。
 - Fix Review 5 `review-increment-009-codex-005`无finding，Decision为`approved`；用户确认后Room通过`review_accepted` Event sequence `217709`进入`ACCEPTED`。Current v0.2 protocol、database与binding保持权威，未执行commit、push或cutover。
-- 2026-08-30 active cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、默认Participant/Assignment完整，Task/Run/Review/Question均为空。Room初始为`DISCUSSION`，随后经逐项授权完成Increment 10 Implementation/Fix/Review lifecycle，并于2026-08-31因用户最终接受进入`ACCEPTED`、waiting actor=`null`。该Room是active v0.3 durable authority且已terminal；历史v0.2 database只读保留。
+- 2026-08-30 v0.3 cutover：project-local runtime exact为`protocol_version=0.3-design`、`control_participant_id=codex-app`，database=`room-v0.3.sqlite`，archived database=`room.sqlite`；project MCP route为`/mcp/participants/p~codex-app`。项目专属`room_get_state`确认Room `room-ebfafef2-f0e9-4fb1-9eef-ac5adef7445f` identity一致、默认Participant/Assignment完整，Task/Run/Review/Question均为空。Room初始为`DISCUSSION`，随后经逐项授权完成Increment 10 Implementation/Fix/Review lifecycle，并于2026-08-31因用户最终接受进入`ACCEPTED`、waiting actor=`null`。该Room现为只读历史v0.3 durable authority；v0.2/v0.3 database均由active v0.5 binding归档。
 
 ## 17. Stage 2 target protocol boundary（Accepted source已版本化，runtime未cutover）
 
@@ -605,11 +605,11 @@ Fix Task 1 Coding candidate（未Review、未接受；§16 v0.3仍是Current aut
 - GitAction必须经过typed preview、`confirmed_by_user=true` Approval、single execution与`succeeded|failed|outcome_unknown` settlement；首版候选只允许`create_worktree|commit_paths|integrate_fast_forward`。
 - target不包含hash/fingerprint validator、background scheduler、automatic Agent launch、push/rebase/reset/clean/delete/merge commit或冲突自动解决。
 
-Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Stage 3 Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并进入版本化`main`。用户于2026-09-02进一步确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)的fixed-actor `room:git`、single fast-forward lineage与pre-cutover Coding route，并确认完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)。Contract=`Accepted`、`confirmed_by_user=true`；Implementation与两轮Fix已通过Review、获用户最终接受并由本次提交版本化。Active v0.3 protocol保持Current；GitAction、`integration_only`与database/binding cutover仍不可用于当前项目并继续分别授权。
+Target exact version为fresh `0.5-design`，Stage 3拆分为Graph/Approval/Scheduler与Git Controller两个Increment。用户已确认三项Stage 3 Architecture Decision及[Increment 12完整Contract](./INCREMENT_12_TASK_CONTRACT.md)；Increment 12已完成Review、获用户最终接受并进入版本化`main`。用户于2026-09-02进一步确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)的fixed-actor `room:git`、single fast-forward lineage与pre-cutover Coding route，并确认完整[Increment 13 Contract](./INCREMENT_13_TASK_CONTRACT.md)。Contract=`Accepted`、`confirmed_by_user=true`；Implementation与两轮Fix已通过Review、获用户最终接受并由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化。Active protocol随后按§21切换到v0.5；具体GitAction仍需独立preview、用户decision与one-shot execution授权。
 
 ## 18. Increment 12 accepted source — protocol `0.5-design`
 
-> 状态：Accepted / Versioned source；active v0.3 database/binding不变。
+> 状态：Accepted / Versioned / Active v0.5 protocol capability；active binding与cutover证据见§21。
 
 - Entity：`Plan`、immutable `TaskGraphRevision`（`acceptance_policy=per_task`）、generic `Approval(target_type=task_graph_revision)`、`NodeDispatch`。`TaskSpec`是strict schema，不接受`confirmed_by_user`；materialization才补exact `true`。
 - Assignment resolution：`task > plan > room`；Plan scope必须引用same-Room existing Plan。
@@ -629,7 +629,7 @@ Fix后exact语义：
 
 ## 20. Increment 13 accepted source — protocol `0.5-design`
 
-> 状态：Accepted / Versioned source；active protocol仍为v0.3，本节不可作为runtime cutover声明。
+> 状态：Accepted / Versioned / Active v0.5 protocol capability；active binding与cutover证据见§21。
 
 - `TaskGraphNode.kind = task | integration`；`TaskGraphRevision.acceptance_policy = per_task | integration_only`。`integration_only`强制唯一terminal integration node与single total-order component lineage；`per_task`拒绝integration node。
 - `Approval.target_type = task_graph_revision | git_action_preview`。Revision decision与GitAction decision复用同一durable entity，但public command分别校验exact target type、current revision、actor assignment与`confirmed_by_user`。
@@ -639,3 +639,13 @@ Fix后exact语义：
 - same-ID same-content preview retry返回existing并零Event；different content=`id_conflict`。未批准=`git_action_not_approved`；executing或terminal action不可replay=`git_action_already_terminal`。并发reservation只有一个caller取得`executing`。
 - successful `create_worktree` settlement原子绑定Run/Dispatch canonical path并推进ready；successful non-empty `commit_paths`完成component dispatch；successful final fast-forward形成derived Plan completion。failed/outcome_unknown不解锁dependency，reconcile不猜测binding或commit结果。
 - Room snapshot增加ordered `git_actions`和`plan_work_items`，graph item公开`git_waiting_reason`与`commit_gate_satisfied`；Status CLI与Plugin消费同一read model。
+
+## 21. Protocol v0.5 Current runtime boundary
+
+> 状态：Current。2026-09-02经独立授权完成v0.3→v0.5 cutover；active source commit=`004969190215e354fc468e824d9c5e798f01e4fc`。
+
+- binding exact为`protocol_version=0.5-design`、database=`room-v0.5.sqlite`、Room=`room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`、port=`59665`、control participant=`codex-app`与`archived_database_paths=[room.sqlite, room-v0.3.sqlite]`；active database不在archive array中。
+- project-scoped MCP route保持`/mcp/participants/p~codex-app`。fresh database在Room创建前没有bootstrap Participant，因此首次authenticated `room_get_state`返回tool error；setup随后只调用一次同ID `room_create`，以transaction创建Room、bootstrap profiles/assignments与唯一`room_created` Event。
+- final authoritative snapshot：Room state=`DISCUSSION`、`planning_waiting_actor=planner`、cursor=`1`；Plan、Revision、Approval、NodeDispatch、Task、Run、Attempt、Guidance、Review、Question与GitAction均为空。该snapshot而非helper stdout、service log或直接SQLite查询是workflow authority。
+- bootstrap assignments exact为`codex-app → planner/reviewer/orchestrator`、`claude-code-cli → worker`、`local-runner → executor/git_controller`。normal workflow从该Room开始仍受planning state、exact revision Approval、manual reconcile、one-shot Run与GitAction preview/decision/execution门禁约束。
+- cutover不创建Plan/Task/Run/GitAction，不启动Claude，不删除archive，不执行push或worktree cleanup；setup在验证`DISCUSSION`后停止。

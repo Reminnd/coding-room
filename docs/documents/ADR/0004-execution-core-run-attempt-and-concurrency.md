@@ -88,9 +88,9 @@ Claude Code guidance只在无active attempt时保存并注入下一attempt；Sta
 
 首轮Review事实（2026-08-31，historical）：Increment 10 continuation Run `-007`在task-owned worktree完成Contract范围candidate实现；原8条verification及Codex独立typecheck/full 341/341通过。Review `review-increment-010-codex-001`以真实双connection probe确认deferred transaction泄漏`database is locked`，并确认terminal evidence一致性与ready current Task两项缺口，Decision=`changes_requested`。用户随后确认最小方向与[Fix Task 1](../INCREMENT_10_FIX_TASK_1.md)全文；该阶段Room曾为`FIX_PLAN_READY`。这些finding的最终结论由下段验收事实取代。
 
-最终验收（2026-08-31）：Fix Task 1闭合atomic claim、terminal evidence与ready current Task三项finding；Fix Task 2补齐effective `needs_decision` empty evidence拒绝与public zero-write regression。Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，独立typecheck、focused suites与full 353/353通过；用户已最终接受，durable Room=`ACCEPTED`。Accepted source已由本次提交进入版本化`main`；本ADR仍保持`Proposed`，因为active runtime尚未cutover。
+最终验收（2026-08-31）：Fix Task 1闭合atomic claim、terminal evidence与ready current Task三项finding；Fix Task 2补齐effective `needs_decision` empty evidence拒绝与public zero-write regression。Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，独立typecheck、focused suites与full 353/353通过；用户已最终接受，历史v0.3 durable Room=`ACCEPTED`。Accepted source已进入版本化`main`并于2026-09-02随Stage 3整体完成后进入active v0.5；本ADR仍保持`Proposed / Decisions confirmed`，因为其文档状态未被单独提升。
 
-后续Accepted amendment：用户已确认删除所有project-owned runtime hash validation，[ADR-0005](./0005-remove-git-baseline-hash-validation.md) supersede本ADR中的Git `baseline_head`冻结与HEAD equality guard，同时保留first-attempt clean worktree、canonical worktree lease和live Git evidence。本ADR的Run/RunAttempt、atomic claim、worktree lease、Executor/WorkerAdapter、terminal settlement与其它Stage 2决策继续有效；Increment 11 accepted source已由本次提交进入版本化`main`，但active v0.3 runtime尚未cutover。
+后续Accepted amendment：用户已确认删除所有project-owned runtime hash validation，[ADR-0005](./0005-remove-git-baseline-hash-validation.md) supersede本ADR中的Git `baseline_head`冻结与HEAD equality guard，同时保留first-attempt clean worktree、canonical worktree lease和live Git evidence。本ADR的Run/RunAttempt、atomic claim、worktree lease、Executor/WorkerAdapter、terminal settlement与其它Stage 2决策继续有效；Increment 11 accepted source已进入版本化`main`，并于2026-09-02随Stage 3整体完成后进入active v0.5 runtime。
 
 ## 6. 重新评估条件
 

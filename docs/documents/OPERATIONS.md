@@ -153,7 +153,7 @@ Review 3 证据：同一 fake process 中 Question 前 recognized progress 产�
 
 ### 4.3 Increment 6 Historical 运维流程
 
-[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 规划的以下显式operator flow已完成clean-baseline re-execution与Fix Task 1（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）、通过Codex Review、获用户接受并进入版本化`main`。这是v0.2历史流程，active v0.3操作见§4.6：
+[Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 规划的以下显式operator flow已完成clean-baseline re-execution与Fix Task 1（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）、通过Codex Review、获用户接受并进入版本化`main`。这是v0.2历史流程；v0.3历史操作见§4.6，active v0.5操作见§4.12：
 
 1. operator先独立启动现有`room:serve`，使用实际`/mcp/codex`创建Room、推进planning并提交Task；Current surface新增四个tools：`room_create`、`room_begin_architecture_review`、`room_request_user_confirmation`、`room_retry_run`。
 2. 每次需要Coding时显式运行一次：
@@ -170,7 +170,7 @@ re-execution已闭合Review 1的dispatch baseline、CLI route/database/main wiri
 
 ### 4.4 Increment 7 Historical Plugin 与多项目配置
 
-用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下为已进入版本化`main`的v0.2历史runbook，active v0.3 binding与route见§4.6。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
+用户已确认[Increment 7 Accepted Contract](./INCREMENT_7_TASK_CONTRACT.md)全部内容；以下为已进入版本化`main`的v0.2历史runbook，v0.3历史binding与route见§4.6，active v0.5见§4.12。严格重执行从clean documentation baseline的exact `HEAD`（`b9ebeffdcc8dd9c34718111b50fa3605a21ad17e`）派发；Review 2四项finding已形成Accepted [Fix Task 1](./INCREMENT_7_FIX_TASK_1.md)，Fix Coding已完成。[Fix Task 2](./INCREMENT_7_FIX_TASK_2.md)已完成Coding；Review 4因Skill front matter不是合法YAML而`changes_requested`：
 
 1. Agent Room Plugin安装一次，只提供共享Skill。Project A/B各自保存project-scoped `.codex/config.toml`：
 
@@ -212,11 +212,11 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 5. setup完成后停止，不调用`room:run`、不启动Claude、不修改Git或host policy。真实service/runtime setup smoke仍未运行；consumer routing evaluation不替代该operator-run smoke。
 6. 实现状态（Current，2026-08-28，`ACCEPTED`）：Fix Task 2已收窄top-level ownership判断并补public CLI regression；Fix Review 3 `review-increment-008-codex-003`确认代码无finding，focused setup 12/12、packaging 20/20、scope 1/1、typecheck及full test glob通过。用户授权后，candidate已从`agent-room-local`安装为`0.1.0`，fresh tasks中的direct/indirect setup、missing-binding normal workflow、unsupported request与bundled helper/reference resolution全部通过，Decision为`approved`，且用户已明确最终接受；完整accepted scope已由commit `8428046dded5f7542690735b3df8a5c5490e8090`进入版本化`main`。manual service/runtime setup smoke仍未运行，不影响Current automatic setup capability。
 
-### 4.6 Protocol v0.3 Stage 1 Current runtime
+### 4.6 Protocol v0.3 Stage 1 historical runtime
 
-> 状态：Current。v0.3 source已进入版本化`main`并于2026-08-30完成独立授权的active project database/binding cutover；§4.4–4.5保留历史与通用setup背景，当前实际binding以本节为准。
+> 状态：Historical。v0.3 source已进入版本化`main`并于2026-08-30完成active cutover；2026-09-02已被§4.12的v0.5 runtime替代。本节保留历史binding、terminal Room与旧command shape，不再是当前操作入口。
 
-当前project-local runtime：
+历史v0.3 project-local runtime：
 
 | 项目 | Current值 | 验证与失败动作 |
 |---|---|---|
@@ -229,7 +229,7 @@ Plugin Coding与自动化测试仍使用fake-process boundary。实现通过Revi
 
 Cutover成功证据：八字段runtime与config URL通过exact校验，loopback service已监听，project-scoped MCP加载成功；`room_get_state`返回同一Room identity、完整默认Participant/Assignment，Task/Run/Review/Question均为空。setup未创建重复Room，也未启动Claude Run或删除旧v0.2 database。随后经逐项授权完成Increment 10 Implementation、Fix与Review workflow；用户最终接受后Room进入`ACCEPTED`。
 
-Current操作边界：
+历史v0.3操作边界：
 
 - Room service仍是operator控制的本地process，不新增service manager、自动重启或health scheduler。端口关闭时按Agent Room Skill的setup/normal-workflow门禁处理，不启动第二实例绕开冲突。
 - Current Room=`ACCEPTED`且waiting actor=`null`；不得向该terminal Room提交新Task。后续规划需要新的planning Room/binding与独立授权，不能复用或改写该Room终态。
@@ -256,31 +256,31 @@ Current操作边界：
 
   不再携带`--task-id`或`--baseline-head`；worktree/baseline由Run首个attempt冻结并由后续attempt继承。
 - candidate `room:status`输出`planning_waiting_actor`与per-Run `run_work_items`（`run_id`/`run_status`/`waiting_actor`/`current_task_id`/`current_attempt_id`/`current_question_id`/`current_review_id`），不再输出单一`current_run`。
-- Review stop conditions已满足：normal双connection claim不把`database is locked`暴露给operator；ready work item显示即将执行的latest Task；Attempt进入Review前具有与effective terminal status一致的union-shaped result/failure，empty/overlap形态在零写前拒绝。v0.4 cutover仍需独立授权。
+- Review stop conditions已满足：normal双connection claim不把`database is locked`暴露给operator；ready work item显示即将执行的latest Task；Attempt进入Review前具有与effective terminal status一致的union-shaped result/failure，empty/overlap形态在零写前拒绝。该candidate在2026-08-31未单独cutover；其能力后来随v0.5整体cutover生效。
 - candidate运维动作：`room_retry_run`回到`ready`后由下一`room:run`继续；`room_cancel_run`（需`confirmed_by_user`）把Run与active attempt置`cancel_requested`，Executor结算`canceled`；`room_add_run_guidance`只在Run无active attempt时接受，由下一attempt claim恰好消费一次。
-- cutover/rollback门禁：Codex Review与用户接受已经满足；v0.4 cutover仍需独立授权。此前不得把binding切到v0.4、删除v0.2/v0.3 database或对candidate worktree执行Git写操作。
+- 历史cutover门禁：Codex Review与用户接受当时已经满足，但未执行中间v0.4 cutover；v0.2/v0.3 database至今仍不得删除或改写。
 - Fix acceptance（2026-08-31）：Fix Task 1修复writer reservation、canonical terminal evidence与latest Task推导；Fix Task 2显式拒绝effective `needs_decision` empty evidence并保留两种合法形态。Fix Review `review-increment-010-codex-003`与full 353/353已通过，用户最终接受。
-- Increment 11 accepted amendment：[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)删除`baseline_head`/HEAD equality与`git_head_missing`；first attempt仍要求clean canonical Git worktree，continuation只校验canonical worktree而不拒绝branch/commit drift。Implementation/Fix已通过Review、获用户最终接受并由本次提交进入版本化`main`；active database/binding尚未cutover，因此§4.6当前可执行命令与runtime contract不变。
+- Increment 11 accepted amendment：[哈希校验删除规划](./HASH_VALIDATION_REMOVAL_PLAN.md)与[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)删除`baseline_head`/HEAD equality与`git_head_missing`；first attempt仍要求clean canonical Git worktree，continuation只校验canonical worktree而不拒绝branch/commit drift。Implementation/Fix已通过Review、获用户最终接受并进入版本化`main`；截至当时§4.6仍为active，当前操作已由§4.12替代。
 
 ### 4.8 Increment 11 accepted source（已版本化/runtime未cutover）
 
 - Coding已由独立Codex project task按model=`gpt-5.6-sol`、reasoning effort=`medium`完成；没有复用terminal v0.3 Room或Claude `room:run`。
 - [Increment 11 Contract](./INCREMENT_11_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_11_FIX_TASK_1.md)已通过Review并获用户最终接受。Candidate `room:run`不含`--baseline-head`，支持clean unborn repository，continuation不拒绝HEAD/branch drift；wrong canonical worktree、dirty first attempt和Git command failure仍拒绝。
-- accepted source已由本次提交进入`main`；active binding/database仍为§4.6 v0.3。下一Implementation必须从提交完成后的clean exact `main` HEAD在独立worktree派发。
+- accepted source已进入`main`；截至该版本化时active binding/database仍为§4.6 v0.3，当前已由§4.12 v0.5替代。
 - 本次`main`版本化已获授权并完成；runtime/database/binding cutover、旧database处理、push、后续task创建与worktree cleanup继续分别授权。
 
-### 4.9 Stage 3 Approved Architecture / Increment 12 versioned source边界
+### 4.9 Stage 3 Approved Architecture / Increment 12–13 cutover边界
 
-- [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；[Increment 12 Contract](./INCREMENT_12_TASK_CONTRACT.md)及implementation已获用户最终接受，阶段=`ACCEPTED`，accepted source由本次提交进入版本化`main`。尚未cutover，因此active runtime仍不提供Stage 3 Scheduler或Git command。
+- [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`；Increment 12–13 implementation均已获用户最终接受，并由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。active runtime随后按§4.12完成v0.5 cutover。
 - Scheduler只显式reconcile ready work，不自动启动Agent process；每次one-shot Run仍需operator授权。
 - Increment 13 Git Controller对每次`create_worktree`、`commit_paths`或`integrate_fast_forward`执行preview → user confirmation → single execution；版本化source不授权任何真实项目Git write。
-- Accepted v0.4与Increment 12 source均已版本化并保持v0.3 active。Stage 3整体接受后fresh `0.5-design`单次cutover，cutover继续独立授权。
-- 用户已确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：由fixed `local-runner` actor的one-shot `room:git` CLI承担preview/execute/reconcile，planner decision继续经`codex-app` MCP；首版`integration_only`限制为single fast-forward lineage。Implementation与两轮Fix已通过Review、获用户最终接受并由本次提交版本化；active v0.3未cutover，仍不可用于当前项目runtime。
-- 当前project binding为v0.3，而versioned Agent Room workflow要求v0.5；normal workflow、setup与cutover均未在本轮调用。最终v0.5 cutover继续独立授权。
+- Accepted v0.4与Increment 12 source先版本化并保持v0.3 active；Stage 3整体接受后已按独立授权完成fresh `0.5-design`单次cutover。
+- 用户已确认[Increment 13 Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)及完整[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：由fixed `local-runner` actor的one-shot `room:git` CLI承担preview/execute/reconcile，planner decision继续经`codex-app` MCP；首版`integration_only`限制为single fast-forward lineage。Implementation与两轮Fix已通过Review、获用户最终接受并版本化；active v0.5现在提供这些protocol capability，但每个真实GitAction仍需独立preview、用户decision与one-shot execution授权。
+- 当前project binding为v0.5，setup已完成并停在Room=`DISCUSSION`；未自动创建Plan、Task、Run或GitAction。
 
 ### 4.10 Increment 12 manual graph workflow（versioned source）
 
-> 仅描述已版本化source；active runtime/database/binding仍为v0.3，不授权cutover。
+> 描述已版本化且active的v0.5 graph workflow；cutover已完成，但不授权任何Plan decision、reconcile、Run或GitAction。
 
 1. planner创建stable Plan与Draft revision；Draft/rejected revision reconcile返回零materialization。
 2. Room进入`WAITING_FOR_USER_CONFIRMATION`后，用户对exact revision作decision；approved decision返回`DISCUSSION`。
@@ -317,16 +317,16 @@ npm test
 | 停止/重启 Room service | 前台终端中断；使用相同显式参数重新启动 | Available（manual） |
 | 查询 runtime status/health | 无 | Unavailable |
 | 查询 Room state snapshot | `npm run room:status -- --db <path> --room-id <id>` | Available |
-| 调用 MCP | service 启动后使用 `/mcp/codex` 或 `/mcp/claude` | Available |
+| 调用 MCP | service 启动后使用 `/mcp/participants/p~<participant_id>` framed route | Available |
 | 执行一个 Runner Run | `npm run room:run -- ...` | Available（one-shot；要求既有database与已启动的Room service） |
-| 执行一个 GitAction | `npm run room:git -- preview|execute|reconcile ...` | Versioned v0.5 source available；active v0.3未cutover |
+| 执行一个 GitAction | `npm run room:git -- preview|execute|reconcile ...` | Active v0.5 capability；每个action仍需exact preview、用户decision与one-shot host approval |
 
 ## 6. 状态、存储与制品
 
 | 事实 | Owner | 当前路径/状态 |
 |---|---|---|
 | source、staged/unstaged/untracked | Git worktree | 实时 `git status`/Diff；不保存平行 patch authority |
-| Room entity/state | SQLite | Schema 已实现；由 caller 提供 `DatabaseSync`，尚无固定 production database path |
+| Room entity/state | SQLite | Active path=`D:\agent\case\codex-claudecode-room\.agent-room\room-v0.5.sqlite`；Room=`room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0` |
 | process/session lifecycle | Claude Runner / Run record | central Runner 已实现；没有 background scheduler 或 service lifecycle command |
 | bootstrap stdout/status | Local artifact | `.agent-room/artifacts/<task-or-run>/`，Git ignored |
 | 人工 Diff | VS Code | 直接打开目标 Git worktree |
@@ -392,7 +392,7 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 
 ### 4.11 Increment 13 manual Git workflow（versioned source）
 
-> 本节只描述accepted/versioned source；active v0.3 binding未cutover。不得在当前项目执行这些GitAction，除非另行授权cutover与具体action。
+> 本节描述accepted/versioned且active的v0.5 capability。cutover已完成，但不得执行任何GitAction，除非另行完成该action的preview、用户decision与one-shot execution授权。
 
 1. 先用one-shot `room:git preview`传入operation所需的全部typed参数。CLI只观察canonical repository/worktree、branch/ref、live evidence和Room cursor，输出exact frozen preview；此步不执行Git mutation。
 2. 将完整preview展示给用户。用户确认后，planner才通过既有`room_decide_git_action` MCP tool对`target_type=git_action_preview`作exact Approval decision；不得由Plugin、CLI或Controller自动决定。
@@ -402,3 +402,25 @@ Increment 3 Runner TypeScript API 与 Increment 4 Room MCP、Status CLI、runtim
 典型waiting read model以`waiting_reason/git_waiting_reason`表示：missing managed worktree=`awaiting_git/worktree_required`；component Review已policy-accepted但未commit=`awaiting_git/commit_required`；terminal Integration已接受但尚未final ff=`completed/final_fast_forward_required`。`failed`或`outcome_unknown`均不解锁dependency或derived Plan completion。
 
 Versioned source命令入口为`npm run room:git -- preview|execute|reconcile ...`，fixed actor始终是`local-runner`/`git_controller`。Plugin只指导人工preview-confirm-execute与post-action snapshot reread；不自动调用CLI、launcher、Review、acceptance、retry或cleanup。
+
+### 4.12 Protocol v0.5 Current runtime
+
+> 状态：Current。2026-09-02经用户独立授权完成v0.3→v0.5 cutover；setup在新Room可读且处于`DISCUSSION`后停止。
+
+| 项目 | Current值 | 成功信号与失败动作 |
+|---|---|---|
+| source | launcher clean detached at `004969190215e354fc468e824d9c5e798f01e4fc` | `room:serve`、`room:run`、`room:git`三项script必须存在；不匹配则停止 |
+| active database | `D:\agent\case\codex-claudecode-room\.agent-room\room-v0.5.sqlite`，protocol=`0.5-design` | service只打开该active path；version/identity mismatch停止 |
+| archives | `[room.sqlite, room-v0.3.sqlite]` | 顺序固定；active path不得出现在array；旧文件不迁移、不改写、不删除 |
+| runtime | exact八字段，port=`59665`、Room=`room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`、control=`codex-app` | extra/missing field或path/version/identity mismatch立即停止 |
+| MCP | `http://127.0.0.1:59665/mcp/participants/p~codex-app` | 只使用project-scoped MCP；不得以raw HTTP、direct SQLite或其它project route绕过 |
+| Room | state=`DISCUSSION`、planning waiting actor=`planner`、cursor=`1` | identity/state不一致或MCP error停止；不得自动推进Architecture Review |
+
+Cutover evidence：helper=`mode=migrated`；config URL unchanged；`.gitignore`只增加`room-v0.5.sqlite`及sidecar patterns；v0.2/v0.3 archive长度与SHA-256在migration前后不变；hidden service监听原port且stderr为空；reload continuation调用一次`room_create(created=true)`后，`room_get_state`返回唯一`room_created` Event、完整bootstrap profiles/assignments与全空execution entities。
+
+当前操作边界：
+
+- service为manual local process；端口关闭时只按Agent Room setup/normal workflow执行一次受控启动，不增加service manager、auto-restart或health scheduler。
+- `room:run`按Run/Attempt one-shot command执行，不携带`--task-id`或`--baseline-head`；只有durable ready Run且获得单次host approval时才可调用。
+- `room:git`只有在持久化exact preview、用户Approval decision与单次host approval全部满足后才可execute；cutover未创建任何GitAction。
+- 未授权事项保持：push、Plugin reinstall、candidate worktree cleanup、旧database删除、cutover文档commit以及任何新的Plan/Task/Run/GitAction。

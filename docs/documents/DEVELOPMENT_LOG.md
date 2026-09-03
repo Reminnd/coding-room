@@ -3,14 +3,23 @@
 ## 当前状态
 
 - 日期：2026-09-02
-- 项目阶段：`ACCEPTED`；用户已明确最终接受Increment 13 Implementation、Fix Task 1–2与Fix Review 3，并授权由本次提交版本化完整accepted scope
-- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–12 accepted source与Stage 3 planning已进入版本化`main`；Increment 13 accepted source由本次提交进入版本化`main`；active runtime/database/binding保持v0.3且未cutover
+- 项目阶段：`ACCEPTED`；Increment 13 Implementation、Fix Task 1–2与Fix Review 3已获最终接受并由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化；active v0.3→v0.5 cutover已完成
+- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–13 accepted source已进入版本化`main`；active runtime/database/binding现为protocol `0.5-design`
 - Implementation Task：[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)均为`Accepted`且Coding已完成；Fix Review 3=`approved`，用户已最终接受；Increment 12 Task Contract与Fix Task 1–4均为`Accepted`并已完成Coding，Fix Task 5为`Superseded / Not Dispatched`
 - Previous Increment：Increment 1–11均已接受并进入版本化`main`
-- 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环。active project runtime/database/binding仍为protocol `0.3-design` Stage 1，未执行cutover
-- Git repository：root branch=`main`；完整accepted scope由本次提交版本化，implementation lineage baseline为`c7b4c2db0095632194940df40b49e0788257f099`；未push，真实项目GitAction与runtime/database/binding写操作仍未授权
+- 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环；active project binding指向`room-v0.5.sqlite`与新Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`
+- Git repository：root branch=`main`、HEAD=`004969190215e354fc468e824d9c5e798f01e4fc`；cutover产生`.gitignore`与当前权威文档working-tree变更，尚未获提交授权；未push、未执行真实项目GitAction
 
 ## 已完成
+
+### 2026-09-02 — active v0.3→v0.5 runtime cutover
+
+- 用户独立授权将clean detached launcher checkout到accepted commit `004969190215e354fc468e824d9c5e798f01e4fc`，随后执行v0.3→v0.5 cutover。launcher保持detached/clean，且`room:serve`、`room:run`、`room:git`入口完整；未创建branch、push或cleanup。
+- setup helper以`mode=migrated`生成exact八字段binding：`protocol_version=0.5-design`、database=`D:\agent\case\codex-claudecode-room\.agent-room\room-v0.5.sqlite`、Room=`room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`、port=`59665`、control participant=`codex-app`；`archived_database_paths`按`[room.sqlite, room-v0.3.sqlite]`排序，project MCP route保持`/mcp/participants/p~codex-app`。
+- archive verification：v0.2 database长度=`123854848`、SHA-256=`05FCB47430CB5A698FFEFD30C3A53C4A4217089D39339DFA855D060FE600FCBA`；v0.3 database长度=`298422272`、SHA-256=`3167224F204B791BAC2C2888834B2795DB3C2A68F4254F6C20F9DD9CF9818219`；migration前后均一致。
+- hidden `room:serve`已启动并监听`127.0.0.1:59665`，stderr为空。Codex Desktop reload后，fresh database首次`room_get_state`因bootstrap participant尚未注册返回tool error；accepted setup E2E确认该fresh pre-create形态后，只调用一次同ID `room_create`并返回`created=true`。最终MCP snapshot为Room=`DISCUSSION`、planning waiting actor=`planner`、cursor=`1`、唯一Event=`room_created`，Plan/Revision/Approval/Task/Run/Attempt/Review/Question/GitAction均为空；bootstrap profiles与六项Room-scope assignments完整。
+- Setup按skill在Room可读后停止：未开始Architecture Review、未创建Plan/Task/Run、未调用`room:run`或`room:git`。未执行push、真实项目GitAction、Plugin reinstall、candidate worktree cleanup或旧database删除。helper只向`.gitignore`增加v0.5 database ignore rules；本次cutover与文档变更未提交。
+- Documentation impact audit：`documentation: updated`。Project Rules、Architecture、Room Protocol、MVP Plan、Operations、ADR、文档中心、Plugin setup reference与本日志同步为active v0.5；历史pre-cutover事实保留。
 
 ### 2026-09-02 — Increment 13完整accepted scope版本化
 
@@ -1761,11 +1770,11 @@ current Run 权威事实继续来自该 Room sequence 最大的 `run_completed` 
 
 ## 阻塞项
 
-Active runtime保持v0.3且未cutover；当前binding不能进入installed Agent Room normal workflow。GitAction、push、runtime/database/binding写操作与旧database处理仍未授权。
+无runtime cutover blocker。Active v0.5 Room已可通过project-scoped MCP读取，当前停在`DISCUSSION`且execution entities为空。GitAction、push、Plugin reinstall、candidate worktree cleanup、旧database删除与cutover文档提交仍未授权。
 
 ## 下一步
 
-完整accepted Increment 13 source由本次提交进入版本化`main`。下一门禁为独立授权runtime/database/binding cutover；push、真实项目GitAction与Plugin reinstall仍未授权。
+setup workflow已完成并停止；下一规划动作需要用户另行明确，不能自动开始Architecture Review。若要版本化本次`.gitignore`与权威文档变更，需要新的exact-scope commit授权；push、真实项目GitAction与Plugin reinstall仍分别授权。
 
 ### 2026-09-01 — Increment 12 Fix Review 2
 

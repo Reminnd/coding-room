@@ -50,7 +50,7 @@ Increment 10 accepted candidate以Git commit object ID作为Run lineage的一部
 
 实施范围和public regression由[Increment 11 Task Contract](../INCREMENT_11_TASK_CONTRACT.md)冻结。未通过Review及用户接受前，ADR只表示设计已接受，不表示Current capability；Current v0.3 runtime与accepted Increment 10 candidate继续保持既有事实。
 
-Implementation状态：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f34782a698463f907`完成实现与Contract指定验证；Fix Review `review-increment-011-codex-002`无finding，用户已最终接受。Baseline-free source已由本次提交进入版本化`main`；无替代hash/fingerprint、dependency或migration，active runtime/database/binding仍为v0.3且未cutover。
+Implementation状态：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f34782a698463f907`完成实现与Contract指定验证；Fix Review `review-increment-011-codex-002`无finding，用户已最终接受。Baseline-free source已进入版本化`main`；无替代hash/fingerprint、dependency或migration，并于2026-09-02随Stage 3整体完成后进入active v0.5 runtime。
 
 ## 6. 重新评估条件
 

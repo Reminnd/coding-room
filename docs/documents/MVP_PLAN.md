@@ -288,7 +288,7 @@ Verification 检测：
 
 ### 增量 10 — Stage 2 Execution Core（Accepted Contract）
 
-状态：用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)三项设计方向及[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文。Implementation与两轮Fix均已完成；最终Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，typecheck、focused suites与full `npm test` 353/353均通过。用户于2026-08-31最终接受；accepted source已由本次提交进入版本化`main`。Active Room/database/binding仍为v0.3且未cutover，Proposed [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍不构成Current operational capability。
+状态：用户于2026-08-30确认[Stage 2 Architecture Review](./STAGE_2_EXECUTION_CORE_ARCHITECTURE_REVIEW.md)三项设计方向及[Increment 10 Contract](./INCREMENT_10_TASK_CONTRACT.md)全文。Implementation与两轮Fix均已完成；最终Fix Review `review-increment-010-codex-003`无finding、Decision=`approved`，typecheck、focused suites与full `npm test` 353/353均通过。用户于2026-08-31最终接受；accepted source已进入版本化`main`。截至该接受时active Room/database/binding仍为v0.3；其能力于2026-09-02随v0.5整体cutover进入Current runtime。
 
 目标：交付one-shot multi-Run Execution Core，使同一Room内使用不同canonical worktree的logical Runs拥有独立RunAttempt、Question、failure、Review/Fix与acceptance lifecycle，并通过SQLite并发约束和唯一terminal settlement形成可验证闭环。
 
@@ -314,7 +314,7 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 
 [Stage 3 Architecture Review](./STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md)=`Approved`、[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)=`Accepted`。用户确认在accepted Stage 2/Increment 11 candidate上增加immutable `TaskGraphRevision`、generic `Approval`、structured write scope、one-shot reconcile Scheduler和preview-confirm-execute Git Controller；Scheduler只物化ready Task/Run，不启动process或执行Git write。
 
-确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source已版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。Fix Review 5确认九个失效链接已闭合；派发门禁随后确认原task已存在字段完整的Fix Task 4 `final_answer`，唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受Increment 12，阶段=`ACCEPTED`；accepted source由本次提交进入版本化`main`，runtime cutover继续独立授权。
+确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source先版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。Fix Review 5确认九个失效链接已闭合；派发门禁随后确认原task已存在字段完整的Fix Task 4 `final_answer`，唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受Increment 12，阶段=`ACCEPTED`；accepted source已进入版本化`main`，整体runtime cutover随后于2026-09-02完成。
 
 用户于2026-09-02确认[Increment 13 Git Controller Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)三项推荐及[Increment 13完整Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor的one-shot `room:git` CLI；existing allowlist下的single fast-forward lineage；保持v0.3 active并使用独立Codex worktree task完成candidate。Implementation Review `review-increment-013-codex-001`的四项finding已进入Accepted [Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)，Fix Review 2的三项test/result evidence finding已由Accepted [Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)闭合。Fix Review 3 `review-increment-013-codex-003`无finding、Decision=`approved`；用户已明确最终接受，阶段=`ACCEPTED`。完整accepted source由本次提交进入版本化`main`；GitAction与runtime写入仍未授权。
 
@@ -343,10 +343,10 @@ Integration Coding 已完成，但 Review `review-increment-003-integration-code
 
 [Increment 6 Accepted Contract](./INCREMENT_6_TASK_CONTRACT.md) 已按用户选择从clean exact `main` baseline（dispatch `HEAD`=`7ac639a30ab2a94170ef69498e065fb16e77f833`）重新执行完整Implementation Task。[Increment 6 Fix Task 1](./INCREMENT_6_FIX_TASK_1.md)已补齐三类current-task retry source direct negative evidence，旧Task failed Event对新current Task按无source的new Implementation处理并保留stale caller拒绝。Review `review-increment-006-codex-003`无finding、Decision为`approved`；用户已明确接受并另行授权提交完整accepted scope。Increment 6现已进入版本化`main`，planning coordination tools、one-shot Runner CLI与failure retry为Current capability。
 
-Increment 1–13 accepted source与Stage 3 planning由本次提交进入版本化`main`，active runtime保持v0.3且未cutover。下一门禁为独立授权runtime/database/binding cutover；真实项目GitAction、push与Plugin reinstall仍分别授权。
+Increment 1–13 accepted source与Stage 3 planning已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。经独立授权，active runtime已完成v0.3→v0.5 cutover；新Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`处于`DISCUSSION`且execution entities为空。下一规划动作必须由用户另行明确，不因setup自动进入Architecture Review。真实项目GitAction、push、Plugin reinstall、旧database删除与cutover文档提交仍分别授权。
 
 ### Increment 13 Accepted Source（Versioned）
 
 - 从clean exact baseline `c7b4c2db0095632194940df40b49e0788257f099`完成typed `GitAction`、generic Approval consumer、fixed `local-runner` one-shot `room:git`、single reservation/crash settlement以及`create_worktree | commit_paths | integrate_fast_forward`。
 - `integration_only`实现唯一terminal integration node、single fast-forward lineage、component policy acceptance/commit/dependency gate、terminal Review/acceptance与final ff derived completion。
-- source、tests、Plugin workflow与权威文档已通过Fix Review 3并获用户最终接受，由本次提交版本化；active runtime/database/binding保持v0.3，尚未执行项目GitAction、runtime cutover、Plugin reinstall或push。
+- source、tests、Plugin workflow与权威文档已通过Fix Review 3并获用户最终接受，由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化；active runtime/database/binding随后经独立授权切换到v0.5。尚未执行项目GitAction、Plugin reinstall、push或旧database删除。

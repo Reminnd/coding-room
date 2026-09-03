@@ -84,7 +84,7 @@ Stage 3需要在该基础上交付immutable Task Graph、dependency-ready schedu
 
 ## 7. Increment 12 accepted implementation fact（2026-09-02）
 
-Increment 12 accepted source已由本次版本化提交实现本 ADR 的 Graph/Scheduler 半段：fresh `0.5-design` schema、Plan/immutable `TaskGraphRevision`/exact Approval、structured scope、deterministic one-shot reconcile、`NodeDispatch`、claim concurrency/scope/worktree gates与`per_task` dependency。实现复用existing read-only Git Observer和Stage 2 Run lifecycle；未加入`GitAction`、managed worktree、Git mutation或`integration_only`。Active runtime/database/binding仍为v0.3，本次版本化不构成cutover。
+Increment 12 accepted source由当时的版本化提交实现本 ADR 的 Graph/Scheduler 半段：fresh `0.5-design` schema、Plan/immutable `TaskGraphRevision`/exact Approval、structured scope、deterministic one-shot reconcile、`NodeDispatch`、claim concurrency/scope/worktree gates与`per_task` dependency。实现复用existing read-only Git Observer和Stage 2 Run lifecycle；未加入`GitAction`、managed worktree、Git mutation或`integration_only`。截至该版本化时active runtime/database/binding仍为v0.3；后续active cutover见§11。
 
 ## 8. Increment 12 Fix 行为细化（2026-09-02，Accepted）
 
@@ -106,6 +106,12 @@ Review `review-increment-012-codex-001`确认的五项代码finding均已由Fix 
 
 ## 10. Increment 13 实现事实（2026-09-02，Accepted / Versioned source）
 
-独立worktree已从exact baseline `c7b4c2db0095632194940df40b49e0788257f099`形成Increment 13 implementation：typed GitAction/Approval、fixed `local-runner` Git Controller、one-shot `room:git`、single reservation与`outcome_unknown`、三个allowlisted operation及single-lineage `integration_only`均已实现。Fix Review 3无finding、用户已最终接受，完整source由本次提交版本化；active v0.3 runtime仍未cutover。
+独立worktree已从exact baseline `c7b4c2db0095632194940df40b49e0788257f099`形成Increment 13 implementation：typed GitAction/Approval、fixed `local-runner` Git Controller、one-shot `room:git`、single reservation与`outcome_unknown`、三个allowlisted operation及single-lineage `integration_only`均已实现。Fix Review 3无finding、用户已最终接受，完整source由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化；active cutover见§11。
 
-用户在Coding进行中明确把执行模型从原计划的`gpt-5.6-sol`/`medium`改为`gpt-5.6-luna`/`max`；scope、baseline、architecture decisions与observable protocol均未改变。active v0.3 runtime/database/binding仍未cutover，本次未执行项目GitAction、commit或push。
+用户在Coding进行中明确把执行模型从原计划的`gpt-5.6-sol`/`medium`改为`gpt-5.6-luna`/`max`；scope、baseline、architecture decisions与observable protocol均未改变。Coding/版本化阶段未执行项目GitAction、runtime cutover或push；后续独立cutover见§11。
+
+## 11. Active v0.5 cutover fact（2026-09-02）
+
+Increment 12–13完整accepted source已由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化。用户随后独立授权v0.3→v0.5 cutover：active binding指向fresh `room-v0.5.sqlite`与Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`，v0.2/v0.3 database按原路径和版本顺序只读归档。project-scoped MCP确认新Room处于`DISCUSSION`，尚无Plan、Revision、Approval、Task、Run、Attempt或GitAction；bootstrap `local-runner`同时持有Room-scope `executor`与`git_controller` assignment。
+
+该cutover使本ADR的Graph/Scheduler与Git Controller成为active protocol capability，但不批准任何具体Plan、Run或GitAction。setup未执行Git mutation、push、Plugin reinstall、archive删除或worktree cleanup。
