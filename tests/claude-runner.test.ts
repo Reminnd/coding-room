@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -101,6 +101,41 @@ function makeServiceWithDb(): { service: RoomService; db: DatabaseSync } {
 
 function makeService(): RoomService {
   return makeServiceWithDb().service;
+}
+
+class ProgressFailureRoomService extends RoomService {
+  progressFailures = 0;
+  settlementCalls = 0;
+  private readonly settlementError: Error | null;
+
+  constructor(db: DatabaseSync, settlementError: Error | null = null) {
+    super(db);
+    this.settlementError = settlementError;
+  }
+
+  override appendAttemptProgress(
+    ...args: Parameters<RoomService['appendAttemptProgress']>
+  ): boolean {
+    this.progressFailures += 1;
+    throw new Error('injected progress persistence failure');
+  }
+
+  override settleRunAttempt(
+    ...args: Parameters<RoomService['settleRunAttempt']>
+  ): ReturnType<RoomService['settleRunAttempt']> {
+    this.settlementCalls += 1;
+    if (this.settlementError !== null) throw this.settlementError;
+    return super.settleRunAttempt(...args);
+  }
+}
+
+function makeProgressFailureService(settlementError: Error | null = null): ProgressFailureRoomService {
+  const service = new ProgressFailureRoomService(new DatabaseSync(':memory:'), settlementError);
+  service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER);
+  service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask(), PLANNER);
+  return service;
 }
 
 // service-level claim helper：模拟 Executor 已冻结 canonical worktree 的首 attempt claim（Executor 的
@@ -415,6 +450,78 @@ test('new-session success settles review_required with session, exit code, evide
     // 非终态 progress line 追加了一条 run_attempt_progress Event。
     const progressEvents = service.listEvents('room-1').filter((e) => e.type === 'run_attempt_progress');
     assert.equal(progressEvents.length, 1);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('progress persistence failure stops the process and settles interrupted with partial evidence', async () => {
+  const service = makeProgressFailureService();
+  const { fixture } = makeRepo();
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeFileSync(join(fixture, 'callback-created.txt'), 'created before callback failure');
+    child.stderr.write('partial stderr before callback failure\n');
+    writeLines(child, [
+      initLine(),
+      line({ type: 'system', subtype: 'hook_started' }),
+      resultLine(),
+    ]);
+    child.emit('close', 0, null);
+  });
+  try {
+    const result = await runClaude(makeInput(service, fixture, { spawnProcess: spawner }));
+    assertFailure(service, result, 'claude_exit_failed', 'interrupted');
+    assert.match(result.attempt.failure?.message ?? '', /injected progress persistence failure/);
+    assert.equal(result.attempt.process_exit_code, null);
+    assert.equal(result.attempt.agent_session_ref, SESSION_ID);
+    assert.deepEqual(result.attempt.git_evidence, {
+      staged: [],
+      unstaged: [],
+      untracked: ['callback-created.txt'],
+    });
+    assert.equal(invocations.length, 1, 'callback failure must not restart the process');
+    assert.equal(child.killed, 'SIGTERM', 'the owned child must receive a stop request');
+    assert.equal(service.progressFailures, 1);
+    assert.equal(service.settlementCalls, 1);
+    assert.equal(
+      service.listEvents('room-1').filter((event) => event.type === 'run_attempt_progress').length,
+      0,
+    );
+    const stdout = readFileSync(join(fixture, ARTIFACT_STDOUT), 'utf8');
+    const stderr = readFileSync(join(fixture, ARTIFACT_STDERR), 'utf8');
+    assert.match(stdout, /"subtype":"init"/);
+    assert.match(stdout, /"subtype":"hook_started"/);
+    assert.doesNotMatch(stdout, /"type":"result"/);
+    assert.equal(stderr, 'partial stderr before callback failure\n');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('progress callback settlement failure rejects the real error without retrying settlement', async () => {
+  const settlementError = new Error('injected terminal settlement failure');
+  const service = makeProgressFailureService(settlementError);
+  const { fixture } = makeRepo();
+  const child = new FakeClaudeProcess();
+  const { spawner, invocations } = autoSpawner(child, () => {
+    writeLines(child, [initLine(), line({ type: 'system', subtype: 'hook_started' })]);
+    child.emit('close', 0, null);
+  });
+  try {
+    await assert.rejects(
+      () => runClaude(makeInput(service, fixture, { spawnProcess: spawner })),
+      (err: unknown) => err === settlementError,
+    );
+    assert.equal(invocations.length, 1);
+    assert.equal(child.killed, 'SIGTERM');
+    assert.equal(service.settlementCalls, 1, 'terminal settlement must not be retried');
+    assert.equal(service.getAttempt('attempt-1')?.status, 'running');
+    assert.equal(service.getRun('run-1')?.status, 'running');
+    assert.equal(
+      service.listEvents('room-1').filter((event) => event.type === 'run_attempt_failed').length,
+      0,
+    );
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }

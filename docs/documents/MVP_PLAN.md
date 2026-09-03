@@ -11,7 +11,7 @@
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
 > Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，Increment 10 workflow Room=`ACCEPTED`
-> Increment 14：Contract `Accepted` / candidate `REVIEW_REQUIRED` / branch `codex/increment-14-validation-boundary-ee3cd96`
+> Increment 14：Contract与Fix Task 1均为`Accepted` / Fix candidate `REVIEW_REQUIRED` / branch `codex/increment-14-fix-1-progress-settlement-41496df`
 
 ## 1. 目标
 
@@ -321,13 +321,15 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 
 ### 增量 14 — Validation Ownership 与 Internal Invariant Simplification（Candidate）
 
-状态：用户于2026-09-03确认[Increment 14完整Contract](./INCREMENT_14_TASK_CONTRACT.md)并授权独立Codex Coding、单一commit与任务分支push。candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成，当前阶段=`REVIEW_REQUIRED`；尚未Review或接受。
+状态：用户于2026-09-03确认[Increment 14完整Contract](./INCREMENT_14_TASK_CONTRACT.md)并授权独立Codex Coding、单一commit与任务分支push。原candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成；Review确认stdout progress callback异常未进入terminal settlement、以及same-attempt terminal race缺少真实并发证据两项finding。用户已确认[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)，Fix candidate从原candidate commit `41496df6b37d40d871460f1164dacaade37e1c3d`形成于`codex/increment-14-fix-1-progress-settlement-41496df`，当前阶段仍为`REVIEW_REQUIRED`；尚未完成GitHub Fix Review或用户接受。
 
 目标：公开协议、SQLite Schema、状态机、权限、CLI/MCP输出及外部失败语义不变；原始输入只在CLI/MCP等真实边界校验，typed内部调用链信任TypeScript、原子生命周期、`BEGIN IMMEDIATE`与SQLite约束。删除内部对象二次Zod parse和public lifecycle不可达分支，简化Attempt settlement与GitAction reservation，并让late progress以`false`表达已知竞争。
 
 非目标：Snapshot性能、Service拆分、Setup/Plugin清理、UI文案、协议/Schema/error code变更、新抽象、fallback、自愈、retry或迁移。
 
-验证：`npm run typecheck`通过；Contract focused suites 175/175通过；`npm test` 384/384通过。最终Git与文档检查在交付提交前后执行。
+Fix范围：`startClaudeProcess`把同步stdout callback异常转为typed Promise rejection并single-settlement终止owned child；WorkerAdapter与Executor保留partial stdout/stderr、Git及artifact evidence并按既有失败路径结算。两个test-only Worker使用独立SQLite connection和barrier同时调用public `settleRunAttempt`，分别覆盖同payload幂等与不同payload `id_conflict`。不改变公开协议、Schema、状态、error code、CLI/MCP、Plugin或active runtime。
+
+验证：Fix candidate按Accepted Contract执行typecheck、process/runner、execution-core、Room/MCP/CLI/Git及full suite；最终结果与Git/文档检查记录在[开发日志](./DEVELOPMENT_LOG.md)。
 
 ## 5. Task Contract 规则
 

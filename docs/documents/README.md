@@ -5,7 +5,7 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-09-02 |
+| 最后更新日期 | 2026-09-03 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
@@ -106,6 +106,7 @@
 | [Increment 13 Fix 1](./INCREMENT_13_FIX_TASK_1.md) | Accepted | 修复preview idempotency、settlement crash gap、lineage predecessor与two-connection evidence |
 | [Increment 13 Fix 2](./INCREMENT_13_FIX_TASK_2.md) | Accepted | 补齐simultaneous reservation、`failed` preview retry与结构化Coding Result证据 |
 | [Increment 14](./INCREMENT_14_TASK_CONTRACT.md) | Accepted / candidate `REVIEW_REQUIRED` | 收敛validation ownership、删除不可达内部分支并简化Attempt/GitAction事务 |
+| [Increment 14 Fix Task 1](./INCREMENT_14_FIX_TASK_1.md) | Accepted / Fix Candidate `REVIEW_REQUIRED` | 修复stdout progress callback异常结算链并补真实并发terminal settlement证据 |
 
 ### 2.4 Agent 执行指南
 
@@ -141,4 +142,4 @@
 - Increment 12已从exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`完成Implementation与Fix。Fix Review 5确认链接finding已闭合；派发门禁随后从原task恢复到字段完整的Fix Task 4 `final_answer`，因此唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受，阶段=`ACCEPTED`；完整accepted scope已进入版本化`main`并随Stage 3整体完成后进入active v0.5 runtime。push与旧database处理仍未授权。
 - Increment 13 Fix Task 2已完成。Fix Review 3 `review-increment-013-codex-003`确认simultaneous reservation、`failed` preview retry与本次结构化Coding Result全部闭环；无finding，Decision=`approved`。独立`typecheck`、Git Controller/CLI 9/9、full 385/385与`git diff --check`通过。用户已明确最终接受，阶段=`ACCEPTED`；完整accepted source已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。
 - 2026-09-02经独立授权完成active v0.3→v0.5 cutover：binding指向`room-v0.5.sqlite`与Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`，复用port `59665`和framed `p~codex-app` route；v0.2/v0.3 database按序只读归档且字节验证不变。project-scoped MCP确认Room=`DISCUSSION`、planning waiting actor=`planner`、cursor=`1`且所有execution entities为空。真实项目GitAction、push、Plugin reinstall、candidate worktree cleanup、旧database删除与cutover文档提交仍未授权。
-- Increment 14完整Contract已由用户确认并授权独立Codex Git交付。candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成于分支`codex/increment-14-validation-boundary-ee3cd96`；typecheck、focused 175/175与full 384/384通过，阶段=`REVIEW_REQUIRED`，尚未经过根会话Review或用户接受。
+- Increment 14原candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成于分支`codex/increment-14-validation-boundary-ee3cd96`。Review确认stdout progress callback异常未进入terminal settlement、以及same-attempt terminal race缺少真实并发证据两项finding；用户已确认[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)，Fix candidate从原candidate commit `41496df6b37d40d871460f1164dacaade37e1c3d`形成于`codex/increment-14-fix-1-progress-settlement-41496df`，阶段仍为`REVIEW_REQUIRED`。尚未经过GitHub Fix Review、用户接受、合入`main`或active runtime cutover。

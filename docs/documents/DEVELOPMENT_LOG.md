@@ -3,14 +3,23 @@
 ## 当前状态
 
 - 日期：2026-09-03
-- 项目阶段：Increment 14 candidate=`REVIEW_REQUIRED`；Increment 13及此前能力保持`ACCEPTED`，active v0.5 runtime未变化
+- 项目阶段：Increment 14 Fix Task 1 candidate=`REVIEW_REQUIRED`；Increment 13及此前能力保持`ACCEPTED`，active v0.5 runtime未变化
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–13 accepted source已进入版本化`main`；active runtime/database/binding现为protocol `0.5-design`
-- Implementation Task：[Increment 14 Task Contract](./INCREMENT_14_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`；candidate Coding与验证已完成，等待根会话GitHub Review
+- Implementation/Fix Task：[Increment 14 Task Contract](./INCREMENT_14_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)均为`Accepted`、`confirmed_by_user=true`；Fix candidate Coding与验证已完成，等待GitHub Fix Review
 - Previous Increment：Increment 1–11均已接受并进入版本化`main`
 - 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环；active project binding指向`room-v0.5.sqlite`与新Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`
-- Git repository：`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`；candidate branch=`codex/increment-14-validation-boundary-ee3cd96`；固定提交信息=`refactor(room): simplify validation ownership`，按Contract完成单一提交与首次push后交付Review
+- Git repository：原candidate=`origin/codex/increment-14-validation-boundary-ee3cd96@41496df6b37d40d871460f1164dacaade37e1c3d`；Fix branch=`codex/increment-14-fix-1-progress-settlement-41496df`；固定提交信息=`fix(runner): close increment 14 review findings`，按Contract完成单一提交与首次push后交付Review
 
 ## 已完成
+
+### 2026-09-03 — Increment 14 Fix Task 1 candidate
+
+- Accepted [Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)仅处理两项confirmed finding：stdout progress callback同步异常必须进入既有Runner terminal settlement；same-attempt terminal settlement必须以两个Worker、独立`DatabaseSync`/`RoomService` connection及test-only barrier提供真实并发证据。
+- `startClaudeProcess`新增typed callback failure，在Promise single-settlement boundary内停止owned child且不受late `close`/`error`改写；`WorkerAdapter`保留已累积stdout/stderr并完成interpreter，`Executor`继续采集Git/artifact evidence，以`claude_exit_failed`及原始diagnostic结算existing Attempt=`interrupted`、Run=`failed`与唯一failed Event。settlement自身失败时向调用者传播真实异常，不重试或伪造成功。
+- process/runner regression覆盖newline与EOF tail callback异常、kill exactly once、late event稳定性、partial stdout/stderr/session/Git/artifact保留、单次失败结算及settlement failure传播。execution-core regression通过两个test-only Worker同时调用public `settleRunAttempt`：同payload双方成功且仅一个Event；不同failed payload产生一个成功与一个`id_conflict`，fresh connection读取唯一durable winner与唯一Event。
+- 实际production scope仅为`src/runner/claude-process.ts`、`src/runner/worker-adapter.ts`、`src/runner/executor.ts`；测试新增`tests/execution-core-settle-worker.ts`并更新三个既有suite。公开协议、Schema、状态、error code、CLI/MCP、Plugin、Architecture、Room Protocol、Operations与active runtime均未改变。
+- Verification：`npm run typecheck`通过；process/runner为70/70，execution-core为11/11，合并重跑Fix核心为81/81；相关Room/MCP/CLI/Git suites为132/132；`npm test`为390/390，均为0 fail/skip/todo。`git diff --check`及文档链接/merge marker检查在提交门禁与提交后复核。
+- Documentation impact audit：`documentation: updated`。新增完整Fix Contract，并同步Project Rules、文档中心、MVP计划与开发日志；candidate保持`REVIEW_REQUIRED`，未提升为Current或Accepted。
 
 ### 2026-09-03 — Increment 14 validation ownership candidate
 

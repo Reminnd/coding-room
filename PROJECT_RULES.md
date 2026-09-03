@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前规划阶段：REVIEW_REQUIRED / Increment 14 candidate已从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`完成Coding与验证，等待GitHub Review；Increment 13及此前accepted source与active v0.5 runtime不变
+> 当前规划阶段：REVIEW_REQUIRED / Increment 14 Fix Task 1 candidate已从原candidate `41496df6b37d40d871460f1164dacaade37e1c3d`完成Coding，等待GitHub Fix Review；Increment 13及此前accepted source与active v0.5 runtime不变
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -140,7 +140,7 @@ Stage 3的[Architecture Review](./docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHI
 
 Increment 13 Implementation candidate已从exact baseline `c7b4c2db0095632194940df40b49e0788257f099`完成。Review `review-increment-013-codex-001`的四项finding已形成并派发Accepted [Increment 13 Fix Task 1](./docs/documents/INCREMENT_13_FIX_TASK_1.md)。Fix Review 2 `review-increment-013-codex-002`确认predecessor、successful settlement和delayed preview retry三项production修复已闭合，但simultaneous reservation、`failed` preview retry与结构化Coding Result证据未闭环；用户确认后由Accepted [Increment 13 Fix Task 2](./docs/documents/INCREMENT_13_FIX_TASK_2.md)补齐。Fix Review 3 `review-increment-013-codex-003`核对完整candidate Diff与本次结构化Coding Result，无finding、Decision=`approved`；独立`typecheck`、Git Controller/CLI 9/9、full 385/385与`git diff --check`通过。用户已明确最终接受Increment 13，阶段=`ACCEPTED`；完整accepted source由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`，active runtime随后完成v0.5 cutover。
 
-用户于2026-09-03确认[Increment 14完整Task Contract](./docs/documents/INCREMENT_14_TASK_CONTRACT.md)并授权独立Codex Coding、从最新`origin/main`创建新分支、单一commit与首次push。candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成，收敛validation ownership、删除public lifecycle不可达分支并简化Attempt/GitAction事务；typecheck、focused 175/175与full 384/384通过，阶段=`REVIEW_REQUIRED`。该candidate未改变公开协议、Schema、状态、error code或active runtime，尚未经过根会话Review或用户接受。
+用户于2026-09-03确认[Increment 14完整Task Contract](./docs/documents/INCREMENT_14_TASK_CONTRACT.md)并授权独立Codex Coding、从最新`origin/main`创建新分支、单一commit与首次push。原candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成，收敛validation ownership、删除public lifecycle不可达分支并简化Attempt/GitAction事务。Review确认stdout progress callback异常未进入terminal settlement、以及same-attempt terminal race缺少真实并发证据两项finding；用户已确认[Fix Task 1](./docs/documents/INCREMENT_14_FIX_TASK_1.md)。Fix candidate从原candidate commit `41496df6b37d40d871460f1164dacaade37e1c3d`形成于`codex/increment-14-fix-1-progress-settlement-41496df`，修复进程到Attempt/Run的失败结算链并补独立连接并发证据，阶段仍为`REVIEW_REQUIRED`。公开协议、Schema、状态、error code与active runtime均未改变，尚未经过GitHub Fix Review或用户接受。
 
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
@@ -321,6 +321,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/INCREMENT_13_FIX_TASK_1.md](./docs/documents/INCREMENT_13_FIX_TASK_1.md) | Increment 13 preview idempotency、settlement crash gap、lineage predecessor与two-connection evidence最小Fix Task | Codex | Increment 13 Fix Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_13_FIX_TASK_2.md](./docs/documents/INCREMENT_13_FIX_TASK_2.md) | Increment 13 simultaneous reservation、failed preview retry与结构化Coding Result最小Fix Task | Codex | Increment 13 Fix 2 Coding与再次Review | Accepted |
 | [docs/documents/INCREMENT_14_TASK_CONTRACT.md](./docs/documents/INCREMENT_14_TASK_CONTRACT.md) | validation ownership、internal invariant与Attempt/GitAction事务简化完整Implementation Contract | Codex | Increment 14 Coding与Review | Accepted |
+| [docs/documents/INCREMENT_14_FIX_TASK_1.md](./docs/documents/INCREMENT_14_FIX_TASK_1.md) | stdout callback failure settlement与same-attempt并发terminal evidence最小Fix Contract | Codex | Increment 14 Fix Coding与GitHub Fix Review | Accepted / Fix Candidate REVIEW_REQUIRED |
 | [docs/documents/DEVELOPMENT_LOG.md](./docs/documents/DEVELOPMENT_LOG.md) | 已完成事实、验证、阻塞与下一步 | Codex/Claude 候选 | 每个非简单项目任务 | Current |
 | [docs/documents/ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) | 本地架构与状态所有权决策 | Codex | 架构、存储、Git 相关任务 | Accepted |
 | [docs/documents/ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md) | Codex 拉取与 Claude Runner 生命周期决策 | Codex | Agent 集成与 Runner 任务 | Accepted |
@@ -420,7 +421,8 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 2026-09-02：上述完整accepted scope已形成commit `004969190215e354fc468e824d9c5e798f01e4fc`。用户随后独立授权将clean detached launcher checkout到该accepted commit，并执行active v0.3→v0.5 cutover。setup helper生成`protocol_version=0.5-design`、database=`room-v0.5.sqlite`、Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`并复用port `59665`；v0.2/v0.3 database按序只读归档且长度/SHA-256不变。reload continuation通过project-scoped MCP创建并读取同一Room，state=`DISCUSSION`、planning waiting actor=`planner`、cursor=`1`且execution entities为空。未执行push、真实项目GitAction、Plugin reinstall、candidate worktree cleanup或旧database删除。
 - 2026-09-02：用户随后明确授权把Increment 13规划文档与Accepted Contract提交到`main`形成clean baseline，并从该baseline创建独立Codex worktree task，model=`gpt-5.6-sol`、reasoning effort=`medium`。提交scope只含规划文档；GitAction、push、runtime/database/binding cutover与旧database处理仍未授权。
 - 2026-09-03：用户明确确认Increment 14完整Contract并授权独立Codex Coding与GitHub分支交付。实际`origin/main`=`ee3cd96315ed0c14220692c3bc92d6ecaff7430a`且起始工作区clean；新分支`codex/increment-14-validation-boundary-ee3cd96`完成candidate实现、文档与验证，阶段=`REVIEW_REQUIRED`。未修改或push `main`，未执行merge/rebase/amend/force-push/reset/clean/stash。
+- 2026-09-03：Increment 14 Review确认stdout progress callback异常结算链与same-attempt真实并发terminal evidence两项finding。用户明确确认Fix Task 1并授权从原candidate commit `41496df6b37d40d871460f1164dacaade37e1c3d`创建`codex/increment-14-fix-1-progress-settlement-41496df`、形成单一Fix commit并首次push；Fix candidate保持`REVIEW_REQUIRED`，不修改`main`、原candidate分支或active runtime。
 
 ## 14. 当前阶段
 
-Increment 1–13 accepted source与Stage 3 planning已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。Active project runtime/database/binding现为protocol v0.5；Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`处于`DISCUSSION`且尚无Plan、Task、Run、Attempt、Review、Question或GitAction。Increment 14 candidate位于`codex/increment-14-validation-boundary-ee3cd96`，阶段=`REVIEW_REQUIRED`；尚未Review、接受或进入`main`，active runtime未变化。
+Increment 1–13 accepted source与Stage 3 planning已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。Active project runtime/database/binding现为protocol v0.5；Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`处于`DISCUSSION`且尚无Plan、Task、Run、Attempt、Review、Question或GitAction。Increment 14 Fix candidate位于`codex/increment-14-fix-1-progress-settlement-41496df`，以原candidate `41496df6b37d40d871460f1164dacaade37e1c3d`为parent，阶段=`REVIEW_REQUIRED`；尚未完成GitHub Fix Review、用户接受或进入`main`，active runtime未变化。

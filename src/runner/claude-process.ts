@@ -91,6 +91,26 @@ export class ClaudeProcessInputError extends Error {
   }
 }
 
+// stdout line callback 属于本 process Promise 的 delivery boundary。callback 失败必须
+// 回到可等待链并停止 owned child，不能从 EventEmitter listener 逸出为 uncaught exception。
+export class ClaudeProcessCallbackError extends Error {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+
+  constructor(command: string, args: readonly string[], cwd: string, cause: unknown) {
+    super(`claude stdout callback failed in ${cwd}: ${errorMessage(cause)}`, { cause });
+    this.name = 'ClaudeProcessCallbackError';
+    this.command = command;
+    this.args = args;
+    this.cwd = cwd;
+  }
+}
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 // process boundary 注入 seam：仅供 fake-process 测试替换 spawn，不是通用 command runner。
 export interface ClaudeProcessSpawnOptions {
   cwd: string;
@@ -146,12 +166,41 @@ export function startClaudeProcess(
     }
 
     let settled = false;
+    let stopRequested = false;
+
+    const stopChild = (): void => {
+      if (stopRequested) return;
+      stopRequested = true;
+      child.kill();
+    };
+
+    const rejectStdoutCallback = (cause: unknown): void => {
+      if (settled) return;
+      settled = true;
+      const error = new ClaudeProcessCallbackError('claude', args, input.cwd, cause);
+      try {
+        stopChild();
+      } finally {
+        reject(error);
+      }
+    };
+
+    const deliverStdoutLine = (line: string): boolean => {
+      if (settled) return false;
+      try {
+        input.onStdoutLine(line);
+        return true;
+      } catch (cause) {
+        rejectStdoutCallback(cause);
+        return false;
+      }
+    };
 
     // abort 只终止 process；close 之后按正常 outcome 返回（exitCode null + signal 非 null），
     // 是否映射为 canceled terminal 由 Executor 依据 attempt status 决定，不在本层判定。
     if (input.signal !== undefined) {
       const abortHandler = () => {
-        child.kill();
+        stopChild();
       };
       if (input.signal.aborted) {
         abortHandler();
@@ -181,18 +230,22 @@ export function startClaudeProcess(
     if (child.stdout) {
       child.stdout.setEncoding('utf8');
       child.stdout.on('data', (chunk: string) => {
+        if (settled) return;
         stdoutBuffer += chunk;
         let newlineIndex: number;
         while ((newlineIndex = stdoutBuffer.indexOf('\n')) !== -1) {
-          input.onStdoutLine(stdoutBuffer.slice(0, newlineIndex));
+          const line = stdoutBuffer.slice(0, newlineIndex);
           stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
+          if (!deliverStdoutLine(line)) return;
         }
       });
       child.stdout.on('end', () => {
+        if (settled) return;
         // JSONL 正常以换行结尾，此处 buffer 应为空；仅在尾行无换行时按 EOF flush。
         if (stdoutBuffer.length > 0) {
-          input.onStdoutLine(stdoutBuffer);
+          const line = stdoutBuffer;
           stdoutBuffer = '';
+          deliverStdoutLine(line);
         }
       });
     }

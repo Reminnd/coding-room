@@ -1,5 +1,6 @@
 import { ProtocolError } from '../protocol/errors.ts';
 import {
+  ClaudeProcessCallbackError,
   ClaudeProcessInputError,
   ClaudeProcessStartError,
   startClaudeProcess,
@@ -38,7 +39,7 @@ export interface WorkerAdapterExecuteInput {
 // interpretation 结果永远存在（成功或失败）。terminal 分类与 Room 状态由 Executor 拥有，
 // adapter 不接触 SQLite/transition。
 export interface WorkerAdapterOutcome {
-  processError: ClaudeProcessStartError | ClaudeProcessInputError | null;
+  processError: ClaudeProcessStartError | ClaudeProcessInputError | ClaudeProcessCallbackError | null;
   processOutcome: ClaudeProcessOutcome | null;
   streamOutcome: ClaudeStreamOutcome;
   stdoutLines: string[];
@@ -78,7 +79,7 @@ export class ClaudeCodeWorkerAdapter implements WorkerAdapter {
     const stdoutLines: string[] = [];
     const stderrChunks: string[] = [];
 
-    let processError: ClaudeProcessStartError | ClaudeProcessInputError | null = null;
+    let processError: ClaudeProcessStartError | ClaudeProcessInputError | ClaudeProcessCallbackError | null = null;
     let processOutcome: ClaudeProcessOutcome | null = null;
     try {
       processOutcome = await startClaudeProcess(
@@ -103,7 +104,11 @@ export class ClaudeCodeWorkerAdapter implements WorkerAdapter {
         input.spawnProcess,
       );
     } catch (err) {
-      if (err instanceof ClaudeProcessStartError || err instanceof ClaudeProcessInputError) {
+      if (
+        err instanceof ClaudeProcessStartError ||
+        err instanceof ClaudeProcessInputError ||
+        err instanceof ClaudeProcessCallbackError
+      ) {
         processError = err;
       } else {
         throw err;

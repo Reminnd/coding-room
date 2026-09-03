@@ -11,7 +11,9 @@ import { RoomRepository } from '../src/room/repository.ts';
 import { RoomService } from '../src/room/room-service.ts';
 import { getRoomStateSnapshot } from '../src/room/state-snapshot.ts';
 import type { ClaimWorkerMessage } from './execution-core-claim-worker.ts';
+import type { SettlementWorkerMessage } from './execution-core-settle-worker.ts';
 import {
+  type AttemptSettleInput,
   makeAttempt,
   makeAttemptSettle,
   makeCodingResult,
@@ -177,6 +179,68 @@ function runConcurrentClaims(
       worker.on('exit', () => {
         exitCount += 1;
         if (exitCount === specs.length) resolve(messages);
+      });
+    }
+  });
+}
+
+function runConcurrentSettlements(
+  dbPath: string,
+  payloads: AttemptSettleInput[],
+): Promise<SettlementWorkerMessage[]> {
+  const barrier = new SharedArrayBuffer(4);
+  const messages: SettlementWorkerMessage[] = [];
+  return new Promise((resolve, reject) => {
+    const workers: Worker[] = [];
+    let readyCount = 0;
+    let exitCount = 0;
+    let finished = false;
+    const timeout = setTimeout(() => {
+      finishWithError(new Error('concurrent settlement workers timed out'));
+    }, 15_000);
+
+    const finishWithError = (err: Error): void => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      for (const worker of workers) void worker.terminate();
+      reject(err);
+    };
+
+    for (const payload of payloads) {
+      const worker = new Worker(new URL('./execution-core-settle-worker.ts', import.meta.url), {
+        workerData: { dbPath, payload, barrier },
+      });
+      workers.push(worker);
+      worker.on('message', (message: SettlementWorkerMessage) => {
+        if (message.kind === 'ready') {
+          readyCount += 1;
+          if (readyCount === payloads.length) {
+            const int32 = new Int32Array(barrier);
+            Atomics.store(int32, 0, 1);
+            Atomics.notify(int32, 0, payloads.length);
+          }
+          return;
+        }
+        messages.push(message);
+      });
+      worker.on('error', (err) => finishWithError(err));
+      worker.on('exit', (code) => {
+        if (finished) return;
+        if (code !== 0) {
+          finishWithError(new Error(`settlement worker exited with code ${code}`));
+          return;
+        }
+        exitCount += 1;
+        if (exitCount === payloads.length) {
+          finished = true;
+          clearTimeout(timeout);
+          if (messages.length !== payloads.length) {
+            reject(new Error(`expected ${payloads.length} settlement outcomes, received ${messages.length}`));
+            return;
+          }
+          resolve(messages);
+        }
       });
     }
   });
@@ -445,6 +509,118 @@ test('terminal settlement is first-writer-wins: idempotent retry, id_conflict an
   );
   close();
   rmSync(fixture, { recursive: true, force: true });
+});
+
+test('concurrent same-payload settlement through independent connections is idempotent with one terminal Event', async () => {
+  const { fixture, repo } = makeFixture();
+  const dbPath = join(fixture, 'room.db');
+  const { a, close } = makeServices(fixture);
+  let seedConnectionsOpen = true;
+  try {
+    submitFirstTask(a);
+    claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
+    close();
+    seedConnectionsOpen = false;
+    const payload = makeAttemptSettle({
+      status: 'failed',
+      result: null,
+      failure: { code: 'claude_exit_failed', message: 'same concurrent failure' },
+      agent_session_ref: 'session-concurrent',
+      process_exit_code: 9,
+      git_evidence: { staged: ['same.ts'], unstaged: [], untracked: [] },
+      artifact_refs: ['.agent-room/artifacts/attempt-1/stdout.jsonl'],
+    });
+    const outcomes = await runConcurrentSettlements(dbPath, [payload, payload]);
+    assert.deepEqual(
+      outcomes.map((outcome) => outcome.kind === 'outcome' ? outcome.result : 'ready').sort(),
+      ['success', 'success'],
+    );
+
+    const db = new DatabaseSync(dbPath);
+    try {
+      const fresh = new RoomService(db);
+      const attempt = fresh.getAttempt('attempt-1')!;
+      assert.equal(attempt.status, 'failed');
+      assert.deepEqual(attempt.failure, payload.failure);
+      assert.equal(attempt.agent_session_ref, payload.agent_session_ref);
+      assert.equal(attempt.process_exit_code, payload.process_exit_code);
+      assert.deepEqual(attempt.git_evidence, payload.git_evidence);
+      assert.deepEqual(attempt.artifact_refs, payload.artifact_refs);
+      assert.equal(fresh.getRun('run-1')!.status, 'failed');
+      assert.equal(fresh.listAttemptsByRun('run-1').length, 1);
+      assert.equal(fresh.listEvents('room-1').filter((event) => event.type === 'run_attempt_failed').length, 1);
+    } finally {
+      db.close();
+    }
+  } finally {
+    if (seedConnectionsOpen) close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('concurrent different-payload settlement has one winner, one id_conflict and no partial residue', async () => {
+  const { fixture, repo } = makeFixture();
+  const dbPath = join(fixture, 'room.db');
+  const { a, close } = makeServices(fixture);
+  let seedConnectionsOpen = true;
+  try {
+    submitFirstTask(a);
+    claimIn(a, { attempt_id: 'attempt-1', run_id: 'run-1', room_id: 'room-1', worktree_path: repo });
+    close();
+    seedConnectionsOpen = false;
+    const payloads = [
+      makeAttemptSettle({
+        status: 'failed',
+        result: null,
+        failure: { code: 'claude_exit_failed', message: 'failure contender A' },
+        agent_session_ref: 'session-a',
+        process_exit_code: 1,
+      }),
+      makeAttemptSettle({
+        status: 'failed',
+        result: null,
+        failure: { code: 'claude_exit_failed', message: 'failure contender B' },
+        agent_session_ref: 'session-b',
+        process_exit_code: 2,
+      }),
+    ];
+    const outcomes = await runConcurrentSettlements(dbPath, payloads);
+    assert.deepEqual(
+      outcomes.map((outcome) => outcome.kind === 'outcome' ? outcome.result === 'success' ? 'success' : outcome.code : 'ready').sort(),
+      ['id_conflict', 'success'],
+    );
+    const conflict = outcomes.find(
+      (outcome): outcome is Extract<SettlementWorkerMessage, { result: 'error' }> =>
+        outcome.kind === 'outcome' && outcome.result === 'error',
+    )!;
+    assert.equal(conflict.isProtocolError, true);
+
+    const db = new DatabaseSync(dbPath);
+    try {
+      const fresh = new RoomService(db);
+      const attempt = fresh.getAttempt('attempt-1')!;
+      assert.equal(attempt.status, 'failed');
+      assert.ok(
+        payloads.some((payload) =>
+          payload.failure?.message === attempt.failure?.message &&
+          payload.agent_session_ref === attempt.agent_session_ref &&
+          payload.process_exit_code === attempt.process_exit_code),
+        'durable payload must equal exactly one contender',
+      );
+      assert.equal(fresh.getRun('run-1')!.status, 'failed');
+      assert.equal(fresh.listAttemptsByRun('run-1').length, 1);
+      const terminalEvents = fresh.listEvents('room-1').filter((event) =>
+        ['run_attempt_succeeded', 'run_attempt_failed', 'run_attempt_canceled', 'run_attempt_interrupted'].includes(event.type),
+      );
+      assert.equal(terminalEvents.length, 1);
+      assert.equal(terminalEvents[0].type, 'run_attempt_failed');
+    } finally {
+      db.close();
+    }
+  } finally {
+    if (seedConnectionsOpen) close();
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });
 
 test('cancel/retry round-trip preserves lineage freeze and attempt numbering', async () => {

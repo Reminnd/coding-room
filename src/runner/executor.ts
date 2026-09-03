@@ -11,6 +11,7 @@ import {
   type GitEvidence,
 } from '../git/git-observer.ts';
 import {
+  ClaudeProcessCallbackError,
   ClaudeProcessInputError,
   ClaudeProcessStartError,
   serializeCodingResultCliSchema,
@@ -422,13 +423,23 @@ type TerminalResult =
 // 优先级返回单一 terminal result，成功需要全部条件同时满足。signal exit（非 cancel）映射
 // attempt interrupted（Run 仍 failed）；cancel 路径不经过本分类。
 function classifyTerminal(
-  processError: ClaudeProcessStartError | ClaudeProcessInputError | null,
+  processError: ClaudeProcessStartError | ClaudeProcessInputError | ClaudeProcessCallbackError | null,
   processOutcome: ClaudeProcessOutcome | null,
   streamOutcome: ClaudeStreamOutcome,
   gitError: unknown,
   artifactError: unknown,
 ): TerminalResult {
-  // 1. process 启动 / stdin 交付失败。
+  // 1. stdout callback 失败发生在 claim 之后：process boundary 已停止 owned child，
+  // Executor 保留已有 stream/Git/artifact evidence，并以现有 interrupted terminal 闭环。
+  if (processError instanceof ClaudeProcessCallbackError) {
+    return {
+      kind: 'failure',
+      code: 'claude_exit_failed',
+      message: processError.message,
+      attemptStatus: 'interrupted',
+    };
+  }
+  // 2. process 启动 / stdin 交付失败。
   if (processError !== null) {
     return {
       kind: 'failure',
@@ -437,7 +448,7 @@ function classifyTerminal(
       attemptStatus: 'failed',
     };
   }
-  // 2. non-zero exit 或 signal exit；即使 stdout 含看似成功 terminal 也不得成功。
+  // 3. non-zero exit 或 signal exit；即使 stdout 含看似成功 terminal 也不得成功。
   // signal 判断必须在前：signal 退出时 close 报告的 exitCode 为 null，`null !== 0` 会误入
   // non-zero exit 分支，使 interrupted 分类不可达。
   if (processOutcome !== null && processOutcome.signal !== null) {
@@ -507,13 +518,18 @@ function classifyTerminal(
 // process/stream/Git/artifact 任一失败或 contradictory terminal 都记录为该 attempt.failure。
 // 与 classifyTerminal 的差异：这里不要求 completed，也不产生 failed/review_required。
 function classifyNeedsDecisionPause(
-  processError: ClaudeProcessStartError | ClaudeProcessInputError | null,
+  processError: ClaudeProcessStartError | ClaudeProcessInputError | ClaudeProcessCallbackError | null,
   processOutcome: ClaudeProcessOutcome | null,
   streamOutcome: ClaudeStreamOutcome,
   gitError: unknown,
   artifactError: unknown,
 ): { result: CodingResult | null; failure: { code: string; message: string } | null } {
-  // 1. process 启动 / stdin 交付失败。
+  // 1. callback failure 保留原始诊断并复用既有 claude_exit_failed；合法的
+  // decision/cancel late progress 由 appendAttemptProgress=false 表达，不进入本分支。
+  if (processError instanceof ClaudeProcessCallbackError) {
+    return { result: null, failure: { code: 'claude_exit_failed', message: processError.message } };
+  }
+  // 2. process 启动 / stdin 交付失败。
   if (processError !== null) {
     return { result: null, failure: { code: 'claude_start_failed', message: processError.message } };
   }
