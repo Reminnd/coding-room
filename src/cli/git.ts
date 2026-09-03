@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { parseArgs } from 'node:util';
-import { GitController } from '../git/git-controller.ts';
+import { GitController, previewGitActionInputSchema, type PreviewGitActionCommand } from '../git/git-controller.ts';
 import { ProtocolError } from '../protocol/errors.ts';
 import type { EventActor } from '../protocol/schema.ts';
 import { RoomService } from '../room/room-service.ts';
@@ -22,6 +22,14 @@ function rejectUnexpectedOptions(values: Record<string, unknown>, allowed: reado
   const allowedSet = new Set(allowed);
   const unexpected = Object.keys(values).filter((key) => !allowedSet.has(key)).sort();
   if (unexpected.length > 0) fail(`unexpected option(s): ${unexpected.map((key) => `--${key}`).join(', ')}`);
+}
+
+function parsePreview(input: unknown): PreviewGitActionCommand {
+  const parsed = previewGitActionInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ProtocolError('validation_failed', `GitAction preview validation failed: ${parsed.error.message}`);
+  }
+  return parsed.data;
 }
 
 async function main(): Promise<void> {
@@ -70,13 +78,16 @@ async function main(): Promise<void> {
       const operation = required(values.operation, 'operation');
       if (operation === 'create_worktree') {
         rejectUnexpectedOptions(values, ['db', 'git-action-id', 'room-id', 'revision-id', 'node-id', 'operation', 'repository-root', 'source-ref', 'new-branch', 'worktree-path']);
-        result = await controller.preview({ ...base, operation, source_ref: required(values['source-ref'], 'source-ref'), new_branch: required(values['new-branch'], 'new-branch'), worktree_path: required(values['worktree-path'], 'worktree-path') }, GIT_CONTROLLER);
+        const parsed = parsePreview({ ...base, operation, source_ref: required(values['source-ref'], 'source-ref'), new_branch: required(values['new-branch'], 'new-branch'), worktree_path: required(values['worktree-path'], 'worktree-path') });
+        result = await controller.preview(parsed, GIT_CONTROLLER);
       } else if (operation === 'commit_paths') {
         rejectUnexpectedOptions(values, ['db', 'git-action-id', 'room-id', 'revision-id', 'node-id', 'operation', 'repository-root', 'worktree-path', 'branch', 'paths', 'commit-message']);
-        result = await controller.preview({ ...base, operation, worktree_path: required(values['worktree-path'], 'worktree-path'), branch: required(values.branch, 'branch'), paths: values.paths ?? [], commit_message: required(values['commit-message'], 'commit-message') }, GIT_CONTROLLER);
+        const parsed = parsePreview({ ...base, operation, worktree_path: required(values['worktree-path'], 'worktree-path'), branch: required(values.branch, 'branch'), paths: values.paths ?? [], commit_message: required(values['commit-message'], 'commit-message') });
+        result = await controller.preview(parsed, GIT_CONTROLLER);
       } else if (operation === 'integrate_fast_forward') {
         rejectUnexpectedOptions(values, ['db', 'git-action-id', 'room-id', 'revision-id', 'node-id', 'operation', 'repository-root', 'source-branch', 'target-branch', 'target-worktree-path']);
-        result = await controller.preview({ ...base, operation, source_branch: required(values['source-branch'], 'source-branch'), target_branch: required(values['target-branch'], 'target-branch'), target_worktree_path: required(values['target-worktree-path'], 'target-worktree-path') }, GIT_CONTROLLER);
+        const parsed = parsePreview({ ...base, operation, source_branch: required(values['source-branch'], 'source-branch'), target_branch: required(values['target-branch'], 'target-branch'), target_worktree_path: required(values['target-worktree-path'], 'target-worktree-path') });
+        result = await controller.preview(parsed, GIT_CONTROLLER);
       } else {
         fail('--operation must be create_worktree, commit_paths, or integrate_fast_forward');
       }

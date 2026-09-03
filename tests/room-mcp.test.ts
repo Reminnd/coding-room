@@ -10,6 +10,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { RoomService } from '../src/room/room-service.ts';
 import { createRoomMcpApp } from '../src/mcp/http.ts';
+import type { Approval, TaskGraphRevision } from '../src/protocol/schema.ts';
 import {
   makeAttemptSettle,
   makeCodingResult,
@@ -493,9 +494,9 @@ test('Plan/Revision/Approval frozen same-ID retries follow stored identity on th
     supersedes_revision_id: null, concurrency_limit: 2, acceptance_policy: 'per_task',
     nodes: [{ node_id: 'node-1', kind: 'task', task_spec: { ...taskSpec, type: 'implementation', parent_task_id: null, based_on_review_id: null }, dependencies: [], write_scopes: [{ path: '.', kind: 'tree' }], worker_assignment_id: worker.assignment_id, priority: 1 }],
     created_by_participant_id: 'codex-app', created_at: createdAt,
-  };
+  } satisfies TaskGraphRevision;
   service.createPlanRevision(revision, PLANNER);
-  const approvalArgs = { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: createdAt };
+  const approvalArgs = { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: createdAt } satisfies Approval;
   const { url, close } = await startApp(service, fixture);
   try {
     const codex = await connect(url, CODEX_ROUTE);

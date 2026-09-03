@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { Worker } from 'node:worker_threads';
-import { GitController } from '../src/git/git-controller.ts';
+import { GitController, type PreviewGitActionCommand } from '../src/git/git-controller.ts';
 import { GitCommandError, runGit } from '../src/git/git-process.ts';
 import type { EventActor, TaskGraphRevision, TaskSpec } from '../src/protocol/schema.ts';
 import { RoomService, type SettleGitActionInput } from '../src/room/room-service.ts';
@@ -148,7 +148,7 @@ test('create_worktree preview is read-only and approved execution runs the fixed
     const previewInput = {
       git_action_id: 'git-a', room_id: 'room-1', revision_id: revision.revision_id, node_id: 'node-a',
       operation: 'create_worktree', repository_root: resolve(repository), source_ref: 'HEAD', new_branch: 'codex/component-a', worktree_path: resolve(worktree),
-    } as const;
+    } satisfies PreviewGitActionCommand;
     const previewed = await controller.preview(previewInput, GIT_CONTROLLER);
     assert.equal(previewed.action.status, 'previewed');
     assert.equal(git(repository, 'rev-parse', 'HEAD'), beforeHead);
@@ -516,7 +516,7 @@ test('integration_only follows review, commit, terminal acceptance and final ff 
     const failedCommitInput = {
       git_action_id: 'commit-a-failed', room_id: 'room-1', revision_id: revision.revision_id, node_id: 'node-a',
       operation: 'commit_paths', repository_root: resolve(repository), worktree_path: resolve(componentPath), branch: 'codex/component', paths: ['src/component.ts'], commit_message: 'feat(component): add component',
-    } as const;
+    } satisfies PreviewGitActionCommand;
     await controller.preview(failedCommitInput, GIT_CONTROLLER);
     service.decideGitAction({ approval_id: 'approve-commit-a-failed', room_id: 'room-1', target_type: 'git_action_preview', target_id: 'commit-a-failed', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: T }, PLANNER);
     const failedCommit = await controller.execute('commit-a-failed', GIT_CONTROLLER);
@@ -547,7 +547,7 @@ test('integration_only follows review, commit, terminal acceptance and final ff 
       commitRetryCalls.push(`${command} ${args.join(' ')}`);
       return runGit(command, args, cwd);
     });
-    const commitRetryInput = { git_action_id: 'commit-a', room_id: 'room-1', revision_id: revision.revision_id, node_id: 'node-a', operation: 'commit_paths', repository_root: resolve(repository), worktree_path: resolve(componentPath), branch: 'codex/component', paths: ['src/component.ts'], commit_message: 'feat(component): add component' } as const;
+    const commitRetryInput = { git_action_id: 'commit-a', room_id: 'room-1', revision_id: revision.revision_id, node_id: 'node-a', operation: 'commit_paths', repository_root: resolve(repository), worktree_path: resolve(componentPath), branch: 'codex/component', paths: ['src/component.ts'], commit_message: 'feat(component): add component' } satisfies PreviewGitActionCommand;
     const commitRetry = await commitRetryController.preview(commitRetryInput, GIT_CONTROLLER);
     assert.equal(commitRetry.created, false);
     assert.deepEqual(commitRetryCalls, []);

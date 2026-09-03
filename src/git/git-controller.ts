@@ -53,8 +53,7 @@ export class GitController {
     this.process = process;
   }
 
-  async preview(input: unknown, actor: EventActor): Promise<{ action: GitAction; created: boolean }> {
-    const command = this.parsePreview(input);
+  async preview(command: PreviewGitActionCommand, actor: EventActor): Promise<{ action: GitAction; created: boolean }> {
     const existing = this.service.authorizeGitActionPreview(command.room_id, command.git_action_id, actor);
     if (existing) {
       if (JSON.stringify(this.callerOwnedCommand(command)) !== JSON.stringify(this.callerOwnedAction(existing))) {
@@ -115,12 +114,6 @@ export class GitController {
       message: 'execution ownership was lost; external outcome was not inferred',
       git_evidence: evidence,
     }, actor);
-  }
-
-  private parsePreview(input: unknown): PreviewGitActionCommand {
-    const parsed = previewGitActionInputSchema.safeParse(input);
-    if (!parsed.success) throw new ProtocolError('validation_failed', `GitAction preview validation failed: ${parsed.error.message}`);
-    return parsed.data;
   }
 
   private callerOwnedCommand(command: PreviewGitActionCommand): Record<string, unknown> {

@@ -1,20 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { ProtocolError } from '../protocol/errors.ts';
 import {
-  approvalSchema,
-  codingResultSchema,
-  gitActionSchema,
-  nodeDispatchSchema,
-  participantProfileSchema,
-  planSchema,
-  persistedTaskSchema,
-  questionSchema,
-  reviewSchema,
-  roleAssignmentSchema,
-  taskContractSchema,
-  taskGraphRevisionSchema,
   type Approval,
   type CodingResult,
   type Event,
@@ -179,6 +166,20 @@ export interface SettleGitActionInput {
   result: GitActionResult;
 }
 
+export interface CancelRunInput {
+  room_id: string;
+  run_id: string;
+  reason: string;
+  confirmed_by_user: boolean;
+}
+
+export interface AddRunGuidanceInput {
+  guidance_id: string;
+  room_id: string;
+  run_id: string;
+  text: string;
+}
+
 // application service 是唯一拥有 rooms.state 与 Run/RunAttempt.status 修改权限的模块。
 // v0.4 状态所有权三层分离：Room 只拥有 planning 状态；Run 拥有 execution/review/acceptance
 // lifecycle；RunAttempt 拥有单次 process 与唯一 terminal outcome。每个公开方法都在单个
@@ -251,8 +252,7 @@ export class RoomService {
   }
 
   // ---- Stage 3 planning graph ----
-  createPlan(input: unknown, actor: EventActor): { plan: Plan; created: boolean } {
-    const plan = this.parse(planSchema, input, 'Plan') as Plan;
+  createPlan(plan: Plan, actor: EventActor): { plan: Plan; created: boolean } {
     return this.tx(() => {
       const existing = this.repo.getPlan(plan.plan_id);
       if (existing) {
@@ -286,8 +286,7 @@ export class RoomService {
     });
   }
 
-  createPlanRevision(input: unknown, actor: EventActor): { revision: TaskGraphRevision; created: boolean } {
-    const revision = this.parse(taskGraphRevisionSchema, input, 'TaskGraphRevision') as TaskGraphRevision;
+  createPlanRevision(revision: TaskGraphRevision, actor: EventActor): { revision: TaskGraphRevision; created: boolean } {
     return this.tx(() => {
       const existing = this.repo.getTaskGraphRevision(revision.revision_id);
       if (existing) {
@@ -328,8 +327,7 @@ export class RoomService {
     });
   }
 
-  decidePlanRevision(input: unknown, actor: EventActor): { room: RoomRecord; approval: Approval; created: boolean } {
-    const approval = this.parse(approvalSchema, input, 'Approval') as Approval;
+  decidePlanRevision(approval: Approval, actor: EventActor): { room: RoomRecord; approval: Approval; created: boolean } {
     if (approval.target_type !== 'task_graph_revision') {
       throw new ProtocolError('validation_failed', 'plan revision decision requires target_type=task_graph_revision');
     }
@@ -412,7 +410,7 @@ export class RoomService {
         created_at: createdAt,
       });
       const preview = { ...input.preview, preview_event_sequence: event.sequence } as GitActionPreview;
-      const action = gitActionSchema.parse({
+      const action = {
         git_action_id: input.git_action_id,
         room_id: input.room_id,
         revision_id: input.revision_id,
@@ -426,7 +424,7 @@ export class RoomService {
         result: null,
         created_at: createdAt,
         settled_at: null,
-      }) as GitAction;
+      } satisfies GitAction;
       this.repo.insertGitAction(action);
       return { action, created: true };
     });
@@ -448,8 +446,7 @@ export class RoomService {
     return action;
   }
 
-  decideGitAction(input: unknown, actor: EventActor): { approval: Approval; action: GitAction; created: boolean } {
-    const approval = this.parse(approvalSchema, input, 'Approval') as Approval;
+  decideGitAction(approval: Approval, actor: EventActor): { approval: Approval; action: GitAction; created: boolean } {
     if (approval.target_type !== 'git_action_preview') {
       throw new ProtocolError('validation_failed', 'git action decision requires target_type=git_action_preview');
     }
@@ -483,11 +480,11 @@ export class RoomService {
         summary: `git action ${action.git_action_id} ${approval.decision}`,
         created_at: this.now(),
       });
-      const updated = gitActionSchema.parse({
+      const updated = {
         ...action,
         status: approval.decision === 'approved' ? 'approved' : 'previewed',
         approval_id: approval.approval_id,
-      }) as GitAction;
+      } satisfies GitAction;
       this.repo.updateGitAction(updated);
       // event is deliberately the last write: execute reserves only when this exact decision
       // remains the current Room fact.
@@ -515,10 +512,8 @@ export class RoomService {
       if (JSON.stringify(expected) !== JSON.stringify(observedPreview)) {
         throw new ProtocolError('git_preview_stale', `git action ${gitActionId} Git facts changed`);
       }
-      const executing = gitActionSchema.parse({ ...action, status: 'executing' }) as GitAction;
-      if (!this.repo.updateGitActionIfStatus(executing, 'approved')) {
-        throw new ProtocolError('git_action_already_terminal', `git action ${gitActionId} lost execution reservation`);
-      }
+      const executing = { ...action, status: 'executing' } satisfies GitAction;
+      this.repo.updateGitAction(executing);
       this.repo.appendEvent({ room_id: action.room_id, type: 'git_action_executing', actor, entity_type: 'git_action', entity_id: gitActionId, summary: `git action ${gitActionId} executing`, created_at: this.now() });
       return executing;
     });
@@ -534,7 +529,7 @@ export class RoomService {
       }
       if (action.status !== 'executing') throw new ProtocolError('git_action_not_approved', `git action ${action.git_action_id} is not executing`);
       const settledAt = this.now();
-      const settled = gitActionSchema.parse({ ...action, status: input.status, result: input.result, settled_at: settledAt }) as GitAction;
+      const settled = { ...action, status: input.status, result: input.result, settled_at: settledAt } satisfies GitAction;
       this.repo.updateGitAction(settled);
       if (input.status === 'succeeded') this.applySuccessfulGitAction(settled, settledAt);
       this.repo.appendEvent({ room_id: action.room_id, type: input.status === 'succeeded' ? 'git_action_succeeded' : 'git_action_failed', actor, entity_type: 'git_action', entity_id: action.git_action_id, summary: `git action ${action.git_action_id} ${input.status}`, created_at: settledAt });
@@ -549,7 +544,7 @@ export class RoomService {
       if (this.isTerminalGitAction(action)) return action;
       if (action.status !== 'executing') throw new ProtocolError('validation_failed', `git action ${gitActionId} is not executing`);
       const settledAt = this.now();
-      const updated = gitActionSchema.parse({ ...action, status: 'outcome_unknown', result, settled_at: settledAt }) as GitAction;
+      const updated = { ...action, status: 'outcome_unknown', result, settled_at: settledAt } satisfies GitAction;
       this.repo.updateGitAction(updated);
       this.repo.appendEvent({ room_id: action.room_id, type: 'git_action_outcome_unknown', actor, entity_type: 'git_action', entity_id: gitActionId, summary: `git action ${gitActionId} outcome unknown`, created_at: settledAt });
       return updated;
@@ -635,12 +630,12 @@ export class RoomService {
     if (!approval || approval.decision !== 'approved') throw new ProtocolError('plan_revision_not_approved', 'revision is not approved');
     const assignment = this.assertGraphWorkerAssignment(revision, node.worker_assignment_id);
     const orchestrator = this.requireResolvedAssignment(revision.room_id, 'plan', revision.plan_id, 'orchestrator');
-    const task = persistedTaskSchema.parse({
+    const task = {
       ...node.task_spec,
       confirmed_by_user: true,
       planner_participant_id: approval.planner_participant_id,
       orchestrator_participant_id: orchestrator.participant_id,
-    });
+    } satisfies PersistedTask;
     this.repo.insertTask(task);
     const createdAt = this.now();
     const run: Run = {
@@ -655,7 +650,7 @@ export class RoomService {
       accepted_at: null,
     };
     this.repo.insertRun(run);
-    const dispatch = nodeDispatchSchema.parse({
+    const dispatch = {
       dispatch_id: dispatchId,
       revision_id: revision.revision_id,
       node_id: node.node_id,
@@ -668,7 +663,7 @@ export class RoomService {
       dispatched_at: worktreePath === null ? null : createdAt,
       completed_at: null,
       scope_violated: false,
-    });
+    } satisfies NodeDispatch;
     this.repo.insertNodeDispatch(dispatch);
     this.repo.appendEvent({ room_id: revision.room_id, type: 'graph_node_materialized', actor: { participant_id: LOCAL_SERVICE_PARTICIPANT_ID, actor_role: 'orchestrator' }, entity_type: 'node_dispatch', entity_id: dispatch.dispatch_id, summary: `node ${node.node_id} materialized`, created_at: createdAt });
     this.repo.appendEvent({ room_id: revision.room_id, type: 'run_created', actor: { participant_id: LOCAL_SERVICE_PARTICIPANT_ID, actor_role: 'orchestrator' }, entity_type: 'run', entity_id: run.run_id, summary: `run ${run.run_id} created for graph node ${node.node_id}`, created_at: createdAt });
@@ -682,10 +677,9 @@ export class RoomService {
   // 校验 current Review 后把 Run 转回 ready，Room 状态不变。两种类型的 Run/Review/failure
   // authority 都是 per-Run，不再写入 Room.state。
   submitTask(
-    input: unknown,
+    contract: TaskContract,
     actor: EventActor,
   ): { room: RoomRecord; task: PersistedTask; run: Run; created: boolean } {
-    const contract = this.parse(taskContractSchema, input, 'TaskContract') as TaskContract;
     return this.tx(() => {
       this.requireRoom(contract.room_id);
       const existing = this.repo.getTask(contract.task_id);
@@ -842,10 +836,9 @@ export class RoomService {
   // 更新 Run → 追加 run_attempt_claimed Event。并发 loser 由 partial unique index 映射为
   // run_already_active / worktree_already_owned，零残留。
   claimRunAttempt(
-    input: unknown,
+    claim: ClaimAttemptInput,
     actor: EventActor,
   ): { room: RoomRecord; run: Run; attempt: RunAttempt; guidance: RunGuidance[]; created: boolean } {
-    const claim = this.parse(claimInputSchema, input, 'ClaimAttemptInput') as ClaimAttemptInput;
     return this.tx(() => {
       const existing = this.repo.getAttempt(claim.attempt_id);
       if (existing) {
@@ -891,10 +884,7 @@ export class RoomService {
         );
       }
       // executor 按 Run 当前 Task 的 Task scope 优先、Room fallback 解析并冻结为 actor。
-      const task = this.repo.latestTaskForRun(claim.run_id);
-      if (!task) {
-        throw new ProtocolError('entity_not_found', `run ${claim.run_id} has no task`);
-      }
+      const task = this.repo.latestTaskForRun(claim.run_id)!;
       this.assertExecutorClaimAuthority(task, actor);
       // Worker adapter 门禁：本实现只验收 claude_code_cli；其它 adapter 在 claim 前拒绝且
       // 零 attempt/process/Event/artifact。worker assignment 本身允许 provider-neutral
@@ -968,112 +958,94 @@ export class RoomService {
   }
 
   // ---- Attempt settlement (executor) ----
-  // terminal outcome 的 first-writer-wins：conditional UPDATE 在同一 attempt 上串行化
-  // success/failure/cancel 竞争，winner 写 terminal status + evidence + 恰好一个 terminal
-  // Event；loser 重读后按 payload 签名判定幂等（零 Event）或 id_conflict（完整 snapshot 不变）。
+  // BEGIN IMMEDIATE 在读取前串行化 writer。第一个事务写 terminal status + evidence +
+  // 恰好一个 terminal Event；等待者取得写锁后读取已提交终态，再按 canonical payload
+  // 判定幂等（零 Event）或 id_conflict（完整 snapshot 不变）。
   // planner 已先行写入 cancel_requested 时，唯一合法 terminal 是 canceled（planner 意图优先）。
   // Review finding inc10-r2：terminal status 与持久化 result/failure 必须 canonical 一致，
   // 矛盾 evidence 以 validation_failed 拒绝且完整 durable snapshot 不变；canceled 的
   // canonical payload 为 result=null + failure=null。
-  settleRunAttempt(input: unknown, actor: EventActor): { room: RoomRecord; run: Run; attempt: RunAttempt } {
-    const settle = this.parse(settleInputSchema, input, 'SettleAttemptInput') as SettleAttemptInput;
+  settleRunAttempt(settle: SettleAttemptInput, actor: EventActor): { room: RoomRecord; run: Run; attempt: RunAttempt } {
     return this.tx(() => {
-      // 至多三轮：首次按 caller 目标推进；conditional UPDATE 失败后重读（另一 writer 已
-      // 推进 status），按新 status 重分类；再次失败说明存在第三个 writer，直接 id_conflict。
-      for (let round = 0; round < 3; round++) {
-        const attempt = this.requireAttempt(settle.attempt_id);
-        this.assertAttemptCommandAuthority(attempt, actor, 'executor');
-        if (this.isTerminalAttemptStatus(attempt.status)) {
-          // canceled 首次结算已把 payload 规范化（result=null + failure=null）：幂等 retry
-          // 必须按 canonical payload 比较，caller 首次携带的 success/decision 分类与
-          // failure 分类均已作废，evidence 字段仍按首次结算事实比较。
-          const canonicalSettle =
-            attempt.status === 'canceled'
-              ? this.canonicalSettlePayload(attempt.task_id, 'canceled', settle)
-              : settle;
-          const signature = this.attemptTerminalSignature({
-            status: attempt.status,
-            result: attempt.result,
-            failure: attempt.failure,
-            agent_session_ref: attempt.agent_session_ref,
-            process_exit_code: attempt.process_exit_code,
-            git_evidence: attempt.git_evidence,
-            artifact_refs: attempt.artifact_refs,
-          });
-          if (signature === this.attemptTerminalSignature(canonicalSettle)) {
-            // 相同 payload retry：返回既有 terminal attempt，零 Event。
-            return {
-              room: this.requireRoom(attempt.room_id),
-              run: this.requireRun(attempt.run_id),
-              attempt,
-            };
-          }
-          throw new ProtocolError(
-            'id_conflict',
-            `attempt ${settle.attempt_id} already settled with a different payload`,
-          );
-        }
-        const expected = attempt.status;
-        // planner cancel intent 已先行写入 cancel_requested：Executor 的 terminal 只能是
-        // canceled；进程已被 AbortSignal 终止，caller 提供的 success/decision 分类作废。
-        const target = expected === 'cancel_requested' ? 'canceled' : settle.status;
-        resolveAttemptTransition(expected, target, actor.actor_role);
-        // canonical terminal payload（Review finding inc10-r2）：transition 校验保持最先
-        //（既存错误优先级不变），随后按 target 校验/规范化 result/failure 并以 canonical
-        // payload 写入；矛盾 evidence → validation_failed，transaction 整体回滚。
-        const canonical = this.canonicalSettlePayload(attempt.task_id, target, settle);
-        const updated: RunAttempt = {
-          ...attempt,
-          status: target,
-          agent_session_ref: canonical.agent_session_ref,
-          process_exit_code: canonical.process_exit_code,
-          settled_at: this.now(),
-          result: canonical.result,
-          git_evidence: canonical.git_evidence,
-          artifact_refs: canonical.artifact_refs,
-          failure: canonical.failure,
-        };
-        if (!this.repo.updateAttemptIfStatus(updated, expected)) {
-          continue; // 另一 writer 已推进：重读后重分类
-        }
-        // winner：Run 状态在同一 transaction 推进，terminal Event 恰好一个。
-        const run = this.requireRun(attempt.run_id);
-        const runStatus = this.runStatusForTerminal(target);
-        resolveRunTransition(run.status, runStatus, actor.actor_role);
-        const updatedRun: Run = { ...run, status: runStatus, updated_at: this.now() };
-        this.repo.updateRun(updatedRun);
-        this.repo.appendEvent({
-          room_id: attempt.room_id,
-          type: this.eventTypeForTerminal(target),
-          actor,
-          entity_type: 'run_attempt',
-          entity_id: attempt.attempt_id,
-          summary: `attempt ${attempt.attempt_id} settled ${target}`,
-          created_at: this.now(),
+      const attempt = this.requireAttempt(settle.attempt_id);
+      this.assertAttemptCommandAuthority(attempt, actor, 'executor');
+      if (this.isTerminalAttemptStatus(attempt.status)) {
+        // canceled 首次结算已把 payload 规范化（result=null + failure=null）：幂等 retry
+        // 必须按 canonical payload 比较，caller 首次携带的 success/decision 分类与
+        // failure 分类均已作废，evidence 字段仍按首次结算事实比较。
+        const canonicalSettle =
+          attempt.status === 'canceled'
+            ? this.canonicalSettlePayload(attempt.task_id, 'canceled', settle)
+            : settle;
+        const signature = this.attemptTerminalSignature({
+          status: attempt.status,
+          result: attempt.result,
+          failure: attempt.failure,
+          agent_session_ref: attempt.agent_session_ref,
+          process_exit_code: attempt.process_exit_code,
+          git_evidence: attempt.git_evidence,
+          artifact_refs: attempt.artifact_refs,
         });
-        if (target === 'succeeded') this.applyScopeProjection(updated, actor);
-        return { room: this.requireRoom(attempt.room_id), run: updatedRun, attempt: updated };
+        if (signature === this.attemptTerminalSignature(canonicalSettle)) {
+          return {
+            room: this.requireRoom(attempt.room_id),
+            run: this.requireRun(attempt.run_id),
+            attempt,
+          };
+        }
+        throw new ProtocolError(
+          'id_conflict',
+          `attempt ${settle.attempt_id} already settled with a different payload`,
+        );
       }
-      throw new ProtocolError('id_conflict', `attempt ${settle.attempt_id} settlement raced repeatedly`);
+      const expected = attempt.status;
+      // planner cancel intent 已先行写入 cancel_requested：Executor 的 terminal 只能是
+      // canceled；进程已被 AbortSignal 终止，caller 提供的 success/decision 分类作废。
+      const target = expected === 'cancel_requested' ? 'canceled' : settle.status;
+      resolveAttemptTransition(expected, target, actor.actor_role);
+      const canonical = this.canonicalSettlePayload(attempt.task_id, target, settle);
+      const updated: RunAttempt = {
+        ...attempt,
+        status: target,
+        agent_session_ref: canonical.agent_session_ref,
+        process_exit_code: canonical.process_exit_code,
+        settled_at: this.now(),
+        result: canonical.result,
+        git_evidence: canonical.git_evidence,
+        artifact_refs: canonical.artifact_refs,
+        failure: canonical.failure,
+      };
+      this.repo.updateAttempt(updated);
+      const run = this.requireRun(attempt.run_id);
+      const runStatus = this.runStatusForTerminal(target);
+      resolveRunTransition(run.status, runStatus, actor.actor_role);
+      const updatedRun: Run = { ...run, status: runStatus, updated_at: this.now() };
+      this.repo.updateRun(updatedRun);
+      this.repo.appendEvent({
+        room_id: attempt.room_id,
+        type: this.eventTypeForTerminal(target),
+        actor,
+        entity_type: 'run_attempt',
+        entity_id: attempt.attempt_id,
+        summary: `attempt ${attempt.attempt_id} settled ${target}`,
+        created_at: this.now(),
+      });
+      if (target === 'succeeded') this.applyScopeProjection(updated, actor);
+      return { room: this.requireRoom(attempt.room_id), run: updatedRun, attempt: updated };
     });
   }
 
   // Executor 实时把非终态 progress evidence 追加为 run_attempt progress Event。progress 不是
   // 状态权威来源：不改变 Room/Run/Attempt state。只接受 frozen executor 与仍 running 的
-  // attempt；decision_requested/cancel_requested/terminal 一律 validation_failed。
+  // attempt；已知 lifecycle 竞争返回 false，其它错误继续传播。
   appendAttemptProgress(
     input: { attempt_id: string; type: string | null; subtype: string | null; outcome: string | null },
     actor: EventActor,
-  ): void {
-    this.tx(() => {
+  ): boolean {
+    return this.tx(() => {
       const attempt = this.requireAttempt(input.attempt_id);
       this.assertAttemptCommandAuthority(attempt, actor, 'executor');
-      if (attempt.status !== 'running') {
-        throw new ProtocolError(
-          'validation_failed',
-          `attempt ${attempt.attempt_id} is not running (status ${attempt.status})`,
-        );
-      }
+      if (attempt.status !== 'running') return false;
       const label =
         [input.type, input.subtype].filter((p): p is string => p !== null).join(':') || 'unknown';
       this.repo.appendEvent({
@@ -1085,6 +1057,7 @@ export class RoomService {
         summary: `attempt ${attempt.attempt_id} progress ${label}`,
         created_at: this.now(),
       });
+      return true;
     });
   }
 
@@ -1092,8 +1065,7 @@ export class RoomService {
   // v0.4：Question 由 frozen worker 对 active attempt 提出，原子创建 Question 并把 attempt
   // 置 decision_requested；Run 保持 running 直到 Executor 停止 process 并 settle
   // needs_decision。answer 要求 attempt 已 terminal-finalized。
-  askQuestion(input: unknown, actor: EventActor): { room: RoomRecord; question: Question; attempt: RunAttempt; created: boolean } {
-    const question = this.parse(questionSchema, input, 'Question') as Question;
+  askQuestion(question: Question, actor: EventActor): { room: RoomRecord; question: Question; attempt: RunAttempt; created: boolean } {
     return this.tx(() => {
       const attempt = this.requireAttempt(question.attempt_id);
       // frozen worker authority：actor 必须存在、enabled、role=worker 且等于 attempt 冻结的
@@ -1237,8 +1209,7 @@ export class RoomService {
   // v0.4：Review 只审查 target Run 的 latest succeeded attempt；attempt_id 固化该 attempt。
   // 提交把 Run review_required → review_discussion；acceptance 把 Run → accepted（accepted_at
   // 固化）并释放 worktree lease。Room 状态不参与。
-  submitReview(input: unknown, actor: EventActor): { room: RoomRecord; review: Review; run: Run; created: boolean } {
-    const review = this.parse(reviewSchema, input, 'Review') as Review;
+  submitReview(review: Review, actor: EventActor): { room: RoomRecord; review: Review; run: Run; created: boolean } {
     return this.tx(() => {
       const existing = this.repo.getReview(review.review_id);
       if (existing) {
@@ -1469,15 +1440,9 @@ export class RoomService {
   // canceled。与 terminal settle 的竞争由 conditional UPDATE 串行化，只产生一个 terminal
   // Event。open Question 随 attempt 被 supersede，避免 snapshot 误导。
   cancelRun(
-    input: unknown,
+    cancel: CancelRunInput,
     actor: EventActor,
   ): { room: RoomRecord; run: Run; attempt: RunAttempt; created: boolean } {
-    const cancel = this.parse(cancelInputSchema, input, 'CancelRunInput') as {
-      room_id: string;
-      run_id: string;
-      reason: string;
-      confirmed_by_user: boolean;
-    };
     return this.tx(() => {
       this.assertAuthority(cancel.room_id, actor, 'planner');
       if (cancel.confirmed_by_user !== true) {
@@ -1540,18 +1505,12 @@ export class RoomService {
   // prompt。running/decision_requested/cancel_requested 期间请求以 validation_failed 零写入
   // 拒绝，不宣称 Claude live steer。
   addRunGuidance(
-    input: unknown,
+    guidanceInput: AddRunGuidanceInput,
     actor: EventActor,
   ): { room: RoomRecord; guidance: RunGuidance; created: boolean } {
     // 输入只含 caller-owned 字段：planner_participant_id/created_at/consumed_by_attempt_id
     // 由 service 固化，caller 不可指定（与其它 entity 的 caller-provided timestamp 不同，
     // guidance 是 planner 在 claim 间隙的指令，不需要 caller 提供时间）。
-    const guidanceInput = this.parse(addGuidanceInputSchema, input, 'RunGuidanceInput') as {
-      guidance_id: string;
-      room_id: string;
-      run_id: string;
-      text: string;
-    };
     return this.tx(() => {
       this.assertAuthority(guidanceInput.room_id, actor, 'planner');
       // same-ID retry：created_at 是 service 时间，无法与首次完全一致，因此按 caller-owned
@@ -1609,19 +1568,14 @@ export class RoomService {
 
   // ---- Participant / RoleAssignment commands (orchestrator) ----
   registerParticipant(
-    input: unknown,
+    profile: ParticipantProfile,
     actor: EventActor,
   ): { profile: ParticipantProfile; created: boolean } {
-    const profile = this.parse(participantProfileSchema, input, 'ParticipantProfile') as ParticipantProfile;
     return this.tx(() => {
       this.assertAnyRoomOrchestrator(actor);
       const inserted = this.repo.insertParticipant(profile);
       if (!inserted.created) {
-        const existing = this.repo.getParticipant(profile.participant_id);
-        if (!existing) {
-          throw new ProtocolError('entity_not_found', `participant ${profile.participant_id} missing after idempotent insert`);
-        }
-        return { profile: existing, created: false };
+        return { profile: this.repo.getParticipant(profile.participant_id)!, created: false };
       }
       return { profile, created: true };
     });
@@ -1646,21 +1600,16 @@ export class RoomService {
   }
 
   createRoleAssignment(
-    input: unknown,
+    assignment: RoleAssignment,
     actor: EventActor,
   ): { assignment: RoleAssignment; created: boolean } {
-    const assignment = this.parse(roleAssignmentSchema, input, 'RoleAssignment') as RoleAssignment;
     return this.tx(() => {
       this.requireRoom(assignment.room_id);
       this.assertAuthority(assignment.room_id, actor, 'orchestrator');
       this.validateAssignmentTarget(assignment);
       const inserted = this.repo.insertRoleAssignment(assignment);
       if (!inserted.created) {
-        const existing = this.repo.getRoleAssignment(assignment.assignment_id);
-        if (!existing) {
-          throw new ProtocolError('entity_not_found', `assignment ${assignment.assignment_id} missing after idempotent insert`);
-        }
-        return { assignment: existing, created: false };
+        return { assignment: this.repo.getRoleAssignment(assignment.assignment_id)!, created: false };
       }
       return { assignment, created: true };
     });
@@ -1970,19 +1919,19 @@ export class RoomService {
 
   private applySuccessfulGitAction(action: GitAction, settledAt: string): void {
     const dispatch = this.findLineageDispatch(this.requireRevision(action.revision_id), action.node_id);
-    if (!dispatch) throw new ProtocolError('entity_not_found', `dispatch for git action ${action.git_action_id} not found`);
+    const ownedDispatch = dispatch!;
     if (action.preview.operation === 'create_worktree') {
       const path = action.preview.worktree_path;
-      const run = this.requireRun(dispatch.run_id);
+      const run = this.requireRun(ownedDispatch.run_id);
       this.repo.updateRun({ ...run, worktree_path: path, updated_at: settledAt });
       this.repo.updateNodeDispatch({
-        ...dispatch,
+        ...ownedDispatch,
         canonical_worktree_path: path,
         status: 'ready',
         updated_at: settledAt,
       });
     } else if (action.preview.operation === 'commit_paths') {
-      this.repo.updateNodeDispatch({ ...dispatch, status: 'completed', completed_at: settledAt, updated_at: settledAt });
+      this.repo.updateNodeDispatch({ ...ownedDispatch, status: 'completed', completed_at: settledAt, updated_at: settledAt });
     }
   }
 
@@ -2236,10 +2185,7 @@ export class RoomService {
   // claude_code_cli adapter；其它 adapter 在此以 worker_adapter_unavailable 拒绝，且发生在
   // 任何 attempt/Event/artifact 写入之前（transaction 内先于 insertAttempt）。
   private assertWorkerAdapterAvailable(workerParticipantId: string): void {
-    const profile = this.repo.getParticipant(workerParticipantId);
-    if (!profile) {
-      throw new ProtocolError('entity_not_found', `worker participant ${workerParticipantId} not found`);
-    }
+    const profile = this.repo.getParticipant(workerParticipantId)!;
     if (profile.adapter_id !== 'claude_code_cli') {
       throw new ProtocolError(
         'worker_adapter_unavailable',
@@ -2252,15 +2198,11 @@ export class RoomService {
   private augmentTaskWithIdentities(contract: TaskContract): PersistedTask {
     const planner = this.requireResolvedAssignment(contract.room_id, 'room', null, 'planner');
     const orchestrator = this.requireResolvedAssignment(contract.room_id, 'room', null, 'orchestrator');
-    const persisted = persistedTaskSchema.safeParse({
+    return {
       ...contract,
       planner_participant_id: planner.participant_id,
       orchestrator_participant_id: orchestrator.participant_id,
-    });
-    if (!persisted.success) {
-      throw new ProtocolError('validation_failed', 'persisted task augmentation failed');
-    }
-    return persisted.data;
+    } satisfies PersistedTask;
   }
 
   // 解析 assignment 并要求 participant 可执行（存在、enabled、capability/adapter 兼容）。
@@ -2628,50 +2570,4 @@ export class RoomService {
     return question;
   }
 
-  private parse(schema: z.ZodTypeAny, data: unknown, label: string): unknown {
-    const parsed = schema.safeParse(data);
-    if (!parsed.success) {
-      const detail = parsed.error.issues.map((issue) => issue.message).join('; ');
-      throw new ProtocolError('validation_failed', `${label} validation failed: ${detail}`);
-    }
-    return parsed.data;
-  }
 }
-
-// claim/settle/cancel 输入的 service-local schema：只校验 caller-owned 字段，attempt_no、
-// started_at 等 server-assigned 字段不进入输入契约。
-const claimInputSchema = z.object({
-  attempt_id: z.string().min(1),
-  run_id: z.string().min(1),
-  room_id: z.string().min(1),
-  worktree_path: z.string().min(1),
-});
-
-const settleInputSchema = z.object({
-  attempt_id: z.string().min(1),
-  status: z.enum(['succeeded', 'failed', 'needs_decision', 'canceled', 'interrupted']),
-  result: codingResultSchema.nullable(),
-  failure: z.object({ code: z.string(), message: z.string() }).nullable(),
-  agent_session_ref: z.string().nullable(),
-  process_exit_code: z.number().int().nullable(),
-  git_evidence: z.object({
-    staged: z.array(z.string()),
-    unstaged: z.array(z.string()),
-    untracked: z.array(z.string()),
-  }),
-  artifact_refs: z.array(z.string()),
-});
-
-const cancelInputSchema = z.object({
-  room_id: z.string().min(1),
-  run_id: z.string().min(1),
-  reason: z.string(),
-  confirmed_by_user: z.boolean(),
-});
-
-const addGuidanceInputSchema = z.object({
-  guidance_id: z.string().min(1),
-  room_id: z.string().min(1),
-  run_id: z.string().min(1),
-  text: z.string().min(1),
-});

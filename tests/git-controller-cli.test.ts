@@ -50,6 +50,10 @@ test('room:git CLI previews and executes one exact approved action', () => {
     assert.notEqual(crossArm.status, 0);
     assert.match(crossArm.stderr, /unexpected option.*--commit-message/);
 
+    const missingPaths = spawnSync(process.execPath, ['src/cli/git.ts', 'preview', '--db', dbPath, '--git-action-id', 'git-missing-paths', '--room-id', 'room-1', '--revision-id', 'revision-1', '--node-id', 'node-a', '--operation', 'commit_paths', '--repository-root', resolve(repository), '--worktree-path', resolve(repository), '--branch', 'main', '--commit-message', 'test: missing paths'], { cwd: process.cwd(), encoding: 'utf8' });
+    assert.notEqual(missingPaths.status, 0);
+    assert.match(missingPaths.stderr, /validation_failed: GitAction preview validation failed/);
+
     const preview = spawnSync(process.execPath, ['src/cli/git.ts', 'preview', '--db', dbPath, '--git-action-id', 'git-a', '--room-id', 'room-1', '--revision-id', 'revision-1', '--node-id', 'node-a', '--operation', 'create_worktree', '--repository-root', resolve(repository), '--source-ref', 'main', '--new-branch', 'codex/cli', '--worktree-path', resolve(worktree)], { cwd: process.cwd(), encoding: 'utf8' });
     assert.equal(preview.status, 0, preview.stderr);
     assert.equal((JSON.parse(preview.stdout) as { action: { status: string } }).action.status, 'previewed');

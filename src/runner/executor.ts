@@ -72,10 +72,7 @@ export class LocalExecutor {
     if (!run) {
       throw new ProtocolError('entity_not_found', `run ${this.input.runId} not found`);
     }
-    const task = service.latestTaskForRun(run.run_id);
-    if (!task) {
-      throw new ProtocolError('entity_not_found', `run ${run.run_id} has no task`);
-    }
+    const task = service.latestTaskForRun(run.run_id)!;
 
     // ---- claim 前 worktree gate ----
     // 首 attempt：clean Git gate（任一变更 → worktree_not_clean）并解析 repository root；
@@ -87,17 +84,12 @@ export class LocalExecutor {
       const observation = await establishCleanWorktree(this.input.targetWorktree);
       repositoryRoot = observation.repositoryRoot;
     } else {
-      if (run.worktree_path === null) {
-        throw new ProtocolError(
-          'validation_failed',
-          `run ${run.run_id} has attempts but no frozen worktree`,
-        );
-      }
+      const frozenWorktree = run.worktree_path!;
       const observation = await observeContinuation(this.input.targetWorktree);
-      if (observation.repositoryRoot !== run.worktree_path) {
+      if (observation.repositoryRoot !== frozenWorktree) {
         throw new ProtocolError(
           'validation_failed',
-          `actual repository root ${observation.repositoryRoot} does not match lineage worktree ${run.worktree_path}`,
+          `actual repository root ${observation.repositoryRoot} does not match lineage worktree ${frozenWorktree}`,
         );
       }
       repositoryRoot = observation.repositoryRoot;
@@ -139,10 +131,7 @@ export class LocalExecutor {
       participant_id: executorAssignment.participant_id,
       actor_role: 'executor',
     };
-    const workerProfile = service.getParticipant(run.worker_participant_id);
-    if (!workerProfile) {
-      throw new ProtocolError('entity_not_found', `worker participant ${run.worker_participant_id} not found`);
-    }
+    const workerProfile = service.getParticipant(run.worker_participant_id)!;
     const adapter = selectWorkerAdapter(workerProfile.adapter_id);
 
     // ---- MCP worker route ----
@@ -189,11 +178,7 @@ export class LocalExecutor {
     // 不做自动 retry/queue。
     const controller = new AbortController();
     const pollInterval = setInterval(() => {
-      const current = service.getAttempt(attempt.attempt_id);
-      if (current === null) {
-        clearInterval(pollInterval);
-        return;
-      }
+      const current = service.getAttempt(attempt.attempt_id)!;
       if (current.status === 'cancel_requested') {
         controller.abort();
       }
@@ -216,22 +201,16 @@ export class LocalExecutor {
         onProgress: (progress) => {
           // progress 只在 attempt 仍 running 时追加：room_ask_question 已把 attempt 置
           // decision_requested、cancel 已置 cancel_requested 之后不再写 progress。progress
-          // 是证据不是权威，cancel race 下的追加失败不改变 terminal 分类。
-          try {
-            if (service.getAttempt(attempt.attempt_id)?.status === 'running') {
-              service.appendAttemptProgress(
-                {
-                  attempt_id: attempt.attempt_id,
-                  type: progress.type,
-                  subtype: progress.subtype,
-                  outcome: progress.outcome,
-                },
-                executorActor,
-              );
-            }
-          } catch {
-            // 忽略 cancel/decision race 的 progress 拒绝：不影响 attempt 的 terminal 事实。
-          }
+          // 是证据不是权威，已知 cancel/decision race 由 false 表达，其它异常继续传播。
+          service.appendAttemptProgress(
+            {
+              attempt_id: attempt.attempt_id,
+              type: progress.type,
+              subtype: progress.subtype,
+              outcome: progress.outcome,
+            },
+            executorActor,
+          );
         },
       });
     } finally {
@@ -263,10 +242,7 @@ export class LocalExecutor {
     // 分类前重读 durable attempt status：planner 的 cancel 或 worker 的 Question 都可能在
     // process 结束后、settle 前已推进 status；settle 以最新 status 为 authority（cancel
     // intent 优先，terminal 只可能是 canceled）。
-    const finalAttempt = service.getAttempt(attempt.attempt_id);
-    if (!finalAttempt) {
-      throw new ProtocolError('entity_not_found', `attempt ${attempt.attempt_id} missing before settle`);
-    }
+    const finalAttempt = service.getAttempt(attempt.attempt_id)!;
     const evidence = {
       agent_session_ref: adapterOutcome.streamOutcome.sessionId,
       process_exit_code: adapterOutcome.processOutcome?.exitCode ?? null,

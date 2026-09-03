@@ -2,15 +2,25 @@
 
 ## 当前状态
 
-- 日期：2026-09-02
-- 项目阶段：`ACCEPTED`；Increment 13 Implementation、Fix Task 1–2与Fix Review 3已获最终接受并由commit `004969190215e354fc468e824d9c5e798f01e4fc`版本化；active v0.3→v0.5 cutover已完成
+- 日期：2026-09-03
+- 项目阶段：Increment 14 candidate=`REVIEW_REQUIRED`；Increment 13及此前能力保持`ACCEPTED`，active v0.5 runtime未变化
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–13 accepted source已进入版本化`main`；active runtime/database/binding现为protocol `0.5-design`
-- Implementation Task：[Increment 13 Task Contract](./INCREMENT_13_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)均为`Accepted`且Coding已完成；Fix Review 3=`approved`，用户已最终接受；Increment 12 Task Contract与Fix Task 1–4均为`Accepted`并已完成Coding，Fix Task 5为`Superseded / Not Dispatched`
+- Implementation Task：[Increment 14 Task Contract](./INCREMENT_14_TASK_CONTRACT.md)=`Accepted`、`confirmed_by_user=true`；candidate Coding与验证已完成，等待根会话GitHub Review
 - Previous Increment：Increment 1–11均已接受并进入版本化`main`
 - 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环；active project binding指向`room-v0.5.sqlite`与新Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`
-- Git repository：root branch=`main`、HEAD=`004969190215e354fc468e824d9c5e798f01e4fc`；cutover产生`.gitignore`与当前权威文档working-tree变更，尚未获提交授权；未push、未执行真实项目GitAction
+- Git repository：`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`；candidate branch=`codex/increment-14-validation-boundary-ee3cd96`；固定提交信息=`refactor(room): simplify validation ownership`，按Contract完成单一提交与首次push后交付Review
 
 ## 已完成
+
+### 2026-09-03 — Increment 14 validation ownership candidate
+
+- `RoomService`命令改为接收具体TypeScript类型或最小Command interface，删除通用`parse` helper与service-local Zod重复校验；MCP继续以既有`inputSchema`校验，Git preview最终Schema parse移到`room:git` CLI边界，公开输出、error code及退出码不变。
+- 内部`PersistedTask`、`GitAction`与`NodeDispatch`构造改用typed object/`satisfies`。删除create-after-insert Room重新读取、idempotent Participant/RoleAssignment missing、Run-without-Task、Attempt/worker消失、prior-attempt-without-worktree及GitAction-without-Dispatch等public lifecycle不可达分支；不再用test-owned Task deletion验证该损坏。
+- `settleRunAttempt`在`BEGIN IMMEDIATE`事务中单次读取并直接更新Attempt，保留terminal canonical payload、same-payload幂等、different-payload conflict、cancel intent优先、唯一terminal Event与scope projection。`reserveGitAction`直接写`executing`并追加Event；真实独立连接并发测试继续证明exact一个Git process。`updateAttemptIfStatus`仅保留给Question/cancel跨事务竞争，`updateGitActionIfStatus`已删除。
+- `appendAttemptProgress`在单一事务中对`running`追加Event并返回`true`，对decision/cancel/terminal状态零写入返回`false`；Executor不再预读或宽泛`catch {}`，SQLite/编程异常继续传播。
+- 测试调整：删除直接删除Task row构造dangling Run的Runner测试；RoomService progress测试改为验证terminal late progress返回`false`且Event不变；typed fixtures使用协议类型或`PreviewGitActionCommand`。
+- Verification：`npm run typecheck` exit 0；focused命令`node --test tests/room-service.test.ts tests/execution-core.test.ts tests/claude-runner.test.ts tests/git-controller.test.ts tests/git-controller-cli.test.ts tests/room-mcp.test.ts`为175/175、0 fail；`npm test`为384/384、0 fail/skip/todo。Git diff、文档链接与交付后远端核对在提交前后继续执行。
+- Documentation impact audit：`documentation: updated`。新增完整Accepted Contract，更新文档中心、MVP计划、开发日志与Claude编码指南；公开协议、架构、状态、Schema及运维方式未变，因此`ARCHITECTURE.md`、`ROOM_PROTOCOL.md`与`OPERATIONS.md`保持不变。
 
 ### 2026-09-02 — active v0.3→v0.5 runtime cutover
 

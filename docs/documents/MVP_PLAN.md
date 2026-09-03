@@ -11,6 +11,7 @@
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
 > Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，Increment 10 workflow Room=`ACCEPTED`
+> Increment 14：Contract `Accepted` / candidate `REVIEW_REQUIRED` / branch `codex/increment-14-validation-boundary-ee3cd96`
 
 ## 1. 目标
 
@@ -317,6 +318,16 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 确认拆分：Increment 12先交付Graph/Approval/Scheduler、`per_task` acceptance与existing-worktree dispatch，零Git write；Increment 13再交付managed worktree、三个Git operation和`integration_only`。Accepted v0.4 source先版本化并保持active v0.3，Stage 3使用fresh `0.5-design`并在整体接受后单次cutover。Fix Review 5确认九个失效链接已闭合；派发门禁随后确认原task已存在字段完整的Fix Task 4 `final_answer`，唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受Increment 12，阶段=`ACCEPTED`；accepted source已进入版本化`main`，整体runtime cutover随后于2026-09-02完成。
 
 用户于2026-09-02确认[Increment 13 Git Controller Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)三项推荐及[Increment 13完整Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor的one-shot `room:git` CLI；existing allowlist下的single fast-forward lineage；保持v0.3 active并使用独立Codex worktree task完成candidate。Implementation Review `review-increment-013-codex-001`的四项finding已进入Accepted [Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)，Fix Review 2的三项test/result evidence finding已由Accepted [Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)闭合。Fix Review 3 `review-increment-013-codex-003`无finding、Decision=`approved`；用户已明确最终接受，阶段=`ACCEPTED`。完整accepted source由本次提交进入版本化`main`；GitAction与runtime写入仍未授权。
+
+### 增量 14 — Validation Ownership 与 Internal Invariant Simplification（Candidate）
+
+状态：用户于2026-09-03确认[Increment 14完整Contract](./INCREMENT_14_TASK_CONTRACT.md)并授权独立Codex Coding、单一commit与任务分支push。candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成，当前阶段=`REVIEW_REQUIRED`；尚未Review或接受。
+
+目标：公开协议、SQLite Schema、状态机、权限、CLI/MCP输出及外部失败语义不变；原始输入只在CLI/MCP等真实边界校验，typed内部调用链信任TypeScript、原子生命周期、`BEGIN IMMEDIATE`与SQLite约束。删除内部对象二次Zod parse和public lifecycle不可达分支，简化Attempt settlement与GitAction reservation，并让late progress以`false`表达已知竞争。
+
+非目标：Snapshot性能、Service拆分、Setup/Plugin清理、UI文案、协议/Schema/error code变更、新抽象、fallback、自愈、retry或迁移。
+
+验证：`npm run typecheck`通过；Contract focused suites 175/175通过；`npm test` 384/384通过。最终Git与文档检查在交付提交前后执行。
 
 ## 5. Task Contract 规则
 

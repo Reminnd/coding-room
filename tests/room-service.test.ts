@@ -755,15 +755,15 @@ test('appendAttemptProgress appends a run_attempt_progress event without changin
   assert.equal(service.getAttempt('attempt-1')!.status, 'running');
 });
 
-test('appendAttemptProgress rejects a non-running attempt with no partial write', () => {
+test('appendAttemptProgress returns false for a non-running attempt with no partial write', () => {
   const { service } = makeService();
   toReady(service);
   claim(service);
   settle(service, { status: 'failed', result: null, failure: { code: 'x', message: 'y' }, process_exit_code: 1 });
   const eventsBefore = service.listEvents('room-1').length;
   assert.equal(
-    errCode(() => service.appendAttemptProgress({ attempt_id: 'attempt-1', type: 'assistant', subtype: null, outcome: null }, EXECUTOR)),
-    'validation_failed',
+    service.appendAttemptProgress({ attempt_id: 'attempt-1', type: 'assistant', subtype: null, outcome: null }, EXECUTOR),
+    false,
   );
   assert.equal(service.listEvents('room-1').length, eventsBefore);
 });

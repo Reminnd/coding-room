@@ -383,28 +383,6 @@ test('damaged index propagates Git failure before first-attempt claim, process o
   }
 });
 
-test('a Run without any task rejects with entity_not_found before spawn, artifact or Event', async () => {
-  const { service, db } = makeServiceWithDb();
-  const { fixture } = makeRepo();
-  // 最窄 fixture mutation：删除 Run 引用的唯一 Task，表达 dangling root lineage。正常
-  // public lifecycle 无法产生（Run 只由 submitTask 创建）。
-  db.prepare('DELETE FROM tasks WHERE task_id = ?').run('task-1');
-  const { spawner, invocations } = makeSpawner(new FakeClaudeProcess());
-  const eventsBefore = service.listEvents('room-1').length;
-  try {
-    await assert.rejects(
-      () => runClaude(makeInput(service, fixture, { spawnProcess: spawner })),
-      (err: unknown) => errCode(err) === 'entity_not_found',
-    );
-    assert.equal(invocations.length, 0, 'missing task must not spawn');
-    assert.equal(service.getRun('run-1')!.status, 'ready');
-    assert.equal(service.listEvents('room-1').length, eventsBefore, 'missing task must not append an Event');
-    assert.equal(existsSync(join(fixture, '.agent-room')), false);
-  } finally {
-    rmSync(fixture, { recursive: true, force: true });
-  }
-});
-
 test('new-session success settles review_required with session, exit code, evidence and artifacts', async () => {
   const service = makeService();
   const { fixture } = makeRepo();

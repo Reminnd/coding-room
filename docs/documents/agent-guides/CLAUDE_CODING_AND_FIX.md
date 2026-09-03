@@ -205,3 +205,11 @@ Contract要求真实reservation竞争时，每个contender使用自己的databas
 Worker必须返回结构化outcome与本地external mutation count；主测试聚合后断言exact一个mutation、一个success和Contract冻结的stable loser。完成后关闭Worker connection，用fresh read connection读取race完整public snapshot，并与从同一seed执行一次相同public operation得到的control snapshot比较；只归一化Contract允许的temp path、Event UUID或wall-clock字段。harness必须有bounded timeout、Worker error/non-zero exit处理与fixture cleanup，避免failure变成挂起。
 
 若Contract逐项列出`previewed|approved|succeeded|failed|outcome_unknown`等status的same-ID retry，逐status直接调用public operation并断言stored result、`created=false`、零observer/process/Event与完整snapshot不变；不得以一个terminal case代表全部terminal状态。
+
+## 16. Validation Ownership 与 Internal Invariant
+
+- CLI、MCP、配置文件、SQLite打开、Git和外部process是运行时数据边界；MUST 在这些最外层入口完成Schema、路径、协议版本、process结果及外部事实校验。
+- 边界解析成功后的typed service/repository调用链 MUST 信任具体TypeScript类型，不得重复Zod parse同一对象，也不得以手写字段检查替代已完成的Schema校验。
+- 同一原子命令创建且没有删除API的Task/Run/Attempt/Dispatch关系、事务内刚写入的entity、`BEGIN IMMEDIATE`串行化和SQLite唯一约束属于内部不变量所有者。public lifecycle不可达的关系损坏 MUST 直接暴露为编程错误，不得增加业务错误、fallback、自愈、兼容层或test-only production guard。
+- 真实业务校验仍由对应application boundary拥有，包括authority、状态转换、current Revision、用户确认、幂等ID、scope、canonical worktree及重新观察的Git facts；internal invariant trust不得用于删除这些可达校验。
+- 测试 MUST 在真实CLI/MCP/public lifecycle边界构造输入。不得通过test-owned SQLite mutation构造Contract未要求支持的内部关系损坏，再迫使production保留不可达分支。

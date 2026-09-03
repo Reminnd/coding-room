@@ -22,7 +22,7 @@ import {
   makeRoleAssignment,
   makeTask,
 } from './fixtures.ts';
-import type { TaskGraphRevision, TaskSpec } from '../src/protocol/schema.ts';
+import type { Approval, TaskGraphRevision, TaskSpec } from '../src/protocol/schema.ts';
 import type { ClaimWorkerMessage } from './execution-core-claim-worker.ts';
 
 const T = '2026-09-01T00:00:00.000Z';
@@ -577,7 +577,7 @@ test('assignment replacement keeps the dispatched node worker frozen while a new
 test('Plan, Revision and Approval same-ID retries follow the stored frozen identity', () => {
   const { service, revision } = setup();
   const plan = { plan_id: 'plan-1', room_id: 'room-1', created_by_participant_id: 'codex-app', created_at: T };
-  const approval = { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: T };
+  const approval = { approval_id: 'approval-1', room_id: 'room-1', target_type: 'task_graph_revision', target_id: 'revision-1', decision: 'approved', confirmed_by_user: true, planner_participant_id: 'codex-app', created_at: T } satisfies Approval;
   const planEvents = () => service.listEvents('room-1').filter((event) => event.type === 'plan_created').length;
   const revisionEvents = () => service.listEvents('room-1').filter((event) => event.type === 'task_graph_revision_created').length;
   const approvalEvents = () => service.listEvents('room-1').filter((event) => event.type === 'task_graph_revision_approved').length;

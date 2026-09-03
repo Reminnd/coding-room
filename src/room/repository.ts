@@ -226,8 +226,12 @@ export class RoomRepository {
     this.db
       .prepare('INSERT INTO rooms (room_id, state, created_at, updated_at) VALUES (?, ?, ?, ?)')
       .run(roomId, 'DISCUSSION', createdAt, createdAt);
-    const room = this.getRoom(roomId);
-    if (!room) throw new ProtocolError('entity_not_found', `room ${roomId} missing after create`);
+    const room: RoomRecord = {
+      room_id: roomId,
+      state: 'DISCUSSION',
+      created_at: createdAt,
+      updated_at: createdAt,
+    };
     return { room, created: true };
   }
 
@@ -381,12 +385,6 @@ export class RoomRepository {
     this.db.prepare('UPDATE git_actions SET status = ?, content_json = ? WHERE git_action_id = ?')
       .run(action.status, JSON.stringify(action), action.git_action_id);
   }
-  updateGitActionIfStatus(action: GitAction, expectedStatus: GitAction['status']): boolean {
-    const result = this.db.prepare(
-      'UPDATE git_actions SET status = ?, content_json = ? WHERE git_action_id = ? AND status = ?',
-    ).run(action.status, JSON.stringify(action), action.git_action_id, expectedStatus);
-    return result.changes > 0;
-  }
   listGitActions(roomId: string): GitAction[] {
     return this.listEntitiesByRoom<GitAction>('git_actions', roomId);
   }
@@ -503,9 +501,14 @@ export class RoomRepository {
     return { created: true };
   }
 
-  // 条件更新 attempt：expectedStatus 不匹配（另一 writer 已推进）时返回 false 且零写入。
-  // settle/cancel 的 first-writer-wins 以此为最终 Oracle：winner 先写，loser 的 UPDATE
-  // 命中 0 行后由 service 重新读取并走幂等/id_conflict 判定。
+  updateAttempt(attempt: RunAttempt): void {
+    this.db
+      .prepare('UPDATE run_attempts SET status = ?, content_json = ? WHERE attempt_id = ?')
+      .run(attempt.status, JSON.stringify(attempt), attempt.attempt_id);
+  }
+
+  // Question/cancel 与 Executor settlement 的跨事务竞争使用条件更新；settlement 自身由
+  // BEGIN IMMEDIATE 串行化，不需要在事务内重复 CAS。
   updateAttemptIfStatus(attempt: RunAttempt, expectedStatus: string): boolean {
     const result = this.db
       .prepare(
