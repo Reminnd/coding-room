@@ -165,8 +165,9 @@ export function startClaudeProcess(
       return;
     }
 
-    let settled = false;
+    let promiseSettled = false;
     let stopRequested = false;
+    let pendingCallbackError: ClaudeProcessCallbackError | null = null;
 
     const stopChild = (): void => {
       if (stopRequested) return;
@@ -175,18 +176,15 @@ export function startClaudeProcess(
     };
 
     const rejectStdoutCallback = (cause: unknown): void => {
-      if (settled) return;
-      settled = true;
-      const error = new ClaudeProcessCallbackError('claude', args, input.cwd, cause);
-      try {
-        stopChild();
-      } finally {
-        reject(error);
-      }
+      if (promiseSettled || pendingCallbackError !== null) return;
+      // kill() 仅表示停止请求；必须等待同一 owned child 的 close 后，才能让下游
+      // WorkerAdapter/Executor 读取稳定的 stream、Git 与 Artifact 事实并进行结算。
+      pendingCallbackError = new ClaudeProcessCallbackError('claude', args, input.cwd, cause);
+      stopChild();
     };
 
     const deliverStdoutLine = (line: string): boolean => {
-      if (settled) return false;
+      if (promiseSettled || pendingCallbackError !== null) return false;
       try {
         input.onStdoutLine(line);
         return true;
@@ -213,14 +211,18 @@ export function startClaudeProcess(
     }
 
     child.once('error', (cause) => {
-      if (settled) return;
-      settled = true;
+      if (promiseSettled || pendingCallbackError !== null) return;
+      promiseSettled = true;
       reject(new ClaudeProcessStartError('claude', args, input.cwd, cause));
     });
 
     child.once('close', (exitCode, signal) => {
-      if (settled) return;
-      settled = true;
+      if (promiseSettled) return;
+      promiseSettled = true;
+      if (pendingCallbackError !== null) {
+        reject(pendingCallbackError);
+        return;
+      }
       resolve({ exitCode, signal });
     });
 
@@ -230,7 +232,7 @@ export function startClaudeProcess(
     if (child.stdout) {
       child.stdout.setEncoding('utf8');
       child.stdout.on('data', (chunk: string) => {
-        if (settled) return;
+        if (promiseSettled || pendingCallbackError !== null) return;
         stdoutBuffer += chunk;
         let newlineIndex: number;
         while ((newlineIndex = stdoutBuffer.indexOf('\n')) !== -1) {
@@ -240,7 +242,7 @@ export function startClaudeProcess(
         }
       });
       child.stdout.on('end', () => {
-        if (settled) return;
+        if (promiseSettled || pendingCallbackError !== null) return;
         // JSONL 正常以换行结尾，此处 buffer 应为空；仅在尾行无换行时按 EOF flush。
         if (stdoutBuffer.length > 0) {
           const line = stdoutBuffer;
@@ -263,8 +265,8 @@ export function startClaudeProcess(
     // 复用单次 settlement，之后 close/error event 不得把该结果改写为普通 exit outcome。
     if (child.stdin) {
       child.stdin.on('error', (cause) => {
-        if (settled) return;
-        settled = true;
+        if (promiseSettled || pendingCallbackError !== null) return;
+        promiseSettled = true;
         reject(new ClaudeProcessInputError('claude', args, input.cwd, cause));
       });
       child.stdin.end(input.prompt);

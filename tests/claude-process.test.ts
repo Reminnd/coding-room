@@ -20,12 +20,17 @@ import {
   whenStdinFinished,
 } from './runner-fixtures/claude-process-fake.ts';
 
-class CountingKillClaudeProcess extends FakeClaudeProcess {
+class ManualCloseClaudeProcess extends FakeClaudeProcess {
   killCalls = 0;
 
   override kill(signal?: NodeJS.Signals): boolean {
     this.killCalls += 1;
-    return super.kill(signal);
+    this.killed = signal ?? 'SIGTERM';
+    return true;
+  }
+
+  emitClose(exitCode: number | null, signal: NodeJS.Signals | null): void {
+    this.emit('close', exitCode, signal);
   }
 }
 
@@ -223,12 +228,13 @@ test('stdout frames split lines, multi-line chunks and the final line in order',
   await outcome;
 });
 
-test('newline stdout callback failure rejects once, stops the child once and never escapes the listener', async () => {
-  const child = new CountingKillClaudeProcess();
+test('newline stdout callback failure waits for close, stops the child once and never escapes the listener', async () => {
+  const child = new ManualCloseClaudeProcess();
   const { spawner } = makeSpawner(child);
   const abort = new AbortController();
   const cause = new Error('progress persistence failed');
   const delivered: string[] = [];
+  let completed = false;
   const outcome = startClaudeProcess(
     makeInput({
       onStdoutLine: (line) => {
@@ -239,12 +245,21 @@ test('newline stdout callback failure rejects once, stops the child once and nev
     }),
     spawner,
   );
+  void outcome.then(
+    () => { completed = true; },
+    () => { completed = true; },
+  );
 
-  child.stdout.write('first-line\nsecond-line\n');
-  child.stdout.end();
-  child.stderr.end();
+  child.stdout.write('first-line\nsecond-line\nlate-line\n');
   abort.abort();
-  child.emit('close', 0, null);
+  await Promise.resolve();
+
+  assert.equal(completed, false, 'callback failure must remain pending until child close');
+  assert.deepEqual(delivered, ['first-line']);
+  assert.equal(child.killCalls, 1);
+  assert.equal(child.killed, 'SIGTERM');
+
+  child.emitClose(null, 'SIGTERM');
 
   await assert.rejects(outcome, (err: unknown) => {
     assert.ok(err instanceof ClaudeProcessCallbackError);
@@ -257,10 +272,11 @@ test('newline stdout callback failure rejects once, stops the child once and nev
   assert.equal(child.killed, 'SIGTERM');
 });
 
-test('EOF stdout callback failure rejects through the process Promise and stops the owned child', async () => {
-  const child = new CountingKillClaudeProcess();
+test('EOF stdout callback failure waits for close before rejecting through the process Promise', async () => {
+  const child = new ManualCloseClaudeProcess();
   const { spawner } = makeSpawner(child);
   const cause = new Error('EOF callback marker');
+  let completed = false;
   const outcome = startClaudeProcess(
     makeInput({
       onStdoutLine: () => {
@@ -270,8 +286,19 @@ test('EOF stdout callback failure rejects through the process Promise and stops 
     spawner,
   );
 
+  const stdoutEnded = once(child.stdout, 'end');
   child.stdout.end('tail-without-newline');
-  child.stderr.end();
+  await stdoutEnded;
+  void outcome.then(
+    () => { completed = true; },
+    () => { completed = true; },
+  );
+  await Promise.resolve();
+
+  assert.equal(completed, false, 'EOF callback failure must remain pending until child close');
+  assert.equal(child.killCalls, 1);
+
+  child.emitClose(null, 'SIGTERM');
 
   await assert.rejects(outcome, (err: unknown) => {
     assert.ok(err instanceof ClaudeProcessCallbackError);
@@ -279,7 +306,47 @@ test('EOF stdout callback failure rejects through the process Promise and stops 
     return true;
   });
   assert.equal(child.killCalls, 1);
-  child.emit('close', 0, null);
+});
+
+test('pending stdout callback failure ignores late abort, error, stdout and duplicate close', async () => {
+  const child = new ManualCloseClaudeProcess();
+  const { spawner } = makeSpawner(child);
+  const abort = new AbortController();
+  const cause = new Error('callback failure remains authoritative');
+  const delivered: string[] = [];
+  let completions = 0;
+  const outcome = startClaudeProcess(
+    makeInput({
+      signal: abort.signal,
+      onStdoutLine: (line) => {
+        delivered.push(line);
+        throw cause;
+      },
+    }),
+    spawner,
+  );
+  void outcome.then(
+    () => { completions += 1; },
+    () => { completions += 1; },
+  );
+
+  child.stdout.write('failing-line\n');
+  child.stdout.write('late-line\n');
+  abort.abort();
+  child.emit('error', new Error('late child error'));
+  child.stdin.emit('error', new Error('late stdin error'));
+  await Promise.resolve();
+
+  assert.deepEqual(delivered, ['failing-line']);
+  assert.equal(child.killCalls, 1);
+  assert.equal(completions, 0);
+
+  child.emitClose(null, 'SIGTERM');
+  await assert.rejects(outcome, (err: unknown) => err instanceof ClaudeProcessCallbackError && err.cause === cause);
+  child.emitClose(0, null);
+  await Promise.resolve();
+  assert.equal(completions, 1);
+  assert.equal(child.killCalls, 1);
 });
 
 test('stderr stays separate and is delivered raw without line framing', async () => {

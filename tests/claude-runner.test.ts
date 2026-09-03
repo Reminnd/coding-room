@@ -129,6 +129,20 @@ class ProgressFailureRoomService extends RoomService {
   }
 }
 
+class ManualCloseClaudeProcess extends FakeClaudeProcess {
+  killCalls = 0;
+
+  override kill(signal?: NodeJS.Signals): boolean {
+    this.killCalls += 1;
+    this.killed = signal ?? 'SIGTERM';
+    return true;
+  }
+
+  emitClose(exitCode: number | null, signal: NodeJS.Signals | null): void {
+    this.emit('close', exitCode, signal);
+  }
+}
+
 function makeProgressFailureService(settlementError: Error | null = null): ProgressFailureRoomService {
   const service = new ProgressFailureRoomService(new DatabaseSync(':memory:'), settlementError);
   service.createRoom('room-1', PLANNER);
@@ -310,6 +324,22 @@ function autoSpawner(
   return { spawner, invocations };
 }
 
+function manualCloseSpawner(
+  child: ManualCloseClaudeProcess,
+): { spawner: FakeSpawn; invocations: SpawnInvocation[]; spawned: Promise<void> } {
+  const invocations: SpawnInvocation[] = [];
+  let resolveSpawned: () => void;
+  const spawned = new Promise<void>((resolve) => {
+    resolveSpawned = resolve;
+  });
+  const spawner: FakeSpawn = (command, args, options) => {
+    invocations.push({ command, args, options });
+    resolveSpawned();
+    return child as unknown as ChildProcess;
+  };
+  return { spawner, invocations, spawned };
+}
+
 function errCode(err: unknown): string | null {
   return (err as { code?: string }).code ?? null;
 }
@@ -455,22 +485,40 @@ test('new-session success settles review_required with session, exit code, evide
   }
 });
 
-test('progress persistence failure stops the process and settles interrupted with partial evidence', async () => {
+test('progress callback failure waits for close before collecting evidence and settling interrupted', async () => {
   const service = makeProgressFailureService();
   const { fixture } = makeRepo();
-  const child = new FakeClaudeProcess();
-  const { spawner, invocations } = autoSpawner(child, () => {
-    writeFileSync(join(fixture, 'callback-created.txt'), 'created before callback failure');
-    child.stderr.write('partial stderr before callback failure\n');
-    writeLines(child, [
-      initLine(),
-      line({ type: 'system', subtype: 'hook_started' }),
-      resultLine(),
-    ]);
-    child.emit('close', 0, null);
-  });
+  const child = new ManualCloseClaudeProcess();
+  const { spawner, invocations, spawned } = manualCloseSpawner(child);
   try {
-    const result = await runClaude(makeInput(service, fixture, { spawnProcess: spawner }));
+    const runPromise = runClaude(makeInput(service, fixture, { spawnProcess: spawner }));
+    let completed = false;
+    void runPromise.then(
+      () => { completed = true; },
+      () => { completed = true; },
+    );
+    await spawned;
+    child.stdout.write(`${initLine()}\n${line({ type: 'system', subtype: 'hook_started' })}\n`);
+    child.stdout.write(`${resultLine()}\n`);
+    child.stderr.write('partial stderr before callback failure\n');
+    writeFileSync(join(fixture, 'callback-created.txt'), 'created before callback failure');
+    await Promise.resolve();
+
+    assert.equal(completed, false, 'runClaude must remain pending before the owned child closes');
+    assert.equal(service.settlementCalls, 0, 'terminal settlement must not begin before close');
+    assert.equal(service.getAttempt('attempt-1')?.status, 'running');
+    assert.equal(service.getRun('run-1')?.status, 'running');
+    assert.equal(
+      service.listEvents('room-1').filter((event) => event.type === 'run_attempt_failed' || event.type === 'run_attempt_succeeded').length,
+      0,
+      'no terminal Event may exist before close',
+    );
+    assert.equal(existsSync(join(fixture, '.agent-room', 'artifacts', 'attempt-1')), false, 'artifact must not exist before close');
+    assert.equal(child.killCalls, 1);
+    assert.equal(child.killed, 'SIGTERM');
+
+    child.emitClose(null, 'SIGTERM');
+    const result = await runPromise;
     assertFailure(service, result, 'claude_exit_failed', 'interrupted');
     assert.match(result.attempt.failure?.message ?? '', /injected progress persistence failure/);
     assert.equal(result.attempt.process_exit_code, null);
@@ -482,6 +530,7 @@ test('progress persistence failure stops the process and settles interrupted wit
     });
     assert.equal(invocations.length, 1, 'callback failure must not restart the process');
     assert.equal(child.killed, 'SIGTERM', 'the owned child must receive a stop request');
+    assert.equal(child.killCalls, 1);
     assert.equal(service.progressFailures, 1);
     assert.equal(service.settlementCalls, 1);
     assert.equal(
@@ -499,22 +548,41 @@ test('progress persistence failure stops the process and settles interrupted wit
   }
 });
 
-test('progress callback settlement failure rejects the real error without retrying settlement', async () => {
+test('progress callback settlement failure occurs only after close and is not retried', async () => {
   const settlementError = new Error('injected terminal settlement failure');
   const service = makeProgressFailureService(settlementError);
   const { fixture } = makeRepo();
-  const child = new FakeClaudeProcess();
-  const { spawner, invocations } = autoSpawner(child, () => {
-    writeLines(child, [initLine(), line({ type: 'system', subtype: 'hook_started' })]);
-    child.emit('close', 0, null);
-  });
+  const child = new ManualCloseClaudeProcess();
+  const { spawner, invocations, spawned } = manualCloseSpawner(child);
   try {
+    const runPromise = runClaude(makeInput(service, fixture, { spawnProcess: spawner }));
+    let completed = false;
+    void runPromise.then(
+      () => { completed = true; },
+      () => { completed = true; },
+    );
+    await spawned;
+    child.stdout.write(`${initLine()}\n${line({ type: 'system', subtype: 'hook_started' })}\n`);
+    await Promise.resolve();
+
+    assert.equal(completed, false, 'settlement error path must remain pending before close');
+    assert.equal(service.settlementCalls, 0);
+    assert.equal(service.getAttempt('attempt-1')?.status, 'running');
+    assert.equal(service.getRun('run-1')?.status, 'running');
+    assert.equal(existsSync(join(fixture, '.agent-room', 'artifacts', 'attempt-1')), false);
+    assert.equal(
+      service.listEvents('room-1').filter((event) => event.type === 'run_attempt_failed' || event.type === 'run_attempt_succeeded').length,
+      0,
+    );
+
+    child.emitClose(null, 'SIGTERM');
     await assert.rejects(
-      () => runClaude(makeInput(service, fixture, { spawnProcess: spawner })),
+      () => runPromise,
       (err: unknown) => err === settlementError,
     );
     assert.equal(invocations.length, 1);
     assert.equal(child.killed, 'SIGTERM');
+    assert.equal(child.killCalls, 1);
     assert.equal(service.settlementCalls, 1, 'terminal settlement must not be retried');
     assert.equal(service.getAttempt('attempt-1')?.status, 'running');
     assert.equal(service.getRun('run-1')?.status, 'running');

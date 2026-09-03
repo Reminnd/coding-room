@@ -3,14 +3,22 @@
 ## 当前状态
 
 - 日期：2026-09-03
-- 项目阶段：Increment 14 Fix Task 1 candidate=`REVIEW_REQUIRED`；Increment 13及此前能力保持`ACCEPTED`，active v0.5 runtime未变化
+- 项目阶段：Increment 14 Fix Task 2 candidate=`REVIEW_REQUIRED`；Increment 13及此前能力保持`ACCEPTED`，active v0.5 runtime未变化
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–13 accepted source已进入版本化`main`；active runtime/database/binding现为protocol `0.5-design`
-- Implementation/Fix Task：[Increment 14 Task Contract](./INCREMENT_14_TASK_CONTRACT.md)与[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)均为`Accepted`、`confirmed_by_user=true`；Fix candidate Coding与验证已完成，等待GitHub Fix Review
+- Implementation/Fix Task：[Increment 14 Task Contract](./INCREMENT_14_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_14_FIX_TASK_2.md)均为`Accepted`、`confirmed_by_user=true`；Fix 2 Coding与验证已完成，等待GitHub Fix Review 3
 - Previous Increment：Increment 1–11均已接受并进入版本化`main`
 - 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环；active project binding指向`room-v0.5.sqlite`与新Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`
-- Git repository：原candidate=`origin/codex/increment-14-validation-boundary-ee3cd96@41496df6b37d40d871460f1164dacaade37e1c3d`；Fix branch=`codex/increment-14-fix-1-progress-settlement-41496df`；固定提交信息=`fix(runner): close increment 14 review findings`，按Contract完成单一提交与首次push后交付Review
+- Git repository：原candidate=`origin/codex/increment-14-validation-boundary-ee3cd96@41496df6b37d40d871460f1164dacaade37e1c3d`；Fix 1=`origin/codex/increment-14-fix-1-progress-settlement-41496df@f95c63c02817115d1ded566e3032a4c0d32cd085`；Fix 2 branch=`codex/increment-14-fix-2-process-close-f95c63c`，固定提交信息=`fix(runner): wait for process close before settlement`
 
 ## 已完成
+
+### 2026-09-03 — Increment 14 Fix Task 2 candidate
+
+- Accepted [Fix Task 2](./INCREMENT_14_FIX_TASK_2.md)仅闭合`inc14-fr2-process-close-before-settlement`：stdout callback throw建立唯一pending `ClaudeProcessCallbackError`并请求一次owned child stop；`startClaudeProcess`保持pending到同一child的`close`，close后才返回原始typed error。`worker-adapter.ts`与`executor.ts`既有的adapter完成后再收集Git/Artifact并settle的顺序正确，未作形式性生产修改。
+- production只修改`src/runner/claude-process.ts`；测试在`tests/claude-process.test.ts`和`tests/claude-runner.test.ts`使用local manual-close fake，默认Fake时序和Fix 1独立连接并发Oracle保持不变。newline、EOF tail、late abort/error/duplicate close均不能覆盖pending callback error或触发第二次kill；stderr继续收集至close。
+- Runner public-path在close前直接断言Promise未完成、`settlementCalls=0`、Run/Attempt=`running`、零terminal Event和零Artifact；close后断言一次`interrupted`/`failed`结算、`claude_exit_failed`原始diagnostic、`process_exit_code=null`、close前stderr和worktree evidence进入Artifact/Git evidence。settlement failure同样只在close后一次调用且原样传播。
+- Verification：`npm run typecheck`通过；`tests/claude-process.test.ts`与`tests/claude-runner.test.ts`为71/71；`tests/execution-core.test.ts`为11/11；Room/Runner CLI/MCP为123/123；Git Controller/CLI为9/9；`npm test`为391/391，均为0 fail/skip/todo。`git diff --check`、Markdown relative-link和merge-marker检查待单一提交前最终复核。
+- Documentation impact audit：`documentation: updated`。新增完整Accepted Fix Contract并同步文档中心、MVP计划、Project Rules与本日志；Fix 2保持Candidate `REVIEW_REQUIRED`，未声称approved、accepted、进入`main`或active runtime。
 
 ### 2026-09-03 — Increment 14 Fix Task 1 candidate
 

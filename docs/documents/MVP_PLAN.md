@@ -11,7 +11,7 @@
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
 > Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，Increment 10 workflow Room=`ACCEPTED`
-> Increment 14：Contract与Fix Task 1均为`Accepted` / Fix candidate `REVIEW_REQUIRED` / branch `codex/increment-14-fix-1-progress-settlement-41496df`
+> Increment 14：Contract与Fix Task 1/2均为`Accepted` / Fix candidate `REVIEW_REQUIRED` / branch `codex/increment-14-fix-2-process-close-f95c63c`
 
 ## 1. 目标
 
@@ -321,7 +321,7 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 
 ### 增量 14 — Validation Ownership 与 Internal Invariant Simplification（Candidate）
 
-状态：用户于2026-09-03确认[Increment 14完整Contract](./INCREMENT_14_TASK_CONTRACT.md)并授权独立Codex Coding、单一commit与任务分支push。原candidate从`start_head=ee3cd96315ed0c14220692c3bc92d6ecaff7430a`形成；Review确认stdout progress callback异常未进入terminal settlement、以及same-attempt terminal race缺少真实并发证据两项finding。用户已确认[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)，Fix candidate从原candidate commit `41496df6b37d40d871460f1164dacaade37e1c3d`形成于`codex/increment-14-fix-1-progress-settlement-41496df`，当前阶段仍为`REVIEW_REQUIRED`；尚未完成GitHub Fix Review或用户接受。
+状态：用户于2026-09-03确认[Increment 14完整Contract](./INCREMENT_14_TASK_CONTRACT.md)及[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_14_FIX_TASK_2.md)。Fix 2从Fix 1提交`f95c63c02817115d1ded566e3032a4c0d32cd085`形成于`codex/increment-14-fix-2-process-close-f95c63c`；callback failure先保存typed error、停止stdout并请求一次stop，只有owned child `close`才完成Promise，随后才收集Git/Artifact并按既有`interrupted`语义结算。direct manual-close Oracle覆盖newline、EOF、late signal、close前零settlement与close后单次结算；typecheck、focused suites和全量`npm test`均通过。当前阶段仍为`REVIEW_REQUIRED`，下一步为GitHub Fix Review 3；尚未用户接受或进入`main`。
 
 目标：公开协议、SQLite Schema、状态机、权限、CLI/MCP输出及外部失败语义不变；原始输入只在CLI/MCP等真实边界校验，typed内部调用链信任TypeScript、原子生命周期、`BEGIN IMMEDIATE`与SQLite约束。删除内部对象二次Zod parse和public lifecycle不可达分支，简化Attempt settlement与GitAction reservation，并让late progress以`false`表达已知竞争。
 
