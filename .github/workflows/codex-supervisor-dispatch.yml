@@ -3,7 +3,7 @@ name: Codex supervisor dispatch
 on:
   push:
     branches:
-      - stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot
+      - "stage/**"
   repository_dispatch:
     types:
       - stage_candidate_ready
@@ -26,11 +26,26 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+      - id: stage
+        name: Parse Stage branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS='/' read -r -a branch_parts <<<"$GITHUB_REF_NAME"
+          [[ "${#branch_parts[@]}" -eq 3 ]]
+          [[ "${branch_parts[0]}" == "stage" ]]
+          [[ -n "${branch_parts[1]}" ]]
+          [[ -n "${branch_parts[2]}" ]]
+          {
+            echo "workflow_id=${branch_parts[1]}"
+            echo "stage_id=${branch_parts[2]}"
+            echo "router_path=docs/work/${branch_parts[1]}/stages/${branch_parts[2]}/ROUTER_CONTRACT.md"
+          } >> "$GITHUB_OUTPUT"
       - id: invalidate
         name: Create Draft Stage PR and invalidate stale readiness
         env:
           GH_TOKEN: ${{ github.token }}
-          ROUTER_PATH: docs/work/wf-increment-015-github-workflow-foundation/stages/S01-foundation-pilot/ROUTER_CONTRACT.md
+          ROUTER_PATH: ${{ steps.stage.outputs.router_path }}
         shell: bash
         run: |
           set -euo pipefail
@@ -53,12 +68,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - id: router
         env:
-          ROUTER_PATH: docs/work/wf-increment-015-github-workflow-foundation/stages/S01-foundation-pilot/ROUTER_CONTRACT.md
+          ROUTER_PATH: ${{ steps.stage.outputs.router_path }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id }}
+          WORKFLOW_ID: ${{ steps.stage.outputs.workflow_id }}
         shell: bash
         run: |
           set -euo pipefail
           normalized="$(node .github/scripts/read-router-contract.mjs "$ROUTER_PATH")"
           [[ "$(jq -r .repository <<<"$normalized")" == "$GITHUB_REPOSITORY" ]]
+          [[ "$(jq -r .workflow_id <<<"$normalized")" == "$WORKFLOW_ID" ]]
+          [[ "$(jq -r .stage_id <<<"$normalized")" == "$STAGE_ID" ]]
           [[ "$(jq -r .stage_branch <<<"$normalized")" == "$GITHUB_REF_NAME" ]]
           {
             echo "json=$normalized"
