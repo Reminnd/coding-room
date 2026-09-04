@@ -4,18 +4,18 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CodexLauncher } from './codex.mjs';
 import { BridgeController } from './controller.mjs';
-import { BridgeError } from './errors.mjs';
+import { BridgeError, needsDecision } from './errors.mjs';
 import { GitRepository, defaultWorktreeRoot } from './git.mjs';
 import { GitHubClient } from './github.mjs';
 import { inspectCodexCapability } from './model-router.mjs';
 
 function usage() {
-  return 'usage: node tools/codex-github-bridge/cli.mjs <start|run-once> [--repository OWNER/REPO] [--repository-path PATH] [--worktree-root PATH] [--gh-bin PATH] [--codex-bin PATH]';
+  return 'usage: node tools/codex-github-bridge/cli.mjs <bootstrap|start|run-once> [--repository OWNER/REPO] [--repository-path PATH] [--worktree-root PATH] [--gh-bin PATH] [--codex-bin PATH]';
 }
 
 export function parseArgs(argv) {
   const [mode, ...rest] = argv;
-  if (!['start', 'run-once'].includes(mode)) throw new Error(usage());
+  if (!['bootstrap', 'start', 'run-once'].includes(mode)) throw new Error(usage());
   const options = { mode };
   for (let index = 0; index < rest.length; index += 1) {
     const key = rest[index];
@@ -51,10 +51,25 @@ export async function main(argv = process.argv.slice(2), dependencies = {}) {
   const repositoryRoot = resolve(options.repositoryPath ?? process.cwd());
   const worktreeRoot = resolve(options.worktreeRoot ?? defaultWorktreeRoot(repositoryRoot));
   const github = dependencies.github ?? new GitHubClient({ ghBin: options.ghBin ?? 'gh' });
+  const writeOutput = dependencies.writeOutput ?? ((value) => process.stdout.write(value));
+  const git = dependencies.git ?? new GitRepository({ repositoryRoot, worktreeRoot });
+  try {
+    await git.repositoryOrigin();
+  } catch (error) {
+    throw needsDecision(`local repository/origin prerequisite failed: ${error.message}`);
+  }
   const repository = options.repository ?? await github.currentRepository(repositoryRoot);
+  if (options.repository) await github.assertRepositoryAccess(repository, repositoryRoot);
+
+  if (options.mode === 'bootstrap') {
+    const result = await github.bootstrapActions(repository);
+    writeOutput(`${JSON.stringify(result)}\n`);
+    return result;
+  }
+
+  await github.assertActionsReady(repository);
   const codexBin = await resolveCodexExecutable(options.codexBin);
   const capability = dependencies.capability ?? await inspectCodexCapability({ codexBin });
-  const git = dependencies.git ?? new GitRepository({ repositoryRoot, worktreeRoot });
   const launcher = dependencies.launcher ?? new CodexLauncher({ codexBin });
   const controller = dependencies.controller ?? new BridgeController({
     repository,
@@ -66,7 +81,7 @@ export async function main(argv = process.argv.slice(2), dependencies = {}) {
     capability,
   });
   const result = await controller.run(options.mode);
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  writeOutput(`${JSON.stringify(result)}\n`);
   return result;
 }
 

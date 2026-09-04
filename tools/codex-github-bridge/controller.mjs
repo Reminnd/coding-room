@@ -5,6 +5,7 @@ import { latestTaskStates } from './github.mjs';
 import { loadRouter } from './router-loader.mjs';
 import { resolveModel } from './model-router.mjs';
 import { runOnceSchedule, runStartSchedule } from './scheduler.mjs';
+import { assertOwnedFiles } from './scope.mjs';
 import { runSupervisor } from './supervisor.mjs';
 import { runVerification } from './verification.mjs';
 
@@ -68,6 +69,9 @@ export class BridgeController {
     requireHandoff(stage.handoff, this.repository);
 
     const actualStageSha = await this.git.fetchStage(stage.handoff.stage_branch);
+    if (stage.handoff.stage_head_sha !== actualStageSha) {
+      throw needsDecision(`dispatch handoff Stage head ${stage.handoff.stage_head_sha} does not match actual remote Stage ${actualStageSha}`);
+    }
     if (stage.prHeadSha !== actualStageSha) {
       throw needsDecision(`Stage PR head ${stage.prHeadSha} does not match actual remote Stage ${actualStageSha}`);
     }
@@ -87,10 +91,43 @@ export class BridgeController {
     const workflowId = validateRouterHandoff(router, stage.handoff);
     if (stage.prHeadBranch !== router.stage_branch) throw needsDecision('Stage PR head branch does not match Router stage_branch');
 
-    const state = latestTaskStates(stage.events);
+    const state = latestTaskStates(stage.events, {
+      repository: this.repository,
+      workflow_id: workflowId,
+      stage_id: router.stage_id,
+      stage_branch: router.stage_branch,
+      tasks: router.tasks,
+    });
     for (const task of router.tasks) if (!state.states.has(task.task_id)) state.states.set(task.task_id, 'not_started');
+    for (const task of router.tasks) {
+      if (state.states.get(task.task_id) !== 'integrated') continue;
+      await this.revalidateRecoveredIntegration(task, state.mappings.get(task.task_id), actualStageSha, stageWorktree);
+    }
     this.context = { stage, router, workflowId, stageWorktree, ...state };
     return this.context;
+  }
+
+  async revalidateRecoveredIntegration(task, mapping, actualStageSha, stageWorktree) {
+    try {
+      if (typeof mapping?.source_task_sha !== 'string' || mapping.source_task_sha.length === 0
+        || typeof mapping?.stage_commit_sha !== 'string' || mapping.stage_commit_sha.length === 0) {
+        throw new Error('recorded source_task_sha or stage_commit_sha is missing');
+      }
+      const remoteTaskSha = await this.git.remoteBranchHead(task.task_branch, stageWorktree);
+      if (remoteTaskSha !== mapping?.source_task_sha) {
+        throw new Error(`remote Task head ${remoteTaskSha ?? '<missing>'} does not match recorded source ${mapping?.source_task_sha ?? '<missing>'}`);
+      }
+      if (!await this.git.commitExists(mapping.stage_commit_sha, stageWorktree)) {
+        throw new Error(`recorded Stage commit does not exist: ${mapping.stage_commit_sha}`);
+      }
+      if (!await this.git.isAncestor(mapping.stage_commit_sha, actualStageSha, stageWorktree)) {
+        throw new Error(`recorded Stage commit ${mapping.stage_commit_sha} is not an ancestor of ${actualStageSha}`);
+      }
+      const changedFiles = await this.git.changedFiles(mapping.stage_commit_sha, stageWorktree);
+      assertOwnedFiles(task, changedFiles);
+    } catch (error) {
+      throw needsDecision(`recovered integration for ${task.task_id} does not match current Git facts: ${error.message}`);
+    }
   }
 
   async publish(task, status, facts = {}) {
