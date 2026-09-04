@@ -16,7 +16,7 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Post trigger-only Codex comment
+      - name: Ask Codex to push one isolated test file
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -26,4 +26,4 @@ jobs:
           set -euo pipefail
           pr_number="$(gh pr list --repo "$GH_REPO" --head "$HEAD_BRANCH" --state open --json number --jq '.[0].number')"
           test -n "$pr_number"
-          gh pr comment "$pr_number" --repo "$GH_REPO" --body '@codex Reply with exactly: CODEX_TRIGGER_SPIKE_ACK. Do not modify files, do not review, do not push, and do not merge. This is a trigger-only connectivity test.'
+          gh pr comment "$pr_number" --repo "$GH_REPO" --body '@codex Create or replace only `.github/codex-cloud-push-spike.txt` with exactly two lines: `status: pushback-ok` and `source: codex-cloud`. Commit and push that single-file change to this PR current head branch. Do not modify any other file, do not review, and do not merge.'
