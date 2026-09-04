@@ -22,6 +22,10 @@ Do not use the legacy task-scoped `T01-room-status-help/ROUTER_CONTRACT.md` as a
 
 Git SHA values are runtime facts. Never trust a model-reported SHA when Git can be queried directly.
 
+GitHub comments are the durable Bridge handoff input. Recovery selects the current task state by the current dispatch identity; a recovered `task_integrated` mapping is trusted only after revalidating the remote Task SHA, Stage commit existence and ancestry, and current ownership. Any inconsistency is `needs_decision`; recovery never auto-repairs or replays.
+
+Repository lifecycle is `repository discovery → explicit codex-github-bridge bootstrap → Repository Ready → create/push a new Stage Router/branch → Actions dispatch → normal Local Bridge execution`. Bootstrap is idempotent and may change only missing required repository Actions settings. Normal `start` and `run-once` perform read-only prerequisite checks and never invoke bootstrap as a silent fallback.
+
 ## 3. Frozen execution rules
 
 - primary execution surface: Local Codex
@@ -221,7 +225,7 @@ The Stage is `candidate_ready` only when every required Router task:
 - has a recorded source-task → Stage-commit mapping,
 - and there is no `blocked` or `needs_decision` task.
 
-At that point hand control to GitHub Actions mechanical Stage verification. Do not mark the PR formally approved and do not write `main`.
+At that point hand control to the single existing `stage/**` GitHub Actions workflow for mechanical Stage verification. Its `stage/<workflow_id>/<stage_id>` branch determines `workflow_id`, `stage_id`, and Router path; normalized Router identity must equal the GitHub event facts. Existing stale-readiness and exact-head gates remain. Do not mark the PR formally approved and do not write `main`.
 
 ## 13. Current migration initial Ready Set
 

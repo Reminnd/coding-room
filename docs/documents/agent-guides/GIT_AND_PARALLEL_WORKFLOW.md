@@ -4,6 +4,8 @@
 
 Local Bridge owns discovery, dependency-DAG/Ready-Set scheduling, independent worktrees, task-branch Git facts, task push and controlled task-to-Stage cherry-pick. Model policy and reasoning effort are immutable dispatch facts. Integration MUST stop on conflict; it never rebases or auto-resolves. Stage verification records the exact head and invalidates Ready for Review after any Stage change. Stage-to-main is a non-force fast-forward of the exact user-accepted Stage SHA.
 
+Repository lifecycle is `discovery → explicit codex-github-bridge bootstrap → Repository Ready → create/push Stage Router/branch → single existing stage-generic Actions workflow → normal Local Bridge execution`. Bootstrap is idempotent and changes only missing required repository Actions settings. Normal `start`/`run-once` perform read-only prerequisite checks and never silently bootstrap. Recovery uses durable GitHub comments, current dispatch identity, and minimum Git revalidation: remote Task SHA, Stage commit existence/ancestry, and current ownership are all required; inconsistency becomes `needs_decision`, never automatic repair or replay.
+
 > 状态：Current  
 > Reader：Codex / Claude Code（只读取与自身角色相关部分）  
 > Trigger：baseline、branch、worktree、并行 Task、integration、commit 或其他 Git 写操作
@@ -61,3 +63,5 @@ Claude Code 不执行角色契约或 Increment 自动提交，不预先 stage，
 ## GitHub Stage integration路线（Current）
 
 项目开发采用Stage integration + logical Task branch/worktree；logical Task是默认调度单元，不再把Subtask作为Current默认路径。GitHub持久化Plan、Contract、commit、branch、PR、Check与Review交接。最终main集成只允许exact `accepted_head_sha`的non-force fast-forward；不得自动rebase、解冲突、force push或创建integration merge commit，真实Git失败立即停止。ChatGPT fixed Chat正式Review后若immutable reviewed SHA不变，最终FF后不重复Review。Supervisor不得approve或merge；Fix始终需要用户确认。
+
+The Stage-generic Actions path uses one existing `stage/**` workflow. For `stage/<workflow_id>/<stage_id>`, `workflow_id`, `stage_id`, and Router path are derived deterministically from the actual Stage branch; normalized Router identity MUST equal the GitHub event facts, while stale-readiness and exact-head gates remain. `main` is the exact source already accepted by the user; fixed Chat is the sole formal Review Authority, task candidates are never formally approved at Task level, and user exact-SHA acceptance precedes the non-force fast-forward to `main`.
