@@ -1,5 +1,9 @@
 # Git、并行 Worktree 与 Integration 指南
 
+## Current Local Parallel control plane
+
+Local Bridge owns discovery, dependency-DAG/Ready-Set scheduling, independent worktrees, task-branch Git facts, task push and controlled task-to-Stage cherry-pick. Model policy and reasoning effort are immutable dispatch facts. Integration MUST stop on conflict; it never rebases or auto-resolves. Stage verification records the exact head and invalidates Ready for Review after any Stage change. Stage-to-main is a non-force fast-forward of the exact user-accepted Stage SHA.
+
 > 状态：Current  
 > Reader：Codex / Claude Code（只读取与自身角色相关部分）  
 > Trigger：baseline、branch、worktree、并行 Task、integration、commit 或其他 Git 写操作
@@ -56,4 +60,4 @@ Claude Code 不执行角色契约或 Increment 自动提交，不预先 stage，
 
 ## GitHub Stage integration路线（Current）
 
-项目开发采用Stage integration + Task/Subtask branch；单写入Task不拆Subtask。GitHub持久化Plan、Contract、commit、branch、PR、Check与Review交接。最终main集成只允许exact `accepted_head_sha`的non-force fast-forward；不得自动rebase、解冲突、force push或创建integration merge commit，真实Git失败立即停止。ChatGPT fixed Chat正式Review后若immutable reviewed SHA不变，最终FF后不重复Review。Supervisor不得approve或merge；Fix始终需要用户确认。
+项目开发采用Stage integration + logical Task branch/worktree；logical Task是默认调度单元，不再把Subtask作为Current默认路径。GitHub持久化Plan、Contract、commit、branch、PR、Check与Review交接。最终main集成只允许exact `accepted_head_sha`的non-force fast-forward；不得自动rebase、解冲突、force push或创建integration merge commit，真实Git失败立即停止。ChatGPT fixed Chat正式Review后若immutable reviewed SHA不变，最终FF后不重复Review。Supervisor不得approve或merge；Fix始终需要用户确认。

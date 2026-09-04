@@ -105,11 +105,12 @@
 | [Increment 13](./INCREMENT_13_TASK_CONTRACT.md) | Accepted | typed GitAction、fixed-actor one-shot Git Controller与single-lineage `integration_only`完整Contract |
 | [Increment 13 Fix 1](./INCREMENT_13_FIX_TASK_1.md) | Accepted | 修复preview idempotency、settlement crash gap、lineage predecessor与two-connection evidence |
 | [Increment 13 Fix 2](./INCREMENT_13_FIX_TASK_2.md) | Accepted | 补齐simultaneous reservation、`failed` preview retry与结构化Coding Result证据 |
-| [Stage 4 GitHub/Chat Architecture Review](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | Approved / User Confirmed | Codex | GitHub控制面与fixed Chat Review Authority |
-| [Stage 4 No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | Approved / User Confirmed | Codex | Codex Cloud且Actions不运行LLM |
+| [Stage 4 GitHub/Chat Architecture Review](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | Superseded | Codex | 历史控制面证据 |
+| [Stage 4 No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | Superseded | Codex | 历史 No-API-Key 边界 |
+| [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | Current | Codex | Local Codex、Local Bridge、DAG/Ready Set |
 | [Increment 15 Revision 2](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Accepted / PLAN_READY | Codex | GitHub Supervisor foundation与Pilot冻结 |
 | [Chat/GitHub Review Guide](./agent-guides/CHAT_GITHUB_REVIEW.md) | Current | Codex | 正式PR Review与集成门禁 |
-| [Codex Supervisor Router Guide](./agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Current | Codex | Router到Codex Cloud派发 |
+| [Codex Supervisor Router Guide](./agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Superseded | Codex | 历史 Cloud Router |
 | [Increment 14](./INCREMENT_14_TASK_CONTRACT.md) | accepted_and_integrated (`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`) | 收敛validation ownership、删除不可达内部分支并简化Attempt/GitAction事务 |
 | [Increment 14 Fix Task 1](./INCREMENT_14_FIX_TASK_1.md) | Accepted / integrated history | 修复stdout progress callback异常结算链并补真实并发terminal settlement证据 |
 | [Increment 14 Fix Task 2](./INCREMENT_14_FIX_TASK_2.md) | Accepted / integrated history | 等待owned child `close`后再收集证据并结算callback failure |
