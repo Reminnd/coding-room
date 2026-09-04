@@ -46,6 +46,12 @@ export class GitRepository {
     return this.output(['status', '--porcelain=v1', '--untracked-files=all'], cwd);
   }
 
+  async repositoryOrigin() {
+    const inside = await this.output(['rev-parse', '--is-inside-work-tree']);
+    if (inside !== 'true') throw new Error(`not a Git working tree: ${this.repositoryRoot}`);
+    return this.output(['remote', 'get-url', 'origin']);
+  }
+
   async branchExists(branch) {
     const result = await this.run('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], { cwd: this.repositoryRoot });
     return result.exitCode === 0;
@@ -54,6 +60,29 @@ export class GitRepository {
   async fetchStage(stageBranch) {
     await this.git(['fetch', 'origin', `refs/heads/${stageBranch}:refs/remotes/origin/${stageBranch}`]);
     return this.output(['rev-parse', `refs/remotes/origin/${stageBranch}`]);
+  }
+
+  async remoteBranchHead(branch, cwd = this.repositoryRoot) {
+    const ref = `refs/heads/${branch}`;
+    const output = await this.output(['ls-remote', '--refs', 'origin', ref], cwd);
+    if (output === '') return null;
+    const fields = output.split(/\s+/).filter(Boolean);
+    return fields.length === 2 && fields[1] === ref ? fields[0] : null;
+  }
+
+  async commitExists(commitSha, cwd = this.repositoryRoot) {
+    const result = await this.run('git', ['cat-file', '-e', `${commitSha}^{commit}`], { cwd });
+    return result.exitCode === 0 && !result.error;
+  }
+
+  async isAncestor(ancestorSha, descendantSha, cwd = this.repositoryRoot) {
+    const result = await this.run('git', ['merge-base', '--is-ancestor', ancestorSha, descendantSha], { cwd });
+    return result.exitCode === 0 && !result.error;
+  }
+
+  async changedFiles(commitSha, cwd = this.repositoryRoot) {
+    const output = await this.output(['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', commitSha], cwd);
+    return output ? output.split(/\r?\n/).filter(Boolean) : [];
   }
 
   async ensureStageWorktree(stageBranch) {

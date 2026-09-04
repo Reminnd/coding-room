@@ -61,6 +61,7 @@ test('collects actual Git facts, gates owned files, and records cherry-pick mapp
       return runProcess(command, args, options);
     };
     const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees, run });
+    assert.equal(await repository.repositoryOrigin(), data.remote);
     const selected = task('A', 'task/test/A');
     const worktree = await repository.ensureTaskWorktree(selected, data.baseSha);
     git(worktree, 'config', 'user.email', 'bridge@example.test');
@@ -83,9 +84,16 @@ test('collects actual Git facts, gates owned files, and records cherry-pick mapp
     assert.equal(git(data.repository, 'rev-parse', `${integration.stageCommitSha}^`), data.baseSha);
     assert.equal(git(data.owner, '--git-dir', data.remote, 'rev-parse', 'refs/heads/task/test/A'), facts.taskHeadSha);
     assert.equal(git(data.owner, '--git-dir', data.remote, 'rev-parse', 'refs/heads/stage/test'), integration.stageCommitSha);
+    assert.equal(await repository.remoteBranchHead('task/test/A'), facts.taskHeadSha);
+    assert.equal(await repository.commitExists(integration.stageCommitSha), true);
+    assert.equal(await repository.commitExists('0000000000000000000000000000000000000000'), false);
+    assert.equal(await repository.isAncestor(integration.stageCommitSha, integration.stageCommitSha), true);
+    assert.equal(await repository.isAncestor(facts.taskHeadSha, integration.stageCommitSha), false);
+    assert.deepEqual(await repository.changedFiles(integration.stageCommitSha), ['owned/result.txt']);
     assert.deepEqual(remoteReads, [
       ['ls-remote', '--refs', 'origin', 'refs/heads/task/test/A'],
       ['ls-remote', '--refs', 'origin', 'refs/heads/stage/test'],
+      ['ls-remote', '--refs', 'origin', 'refs/heads/task/test/A'],
     ]);
   } finally {
     await rm(data.owner, { recursive: true, force: true });
