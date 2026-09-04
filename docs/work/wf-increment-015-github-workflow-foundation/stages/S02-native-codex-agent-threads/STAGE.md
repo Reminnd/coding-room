@@ -1,7 +1,7 @@
 # STAGE — S02-native-codex-agent-threads
 
 - work_id: `wf-increment-015-github-workflow-foundation`
-- status: `waiting_for_T05_contract_acceptance`
+- status: `waiting_for_T05_run_once_authorization`
 - purpose: `adopt_codex_native_task_thread_backend`
 - goal: 将 Local Bridge 的 Implementation Worker backend 从一次性 `codex exec` process 切换为一个 Ready Task 对应一个 Codex native task thread，并保持既有 GitHub/Git、DAG、worktree、integration 与 Review authority 不变。
 - main_base_sha: `bd41ea8a1e259300241a345a659e7da90e24af0d`

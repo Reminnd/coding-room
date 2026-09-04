@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Draft
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: T05-native-codex-thread-backend
 type: Implementation Task
 model_policy: coding_strong
