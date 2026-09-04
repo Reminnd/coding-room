@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot
+  repository_dispatch:
+    types:
+      - stage_candidate_ready
 
 permissions:
   contents: read
@@ -11,140 +14,188 @@ permissions:
   issues: write
 
 concurrency:
-  group: codex-supervisor-${{ github.ref }}
+  group: codex-supervisor-stage-${{ github.event_name == 'push' && github.ref_name || github.event.client_payload.stage_branch }}
   cancel-in-progress: false
 
 jobs:
-  classify:
+  publish-dispatch-ready:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    outputs:
-      router_changed: ${{ steps.changes.outputs.router_changed }}
-      pilot_changed: ${{ steps.changes.outputs.pilot_changed }}
-      router_path: ${{ steps.changes.outputs.router_path }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 2
-      - id: changes
+          fetch-depth: 0
+      - id: invalidate
+        name: Create Draft Stage PR and invalidate stale readiness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROUTER_PATH: docs/work/wf-increment-015-github-workflow-foundation/stages/S01-foundation-pilot/ROUTER_CONTRACT.md
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t changed < <(git diff-tree --no-commit-id --name-only -r "${GITHUB_SHA}^" "$GITHUB_SHA")
-          mapfile -t routers < <(printf '%s\n' "${changed[@]}" | sed -n '/\/ROUTER_CONTRACT\.md$/p')
-          if (( ${#routers[@]} > 1 )); then
-            echo "Expected at most one Router change in the tip commit" >&2
-            exit 1
-          fi
-          if (( ${#routers[@]} == 1 )); then
-            echo "router_changed=true" >> "$GITHUB_OUTPUT"
-            echo "router_path=${routers[0]}" >> "$GITHUB_OUTPUT"
-          else
-            echo "router_changed=false" >> "$GITHUB_OUTPUT"
-          fi
-          if printf '%s\n' "${changed[@]}" | grep -Eq '^(src/cli/status\.ts|tests/status-cli\.test\.ts)$'; then
-            echo "pilot_changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "pilot_changed=false" >> "$GITHUB_OUTPUT"
+          pr_number="$(gh pr list --base main --head "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            pr_url="$(gh pr create --draft --base main --head "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --body "Stage integration PR for the accepted Router Contract at \`$ROUTER_PATH\`.")"
+            pr_number="$(gh pr view "$pr_url" --json number --jq .number)"
           fi
 
-  dispatch:
-    needs: classify
-    if: needs.classify.outputs.router_changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
+          pr_json="$(gh pr view "$pr_number" --json isDraft,labels,url)"
+          if [[ "$(jq -r .isDraft <<<"$pr_json")" != "true" ]]; then
+            gh pr ready "$pr_number" --undo
+          fi
+          if jq -e '.labels[] | select(.name == "chat-review")' <<<"$pr_json" >/dev/null; then
+            gh pr edit "$pr_number" --remove-label chat-review
+          fi
+          {
+            echo "pr_number=$pr_number"
+            echo "pr_url=$(jq -r .url <<<"$pr_json")"
+          } >> "$GITHUB_OUTPUT"
       - id: router
         env:
-          ROUTER_PATH: ${{ needs.classify.outputs.router_path }}
+          ROUTER_PATH: docs/work/wf-increment-015-github-workflow-foundation/stages/S01-foundation-pilot/ROUTER_CONTRACT.md
+        shell: bash
         run: |
           set -euo pipefail
           normalized="$(node .github/scripts/read-router-contract.mjs "$ROUTER_PATH")"
-          echo "json=$normalized" >> "$GITHUB_OUTPUT"
-      - name: Create or update Draft Stage PR and publish dispatch handoff
+          [[ "$(jq -r .repository <<<"$normalized")" == "$GITHUB_REPOSITORY" ]]
+          [[ "$(jq -r .stage_branch <<<"$normalized")" == "$GITHUB_REF_NAME" ]]
+          {
+            echo "json=$normalized"
+            echo "path=$ROUTER_PATH"
+            echo "contract_sha=$(git log -1 --format=%H -- "$ROUTER_PATH")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Publish local dispatch handoff
         env:
           GH_TOKEN: ${{ github.token }}
           ROUTER_JSON: ${{ steps.router.outputs.json }}
-          ROUTER_PATH: ${{ needs.classify.outputs.router_path }}
+          ROUTER_PATH: ${{ steps.router.outputs.path }}
+          CONTRACT_SHA: ${{ steps.router.outputs.contract_sha }}
+          PR_NUMBER: ${{ steps.invalidate.outputs.pr_number }}
+          PR_URL: ${{ steps.invalidate.outputs.pr_url }}
         shell: bash
         run: |
           set -euo pipefail
           stage_branch="$(jq -r .stage_branch <<<"$ROUTER_JSON")"
-          pr_number="$(gh pr list --base main --head "$stage_branch" --state open --json number --jq '.[0].number // empty')"
-          if [[ -z "$pr_number" ]]; then
-            pr_url="$(gh pr create --draft --base main --head "$stage_branch" --title "Increment 15: GitHub workflow foundation pilot" --body "Stage integration PR for the accepted Increment 15 workflow.")"
-            pr_number="$(gh pr view "$pr_url" --json number --jq .number)"
-          else
-            pr_url="$(gh pr view "$pr_number" --json url --jq .url)"
-          fi
-          cat > /tmp/handoff.md <<HANDOFF
-          <!-- CODEX_DISPATCH_HANDOFF_V1 -->
+          gh label create codex-dispatch-ready --color 1D76DB --description "Ready for Local Codex Bridge dispatch" --force
+          gh pr edit "$PR_NUMBER" --add-label codex-dispatch-ready
 
-          status: ready_for_codex_dispatch
+          current_pr_head_sha="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          if [[ "$current_pr_head_sha" != "$GITHUB_SHA" ]]; then
+            echo "Superseded push $GITHUB_SHA; current PR head is $current_pr_head_sha"
+            exit 0
+          fi
+
+          cat > "$RUNNER_TEMP/local-codex-handoff.md" <<HANDOFF
+          <!-- LOCAL_CODEX_DISPATCH_HANDOFF_V1 -->
+
+          status: dispatch_ready
           repository: $GITHUB_REPOSITORY
-          workflow_id: $(jq -r .work_id <<<"$ROUTER_JSON")
+          pull_request: $PR_NUMBER
+          workflow_id: $(jq -r .workflow_id <<<"$ROUTER_JSON")
           stage_id: $(jq -r .stage_id <<<"$ROUTER_JSON")
-          task_id: $(jq -r .task_id <<<"$ROUTER_JSON")
-          dispatch_id: $(jq -r .dispatch_id <<<"$ROUTER_JSON")
           router_contract_path: $ROUTER_PATH
-          contract_commit_sha: $GITHUB_SHA
+          contract_commit_sha: $CONTRACT_SHA
           stage_branch: $stage_branch
           stage_head_sha: $GITHUB_SHA
+          execution_surface: local_codex
           review_authority: chatgpt_fixed_chat
-          codex_surface: github_pr_to_codex_cloud
-
-          User action required: post the dispatch command defined in the accepted Supervisor guide.
           HANDOFF
-          gh pr comment "$pr_number" --body-file /tmp/handoff.md
-          echo "Draft Stage PR: $pr_url"
+          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/local-codex-handoff.md"
+          echo "Draft Stage PR: $PR_URL"
 
-  verify-pilot:
-    needs: classify
-    if: needs.classify.outputs.pilot_changed == 'true'
+  verify-stage-candidate:
+    if: github.event_name == 'repository_dispatch' && github.event.action == 'stage_candidate_ready' && github.event.client_payload.status == 'candidate_ready'
     runs-on: ubuntu-latest
+    env:
+      CANDIDATE_REPOSITORY: ${{ github.event.client_payload.repository }}
+      CANDIDATE_WORKFLOW_ID: ${{ github.event.client_payload.workflow_id }}
+      CANDIDATE_STAGE_ID: ${{ github.event.client_payload.stage_id }}
+      CANDIDATE_ROUTER_PATH: ${{ github.event.client_payload.router_path }}
+      CANDIDATE_STAGE_BRANCH: ${{ github.event.client_payload.stage_branch }}
+      CANDIDATE_STAGE_HEAD_SHA: ${{ github.event.client_payload.stage_head_sha }}
     steps:
+      - name: Validate candidate handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
+          [[ -n "$CANDIDATE_WORKFLOW_ID" ]]
+          [[ -n "$CANDIDATE_STAGE_ID" ]]
+          [[ "$CANDIDATE_ROUTER_PATH" == docs/work/*/stages/*/ROUTER_CONTRACT.md ]]
+          [[ "$CANDIDATE_STAGE_BRANCH" == stage/* ]]
+          [[ "$CANDIDATE_STAGE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.client_payload.stage_head_sha }}
+          fetch-depth: 0
+      - name: Validate Router and current Draft PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          router_json="$(node .github/scripts/read-router-contract.mjs "$CANDIDATE_ROUTER_PATH")"
+          [[ "$(jq -r .repository <<<"$router_json")" == "$CANDIDATE_REPOSITORY" ]]
+          [[ "$(jq -r .workflow_id <<<"$router_json")" == "$CANDIDATE_WORKFLOW_ID" ]]
+          [[ "$(jq -r .stage_id <<<"$router_json")" == "$CANDIDATE_STAGE_ID" ]]
+          [[ "$(jq -r .stage_branch <<<"$router_json")" == "$CANDIDATE_STAGE_BRANCH" ]]
+
+          pr_json="$(gh pr list --base main --head "$CANDIDATE_STAGE_BRANCH" --state open --json number,headRefOid,isDraft --jq '.[0] // empty')"
+          [[ -n "$pr_json" ]] || { echo "Draft Stage PR does not exist" >&2; exit 1; }
+          [[ "$(jq -r .isDraft <<<"$pr_json")" == "true" ]] || { echo "Stage PR is not Draft before verification" >&2; exit 1; }
+          [[ "$(jq -r .headRefOid <<<"$pr_json")" == "$CANDIDATE_STAGE_HEAD_SHA" ]] || { echo "Candidate SHA is not the current PR head" >&2; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: 24.15.0
           cache: npm
       - run: npm ci
-      - run: node --test tests/status-cli.test.ts
+      - run: node --test tests/router-contract-reader.test.ts
+      - run: node --test tools/codex-github-bridge/tests/*.test.mjs
       - run: npm run typecheck
       - run: npm test
       - run: git diff --check
-      - name: Mark Stage PR ready and publish Chat review handoff
+      - name: Mark exact verified Stage head ready and publish Chat review handoff
         env:
           GH_TOKEN: ${{ github.token }}
-          STAGE_BRANCH: stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot
         shell: bash
         run: |
           set -euo pipefail
-          pr_number="$(gh pr list --base main --head "$STAGE_BRANCH" --state open --json number --jq '.[0].number // empty')"
-          if [[ -z "$pr_number" ]]; then
-            echo "Draft Stage PR does not exist" >&2
-            exit 1
-          fi
+          pr_json="$(gh pr list --base main --head "$CANDIDATE_STAGE_BRANCH" --state open --json number,baseRefName,baseRefOid,headRefName,headRefOid --jq '.[0] // empty')"
+          [[ -n "$pr_json" ]] || { echo "Draft Stage PR does not exist" >&2; exit 1; }
+          current_pr_head_sha="$(jq -r .headRefOid <<<"$pr_json")"
+          [[ "$current_pr_head_sha" == "$CANDIDATE_STAGE_HEAD_SHA" ]] || { echo "Verified SHA $CANDIDATE_STAGE_HEAD_SHA is stale; current PR head is $current_pr_head_sha" >&2; exit 1; }
+
+          pr_number="$(jq -r .number <<<"$pr_json")"
+          base_branch="$(jq -r .baseRefName <<<"$pr_json")"
+          base_sha="$(jq -r .baseRefOid <<<"$pr_json")"
+          head_branch="$(jq -r .headRefName <<<"$pr_json")"
+          stage_contract_path="${CANDIDATE_ROUTER_PATH%/ROUTER_CONTRACT.md}/STAGE.md"
+
           gh pr ready "$pr_number"
           gh label create chat-review --color 5319E7 --description "Ready for formal ChatGPT fixed Chat review" --force
-          gh pr edit "$pr_number" --add-label chat-review
-          cat > /tmp/handoff.md <<HANDOFF
+          gh pr edit "$pr_number" --add-label chat-review --remove-label codex-dispatch-ready
+          cat > "$RUNNER_TEMP/chat-review-handoff.md" <<HANDOFF
           <!-- CHAT_REVIEW_HANDOFF_V1 -->
 
           status: ready_for_chat_review
           repository: $GITHUB_REPOSITORY
-          workflow_id: wf-increment-015-github-workflow-foundation
-          stage_id: S01-foundation-pilot
-          task_id: T01-room-status-help
-          stage_branch: $STAGE_BRANCH
-          stage_head_sha: $GITHUB_SHA
+          pull_request: $pr_number
+          workflow_id: $CANDIDATE_WORKFLOW_ID
+          stage_id: $CANDIDATE_STAGE_ID
+          base_branch: $base_branch
+          base_sha: $base_sha
+          head_branch: $head_branch
+          head_sha: $CANDIDATE_STAGE_HEAD_SHA
+          stage_contract: $stage_contract_path
           review_authority: chatgpt_fixed_chat
-          review_transport: github_pull_request
-
-          Verification passed. User action required: conduct formal review in the fixed ChatGPT chat against this pull request.
           HANDOFF
-          gh pr comment "$pr_number" --body-file /tmp/handoff.md
+          gh pr comment "$pr_number" --body-file "$RUNNER_TEMP/chat-review-handoff.md"
+
+          final_pr_head_sha="$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)"
+          if [[ "$final_pr_head_sha" != "$CANDIDATE_STAGE_HEAD_SHA" ]]; then
+            gh pr ready "$pr_number" --undo
+            gh pr edit "$pr_number" --remove-label chat-review --add-label codex-dispatch-ready
+            echo "PR head changed while publishing readiness" >&2
+            exit 1
+          fi
