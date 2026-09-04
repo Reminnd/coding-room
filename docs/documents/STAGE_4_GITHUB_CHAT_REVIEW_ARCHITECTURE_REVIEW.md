@@ -2,14 +2,14 @@
 
 | 属性 | 值 |
 |---|---|
-| 状态 | Approved / User Confirmed |
+| 状态 | Superseded（2026-09-04） |
 | 日期 | 2026-09-03 |
 | Owner | Codex |
 | 决策范围 | 项目开发控制面；不替换 Agent Room 产品运行时 |
 
 ## 结论
 
-项目开发路线采用 GitHub 与 ChatGPT fixed Chat 的显式交接闭环。GitHub 持久化 Plan、Contract、commit、branch、Pull Request、Check 与 Review handoff；ChatGPT fixed Chat 是唯一正式 Review Authority；Codex Cloud（ChatGPT Pro）负责 Plan 初稿、Supervisor 与 Coding 执行；Work 仅发送 Ready for Review 通知。GitHub Actions 是机械控制面，绝不运行 LLM。
+本文件保留 PR #3 的历史 Cloud/Work 方案证据。Current 执行架构见 [Stage 4 Local Parallel amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)。
 
 ## 边界与数据流
 

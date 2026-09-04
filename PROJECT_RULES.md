@@ -94,7 +94,7 @@
 
 ## 4.5 项目开发控制面（Current）
 
-ChatGPT fixed Chat是正式Review Authority，GitHub Pull Request是正式Review surface。GitHub持久化项目开发Plan、Contract、commit、branch、PR、Check与Review交接；Codex通过ChatGPT Pro的Codex Cloud负责Plan初稿、Supervisor与Coding执行；Work只发送Ready for Review通知。GitHub Actions仅是机械控制面，不运行LLM。
+ChatGPT fixed Chat是正式Review Authority，GitHub Pull Request是正式Review surface。GitHub持久化项目开发Plan、Contract、commit、branch、PR、Check与Review交接；Local Bridge负责discovery、DAG/Ready Set调度与Git交付；Local Codex负责Coding。Work不属于Current控制面；GitHub Actions仅是机械控制面，不运行LLM。
 
 Room SQLite继续拥有Agent Room产品运行时Run/RunAttempt等事实，但不再拥有项目开发Plan、Contract或Review authority。既有Room产品能力不删除，Stage 1–3历史Accepted成果继续有效。详细决定见[Stage 4 Architecture Review](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md)与[No-API-Key Amendment](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md)。
 
@@ -269,9 +269,10 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md](./docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md) | Claude Code Coding、Fix、process failure 与回归测试方法 | Codex/Claude 候选 | 每个 Implementation Task 或 Fix Task | Current |
 | [docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md](./docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md) | Git 权限、baseline、并行 worktree 与 integration | Codex/Claude | Git、并行或 integration 任务 | Current |
 | [docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md](./docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md) | fixed Chat通过GitHub PR执行正式Review | Codex | 正式Review与集成 | Current |
-| [docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md](./docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md) | GitHub Router到Codex Cloud的显式派发 | Codex | Supervisor dispatch | Current |
+| [docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md](./docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Cloud Supervisor历史路由 | Codex | Historical evidence | Superseded |
 | [docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | GitHub/Chat Review控制面 | Codex | Stage 4+开发工作流 | Approved |
-| [docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | No-API-Key Codex Cloud边界 | Codex | Actions与Codex交接 | Approved |
+| [docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | No-API-Key历史边界 | Codex | Historical evidence | Superseded |
+| [docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | Local Codex、Local Bridge、DAG/Ready Set控制面 | Codex | Current开发工作流 | Current |
 | [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 Revision 2 Bootstrap | Codex | Bootstrap与Pilot规划 | Accepted / PLAN_READY |
 | [docs/work/README.md](./docs/work/README.md) | 具体Workflow实例与模板入口 | Codex | Workflow执行 | Current |
 | [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |

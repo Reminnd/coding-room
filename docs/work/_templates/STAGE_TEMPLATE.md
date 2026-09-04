@@ -6,4 +6,7 @@
 - stage_branch: <branch>
 - dependencies: <accepted predecessors>
 - tasks: <task links>
-- acceptance: <stage evidence>
+- lifecycle: planned | active | verification | ready_for_review | accepted | superseded
+- integration_facts: <source_task_sha to stage_commit_sha, recorded at integration time>
+- verification: <commands and observed evidence>
+- review_handoff: <exact PR/head and status, populated at handoff time>

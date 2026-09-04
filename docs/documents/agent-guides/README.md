@@ -19,7 +19,7 @@
 | Codex | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、[CODEX_DOCUMENTATION_AUTHORING.md](./CODEX_DOCUMENTATION_AUTHORING.md) 与 [文档中心](../README.md) |
 | Claude Code | 任意 Implementation Task 或 Fix Task | [CLAUDE_CODING_AND_FIX.md](./CLAUDE_CODING_AND_FIX.md) |
 | Codex | branch、worktree、并行拆分、integration、baseline 或 commit | [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) 的 Codex 部分 |
-| Codex Supervisor | GitHub Router dispatch或Codex Cloud Coding交接 | [CODEX_SUPERVISOR_ROUTER.md](./CODEX_SUPERVISOR_ROUTER.md) |
+| Codex Supervisor | 历史 Cloud Router（Superseded）；Current 路由见 Local Parallel amendment | [CODEX_SUPERVISOR_ROUTER.md](./CODEX_SUPERVISOR_ROUTER.md) |
 | ChatGPT fixed Chat | GitHub PR正式Review、finding或acceptance | [CHAT_GITHUB_REVIEW.md](./CHAT_GITHUB_REVIEW.md) 与 [CODEX_REVIEW_AND_PLANNING.md](./CODEX_REVIEW_AND_PLANNING.md) |
 | Claude Code | 并行模块、worktree、integration 或任何 Git 写操作 | [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) 的 Claude Code 部分 |
 
