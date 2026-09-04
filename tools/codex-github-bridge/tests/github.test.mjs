@@ -64,6 +64,7 @@ test('repository bootstrap performs zero writes when required Actions settings a
   const result = await client.bootstrapActions('owner/repo');
   assert.equal(result.status, 'ready');
   assert.equal(result.default_workflow_permissions, 'read');
+  assert.equal(result.mutation_performed, false);
   assert.equal(calls.filter((call) => call.args.includes('PUT')).length, 0);
   assert.equal(calls.length, 2);
 });
@@ -95,6 +96,7 @@ test('repository bootstrap mutates each missing setting once, re-reads it once, 
     default_workflow_permissions: 'read', can_approve_pull_request_reviews: true,
   });
   assert.equal(result.default_workflow_permissions, 'read');
+  assert.equal(result.mutation_performed, true);
 });
 
 test('repository bootstrap maps administration or policy rejection to needs_decision without retry', async () => {

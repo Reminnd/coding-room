@@ -128,9 +128,11 @@ export class GitHubClient {
   }
 
   async bootstrapActions(repository) {
+    let mutationPerformed = false;
     let actionsEnabled = await this.readActionsEnabled(repository);
     if (!actionsEnabled) {
       await this.enableActions(repository);
+      mutationPerformed = true;
       actionsEnabled = await this.readActionsEnabled(repository);
       if (!actionsEnabled) throw needsDecision('GitHub Actions remain disabled after bootstrap update');
     }
@@ -139,6 +141,7 @@ export class GitHubClient {
     if (!workflow.can_approve_pull_request_reviews) {
       const preservedPermission = workflow.default_workflow_permissions;
       await this.enablePullRequestApproval(repository, preservedPermission);
+      mutationPerformed = true;
       workflow = await this.readWorkflowPermissions(repository);
       if (!workflow.can_approve_pull_request_reviews || workflow.default_workflow_permissions !== preservedPermission) {
         throw needsDecision('GitHub workflow permissions do not match the required bootstrap result');
@@ -151,6 +154,7 @@ export class GitHubClient {
       github_actions_enabled: true,
       actions_can_create_or_approve_pull_requests: true,
       default_workflow_permissions: workflow.default_workflow_permissions,
+      mutation_performed: mutationPerformed,
     };
   }
 
