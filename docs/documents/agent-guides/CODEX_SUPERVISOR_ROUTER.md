@@ -2,6 +2,8 @@
 
 > 状态：Superseded（2026-09-04）。本指南保留 Cloud Supervisor 历史证据；Current 路由由 Local Bridge 按 Stage DAG/Ready Set 执行。
 
+Current authority/lifecycle is documented by the Local Supervisor Router and Git/parallel-worktree guides: one existing `stage/**` Actions workflow, explicit idempotent repository bootstrap, current-dispatch plus minimum Git recovery revalidation, and fixed Chat as sole formal Review Authority. This historical Cloud guide must not be used as a Current dispatch path.
+
 | 属性 | 值 |
 |---|---|
 | 状态 | Superseded |
