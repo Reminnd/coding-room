@@ -1,0 +1,29 @@
+name: Codex Cloud trigger spike
+
+on:
+  push:
+    branches:
+      - spike/codex-cloud-action-comment-20260904
+    paths:
+      - .github/codex-cloud-trigger-spike.txt
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post trigger-only Codex comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr_number="$(gh pr list --repo "$GH_REPO" --head "$HEAD_BRANCH" --state open --json number --jq '.[0].number')"
+          test -n "$pr_number"
+          gh pr comment "$pr_number" --repo "$GH_REPO" --body '@codex Reply with exactly: CODEX_TRIGGER_SPIKE_ACK. Do not modify files, do not review, do not push, and do not merge. This is a trigger-only connectivity test.'
