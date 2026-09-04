@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Task Thread Adoption
 
-> Planning handoff: the JSON uses the existing stage-generic Actions grammar. Local Bridge execution remains gated on explicit user acceptance of both S02 Task Contracts.
+> Planning handoff: the JSON uses the existing stage-generic Actions grammar. This revision exposes only T05 as dispatchable; Local Bridge execution remains gated on explicit user acceptance of the exact T05 Contract at this Stage SHA.
 
 <!-- ROUTER_CONTRACT_V1 -->
 
@@ -37,30 +37,6 @@
         "npm test",
         "git diff --check"
       ]
-    },
-    {
-      "task_id": "T06-native-codex-thread-contracts",
-      "dispatch_id": "wf15-s02-t06-native-codex-thread-contracts-001",
-      "task_contract_path": "docs/work/wf-increment-015-github-workflow-foundation/stages/S02-native-codex-agent-threads/tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md",
-      "task_branch": "task/wf-increment-015-github-workflow-foundation/T06-native-codex-thread-contracts",
-      "depends_on": ["T05-native-codex-thread-backend"],
-      "owns": [
-        "AGENTS.md",
-        "PROJECT_RULES.md",
-        "docs/documents/DEVELOPMENT_LOG.md",
-        "docs/documents/README.md",
-        "docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md",
-        "docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md"
-      ],
-      "model_policy": "fast_general",
-      "reasoning_effort": "low",
-      "fallback_model_policy": null,
-      "verification": [
-        "git diff --check",
-        "relative Markdown link audit",
-        "merge marker audit",
-        "native task-thread authority consistency audit against the integrated T05 implementation"
-      ]
     }
   ],
   "integration": {
@@ -89,8 +65,11 @@
 ## Dispatch gates
 
 - The Stage planning base is exact GitHub `main` `bd41ea8a1e259300241a345a659e7da90e24af0d`; runtime `base_sha` is re-read from the actual Stage branch by Local Bridge at each dispatch.
-- Do not invoke Local Bridge `start` or `run-once` until both Task Contracts are `Accepted`, `confirmed_by_user=true`, and the accepted revision is committed and pushed to this Stage branch.
-- After acceptance, S02 uses two explicit `run-once` invocations: T05 through the pre-S02 Worker boundary, then T06 through a fresh process loaded from the T05-integrated Stage head. `start` is not used for this self-hosting transition.
+- Do not invoke Local Bridge `start`. The first `run-once` may be authorized only after the exact T05 Contract is `Accepted`, `confirmed_by_user=true`, and that acceptance revision is committed and pushed to this Stage branch.
+- The first `run-once` dispatches and integrates only T05 through the pre-S02 Worker boundary, then MUST stop after the mechanical gate, Supervisor Integration and controlled Stage cherry-pick complete.
+- The current T06 file is a non-dispatchable planning placeholder and is not part of this Router's Ready Set. After T05 integration, use the integrated T05 source, tests and Coding Result to determine exact T06 documentation ownership; then replace the placeholder with a new exact T06 Contract, add T06 to the Router, and commit both to the Stage.
+- T06 requires separate user acceptance of that new exact Contract at its exact Stage SHA. Only then may a fresh `run-once` load the native backend from the T05-integrated Stage head and dispatch T06.
+- No concrete T06 owned document may be frozen or treated as Accepted scope before T05 implementation is integrated.
 - T05 MUST NOT silently fall back from the native task-thread backend once that backend is selected. An unavailable native thread or explicit-`cwd` capability returns `needs_decision`.
 - T06 may document only behavior established by the integrated T05 source, tests and Git facts. It must not describe the candidate backend as Current before fixed-Chat Review and user acceptance.
 - Do not read or dispatch the superseded `S02-room-status-help-pilot` or S01 task-scoped Router. `room:status --help` remains Deferred.
