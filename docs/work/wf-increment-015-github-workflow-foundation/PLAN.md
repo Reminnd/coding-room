@@ -2,10 +2,10 @@
 
 | 字段 | 值 |
 |---|---|
-| status | Accepted |
-| goal | 证明GitHub Plan/Contract/Actions/Codex Cloud/PR/Chat Review闭环 |
-| pilot | 为`room:status`增加`--help` |
+| status | Accepted / PLAN_READY |
+| goal | 完成 Final Local Parallel Bridge Migration 的 S01 Foundation |
+| current_stage | [`S01-foundation-pilot`](./stages/S01-foundation-pilot/STAGE.md) |
 
-本Bootstrap只建立Foundation和Accepted Pilot Contract，**禁止实现Pilot代码**。后续Pilot从Stage branch派发到唯一Task branch，经Codex Cloud Coding、Stage PR机械检查和ChatGPT fixed Chat正式Review完成闭环。Work只通知；Actions不运行LLM。
+当前链路：GitHub/Git facts → Local Bridge → Local Codex → Supervisor Integration → controlled Stage → S01 Bootstrap-B exact-SHA verification + fixed Chat Review → accepted S01 FF main → S02+ normal Actions candidate verification。
 
-Stages：[`S01-foundation-pilot`](./stages/S01-foundation-pilot/STAGE.md)。最终接受后只允许把`main` non-force fast-forward到exact `accepted_head_sha`。
+S01 当前只交付 Foundation 的四个并行任务；legacy `room:status --help` Pilot 延后，不是当前 dispatch source。
