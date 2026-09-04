@@ -1,2 +1,2 @@
-trigger: 2026-09-04
-purpose: test github-actions[bot] @codex trigger without OpenAI API key
+trigger: 2026-09-04-pushback
+purpose: test github-actions[bot] @codex trigger and Codex Cloud pushback without OpenAI API key
