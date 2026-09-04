@@ -110,8 +110,46 @@ The concurrency and protocol tests MUST use a deterministic fake app-server boun
 |---|---|---|
 | `node --test tools/codex-github-bridge/tests/*.test.mjs` | native protocol lifecycle, exact `cwd`, per-Task isolation, concurrent turns, terminal mapping, no fallback, and preservation of Bridge/Git behavior | `blocked`; do not commit or integrate |
 | `npm run typecheck` | repository TypeScript compatibility after the Bridge change | `blocked`; do not commit or integrate |
-| `npm test` | regression in accepted product/runtime behavior | `blocked`; do not commit or integrate |
+| `npm test` | regression in accepted product/runtime behavior | exit `0` is the standard success condition; a non-zero exit is `blocked` unless the exact one-time amendment below is satisfied in full |
 | `git diff --check` | whitespace or patch-format defects in the owned Diff | `blocked`; do not commit or integrate |
+
+### One-time baseline-equivalence verification amendment
+
+This accepted amendment applies only to `task_id=T05-native-codex-thread-backend` dispatched from `dispatch_base_sha=4058fc11aa5ca51eccea9a97d80a82b978c528ca`. It does not change the T05 Goal, Requirements, owned paths, model policy, implementation scope or any architecture decision.
+
+`npm test` exiting `0` remains the standard full-regression success condition. If `npm test` exits non-zero, this T05 full regression may be classified as `baseline_equivalent_no_new_regression` only when all of the following conditions hold:
+
+1. A clean detached checkout of exact base `4058fc11aa5ca51eccea9a97d80a82b978c528ca` reproduces the baseline result.
+2. The clean baseline and current T05 worktree have exactly the same pass and fail counts.
+3. Their failing-test identity sets are exactly equal.
+4. The corresponding failure evidence for every failing test is exactly equal.
+5. `t05_new_regressions == 0`.
+6. Focused Bridge tests pass.
+7. `npm run typecheck` passes.
+8. `git diff --check` passes.
+
+If any condition is not satisfied, the result remains `blocked`; T05 MUST NOT be committed or integrated. This exception MUST NOT be applied to another Task, Stage, dispatch base or future `npm test` failure.
+
+The existing `plugin-packaging` failures are not considered fixed. This amendment does not authorize changes to `tests/plugin-packaging.test.ts`, Plugin files, line-ending configuration or any path outside T05 ownership.
+
+The already obtained baseline-equivalence evidence for this amendment is:
+
+```yaml
+dispatch_base_sha: 4058fc11aa5ca51eccea9a97d80a82b978c528ca
+clean_detached_exact_base:
+  passed: 403
+  failed: 6
+current_T05_worktree:
+  passed: 403
+  failed: 6
+failure_sets_identical: true
+failure_evidence_identical: true
+t05_new_regressions: 0
+existing_failure_scope: plugin-packaging CRLF/LF baseline outside T05 ownership
+accepted_exception: baseline_equivalent_no_new_regression
+```
+
+This evidence is recorded directly in the Contract. It MUST NOT be expanded into a hash index, patch-id index, baseline database or new verification framework.
 
 ## Documentation updates
 

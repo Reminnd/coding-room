@@ -1,7 +1,7 @@
 # STAGE — S02-native-codex-agent-threads
 
 - work_id: `wf-increment-015-github-workflow-foundation`
-- status: `waiting_for_T05_run_once_authorization`
+- status: `waiting_for_T05_resume_authorization`
 - purpose: `adopt_codex_native_task_thread_backend`
 - goal: 将 Local Bridge 的 Implementation Worker backend 从一次性 `codex exec` process 切换为一个 Ready Task 对应一个 Codex native task thread，并保持既有 GitHub/Git、DAG、worktree、integration 与 Review authority 不变。
 - main_base_sha: `bd41ea8a1e259300241a345a659e7da90e24af0d`
@@ -12,7 +12,7 @@
 - router: [`ROUTER_CONTRACT.md`](./ROUTER_CONTRACT.md)
 - supervisor: [`SUPERVISOR_ROUTER_AGENT.md`](./SUPERVISOR_ROUTER_AGENT.md)
 - lifecycle: `planned`
-- integration_facts: pending; the first Implementation dispatch is authorized only after the exact T05 Contract is accepted; T06 is not yet dispatchable
+- integration_facts: T05 has an uncommitted implementation candidate in its existing Task worktree; the user-confirmed one-time baseline-equivalence verification amendment is limited to dispatch base `4058fc11aa5ca51eccea9a97d80a82b978c528ca`; T05 resume remains separately gated and T06 is not yet dispatchable
 - candidate_verification: after both Tasks are integrated, MUST use the existing single `stage/**` workflow and its `stage_candidate_ready` path
 - review_handoff: pending Actions-created Draft PR and exact dispatch handoff
 
