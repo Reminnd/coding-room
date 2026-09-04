@@ -6,6 +6,11 @@
 - background: <why>
 - goal: <one outcome>
 - requirements: <behaviors>
+- depends_on: <task_ids; empty only for DAG roots>
+- owns: <exact paths>
+- model_policy: <policy>
+- reasoning_effort: <low | medium | high>
+- runtime_base_sha: <actual base SHA observed by Local Bridge at dispatch>
 - non_goals: <excluded work>
 - architecture_decisions: <frozen choices>
 - scope: <owned paths>
@@ -14,3 +19,4 @@
 - verification: <command / detects / decision_if_failed>
 - documentation_updates: <paths or none>
 - question_policy: <stop conditions>
+- coding_result: <status, task_head_sha, Git facts, verification evidence>

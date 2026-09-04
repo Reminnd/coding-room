@@ -1,5 +1,9 @@
 # Git、并行 Worktree 与 Integration 指南
 
+## Current Local Parallel control plane
+
+Local Bridge owns discovery, dependency-DAG/Ready-Set scheduling, independent worktrees, task-branch Git facts, task push and controlled task-to-Stage cherry-pick. Model policy and reasoning effort are immutable dispatch facts. Integration MUST stop on conflict; it never rebases or auto-resolves. Stage verification records the exact head and invalidates Ready for Review after any Stage change. Stage-to-main is a non-force fast-forward of the exact user-accepted Stage SHA.
+
 > 状态：Current  
 > Reader：Codex / Claude Code（只读取与自身角色相关部分）  
 > Trigger：baseline、branch、worktree、并行 Task、integration、commit 或其他 Git 写操作

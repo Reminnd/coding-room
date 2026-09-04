@@ -1,8 +1,10 @@
 # Codex Supervisor Router指南
 
+> 状态：Superseded（2026-09-04）。本指南保留 Cloud Supervisor 历史证据；Current 路由由 Local Bridge 按 Stage DAG/Ready Set 执行。
+
 | 属性 | 值 |
 |---|---|
-| 状态 | Current |
+| 状态 | Superseded |
 | Surface | ChatGPT Pro Codex Cloud |
 
 ## 职责

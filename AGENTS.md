@@ -49,7 +49,7 @@ Codex 可以：
 - 作为全项目文档编写者及维护者，调用 `backend-doc-authoring` skill 编写、补全、迁移、Review 并维护 `docs/documents/` 下全部项目文档。
 - 为 Review 运行能改变结论的只读检查、构建或测试。
 - 通过ChatGPT fixed Chat审查GitHub PR的代码、测试、配置和候选文档Diff。
-- 在Codex Cloud编写Plan初稿、执行Supervisor路由和已批准Contract的Coding；GitHub是持久化交接面，Work只通知。
+- 在本地维护方案与已批准 Contract；Local Bridge 依据 GitHub 持久化事实调度 Local Codex。fixed Chat 承担正式 Review，GitHub Actions 仅执行机械校验。
 
 Codex 不得：
 
