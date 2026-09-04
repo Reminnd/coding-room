@@ -4,9 +4,8 @@
 - bootstrap_base: `d5827a052190d63fb2fbbd9fbd970ba9db92ed64`
 - stage: `S01-foundation-pilot`
 - stage_branch: `stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot`
-- task: `T01-room-status-help`
-- task_branch: `task/wf-increment-015-github-workflow-foundation/T01-room-status-help`
-- dispatch_id: `wf15-s01-t01-dispatch-001`
+- router: [`S01 Stage Router`](./stages/S01-foundation-pilot/ROUTER_CONTRACT.md)
+- current_tasks: `T01-router`, `T02-actions`, `T03-docs`, `T04-bridge`
 - fix_policy: `always_confirm`
 
-顺序：Bootstrap commit/push → mechanical Router handoff → user dispatch → Pilot task branch → Stage branch push → mechanical verification/Ready for Review → fixed Chat formal review → user acceptance → exact accepted SHA non-force fast-forward。任何真实Git/Check冲突都停止；不rebase、不自动解冲突、不force push、不merge commit、不自动Fix。
+S01 Ready Set 四项无依赖且 ownership 不重叠，可并行执行；完成后 controlled cherry-pick 集成。S01 采用 Bootstrap-B exact-SHA verification → fixed Chat Review → user acceptance → non-force FF main。S02+ 使用正常 Actions candidate verification；legacy `T01-room-status-help` Deferred / Superseded。

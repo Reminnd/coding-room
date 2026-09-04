@@ -2,9 +2,10 @@
 
 - work_id: `wf-increment-015-github-workflow-foundation`
 - status: `dispatch_ready`
-- goal: 以`room:status --help`真实Pilot验证GitHub/Actions/Codex Cloud/PR/Chat Review闭环。
+- goal: 完成 Final Local Parallel Bridge Migration 的 Foundation tasks。
 - stage_branch: `stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot`
-- task: [`T01-room-status-help`](./tasks/T01-room-status-help/TASK_CONTRACT.md)
-- router: [`ROUTER_CONTRACT.md`](./tasks/T01-room-status-help/ROUTER_CONTRACT.md)
+- current_tasks: `T01-router`, `T02-actions`, `T03-docs`, `T04-bridge`
+- router: [`ROUTER_CONTRACT.md`](./ROUTER_CONTRACT.md)
 
-Bootstrap不得修改Pilot的production/test路径。Stage只有一个写入Task，因此不拆Subtask。
+S01 acceptance path: all required Stage work integrated → freeze exact Stage SHA → local/equivalent mechanical verification against that exact SHA → fixed Chat formal Review of exact PR head/full diff → user accepts exact SHA → non-force FF main.
+S01 不声称 default-branch `repository_dispatch` verifier 已运行；S02+ 在 S01 进入 `main` 后使用正常 Actions candidate verification。legacy `T01-room-status-help` Deferred / Superseded for current S01 dispatch。

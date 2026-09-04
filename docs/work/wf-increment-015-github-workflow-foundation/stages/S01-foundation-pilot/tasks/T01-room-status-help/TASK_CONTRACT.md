@@ -1,8 +1,10 @@
 # Task Contract — T01-room-status-help
 
+> Status: **Deferred / Superseded for current S01 dispatch**. Not part of the active Foundation task set.
+
 | 字段 | 值 |
 |---|---|
-| status | Accepted / PLAN_READY |
+| status | Deferred / Superseded for current S01 dispatch |
 | confirmed_by_user | true |
 | task_id | T01-room-status-help |
 | type | Implementation Task |
