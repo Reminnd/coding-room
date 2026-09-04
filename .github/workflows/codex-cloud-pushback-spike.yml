@@ -1,0 +1,29 @@
+name: Codex Cloud pushback spike
+
+on:
+  push:
+    branches:
+      - spike/codex-cloud-pushback-20260904
+    paths:
+      - .github/codex-cloud-pushback-trigger.txt
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Codex to push one isolated test file
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr_number="$(gh pr list --repo "$GH_REPO" --head "$HEAD_BRANCH" --state open --json number --jq '.[0].number')"
+          test -n "$pr_number"
+          gh pr comment "$pr_number" --repo "$GH_REPO" --body '@codex Create or replace only `.github/codex-cloud-push-spike.txt` with exactly two lines: `status: pushback-ok` and `source: codex-cloud`. Commit and push that single-file change to this PR current head branch. Do not modify any other file, do not review, and do not merge.'
