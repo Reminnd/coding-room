@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前规划阶段：REVIEW_REQUIRED / Increment 14 Fix Task 2 candidate已从Fix 1 `f95c63c02817115d1ded566e3032a4c0d32cd085`完成Coding，等待GitHub Fix Review 3；Increment 13及此前accepted source与active v0.5 runtime不变
+> 当前规划阶段：PLAN_READY / Increment 15 Revision 2已由用户确认；Increment 14已`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Stage 1–3历史Accepted成果继续有效
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -92,12 +92,20 @@
 - Runner 启动和终止 Claude CLI、读取输出、判断进程结果、采集实际 Git 状态并推进 Run 状态。
 - 模型自述不能代替 Runner 的进程结果或实际 Git 证据。
 
+## 4.5 项目开发控制面（Current）
+
+ChatGPT fixed Chat是正式Review Authority，GitHub Pull Request是正式Review surface。GitHub持久化项目开发Plan、Contract、commit、branch、PR、Check与Review交接；Codex通过ChatGPT Pro的Codex Cloud负责Plan初稿、Supervisor与Coding执行；Work只发送Ready for Review通知。GitHub Actions仅是机械控制面，不运行LLM。
+
+Room SQLite继续拥有Agent Room产品运行时Run/RunAttempt等事实，但不再拥有项目开发Plan、Contract或Review authority。既有Room产品能力不删除，Stage 1–3历史Accepted成果继续有效。详细决定见[Stage 4 Architecture Review](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md)与[No-API-Key Amendment](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md)。
+
 ## 5. 状态所有权
 
 | 状态 | 唯一所有者 |
 |---|---|
 | 源代码、staged/unstaged/untracked 变更 | Git working tree |
-| Task、Review、Question、Run、事件和 Room 状态 | SQLite |
+| Agent Room产品的Task、Review、Question、Run/RunAttempt、Event和Room状态 | SQLite |
+| 项目开发Plan、Contract、commit、branch、PR、Check与Review handoff | GitHub |
+| 项目开发正式Review decision | ChatGPT fixed Chat |
 | Claude process 与 session 生命周期 | Claude Runner |
 | 用户与 Codex 的自由讨论 | Codex App |
 | 人工代码与 Diff 查看 | VS Code |
@@ -140,7 +148,7 @@ Stage 3的[Architecture Review](./docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHI
 
 Increment 13 Implementation candidate已从exact baseline `c7b4c2db0095632194940df40b49e0788257f099`完成。Review `review-increment-013-codex-001`的四项finding已形成并派发Accepted [Increment 13 Fix Task 1](./docs/documents/INCREMENT_13_FIX_TASK_1.md)。Fix Review 2 `review-increment-013-codex-002`确认predecessor、successful settlement和delayed preview retry三项production修复已闭合，但simultaneous reservation、`failed` preview retry与结构化Coding Result证据未闭环；用户确认后由Accepted [Increment 13 Fix Task 2](./docs/documents/INCREMENT_13_FIX_TASK_2.md)补齐。Fix Review 3 `review-increment-013-codex-003`核对完整candidate Diff与本次结构化Coding Result，无finding、Decision=`approved`；独立`typecheck`、Git Controller/CLI 9/9、full 385/385与`git diff --check`通过。用户已明确最终接受Increment 13，阶段=`ACCEPTED`；完整accepted source由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`，active runtime随后完成v0.5 cutover。
 
-用户于2026-09-03确认[Increment 14完整Task Contract](./docs/documents/INCREMENT_14_TASK_CONTRACT.md)及[Fix Task 1](./docs/documents/INCREMENT_14_FIX_TASK_1.md)、[Fix Task 2](./docs/documents/INCREMENT_14_FIX_TASK_2.md)。Fix 2从Fix 1提交`f95c63c02817115d1ded566e3032a4c0d32cd085`形成于`codex/increment-14-fix-2-process-close-f95c63c`，只把stdout callback failure的Promise完成边界移动到owned child `close`：pending typed error不被late signal覆盖，close前不收集Git/Artifact或terminal settlement，close后保持既有`interrupted`映射。公开协议、Schema、状态、error code与active runtime均未改变；阶段=`REVIEW_REQUIRED`，等待GitHub Fix Review 3与用户接受。
+Increment 14已完成Review、获用户接受并集成；状态=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。其validation boundary成果继续是Stage 1–3历史Accepted实现的一部分。
 
 详细结构见 [ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md)，协议见 [ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md)。长期决策见 [ADR/0001-local-room-and-state-ownership.md](./docs/documents/ADR/0001-local-room-and-state-ownership.md) 与 [ADR/0002-agent-integration-lifecycle.md](./docs/documents/ADR/0002-agent-integration-lifecycle.md)。
 
@@ -241,7 +249,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 - 优先复用现有依赖；新增依赖前必须核查标准库、当前依赖和官方能力。
 - 不顺手重构、格式化或清理无关代码。
 - 重大架构、协议、持久化或状态所有权变化必须由用户确认并更新 ADR。
-- 编写或维护任何项目文档前，Codex 必须读取 `backend-doc-authoring` skill 及对应 references，并按 `docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 执行；所有人类可查看文档必须位于 `docs/documents/`，根目录只保留三个 agent/tooling 控制入口。
+- 编写或维护任何项目文档前，Codex 必须读取 `backend-doc-authoring` skill 及对应 references，并按 `docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 执行；长期项目文档位于`docs/documents/`，具体Workflow实例位于`docs/work/`；根目录只保留三个agent/tooling控制入口。
 - 每次 Review 后，Codex 必须审计需求、接口、架构、结构、状态、命令、运维与开发事实：有变化时更新对应权威文档，无变化时在 Review 验证摘要明确 `documentation: no_change`；未接受 candidate 不得写成 Current。该门禁不增加 Room state 或 runtime hook。
 - 每个 Fix Task 经 Codex 二次 Review 通过并获用户明确接受后，Codex 在派发下一 Implementation/Fix Task 前完成一次证据化经验回收，按角色写入 `docs/documents/agent-guides/`；已有规则已覆盖或没有新增经验时如实记录，不制造规则。该文档门禁不增加 Room state、Event 或 protocol field。
 - 代码必须包含解释模块职责、关键 invariant、非显然分支、取舍和失败语义所需的注释；注释默认使用简体中文，不逐行复述代码。
@@ -260,6 +268,12 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md](./docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md) | Codex 架构、规划、Review、解决方案与 Fix 经验回收方法 | Codex | 需求、架构、规划、Task、Review、Fix 方案或 Fix 验收后 | Current |
 | [docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md](./docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md) | Claude Code Coding、Fix、process failure 与回归测试方法 | Codex/Claude 候选 | 每个 Implementation Task 或 Fix Task | Current |
 | [docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md](./docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md) | Git 权限、baseline、并行 worktree 与 integration | Codex/Claude | Git、并行或 integration 任务 | Current |
+| [docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md](./docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md) | fixed Chat通过GitHub PR执行正式Review | Codex | 正式Review与集成 | Current |
+| [docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md](./docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md) | GitHub Router到Codex Cloud的显式派发 | Codex | Supervisor dispatch | Current |
+| [docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | GitHub/Chat Review控制面 | Codex | Stage 4+开发工作流 | Approved |
+| [docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | No-API-Key Codex Cloud边界 | Codex | Actions与Codex交接 | Approved |
+| [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 Revision 2 Bootstrap | Codex | Bootstrap与Pilot规划 | Accepted / PLAN_READY |
+| [docs/work/README.md](./docs/work/README.md) | 具体Workflow实例与模板入口 | Codex | Workflow执行 | Current |
 | [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
 | [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
 | [docs/documents/MVP_PLAN.md](./docs/documents/MVP_PLAN.md) | MVP 增量、顺序、验收和非目标 | Codex | 规划与 Task Contract 生成 | Current |
@@ -426,4 +440,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-Increment 1–13 accepted source与Stage 3 planning已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。Active project runtime/database/binding现为protocol v0.5；Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`处于`DISCUSSION`且尚无Plan、Task、Run、Attempt、Review、Question或GitAction。Increment 14 Fix 2 candidate位于`codex/increment-14-fix-2-process-close-f95c63c`，以Fix 1 `f95c63c02817115d1ded566e3032a4c0d32cd085`为parent，阶段=`REVIEW_REQUIRED`；尚未完成GitHub Fix Review 3、用户接受或进入`main`，active runtime未变化。
+Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15 Revision 2=`Accepted / PLAN_READY`、`confirmed_by_user=true`；当前一次性Bootstrap从该exact commit创建Stage branch。Room active v0.5 runtime继续存在且不因新项目开发控制面改变。

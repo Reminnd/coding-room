@@ -52,3 +52,8 @@
 ### 5.3 Claude Code
 
 Claude Code 不执行角色契约或 Increment 自动提交，不预先 stage，不把文档授权、测试通过或 `completed` 状态解释为 Git 写权限。
+
+
+## GitHub Stage integration路线（Current）
+
+项目开发采用Stage integration + Task/Subtask branch；单写入Task不拆Subtask。GitHub持久化Plan、Contract、commit、branch、PR、Check与Review交接。最终main集成只允许exact `accepted_head_sha`的non-force fast-forward；不得自动rebase、解冲突、force push或创建integration merge commit，真实Git失败立即停止。ChatGPT fixed Chat正式Review后若immutable reviewed SHA不变，最终FF后不重复Review。Supervisor不得approve或merge；Fix始终需要用户确认。

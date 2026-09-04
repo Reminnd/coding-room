@@ -6,7 +6,7 @@
 | Owner | Codex（项目文档编写者及维护者） |
 | Reader | Codex |
 | Trigger | 创建、补全、迁移、Review 或维护任意项目文档；每次 Codex Review 结束 |
-| 生效范围 | 本仓库全部项目文档 |
+| 生效范围 | 本仓库全部长期项目文档与Workflow实例文档 |
 | 强制能力 | `backend-doc-authoring` skill |
 
 ## 1. 角色目标
@@ -45,7 +45,7 @@ Codex 在编写或维护任何项目文档前 MUST：
 
 ## 3. 文档目录硬边界
 
-所有人类可查看的项目文档 MUST 位于 `docs/documents/`：
+长期项目文档、Architecture Review、ADR、Current/Accepted状态与Agent guides MUST 位于 `docs/documents/`；具体Workflow实例的PLAN / EXECUTION_PLAN / STAGE / TASK / ROUTER / SUBTASK / FIX MUST 位于 `docs/work/`：
 
 ```text
 docs/documents/
@@ -58,6 +58,10 @@ docs/documents/
   ADR/
   agent-guides/
   INCREMENT_*.md
+docs/work/
+  README.md
+  _templates/
+  <work_id>/
 ```
 
 仅有以下三个 agent/tooling 控制入口保留在仓库根目录：
@@ -111,7 +115,7 @@ docs/documents/
 
 ## 7. Claude Code 候选文档边界
 
-Claude Code 只有在 Accepted Contract 的 `documentation_updates` 明确列出时才修改项目文档，且路径 MUST 位于 `docs/documents/`。Claude 的文档 Diff 只是 candidate；Codex MUST 使用本 skill Review 完整内容并决定权威文档如何同步。
+Claude Code 只有在 Accepted Contract 的 `documentation_updates` 明确列出时才修改项目文档；长期文档路径 MUST 位于 `docs/documents/`，Workflow实例路径 MUST 位于 `docs/work/`。Claude 的文档 Diff 只是 candidate；Codex MUST 使用本 skill Review 完整内容并决定权威文档如何同步。
 
 Codex 不得借文档角色编写业务代码、测试或实现配置；文档发现实现缺口时应形成 finding、Architecture Review 或 Task Contract。
 
@@ -119,7 +123,7 @@ Codex 不得借文档角色编写业务代码、测试或实现配置；文档�
 
 文档任务完成前 MUST 验证：
 
-- `docs/` 下除 `docs/documents/` 外不存在项目 Markdown；
+- `docs/documents/`与`docs/work/`按长期权威/Workflow实例边界放置Markdown；
 - 根目录除三个控制入口外不存在项目 Markdown；
 - 所有相对 Markdown link 可解析，无未解析 merge marker；
 - `README.md` 与 `PROJECT_RULES.md` Documentation Map 覆盖全部文档；

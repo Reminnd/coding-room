@@ -1,5 +1,13 @@
 # 开发日志
 
+## 2026-09-03 — Increment 15 Revision 2一次性Bootstrap
+
+- 用户确认Stage 4 GitHub/Chat Review Architecture与No-API-Key Amendment；两者状态为`Approved / User Confirmed`。Increment 15 Revision 2为`Accepted / PLAN_READY`、`confirmed_by_user=true`。
+- Increment 14历史状态收口为`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Stage 1–3历史Accepted成果继续有效。
+- 从该exact commit创建`stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot`，建立GitHub机械Supervisor、Router reader/tests、`docs/work/`模板与Pilot Contract。Bootstrap不修改`src/cli/status.ts`或`tests/status-cli.test.ts`。
+- 新Authority：ChatGPT fixed Chat正式Review；GitHub持久化Plan/Contract/Git/PR/Check/Review handoff；Codex Cloud负责Plan初稿、Supervisor与Coding；Work仅通知；Room SQLite只继续拥有Agent Room产品运行时事实。
+
+
 ## 当前状态
 
 - 日期：2026-09-03

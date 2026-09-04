@@ -105,9 +105,14 @@
 | [Increment 13](./INCREMENT_13_TASK_CONTRACT.md) | Accepted | typed GitAction、fixed-actor one-shot Git Controller与single-lineage `integration_only`完整Contract |
 | [Increment 13 Fix 1](./INCREMENT_13_FIX_TASK_1.md) | Accepted | 修复preview idempotency、settlement crash gap、lineage predecessor与two-connection evidence |
 | [Increment 13 Fix 2](./INCREMENT_13_FIX_TASK_2.md) | Accepted | 补齐simultaneous reservation、`failed` preview retry与结构化Coding Result证据 |
-| [Increment 14](./INCREMENT_14_TASK_CONTRACT.md) | Accepted / candidate `REVIEW_REQUIRED` | 收敛validation ownership、删除不可达内部分支并简化Attempt/GitAction事务 |
-| [Increment 14 Fix Task 1](./INCREMENT_14_FIX_TASK_1.md) | Accepted / Fix Candidate `REVIEW_REQUIRED` | 修复stdout progress callback异常结算链并补真实并发terminal settlement证据 |
-| [Increment 14 Fix Task 2](./INCREMENT_14_FIX_TASK_2.md) | Accepted / Fix Candidate `REVIEW_REQUIRED` | 等待owned child `close`后再收集证据并结算callback failure |
+| [Stage 4 GitHub/Chat Architecture Review](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | Approved / User Confirmed | Codex | GitHub控制面与fixed Chat Review Authority |
+| [Stage 4 No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | Approved / User Confirmed | Codex | Codex Cloud且Actions不运行LLM |
+| [Increment 15 Revision 2](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Accepted / PLAN_READY | Codex | GitHub Supervisor foundation与Pilot冻结 |
+| [Chat/GitHub Review Guide](./agent-guides/CHAT_GITHUB_REVIEW.md) | Current | Codex | 正式PR Review与集成门禁 |
+| [Codex Supervisor Router Guide](./agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Current | Codex | Router到Codex Cloud派发 |
+| [Increment 14](./INCREMENT_14_TASK_CONTRACT.md) | accepted_and_integrated (`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`) | 收敛validation ownership、删除不可达内部分支并简化Attempt/GitAction事务 |
+| [Increment 14 Fix Task 1](./INCREMENT_14_FIX_TASK_1.md) | Accepted / integrated history | 修复stdout progress callback异常结算链并补真实并发terminal settlement证据 |
+| [Increment 14 Fix Task 2](./INCREMENT_14_FIX_TASK_2.md) | Accepted / integrated history | 等待owned child `close`后再收集证据并结算callback failure |
 
 ### 2.4 Agent 执行指南
 
@@ -124,7 +129,7 @@
 - 一项事实只保留一个详细权威位置；其它文档通过链接引用。
 - Codex 编写或维护任何项目文档 MUST 调用 `backend-doc-authoring` skill。
 - 每次 Review 后 MUST 审计并维护受影响文档；未接受 candidate 不得写成 Current。
-- 新文档 MUST 放入本目录、登记在本索引和 `PROJECT_RULES.md` Documentation Map，并通过相对链接与 merge marker 检查。
+- 长期项目文档MUST放入本目录；具体Workflow实例MUST放入[`docs/work/`](../work/README.md)。两者均须登记入口并通过相对链接与merge marker检查。
 - Deprecated 文档必须明确替代文档和停止生效日期，不得与 Current/Accepted 文档并列为有效。
 
 ## 4. 当前状态与未决行动
@@ -143,4 +148,4 @@
 - Increment 12已从exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`完成Implementation与Fix。Fix Review 5确认链接finding已闭合；派发门禁随后从原task恢复到字段完整的Fix Task 4 `final_answer`，因此唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受，阶段=`ACCEPTED`；完整accepted scope已进入版本化`main`并随Stage 3整体完成后进入active v0.5 runtime。push与旧database处理仍未授权。
 - Increment 13 Fix Task 2已完成。Fix Review 3 `review-increment-013-codex-003`确认simultaneous reservation、`failed` preview retry与本次结构化Coding Result全部闭环；无finding，Decision=`approved`。独立`typecheck`、Git Controller/CLI 9/9、full 385/385与`git diff --check`通过。用户已明确最终接受，阶段=`ACCEPTED`；完整accepted source已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。
 - 2026-09-02经独立授权完成active v0.3→v0.5 cutover：binding指向`room-v0.5.sqlite`与Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`，复用port `59665`和framed `p~codex-app` route；v0.2/v0.3 database按序只读归档且字节验证不变。project-scoped MCP确认Room=`DISCUSSION`、planning waiting actor=`planner`、cursor=`1`且所有execution entities为空。真实项目GitAction、push、Plugin reinstall、candidate worktree cleanup、旧database删除与cutover文档提交仍未授权。
-- Increment 14 Fix 2从Fix 1提交`f95c63c02817115d1ded566e3032a4c0d32cd085`形成于`codex/increment-14-fix-2-process-close-f95c63c`。已按[Fix Task 2](./INCREMENT_14_FIX_TASK_2.md)把stdout callback failure的Promise完成边界收敛为owned child `close`；新增manual-close process/Runner Oracle，证明close前无Artifact、Git evidence或terminal settlement，close后才结算一次。阶段为`REVIEW_REQUIRED`，下一步为GitHub Fix Review 3；尚未用户接受、合入`main`或改变active runtime。
+- Increment 14已完成Review、获用户接受并集成；状态=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15 Revision 2现为`Accepted / PLAN_READY`。

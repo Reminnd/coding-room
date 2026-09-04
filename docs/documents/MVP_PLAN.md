@@ -319,9 +319,9 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 
 用户于2026-09-02确认[Increment 13 Git Controller Architecture Review](./INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md)三项推荐及[Increment 13完整Task Contract](./INCREMENT_13_TASK_CONTRACT.md)：fixed `local-runner` actor的one-shot `room:git` CLI；existing allowlist下的single fast-forward lineage；保持v0.3 active并使用独立Codex worktree task完成candidate。Implementation Review `review-increment-013-codex-001`的四项finding已进入Accepted [Fix Task 1](./INCREMENT_13_FIX_TASK_1.md)，Fix Review 2的三项test/result evidence finding已由Accepted [Fix Task 2](./INCREMENT_13_FIX_TASK_2.md)闭合。Fix Review 3 `review-increment-013-codex-003`无finding、Decision=`approved`；用户已明确最终接受，阶段=`ACCEPTED`。完整accepted source由本次提交进入版本化`main`；GitAction与runtime写入仍未授权。
 
-### 增量 14 — Validation Ownership 与 Internal Invariant Simplification（Candidate）
+### 增量 14 — Validation Ownership 与 Internal Invariant Simplification（accepted_and_integrated）
 
-状态：用户于2026-09-03确认[Increment 14完整Contract](./INCREMENT_14_TASK_CONTRACT.md)及[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)、[Fix Task 2](./INCREMENT_14_FIX_TASK_2.md)。Fix 2从Fix 1提交`f95c63c02817115d1ded566e3032a4c0d32cd085`形成于`codex/increment-14-fix-2-process-close-f95c63c`；callback failure先保存typed error、停止stdout并请求一次stop，只有owned child `close`才完成Promise，随后才收集Git/Artifact并按既有`interrupted`语义结算。direct manual-close Oracle覆盖newline、EOF、late signal、close前零settlement与close后单次结算；typecheck、focused suites和全量`npm test`均通过。当前阶段仍为`REVIEW_REQUIRED`，下一步为GitHub Fix Review 3；尚未用户接受或进入`main`。
+状态：已完成Review、用户接受与集成；final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。
 
 目标：公开协议、SQLite Schema、状态机、权限、CLI/MCP输出及外部失败语义不变；原始输入只在CLI/MCP等真实边界校验，typed内部调用链信任TypeScript、原子生命周期、`BEGIN IMMEDIATE`与SQLite约束。删除内部对象二次Zod parse和public lifecycle不可达分支，简化Attempt settlement与GitAction reservation，并让late progress以`false`表达已知竞争。
 
@@ -330,6 +330,10 @@ Coding结果：独立Codex task从clean exact baseline `c449f40aebe3ff018610c59f
 Fix范围：`startClaudeProcess`把同步stdout callback异常转为typed Promise rejection并single-settlement终止owned child；WorkerAdapter与Executor保留partial stdout/stderr、Git及artifact evidence并按既有失败路径结算。两个test-only Worker使用独立SQLite connection和barrier同时调用public `settleRunAttempt`，分别覆盖同payload幂等与不同payload `id_conflict`。不改变公开协议、Schema、状态、error code、CLI/MCP、Plugin或active runtime。
 
 验证：Fix candidate按Accepted Contract执行typecheck、process/runner、execution-core、Room/MCP/CLI/Git及full suite；最终结果与Git/文档检查记录在[开发日志](./DEVELOPMENT_LOG.md)。
+
+### 增量 15 — GitHub Workflow Foundation（Revision 2 Accepted / PLAN_READY）
+
+[Architecture Review](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md)与[No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md)均为`Approved / User Confirmed`；[Increment 15 Revision 2 Contract](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md)=`Accepted / PLAN_READY`、`confirmed_by_user=true`。目标是用`room:status --help`真实Pilot证明GitHub Plan/Contract/Actions/Codex Cloud/PR/Chat Review闭环；本Bootstrap只建立Foundation，不实现Pilot代码。
 
 ## 5. Task Contract 规则
 

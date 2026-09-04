@@ -164,6 +164,9 @@ finding 成立不自动证明某个方案正确。Reviewer 也可能错误；未
 
 ## 8. Review 输出与阶段
 
+正式项目开发Review的Authority是ChatGPT fixed Chat，持久化surface是GitHub Pull Request；Work只通知，Actions与Supervisor不得作Review decision、approve或merge。完整规则见[Chat/GitHub Review指南](./CHAT_GITHUB_REVIEW.md)。
+
+
 每个 finding 包含：严重性、标题、文件/行号、触发路径、错误与证据、影响、规则关系、最小方向。
 
 输出顺序：Findings → Open Questions → Review Decision → Verification Summary。

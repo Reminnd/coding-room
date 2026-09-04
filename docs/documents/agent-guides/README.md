@@ -19,6 +19,8 @@
 | Codex | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、[CODEX_DOCUMENTATION_AUTHORING.md](./CODEX_DOCUMENTATION_AUTHORING.md) 与 [文档中心](../README.md) |
 | Claude Code | 任意 Implementation Task 或 Fix Task | [CLAUDE_CODING_AND_FIX.md](./CLAUDE_CODING_AND_FIX.md) |
 | Codex | branch、worktree、并行拆分、integration、baseline 或 commit | [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) 的 Codex 部分 |
+| Codex Supervisor | GitHub Router dispatch或Codex Cloud Coding交接 | [CODEX_SUPERVISOR_ROUTER.md](./CODEX_SUPERVISOR_ROUTER.md) |
+| ChatGPT fixed Chat | GitHub PR正式Review、finding或acceptance | [CHAT_GITHUB_REVIEW.md](./CHAT_GITHUB_REVIEW.md) 与 [CODEX_REVIEW_AND_PLANNING.md](./CODEX_REVIEW_AND_PLANNING.md) |
 | Claude Code | 并行模块、worktree、integration 或任何 Git 写操作 | [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) 的 Claude Code 部分 |
 
 ## 3. 维护规则
@@ -27,6 +29,6 @@
 - 一条规则只保留一个详细权威位置；入口文件用强制路由和短摘要索引，不复制全文。
 - 指南必须写成可执行的触发条件、判断顺序、证据要求和停止条件，不写抽象口号。
 - 案例可以解释规则来源，但规则必须能脱离单次案例用于后续相同类别任务。
-- Codex 是全部项目文档的最终维护者；每次文档工作 MUST 调用 `backend-doc-authoring` skill，并把人类可查看文档放在 `docs/documents/`。根目录仅保留三个 agent/tooling 控制入口。
+- Codex 是全部项目文档的最终维护者；每次文档工作 MUST 调用 `backend-doc-authoring` skill，并把长期项目文档放在 `docs/documents/`，具体Workflow实例Contract放在 `docs/work/`。根目录仅保留三个 agent/tooling 控制入口。
 - 每次 Review 后必须审计全部相关文档；有影响时更新对应权威文档和文档中心，无影响时在 Verification Summary 报告 `documentation: no_change` 及理由。
 - 每次修改检查链接、merge marker、文档中心、Documentation Map 和入口文件大小。

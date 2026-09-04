@@ -1,0 +1,150 @@
+name: Codex supervisor dispatch
+
+on:
+  push:
+    branches:
+      - stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: codex-supervisor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      router_changed: ${{ steps.changes.outputs.router_changed }}
+      pilot_changed: ${{ steps.changes.outputs.pilot_changed }}
+      router_path: ${{ steps.changes.outputs.router_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff-tree --no-commit-id --name-only -r "${GITHUB_SHA}^" "$GITHUB_SHA")
+          mapfile -t routers < <(printf '%s\n' "${changed[@]}" | sed -n '/\/ROUTER_CONTRACT\.md$/p')
+          if (( ${#routers[@]} > 1 )); then
+            echo "Expected at most one Router change in the tip commit" >&2
+            exit 1
+          fi
+          if (( ${#routers[@]} == 1 )); then
+            echo "router_changed=true" >> "$GITHUB_OUTPUT"
+            echo "router_path=${routers[0]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "router_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          if printf '%s\n' "${changed[@]}" | grep -Eq '^(src/cli/status\.ts|tests/status-cli\.test\.ts)$'; then
+            echo "pilot_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pilot_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  dispatch:
+    needs: classify
+    if: needs.classify.outputs.router_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - id: router
+        env:
+          ROUTER_PATH: ${{ needs.classify.outputs.router_path }}
+        run: |
+          set -euo pipefail
+          normalized="$(node .github/scripts/read-router-contract.mjs "$ROUTER_PATH")"
+          echo "json=$normalized" >> "$GITHUB_OUTPUT"
+      - name: Create or update Draft Stage PR and publish dispatch handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROUTER_JSON: ${{ steps.router.outputs.json }}
+          ROUTER_PATH: ${{ needs.classify.outputs.router_path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage_branch="$(jq -r .stage_branch <<<"$ROUTER_JSON")"
+          pr_number="$(gh pr list --base main --head "$stage_branch" --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            pr_url="$(gh pr create --draft --base main --head "$stage_branch" --title "Increment 15: GitHub workflow foundation pilot" --body "Stage integration PR for the accepted Increment 15 workflow.")"
+            pr_number="$(gh pr view "$pr_url" --json number --jq .number)"
+          else
+            pr_url="$(gh pr view "$pr_number" --json url --jq .url)"
+          fi
+          cat > /tmp/handoff.md <<HANDOFF
+          <!-- CODEX_DISPATCH_HANDOFF_V1 -->
+
+          status: ready_for_codex_dispatch
+          repository: $GITHUB_REPOSITORY
+          workflow_id: $(jq -r .work_id <<<"$ROUTER_JSON")
+          stage_id: $(jq -r .stage_id <<<"$ROUTER_JSON")
+          task_id: $(jq -r .task_id <<<"$ROUTER_JSON")
+          dispatch_id: $(jq -r .dispatch_id <<<"$ROUTER_JSON")
+          router_contract_path: $ROUTER_PATH
+          contract_commit_sha: $GITHUB_SHA
+          stage_branch: $stage_branch
+          stage_head_sha: $GITHUB_SHA
+          review_authority: chatgpt_fixed_chat
+          codex_surface: github_pr_to_codex_cloud
+
+          User action required: post the dispatch command defined in the accepted Supervisor guide.
+          HANDOFF
+          gh pr comment "$pr_number" --body-file /tmp/handoff.md
+          echo "Draft Stage PR: $pr_url"
+
+  verify-pilot:
+    needs: classify
+    if: needs.classify.outputs.pilot_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/status-cli.test.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: git diff --check
+      - name: Mark Stage PR ready and publish Chat review handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGE_BRANCH: stage/wf-increment-015-github-workflow-foundation/S01-foundation-pilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr_number="$(gh pr list --base main --head "$STAGE_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            echo "Draft Stage PR does not exist" >&2
+            exit 1
+          fi
+          gh pr ready "$pr_number"
+          gh label create chat-review --color 5319E7 --description "Ready for formal ChatGPT fixed Chat review" --force
+          gh pr edit "$pr_number" --add-label chat-review
+          cat > /tmp/handoff.md <<HANDOFF
+          <!-- CHAT_REVIEW_HANDOFF_V1 -->
+
+          status: ready_for_chat_review
+          repository: $GITHUB_REPOSITORY
+          workflow_id: wf-increment-015-github-workflow-foundation
+          stage_id: S01-foundation-pilot
+          task_id: T01-room-status-help
+          stage_branch: $STAGE_BRANCH
+          stage_head_sha: $GITHUB_SHA
+          review_authority: chatgpt_fixed_chat
+          review_transport: github_pull_request
+
+          Verification passed. User action required: conduct formal review in the fixed ChatGPT chat against this pull request.
+          HANDOFF
+          gh pr comment "$pr_number" --body-file /tmp/handoff.md

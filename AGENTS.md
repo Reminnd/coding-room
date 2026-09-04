@@ -24,6 +24,7 @@
 | 每个非简单项目任务 | `PROJECT_RULES.md` 及其“会话必读”文档 | 当前规则、架构与开发状态 |
 | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、`docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 与 `docs/documents/README.md` | 全项目文档编写、单一权威、目录与 Review 后维护门禁 |
 | 需求分析、架构、规划、Task Contract、Review、Fix 方案或 Fix 验收后经验回收 | `docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md` | 证据链、lifecycle Review、最小方案与可复用经验回收 |
+| GitHub Router、Codex Cloud Supervisor或正式PR Review | `docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md` 与 `docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md` | 新项目开发控制面 |
 | branch、worktree、并行模块、integration、commit 或 baseline | `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | Git 权限、dispatch metadata 与 dependency DAG |
 | 协议、Runner、MCP 或 Room 状态任务 | `docs/documents/ROOM_PROTOCOL.md` | entity、transition、actor 与失败语义 |
 | 生成或调整 Increment 计划 | `docs/documents/MVP_PLAN.md` | 增量依赖、验收与非目标 |
@@ -47,11 +48,12 @@ Codex 可以：
 - 创建和维护共享规范、计划、架构、技术、ADR、开发状态、Task Contract、Review 与 Fix Task。
 - 作为全项目文档编写者及维护者，调用 `backend-doc-authoring` skill 编写、补全、迁移、Review 并维护 `docs/documents/` 下全部项目文档。
 - 为 Review 运行能改变结论的只读检查、构建或测试。
-- 审查 Claude Code 的代码、测试、配置和候选文档 Diff。
+- 通过ChatGPT fixed Chat审查GitHub PR的代码、测试、配置和候选文档Diff。
+- 在Codex Cloud编写Plan初稿、执行Supervisor路由和已批准Contract的Coding；GitHub是持久化交接面，Work只通知。
 
 Codex 不得：
 
-- 编写、修改或自动修复业务代码、测试或实现配置。
+- 在未获Accepted Contract授权时编写、修改或自动修复业务代码、测试或实现配置。
 - 在用户确认方案前派发 Implementation Task，或在 Review 后跳过用户讨论直接派发 Fix Task。
 - 把推测性风险、无关清理、既有问题或纯风格意见作为阻塞 finding。
 - 未经明确授权执行 commit、push、merge、rebase、reset、checkout、clean、切换分支或改写历史。

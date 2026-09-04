@@ -2,7 +2,7 @@
 
 | 属性 | 内容 |
 |---|---|
-| 文档状态 | Accepted direction；各阶段实现仍需独立 Accepted Task Contract |
+| 文档状态 | Stage 1–3 Accepted history；原Stage 4–6方向已被新路线替代 |
 | Owner | Codex |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
 | 创建日期 | 2026-08-29 |
@@ -33,6 +33,10 @@ flowchart LR
     classDef human fill:#f8d66d,stroke:#8a6500,color:#1d1d1d;
     class C,F,A human;
 ```
+
+## 1.1 路线替代（2026-09-03）
+
+Stage 1–3历史Accepted成果及现有Agent Room runtime继续有效，不删除任何Room产品能力。原Stage 4 Agent Conversations、Stage 5 VS Code Cockpit、Stage 6 GitHub Provider作为后续方向已被[GitHub/Chat Review新路线](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md)替代：GitHub成为项目开发持久化交接面，ChatGPT fixed Chat成为正式Review Authority，Codex Cloud负责Plan/Supervisor/Coding，Work只通知。Room SQLite只继续拥有Agent Room产品运行时事实。下文Stage 4–6描述仅保留历史规划背景，不再是Current delivery sequence。
 
 ## 2. 总体阶段流
 
@@ -95,15 +99,15 @@ Stage 1 的已确认方案见 [Increment 9 Accepted Contract](./INCREMENT_9_TASK
 
 依赖 Stage 2 的 atomic RunAttempt 与唯一 terminal state。Scheduler 只消费 Accepted TaskGraphRevision；Git Controller 是全部 Git write 的唯一 product boundary，并且每次 candidate operation 仍须 preview 与用户确认。
 
-### 4.4 Stage 4 — Agent Conversations
+### 4.4 Stage 4 — Agent Conversations（Superseded direction）
 
 依赖 Stage 3 的结构化 Draft/Revision。自由 Chat 只生成候选 artifact，服务端验证和用户批准后才形成 Accepted revision。PlanningSession、ReviewSession 与 Worker session 相互独立。
 
-### 4.5 Stage 5 — VS Code Cockpit
+### 4.5 Stage 5 — VS Code Cockpit（Superseded direction）
 
 依赖前四阶段稳定 typed command、snapshot 与 event semantics。Webview 只保存 viewport/filter/selection，不成为 Room state authority。
 
-### 4.6 Stage 6 — GitHub Provider
+### 4.6 Stage 6 — GitHub Provider（Superseded direction）
 
 依赖本地 Cockpit workflow 已稳定。GitHub 只持有 external projection；Room SQLite 继续拥有 Plan、Task、Review 与 acceptance。
 
