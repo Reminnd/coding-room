@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Acceptance handoff: the JSON uses the existing stage-generic Actions grammar. T05 remains present as the integrated recovery/dependency identity. T05F00 is `Accepted` with `confirmed_by_user=true`, but execution requires separate user authorization of a fresh `run-once`. T05F01 remains `Proposed` with `confirmed_by_user=false`. T06 is not in the Router Ready Set.
+> Planning handoff: the JSON uses the existing stage-generic Actions grammar and remains unchanged. T05 remains present as the integrated recovery/dependency identity. T05R00 is a Proposed manual pre-native bootstrap repair and is deliberately absent from the Router tasks array and Ready Set. T05F00 remains `Accepted` with `confirmed_by_user=true`, but execution is blocked until T05R00 is integrated and a later fresh `run-once` is separately authorized. T05F01 remains `Proposed` with `confirmed_by_user=false`. T06 is not in the Router Ready Set.
 
 <!-- ROUTER_CONTRACT_V1 -->
 
@@ -106,8 +106,11 @@
 
 - The Stage planning base is exact GitHub `main` `bd41ea8a1e259300241a345a659e7da90e24af0d`; runtime `base_sha` is re-read from the actual Stage branch by Local Bridge at each dispatch.
 - T05 is already integrated with source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` mapped to Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`. Its Router entry remains only for recovery and dependency identity.
+- Installed `codex-cli 0.149.1` defines `ThreadStartParams.sandbox` as `read-only | workspace-write | danger-full-access`; production and its direct test currently use invalid `workspaceWrite`. T05R00 repairs only this wire enum and its direct Oracle.
+- T05R00 is not Router-dispatchable because the current native backend cannot create a thread. It requires separate exact-Contract acceptance and separate authorization of one one-time `manual_pre_native_codex_exec` repair. Local Bridge MUST NOT discover or execute it, and production MUST NOT add a native-to-`codex exec` fallback or compatibility mode.
 - Do not invoke Local Bridge `start`. Every remaining transition execution uses a separately authorized fresh `run-once`.
-- T05F00 exact Contract is `Accepted` with `confirmed_by_user=true` in this acceptance revision at the exact pushed Stage head containing this acceptance, but execution still requires separate user authorization of a fresh `run-once`. This acceptance is not execution authority. That `run-once` integrates only T05F00 and then MUST stop.
+- T05F00 exact Contract remains unchanged, `Accepted` and `confirmed_by_user=true`, but its execution is blocked by T05R00. Do not retry dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` and do not start another `run-once` before T05R00 is integrated.
+- After T05R00 integration, STOP. A fresh process MUST reload the repaired `codex-app-server.mjs`, the latest `dispatch_ready` Stage handoff MUST be regenerated, and T05F00 still requires separate authorization of a fresh `run-once`. That later `run-once` integrates only T05F00 and then MUST stop.
 - T05F01 remains `Proposed` with `confirmed_by_user=false` and is not dispatchable. It may run only after T05F00 is integrated and the exact T05F01 Contract is separately changed to `Accepted`, `confirmed_by_user=true` at a later exact pushed Stage SHA. Its fresh process must load the T05F00 prompt boundary before dispatch.
 - T05F01 requires Contract-authorized Root-only native multi-agent. Native multi-agent unavailability returns `needs_decision`; serial fake-agent fallback is forbidden. After T05F01 integration, the process MUST stop.
 - T05F00 and T05F01 each return the legacy transition Coding Result envelope accepted by the Controller already loaded at that Task's process start. This is execution compatibility only; production code must not add permanent task-ID branches or a compatibility mode.
