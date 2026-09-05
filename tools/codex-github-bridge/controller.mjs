@@ -9,9 +9,165 @@ import { assertOwnedFiles } from './scope.mjs';
 import { runSupervisor } from './supervisor.mjs';
 import { runVerification } from './verification.mjs';
 
-function workerReportedStatus(result) {
-  const match = /^status:\s*(candidate_ready|blocked|needs_decision)\s*$/m.exec(result.lastMessage);
-  return match?.[1] ?? null;
+const WORKER_RESULT_SCALARS = new Set([
+  'task_id',
+  'dispatch_id',
+  'reported_base_sha',
+  'reported_task_head_sha',
+  'status',
+]);
+const WORKER_RESULT_LISTS = new Set(['changed_files', 'deviations', 'unresolved', 'questions']);
+const WORKER_RESULT_MAPS = {
+  native_backend: new Set([
+    'interface',
+    'worker_mode',
+    'explicit_thread_cwd',
+    'explicit_turn_cwd',
+    'terminal_event',
+    'silent_fallback',
+  ]),
+  verification: new Set(['bridge_tests', 'typecheck', 'full_tests', 'diff_check']),
+};
+
+function parseWorkerString(raw) {
+  const value = raw.trim();
+  if (value.length === 0 || /^(?:null|~|true|false|-?\d+(?:\.\d+)?|\[.*\]|\{.*\})$/i.test(value)) return null;
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    const unquoted = value.slice(1, -1);
+    return unquoted.length > 0 ? unquoted : null;
+  }
+  return value;
+}
+
+function setWorkerField(target, key, value, path) {
+  if (Object.hasOwn(target, key)) throw new Error(`duplicate field ${path}`);
+  target[key] = value;
+}
+
+// Worker final messages use the exact small YAML subset in the T05 Contract.
+// This parser deliberately does not become a generic YAML or cross-Task schema layer.
+function parseWorkerCodingResult(lastMessage) {
+  if (typeof lastMessage !== 'string' || lastMessage.trim().length === 0) {
+    throw new Error('result is empty');
+  }
+
+  const result = {};
+  let section = null;
+  for (const line of lastMessage.replaceAll('\r\n', '\n').split('\n')) {
+    if (line.trim().length === 0 || /^```(?:ya?ml)?\s*$/i.test(line.trim())) continue;
+
+    const topLevel = /^([a-z_]+):(?:\s*(.*))?$/.exec(line);
+    if (topLevel) {
+      const [, key, raw = ''] = topLevel;
+      section = null;
+      if (WORKER_RESULT_SCALARS.has(key)) {
+        const value = parseWorkerString(raw);
+        if (value === null) throw new Error(`${key} must be a non-empty string`);
+        setWorkerField(result, key, value, key);
+      } else if (WORKER_RESULT_LISTS.has(key)) {
+        if (raw !== '' && raw !== '[]') throw new Error(`${key} must be a list`);
+        setWorkerField(result, key, [], key);
+        if (raw === '') section = { kind: 'list', key };
+      } else if (Object.hasOwn(WORKER_RESULT_MAPS, key)) {
+        if (raw !== '') throw new Error(`${key} must be a mapping`);
+        setWorkerField(result, key, {}, key);
+        section = { kind: 'map', key };
+      }
+      continue;
+    }
+
+    if (section?.kind === 'list') {
+      const item = /^  -\s+(.+)$/.exec(line);
+      if (item) {
+        const value = parseWorkerString(item[1]);
+        if (value === null) throw new Error(`${section.key} items must be non-empty strings`);
+        result[section.key].push(value);
+      }
+      continue;
+    }
+
+    if (section?.kind === 'map') {
+      const field = /^  ([a-z_]+):(?:\s*(.*))?$/.exec(line);
+      if (!field || !WORKER_RESULT_MAPS[section.key].has(field[1])) continue;
+      const [, key, raw = ''] = field;
+      if (section.key === 'native_backend' && key === 'silent_fallback') {
+        if (raw !== 'false') throw new Error('native_backend.silent_fallback must be boolean false');
+        setWorkerField(result[section.key], key, false, `${section.key}.${key}`);
+      } else {
+        const value = parseWorkerString(raw);
+        if (value === null) throw new Error(`${section.key}.${key} must be a non-empty string`);
+        setWorkerField(result[section.key], key, value, `${section.key}.${key}`);
+      }
+    }
+  }
+  return result;
+}
+
+function validateWorkerCodingResult(processResult, task, baseSha) {
+  const result = parseWorkerCodingResult(processResult.lastMessage);
+  for (const key of WORKER_RESULT_SCALARS) {
+    if (!Object.hasOwn(result, key)) throw new Error(`missing field ${key}`);
+  }
+  for (const key of WORKER_RESULT_LISTS) {
+    if (!Array.isArray(result[key])) throw new Error(`missing field ${key}`);
+  }
+  for (const [section, required] of Object.entries(WORKER_RESULT_MAPS)) {
+    if (typeof result[section] !== 'object' || result[section] === null || Array.isArray(result[section])) {
+      throw new Error(`missing field ${section}`);
+    }
+    for (const key of required) {
+      if (!Object.hasOwn(result[section], key)) throw new Error(`missing field ${section}.${key}`);
+    }
+  }
+
+  if (result.task_id !== task.task_id) throw new Error('task_id does not match the current Task');
+  if (result.dispatch_id !== task.dispatch_id) throw new Error('dispatch_id does not match the current dispatch');
+  if (result.reported_base_sha !== baseSha) throw new Error('reported_base_sha does not match the original dispatch base');
+  if (!/^[0-9a-f]{40}$/i.test(result.reported_task_head_sha)) throw new Error('reported_task_head_sha must be a Git SHA');
+  if (result.status !== 'candidate_ready') throw new Error('status must be candidate_ready');
+  if (result.native_backend.worker_mode !== 'one_thread_per_task') {
+    throw new Error('native_backend.worker_mode must be one_thread_per_task');
+  }
+  if (result.native_backend.silent_fallback !== false) throw new Error('native_backend.silent_fallback must be false');
+  for (const key of ['explicit_thread_cwd', 'explicit_turn_cwd']) {
+    if (result.native_backend[key] !== 'pass') {
+      throw new Error(`native_backend.${key} must report semantic pass`);
+    }
+  }
+  for (const key of ['bridge_tests', 'typecheck', 'diff_check']) {
+    const value = result.verification[key];
+    const outcome = /^(pass-under-accepted-amendment|pass|fail)\b/i.exec(value);
+    if (!outcome || value.replace(outcome[0], '').replace(/[\s`():+\-—]/g, '').length === 0) {
+      throw new Error(`verification.${key} must contain a semantic outcome and command`);
+    }
+    if (outcome[1].toLowerCase() !== 'pass') {
+      throw new Error(`verification.${key} must report ordinary pass`);
+    }
+  }
+
+  const fullTests = result.verification.full_tests;
+  const fullTestsOutcome = /^(pass-under-accepted-amendment|pass|fail)\b/i.exec(fullTests);
+  if (!fullTestsOutcome || fullTests.replace(fullTestsOutcome[0], '').replace(/[\s`():+\-—]/g, '').length === 0) {
+    throw new Error('verification.full_tests must contain a semantic outcome and command');
+  }
+  if (!['pass', 'pass-under-accepted-amendment'].includes(fullTestsOutcome[1].toLowerCase())) {
+    throw new Error('verification.full_tests must report semantic pass');
+  }
+  if (result.changed_files.length === 0) {
+    throw new Error('changed_files must not be empty for candidate_ready');
+  }
+  if (result.changed_files.some((path) => !/^tools\/codex-github-bridge\/\S+$/.test(path))) {
+    throw new Error('changed_files must contain T05-owned paths');
+  }
+  return result;
+}
+
+function nativeFacts(processResult) {
+  const facts = {};
+  if (typeof processResult.native?.threadId === 'string') facts.native_thread_id = processResult.native.threadId;
+  if (typeof processResult.native?.turnId === 'string') facts.native_turn_id = processResult.native.turnId;
+  if (typeof processResult.native?.status === 'string') facts.native_turn_status = processResult.native.status;
+  return facts;
 }
 
 function requireHandoff(handoff, repository) {
@@ -178,6 +334,7 @@ export class BridgeController {
       stageBranch: this.context.router.stage_branch,
       worktree,
       model,
+      dependencies: task.depends_on.map((id) => this.context.mappings.get(id)),
     }, contract);
     return { baseSha, worktree, model, contract, processResult };
   }
@@ -189,34 +346,33 @@ export class BridgeController {
       return;
     }
 
-    const reportedStatus = workerReportedStatus(result.processResult);
+    const workerNativeFacts = nativeFacts(result.processResult);
     if (result.processResult.error || result.processResult.exitCode !== 0) {
-      await this.publish(task, 'blocked', {
+      await this.publish(task, result.processResult.error?.status ?? 'blocked', {
         reason: result.processResult.error?.message || result.processResult.stderr.trim().slice(-2000) || `Worker exited ${result.processResult.exitCode}`,
         process_exit: result.processResult.exitCode,
+        ...workerNativeFacts,
       });
       return;
     }
-    if (reportedStatus === 'needs_decision') {
-      await this.publish(task, 'needs_decision', { reason: result.processResult.lastMessage.trim().slice(-2000), process_exit: result.processResult.exitCode });
-      return;
-    }
-    if (reportedStatus === 'blocked') {
-      await this.publish(task, 'blocked', { reason: result.processResult.lastMessage.trim().slice(-2000), process_exit: result.processResult.exitCode });
-      return;
-    }
-    if (reportedStatus !== 'candidate_ready') {
+    let codingResult;
+    try {
+      codingResult = validateWorkerCodingResult(result.processResult, task, result.baseSha);
+    } catch (error) {
       await this.publish(task, 'blocked', {
-        reason: 'Worker completed without a valid required Coding Result status',
+        reason: `Worker completed with invalid required Coding Result: ${error.message}`,
         process_exit: result.processResult.exitCode,
+        ...workerNativeFacts,
       });
       return;
     }
-
     let facts;
     let verification;
     try {
       facts = await this.git.collectTaskFacts(task, result.worktree, result.baseSha);
+      if (codingResult.reported_task_head_sha !== facts.taskHeadSha) {
+        throw blocked('reported_task_head_sha does not match the independent Git task head');
+      }
       await this.git.mechanicalGate(task, facts);
       verification = await runVerification(task.verification, result.worktree, this.git.run);
       const failed = verification.filter((item) => item.kind === 'command' && !item.passed);
@@ -224,7 +380,7 @@ export class BridgeController {
       const postVerificationStatus = await this.git.status(result.worktree);
       if (postVerificationStatus !== '') throw blocked(`verification left the task worktree dirty: ${postVerificationStatus}`);
     } catch (error) {
-      await this.publish(task, error.status ?? 'blocked', { reason: error.message, process_exit: result.processResult.exitCode });
+      await this.publish(task, error.status ?? 'blocked', { reason: error.message, process_exit: result.processResult.exitCode, ...workerNativeFacts });
       return;
     }
 
@@ -235,12 +391,13 @@ export class BridgeController {
       model: result.model,
       contract: result.contract,
       facts,
+      native: workerNativeFacts,
       dependencies: task.depends_on.map((id) => this.context.mappings.get(id)),
       verification,
       diff,
     });
     if (supervisor.status !== 'ready_to_integrate') {
-      await this.publish(task, supervisor.status, { reason: supervisor.reason, source_task_sha: facts.taskHeadSha });
+      await this.publish(task, supervisor.status, { reason: supervisor.reason, source_task_sha: facts.taskHeadSha, ...workerNativeFacts });
       return;
     }
 
@@ -249,6 +406,7 @@ export class BridgeController {
       await this.publish(task, 'blocked', {
         reason: `dependencies are not integrated at the integration gate: ${missingDependencies.join(', ')}`,
         source_task_sha: facts.taskHeadSha,
+        ...workerNativeFacts,
       });
       return;
     }
@@ -257,7 +415,7 @@ export class BridgeController {
     try {
       await this.git.pushTask(task, result.worktree, facts.taskHeadSha);
     } catch (error) {
-      await this.publish(task, error.status ?? 'blocked', { reason: error.message, process_exit: result.processResult.exitCode });
+      await this.publish(task, error.status ?? 'blocked', { reason: error.message, process_exit: result.processResult.exitCode, ...workerNativeFacts });
       return;
     }
 
@@ -269,7 +427,7 @@ export class BridgeController {
       integration = { status: 'blocked', reason: error.message };
     }
     if (integration.status === 'blocked') {
-      await this.publish(task, 'blocked', { reason: integration.reason, source_task_sha: facts.taskHeadSha });
+      await this.publish(task, 'blocked', { reason: integration.reason, source_task_sha: facts.taskHeadSha, ...workerNativeFacts });
       return;
     }
     await this.publish(task, 'task_integrated', {
@@ -280,6 +438,7 @@ export class BridgeController {
       actual_changed_files: facts.actualChangedFiles,
       verification,
       process_exit: result.processResult.exitCode,
+      ...workerNativeFacts,
     });
   }
 

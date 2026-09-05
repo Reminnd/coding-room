@@ -19,12 +19,14 @@ export async function inspectCodexCapability({ codexBin = 'codex', run = runProc
   let version;
   let rootHelp;
   let execHelp;
+  let appServerHelp;
   let modelsHelp;
   let catalogResult;
   try {
     version = await runChecked(run, codexBin, ['--version']);
     rootHelp = await runChecked(run, codexBin, ['--help']);
     execHelp = await runChecked(run, codexBin, ['--ask-for-approval', 'never', 'exec', '--help']);
+    appServerHelp = await runChecked(run, codexBin, ['app-server', '--help']);
     modelsHelp = await runChecked(run, codexBin, ['debug', 'models', '--help']);
     catalogResult = await runChecked(run, codexBin, ['debug', 'models']);
   } catch (error) {
@@ -41,6 +43,9 @@ export async function inspectCodexCapability({ codexBin = 'codex', run = runProc
   }
   if (!rootHelp.stdout.includes('--ask-for-approval')) {
     throw needsDecision('Local Codex root command does not support the non-interactive approval policy flag');
+  }
+  if (!appServerHelp.stdout.includes('--listen') || !appServerHelp.stdout.includes('stdio://')) {
+    throw needsDecision('Local Codex does not expose the native app-server --listen stdio:// transport');
   }
 
   let catalog;
