@@ -1,16 +1,20 @@
 import { spawn } from 'node:child_process';
 
+export function spawnProcess(command, args = [], options = {}) {
+  return spawn(command, args, {
+    cwd: options.cwd,
+    env: options.env ?? process.env,
+    windowsHide: true,
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+}
+
 export function runProcess(command, args = [], options = {}) {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(command, args, {
-        cwd: options.cwd,
-        env: options.env ?? process.env,
-        windowsHide: true,
-        shell: false,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      child = spawnProcess(command, args, options);
     } catch (error) {
       resolve({ command, args, exitCode: null, signal: null, stdout: '', stderr: '', error });
       return;
