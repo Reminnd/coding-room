@@ -1,20 +1,20 @@
 # STAGE — S02-native-codex-agent-threads
 
 - work_id: `wf-increment-015-github-workflow-foundation`
-- status: `waiting_for_T05F00_exact_contract_acceptance`
+- status: `waiting_for_T05F00_execution_authorization`
 - purpose: `repair_native_worker_transition_boundaries`
 - goal: 在已集成 T05 native task-thread backend 上，先修复 Root delegation prompt 边界，再修复 generic Worker Result boundary，同时保持既有 GitHub/Git、DAG、worktree、Supervisor Integration 与 Review authority 不变。
 - main_base_sha: `bd41ea8a1e259300241a345a659e7da90e24af0d`
 - stage_branch: `stage/wf-increment-015-github-workflow-foundation/S02-native-codex-agent-threads`
 - dependencies: S01 `accepted_and_integrated` at exact GitHub `main` `bd41ea8a1e259300241a345a659e7da90e24af0d`
 - integrated_task: [`T05-native-codex-thread-backend`](./tasks/T05-native-codex-thread-backend/TASK_CONTRACT.md), source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` → Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`
-- next_proposed_task: [`T05F00-root-multi-agent-prompt-boundary`](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md); not dispatchable until exact Contract acceptance
-- downstream_proposed_task: [`T05F01-generic-worker-result-boundary`](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md); not dispatchable until T05F00 is integrated and its own exact Contract is separately accepted
-- planning_placeholder: [`T06-native-codex-thread-contracts`](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md); exact documentation ownership remains unresolved until T05F01 is integrated and freshly inspected
+- next_task: [`T05F00-root-multi-agent-prompt-boundary`](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md); `Accepted`, `confirmed_by_user=true`, `execution_authorized=false`; waiting for separate user authorization of a fresh `run-once`
+- downstream_proposed_task: [`T05F01-generic-worker-result-boundary`](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md); `Proposed`, `confirmed_by_user=false`, `execution_authorized=false`; not dispatchable until T05F00 is integrated and its own exact Contract is separately accepted
+- planning_placeholder: [`T06-native-codex-thread-contracts`](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md); `Planning Placeholder`, `dispatchable=false`; exact documentation ownership remains unresolved until T05F01 is integrated and freshly inspected
 - router: [`ROUTER_CONTRACT.md`](./ROUTER_CONTRACT.md)
 - supervisor: [`SUPERVISOR_ROUTER_AGENT.md`](./SUPERVISOR_ROUTER_AGENT.md)
-- lifecycle: `transition_repair_planned`
-- integration_facts: T05 is integrated; T05F00 and T05F01 are Proposed with `confirmed_by_user=false`; T06 remains a non-dispatchable Planning Placeholder
+- lifecycle: `waiting_for_T05F00_execution_authorization`
+- integration_facts: T05 is `integrated`; T05F00 is `Accepted` with `confirmed_by_user=true` and `execution_authorized=false`; T05F01 is `Proposed` with `confirmed_by_user=false` and `execution_authorized=false`; T06 remains a `Planning Placeholder` with `dispatchable=false`
 - candidate_verification: only after T05F00, T05F01 and a separately accepted exact T06 are integrated may the existing single `stage/**` workflow use its `stage_candidate_ready` path
 - review_handoff: pending Actions-created Draft PR and exact dispatch handoff
 
@@ -22,10 +22,12 @@
 
 ```text
 T05-native-codex-thread-backend integrated
-→ user accepts the exact T05F00 Contract at its exact Stage SHA
-→ fresh run-once executes and integrates T05F00 only
+→ T05F00 Accepted
+→ separate execution authorization
+→ fresh run-once executes T05F00 only
+→ integrate
 → STOP
-→ user separately accepts the exact T05F01 Contract
+→ later T05F01 separate acceptance
 → fresh run-once
 → T05F01 Root uses Contract-authorized native multi-agent
 → integrate T05F01
@@ -46,8 +48,10 @@ T06 is the first docs-owned native Task after the generic Worker Result boundary
 
 ```text
 T05 is integrated
-→ user accepts exact T05F00 at the new exact Stage SHA
-→ fresh run-once dispatches and integrates T05F00 only
+→ T05F00 is Accepted at the exact pushed Stage head containing this acceptance
+→ user separately authorizes a fresh run-once for T05F00 only
+→ fresh run-once dispatches and executes T05F00 only
+→ integrate T05F00
 → STOP
 → user separately accepts exact T05F01 after T05F00 integration
 → fresh run-once dispatches T05F01 with Root-only native multi-agent
@@ -63,4 +67,4 @@ T05 is integrated
 → non-force fast-forward to main
 ```
 
-This planning revision is not acceptance of T05F00 or T05F01. The Actions-created `dispatch_ready` handoff makes this Draft Stage discoverable; it does not authorize Coding. Continuous `start` is forbidden for this transition. `room:status --help` remains Deferred. The S01 Router and all S01 Task/Fix Contracts remain immutable history and are not active dispatch sources. S02 does not restore S01 Bootstrap-B and does not allocate another Stage number.
+This acceptance revision accepts T05F00 with `confirmed_by_user=true` but leaves `execution_authorized=false`; the current next action is to wait for separate user authorization of a fresh `run-once` that executes T05F00 only. T05F01 remains `Proposed` with `confirmed_by_user=false`. The Actions-created `dispatch_ready` handoff makes this Draft Stage discoverable; it does not authorize Coding. Continuous `start` is forbidden for this transition. `room:status --help` remains Deferred. The S01 Router and all S01 Task/Fix Contracts remain immutable history and are not active dispatch sources. S02 does not restore S01 Bootstrap-B and does not allocate another Stage number.

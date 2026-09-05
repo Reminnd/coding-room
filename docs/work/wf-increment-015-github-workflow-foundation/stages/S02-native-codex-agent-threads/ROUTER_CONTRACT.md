@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Planning handoff: the JSON uses the existing stage-generic Actions grammar. T05 remains present as the integrated recovery/dependency identity. T05F00 and T05F01 remain gated by separate exact Contract acceptance; this planning revision accepts neither Task. T06 is not in the Router Ready Set.
+> Acceptance handoff: the JSON uses the existing stage-generic Actions grammar. T05 remains present as the integrated recovery/dependency identity. T05F00 is `Accepted` with `confirmed_by_user=true`, but execution requires separate user authorization of a fresh `run-once`. T05F01 remains `Proposed` with `confirmed_by_user=false`. T06 is not in the Router Ready Set.
 
 <!-- ROUTER_CONTRACT_V1 -->
 
@@ -107,8 +107,8 @@
 - The Stage planning base is exact GitHub `main` `bd41ea8a1e259300241a345a659e7da90e24af0d`; runtime `base_sha` is re-read from the actual Stage branch by Local Bridge at each dispatch.
 - T05 is already integrated with source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` mapped to Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`. Its Router entry remains only for recovery and dependency identity.
 - Do not invoke Local Bridge `start`. Every remaining transition execution uses a separately authorized fresh `run-once`.
-- T05F00 may run only after its exact Contract is separately changed to `Accepted`, `confirmed_by_user=true` at an exact pushed Stage SHA. The current `Proposed` Contract is not dispatch authority. Its `run-once` integrates only T05F00 and then MUST stop.
-- T05F01 may run only after T05F00 is integrated and the exact T05F01 Contract is separately changed to `Accepted`, `confirmed_by_user=true` at a later exact pushed Stage SHA. Its fresh process must load the T05F00 prompt boundary before dispatch.
+- T05F00 exact Contract is `Accepted` with `confirmed_by_user=true` in this acceptance revision at the exact pushed Stage head containing this acceptance, but execution still requires separate user authorization of a fresh `run-once`. This acceptance is not execution authority. That `run-once` integrates only T05F00 and then MUST stop.
+- T05F01 remains `Proposed` with `confirmed_by_user=false` and is not dispatchable. It may run only after T05F00 is integrated and the exact T05F01 Contract is separately changed to `Accepted`, `confirmed_by_user=true` at a later exact pushed Stage SHA. Its fresh process must load the T05F00 prompt boundary before dispatch.
 - T05F01 requires Contract-authorized Root-only native multi-agent. Native multi-agent unavailability returns `needs_decision`; serial fake-agent fallback is forbidden. After T05F01 integration, the process MUST stop.
 - T05F00 and T05F01 each return the legacy transition Coding Result envelope accepted by the Controller already loaded at that Task's process start. This is execution compatibility only; production code must not add permanent task-ID branches or a compatibility mode.
 - The current T06 file is a non-dispatchable Planning Placeholder and is not part of this Router's tasks or Ready Set. Only after T05F01 integration and a fresh inspection of the actual generic Controller may Codex determine material docs ownership and replace it with an exact Contract.

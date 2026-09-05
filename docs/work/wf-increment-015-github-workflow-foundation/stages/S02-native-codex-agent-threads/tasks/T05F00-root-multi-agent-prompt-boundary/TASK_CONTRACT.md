@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: T05F00-root-multi-agent-prompt-boundary
 type: Implementation Task
 dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-001
