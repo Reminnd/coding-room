@@ -1,6 +1,6 @@
-# ROUTER CONTRACT — S02 Native Codex Task Thread Adoption
+# ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Planning handoff: the JSON uses the existing stage-generic Actions grammar. This revision exposes only T05 as dispatchable; Local Bridge execution remains gated on explicit user acceptance of the exact T05 Contract at this Stage SHA.
+> Planning handoff: the JSON uses the existing stage-generic Actions grammar. T05 remains present as the integrated recovery/dependency identity. T05F00 and T05F01 remain gated by separate exact Contract acceptance; this planning revision accepts neither Task. T06 is not in the Router Ready Set.
 
 <!-- ROUTER_CONTRACT_V1 -->
 
@@ -37,6 +37,46 @@
         "npm test",
         "git diff --check"
       ]
+    },
+    {
+      "task_id": "T05F00-root-multi-agent-prompt-boundary",
+      "dispatch_id": "wf15-s02-t05f00-root-multi-agent-prompt-boundary-001",
+      "task_contract_path": "docs/work/wf-increment-015-github-workflow-foundation/stages/S02-native-codex-agent-threads/tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md",
+      "task_branch": "task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary",
+      "depends_on": ["T05-native-codex-thread-backend"],
+      "owns": [
+        "tools/codex-github-bridge/codex.mjs",
+        "tools/codex-github-bridge/tests/codex.test.mjs"
+      ],
+      "model_policy": "coding_strong",
+      "reasoning_effort": "medium",
+      "fallback_model_policy": null,
+      "verification": [
+        "node --test tools/codex-github-bridge/tests/codex.test.mjs",
+        "node --test tools/codex-github-bridge/tests/*.test.mjs",
+        "npm run typecheck",
+        "git diff --check"
+      ]
+    },
+    {
+      "task_id": "T05F01-generic-worker-result-boundary",
+      "dispatch_id": "wf15-s02-t05f01-generic-worker-result-boundary-001",
+      "task_contract_path": "docs/work/wf-increment-015-github-workflow-foundation/stages/S02-native-codex-agent-threads/tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md",
+      "task_branch": "task/wf-increment-015-github-workflow-foundation/T05F01-generic-worker-result-boundary",
+      "depends_on": ["T05F00-root-multi-agent-prompt-boundary"],
+      "owns": [
+        "tools/codex-github-bridge/controller.mjs",
+        "tools/codex-github-bridge/tests/controller.test.mjs"
+      ],
+      "model_policy": "coding_strong",
+      "reasoning_effort": "high",
+      "fallback_model_policy": null,
+      "verification": [
+        "node --test tools/codex-github-bridge/tests/controller.test.mjs",
+        "node --test tools/codex-github-bridge/tests/*.test.mjs",
+        "npm run typecheck",
+        "git diff --check"
+      ]
     }
   ],
   "integration": {
@@ -65,12 +105,13 @@
 ## Dispatch gates
 
 - The Stage planning base is exact GitHub `main` `bd41ea8a1e259300241a345a659e7da90e24af0d`; runtime `base_sha` is re-read from the actual Stage branch by Local Bridge at each dispatch.
-- Do not invoke Local Bridge `start`. The first `run-once` may be authorized only after the exact T05 Contract is `Accepted`, `confirmed_by_user=true`, and that acceptance revision is committed and pushed to this Stage branch.
-- The first `run-once` dispatches and integrates only T05 through the pre-S02 Worker boundary, then MUST stop after the mechanical gate, Supervisor Integration and controlled Stage cherry-pick complete.
-- The current T06 file is a non-dispatchable planning placeholder and is not part of this Router's Ready Set. After T05 integration, use the integrated T05 source, tests and Coding Result to determine exact T06 documentation ownership; then replace the placeholder with a new exact T06 Contract, add T06 to the Router, and commit both to the Stage.
-- T06 requires separate user acceptance of that new exact Contract at its exact Stage SHA. Only then may a fresh `run-once` load the native backend from the T05-integrated Stage head and dispatch T06.
-- No concrete T06 owned document may be frozen or treated as Accepted scope before T05 implementation is integrated.
-- T05 MUST NOT silently fall back from the native task-thread backend once that backend is selected. An unavailable native thread or explicit-`cwd` capability returns `needs_decision`.
-- T06 may document only behavior established by the integrated T05 source, tests and Git facts. It must not describe the candidate backend as Current before fixed-Chat Review and user acceptance.
+- T05 is already integrated with source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` mapped to Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`. Its Router entry remains only for recovery and dependency identity.
+- Do not invoke Local Bridge `start`. Every remaining transition execution uses a separately authorized fresh `run-once`.
+- T05F00 may run only after its exact Contract is separately changed to `Accepted`, `confirmed_by_user=true` at an exact pushed Stage SHA. The current `Proposed` Contract is not dispatch authority. Its `run-once` integrates only T05F00 and then MUST stop.
+- T05F01 may run only after T05F00 is integrated and the exact T05F01 Contract is separately changed to `Accepted`, `confirmed_by_user=true` at a later exact pushed Stage SHA. Its fresh process must load the T05F00 prompt boundary before dispatch.
+- T05F01 requires Contract-authorized Root-only native multi-agent. Native multi-agent unavailability returns `needs_decision`; serial fake-agent fallback is forbidden. After T05F01 integration, the process MUST stop.
+- T05F00 and T05F01 each return the legacy transition Coding Result envelope accepted by the Controller already loaded at that Task's process start. This is execution compatibility only; production code must not add permanent task-ID branches or a compatibility mode.
+- The current T06 file is a non-dispatchable Planning Placeholder and is not part of this Router's tasks or Ready Set. Only after T05F01 integration and a fresh inspection of the actual generic Controller may Codex determine material docs ownership and replace it with an exact Contract.
+- T06 requires separate user acceptance at its later exact Stage SHA. It may describe only behavior established by integrated source, tests and Git facts, and must not describe the Stage candidate as Current before fixed-Chat Review and user acceptance.
 - Do not read or dispatch the superseded `S02-room-status-help-pilot` or S01 task-scoped Router. `room:status --help` remains Deferred.
 - S02 uses only the existing stage-generic Actions workflow and normal candidate verification path. No S01 Bootstrap-B fallback is permitted.
