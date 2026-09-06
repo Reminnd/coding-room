@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: T05F00-root-multi-agent-prompt-boundary
 type: Implementation Task
 dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-003
@@ -18,7 +18,7 @@ internal_multi_agent: false
 worker_spawned_subagents: false
 ```
 
-This planning revision generates the exact Contract only. It does not accept or dispatch T05F00. Execution requires separate user acceptance of this complete Contract at the exact pushed Stage SHA.
+This acceptance revision records the user's acceptance of this exact Contract. It does not dispatch T05F00 or authorize cleanup, environment preparation or a fresh `run-once`.
 
 ## Background
 
@@ -26,7 +26,7 @@ Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical `n
 
 Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` is historical `blocked` and MUST NOT be replayed. It successfully created native thread `01a076af-a8fa-72b3-bc8a-bb61f3339b23`; native turn `01a076af-a977-7863-82d0-6c1bef542b96` completed with model `gpt-5.6-sol` and reasoning effort `medium`. Focused tests passed 10/10, the Bridge suite passed 98/98 and `git diff --check` passed. `npm run typecheck` was not successfully executable because the fresh Git Task worktree did not have repository dependencies materialized and therefore could not resolve `tsc`. No candidate commit, Supervisor result, Task push or integration exists, and the Stage remained unchanged at `03be655aa170a6ce40776e1e3dd0e1ed42510103`. This is an execution-environment preparation gap, not a T05F00 implementation defect, TypeScript compile failure, test regression, model failure or native app-server failure.
 
-This Contract preserves the same T05F00 implementation scope under the new retry dispatch identity `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. The complete retry Contract must be accepted again by the user before the ordered cleanup, environment preparation and any separate fresh `run-once` authorization. Dispatches `-001` and `-002` remain historical terminal dispatches and MUST NOT be replayed.
+This Contract preserves the same T05F00 implementation scope under the new retry dispatch identity `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. The complete retry Contract is accepted by the user. Cleanup, environment preparation and any fresh `run-once` each remain separately ordered and authorized actions. Dispatches `-001` and `-002` remain historical terminal dispatches and MUST NOT be replayed.
 
 T05 is integrated and the native Worker now receives its exact Task Contract through `buildWorkerPrompt`. The current prompt and dispatch envelope still unconditionally state `worker_spawned_subagents=false` and `do not spawn subagents` for every Worker. That absolute rule conflicts with the downstream T05F01 exact Contract, which authorizes only its Root Supervisor Router to use Codex native multi-agent capability.
 
