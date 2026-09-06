@@ -53,9 +53,9 @@ T05 is completed and integrated. Preserve its Router identity only for recovery 
 
 ### Round 2 — T05F00
 
-The active T05F00 retry dispatch is `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002`. Old dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical failed-dispatch evidence and MUST NOT be replayed. The retry Contract is currently `Proposed` with `confirmed_by_user=false`; do not invoke `run-once`.
+The active T05F00 retry dispatch is `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002`. Old dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical failed-dispatch evidence and MUST NOT be replayed. The retry Contract is `Accepted` with `confirmed_by_user=true`, but `run_once_authorized=false`; do not dispatch or invoke `run-once`.
 
-Only after the user separately accepts the exact retry Contract at the then-current exact Stage SHA, and then separately authorizes one fresh `run-once`, may Round 2 start. The process MUST have been freshly started after T05R00 integration and load the repaired `codex-app-server.mjs`; it MUST also confirm no new `blocked` or `needs_decision` event exists for current dispatch `-002`. T05F00 uses no internal multi-agent and changes only the Worker prompt boundary. Its process loads the old Controller before the Task begins, so the Worker returns the legacy transition Coding Result required by its Contract. After mechanical gate, independent verification, Supervisor Integration and controlled integration complete, push the Stage and STOP the process.
+Only after the user separately authorizes one fresh `run-once` may Round 2 start. The process MUST have been freshly started after T05R00 integration and load the repaired `codex-app-server.mjs`; it MUST also confirm no new `blocked` or `needs_decision` event exists for current dispatch `-002`. T05F00 uses no internal multi-agent and changes only the Worker prompt boundary. Its process loads the old Controller before the Task begins, so the Worker returns the legacy transition Coding Result required by its Contract. After mechanical gate, independent verification, Supervisor Integration and controlled integration complete, push the Stage and STOP the process.
 
 ### Round 3 — T05F01
 
