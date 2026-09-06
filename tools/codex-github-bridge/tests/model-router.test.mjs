@@ -8,6 +8,7 @@ function fakeCodex(models = ['gpt-5.6-sol']) {
     if (key === '--version') return { exitCode: 0, stdout: 'codex-cli 1.2.3\n', stderr: '', error: null };
     if (key === '--help') return { exitCode: 0, stdout: '--ask-for-approval\n', stderr: '', error: null };
     if (key === '--ask-for-approval never exec --help') return { exitCode: 0, stdout: '--model --config --output-last-message --output-schema --sandbox\n', stderr: '', error: null };
+    if (key === 'app-server --help') return { exitCode: 0, stdout: '--listen <LISTEN>  Listener URI [default: stdio://]\n', stderr: '', error: null };
     if (key === 'debug models --help') return { exitCode: 0, stdout: 'Print model catalog --bundled\n', stderr: '', error: null };
     if (key === 'debug models') return { exitCode: 0, stdout: JSON.stringify({ models: models.map((slug) => ({ slug, supported_reasoning_levels: [{ effort: 'low' }, { effort: 'medium' }, { effort: 'high' }] })) }), stderr: '', error: null };
     throw new Error(`unexpected command: ${key}`);
@@ -48,5 +49,17 @@ test('missing Local Codex executable becomes needs_decision', async () => {
   await assert.rejects(
     inspectCodexCapability({ run: async () => ({ exitCode: null, stdout: '', stderr: '', error: new Error('ENOENT') }) }),
     (error) => error.status === 'needs_decision' && /inspection failed/.test(error.message),
+  );
+});
+
+test('missing native app-server listener transport becomes needs_decision', async () => {
+  const base = fakeCodex();
+  await assert.rejects(
+    inspectCodexCapability({
+      run: async (command, args) => args.join(' ') === 'app-server --help'
+        ? { exitCode: 0, stdout: '--listen <LISTEN>\n', stderr: '', error: null }
+        : base(command, args),
+    }),
+    (error) => error.status === 'needs_decision' && /--listen stdio:\/\//.test(error.message),
   );
 });
