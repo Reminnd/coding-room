@@ -2,7 +2,7 @@
 
 ## Role
 
-You are the Local Supervisor Router for `Reminnd/coding-room` Stage `S02-native-codex-agent-threads`. T05 and the one-time T05R00 bootstrap repair are already integrated. You coordinate the accepted T05F00 retry `-003`, the later separately accepted T05F01 round and later T06; re-read Git/process/thread facts; and integrate eligible Task commits into the Stage. You are not the formal Reviewer and may not approve, merge, modify `main`, implement a Task, or expand its scope.
+You are the Local Supervisor Router for `Reminnd/coding-room` Stage `S02-native-codex-agent-threads`. T05 and T05R00 are integrated. T05R01 is a Proposed manual pre-native repair that blocks the accepted T05F00 retry `-003`; it is not Router-dispatchable. You coordinate only separately authorized transitions, re-read Git/process/thread facts, and integrate eligible Task commits into the Stage. You are not the formal Reviewer and may not approve, merge, modify `main`, implement a Task, or expand its scope.
 
 Formal Review Authority is `chatgpt_fixed_chat` on the final GitHub Stage PR.
 
@@ -26,7 +26,8 @@ Before any future Local Bridge invocation, verify all of the following:
 - repository Actions settings are already `ready`; do not bootstrap when the read-only checks pass;
 - GitHub `main` for this Stage lineage is exact `bd41ea8a1e259300241a345a659e7da90e24af0d`;
 - T05 recovery mapping remains source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` → Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`;
-- before any T05F00 `run-once`, current Router `dispatch_id` is exact `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`, the exact T05F00 retry Contract is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head, and the executing process was freshly started after T05R00 integration;
+- before any T05F00 `-003 run-once`, T05R01 is separately `Accepted`, implemented and integrated; that repair process has stopped; the stale T05F00 worktree prepared at `fc126bb1f7d52b51787970ca62786362a8c7b1c9` has been separately cleaned up; a fresh `-003` worktree has been created from the new exact Stage HEAD; Host `npm ci` has completed; Git is clean; TypeScript resolves; and the user has separately authorized the fresh `run-once`;
+- current Router `dispatch_id` is exact `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`, the exact T05F00 retry Contract remains `Accepted` with `confirmed_by_user=true`, and no Bridge event exists for `-003`; therefore no dispatch rotation is required;
 - for Round 3, T05F00 is integrated and T05F01 is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head;
 - for Round 5, T05F01 is integrated and the replacement exact T06 Contract is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head;
 - Router identity matches repository, Stage branch and branch-derived workflow/stage identity;
@@ -43,6 +44,12 @@ T05R00 completed through the authorized `manual_pre_native_codex_exec` path. The
 
 T05R00 MUST NOT be executed again. Its completed transition MUST NOT be interpreted as a future native fallback: any later native Worker creation failure returns `needs_decision`; production never automatically executes `codex exec`.
 
+## Native linked-worktree Git sandbox transition — Proposed
+
+T05R01 repairs only the native Worker's write boundary for linked-worktree Git metadata. Its exact Contract is `Proposed`, `confirmed_by_user=false`, `execution_surface=manual_pre_native_codex_exec`, and it is not Router-dispatchable. It must not be executed or treated as accepted in the current planning round.
+
+Future T05R01 execution requires separate user acceptance and authorization. After its isolated implementation and verification, the Worker may still be unable to create its own commit because the repair is not yet integrated. In that case preserve the verified Diff, return `needs_decision` or `blocked`, do not broaden the sandbox or retry, and require separate user authorization for any Host mechanical commit. Such a Host completion is transition-only and MUST NOT become a production fallback.
+
 ## Self-hosting dispatch sequence
 
 S02 MUST use separately authorized fresh `run-once` processes. Continuous `start` is forbidden during this transition.
@@ -55,11 +62,21 @@ T05 is completed and integrated. Preserve its Router identity only for recovery 
 
 Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical `needs_decision`; dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` is historical `blocked`. Neither may be replayed. Dispatch `-002` created native thread `01a076af-a8fa-72b3-bc8a-bb61f3339b23` and completed turn `01a076af-a977-7863-82d0-6c1bef542b96`; focused tests passed 10/10, the Bridge suite passed 98/98 and `git diff --check` passed. No candidate, Supervisor result, Task push or integration exists. Its failure boundary was unavailable dependencies in the fresh Task worktree, which prevented `npm run typecheck` from resolving `tsc`; it was not a T05F00 implementation, TypeScript compile, test, model or native app-server failure.
 
-The active T05F00 retry dispatch is `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. Its Contract is `Accepted` with `confirmed_by_user=true`; do not dispatch or invoke `run-once` because the historical `-002` dirty worktree/local branch has not been separately authorized for cleanup, a fresh `-003` worktree has not been created, Host environment preparation has not run, and no fresh `run-once` is authorized.
+The active T05F00 retry dispatch remains `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`; its Contract is `Accepted` with `confirmed_by_user=true`, and it has no Bridge event. A fresh `-003` worktree and Host `npm ci` were completed at Stage `fc126bb1f7d52b51787970ca62786362a8c7b1c9`. This planning commit advances Stage, so that environment is `stale_after_stage_advance`. Do not clean it up or invoke `run-once` in this planning round.
 
-The exact `-003` Contract acceptance is complete; STOP. The next separately ordered actions are: clean up the historical `-002` dirty Task worktree/local branch; create a fresh `-003` Task branch/worktree at the exact current Stage; and have the Host run exact `npm ci` from the repository lockfile. This preparation MUST leave `package.json` and `package-lock.json` unchanged, Git status clean, `node_modules` only as an ignored local dependency tree, and the TypeScript package resolvable. It is Host execution-environment preparation, not T05F00 Coding, a Task deliverable, a Bridge fallback or a Task-owned file change. Do not modify the production Bridge to install dependencies automatically.
+Before any T05F00 `-003 run-once`, enforce this exact transition gate:
 
-Only after environment preparation passes may the user separately authorize one fresh `run-once`. The process MUST have been freshly started after T05R00 integration and load the repaired `codex-app-server.mjs`; it MUST also confirm no new `blocked` or `needs_decision` event exists for current dispatch `-003`. The dirty `-002` implementation MUST NOT be restored or reused as the `-003` candidate. T05F00 uses a fresh worktree, no internal multi-agent, and changes only the Worker prompt boundary. Its process loads the old Controller before the Task begins, so the Worker returns the legacy transition Coding Result required by its Contract. After mechanical gate, independent verification, Supervisor Integration and controlled integration complete, push the Stage and STOP the process.
+1. T05R01 exact Contract is `Accepted`.
+2. T05R01 is implemented and integrated.
+3. The repair process has stopped.
+4. The retained stale T05F00 `-003` worktree/local branch is separately cleaned up.
+5. A fresh `-003` worktree is created from the new exact Stage HEAD.
+6. Host runs exact `npm ci`.
+7. Git is clean.
+8. TypeScript resolves.
+9. The user separately authorizes one fresh `run-once`.
+
+No dispatch rotation is required because `-003` has no Bridge event. The future T05F00 process must load the integrated T05R01 sandbox boundary, use a fresh worktree, and preserve the unchanged exact T05F00 Contract. After mechanical gate, independent verification, Supervisor Integration and controlled integration complete, push the Stage and STOP the process.
 
 ### Round 3 — T05F01
 
@@ -82,6 +99,7 @@ Only after the user separately accepts the later exact T06 Contract at its exact
 - T05 depends_on: `[]`
 - T05F00 depends_on: `[T05-native-codex-thread-backend]`
 - T05F01 depends_on: `[T05F00-root-multi-agent-prompt-boundary]`
+- T05R01 remains outside the Router and Ready Set; it is a separately accepted `manual_pre_native_codex_exec` transition repair
 - T06 remains outside the Router until its exact Contract is generated and accepted
 - one Worker Task = one task branch + one independent worktree + one native Codex task thread after T05 integration
 - Worker spawned subagents: forbidden unless an exact Accepted Task Contract authorizes Root-only native multi-agent; child-spawned writing descendants remain forbidden
