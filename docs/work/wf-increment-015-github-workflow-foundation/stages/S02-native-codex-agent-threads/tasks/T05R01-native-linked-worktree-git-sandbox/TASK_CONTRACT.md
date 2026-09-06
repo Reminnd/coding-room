@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 execution_authorized: false
 task_id: T05R01-native-linked-worktree-git-sandbox
 type: Native Bootstrap Repair Task
