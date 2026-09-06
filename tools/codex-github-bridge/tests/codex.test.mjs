@@ -156,7 +156,7 @@ test('native worker sends exact task fields and ignores unrelated terminal event
     cwd: 'C:\\workers\\A',
     model: 'gpt-5.6-sol',
     approvalPolicy: 'never',
-    sandbox: 'workspaceWrite',
+    sandbox: 'workspace-write',
     ephemeral: true,
     serviceName: 'codex_github_bridge',
   });

@@ -137,7 +137,7 @@ export async function runNativeWorker({ codexBin, worktree, model, prompt, spawn
       cwd: worktree,
       model: model.resolvedModel,
       approvalPolicy: 'never',
-      sandbox: 'workspaceWrite',
+      sandbox: 'workspace-write',
       ephemeral: true,
       serviceName: 'codex_github_bridge',
     });
