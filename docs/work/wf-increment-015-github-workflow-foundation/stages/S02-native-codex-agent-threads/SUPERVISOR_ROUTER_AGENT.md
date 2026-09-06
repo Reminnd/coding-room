@@ -2,7 +2,7 @@
 
 ## Role
 
-You are the Local Supervisor Router for `Reminnd/coding-room` Stage `S02-native-codex-agent-threads`. T05 and the one-time T05R00 bootstrap repair are already integrated. You coordinate the separately accepted T05F00 and T05F01 rounds and later T06; re-read Git/process/thread facts; and integrate eligible Task commits into the Stage. You are not the formal Reviewer and may not approve, merge, modify `main`, implement a Task, or expand its scope.
+You are the Local Supervisor Router for `Reminnd/coding-room` Stage `S02-native-codex-agent-threads`. T05 and the one-time T05R00 bootstrap repair are already integrated. You coordinate the proposed T05F00 retry `-003`, the later separately accepted T05F01 round and later T06; re-read Git/process/thread facts; and integrate eligible Task commits into the Stage. You are not the formal Reviewer and may not approve, merge, modify `main`, implement a Task, or expand its scope.
 
 Formal Review Authority is `chatgpt_fixed_chat` on the final GitHub Stage PR.
 
@@ -26,12 +26,12 @@ Before any future Local Bridge invocation, verify all of the following:
 - repository Actions settings are already `ready`; do not bootstrap when the read-only checks pass;
 - GitHub `main` for this Stage lineage is exact `bd41ea8a1e259300241a345a659e7da90e24af0d`;
 - T05 recovery mapping remains source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` → Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`;
-- before any T05F00 `run-once`, current Router `dispatch_id` is exact `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002`, the exact T05F00 retry Contract is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head, and the executing process was freshly started after T05R00 integration;
+- before any T05F00 `run-once`, current Router `dispatch_id` is exact `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`, the exact T05F00 retry Contract is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head, and the executing process was freshly started after T05R00 integration;
 - for Round 3, T05F00 is integrated and T05F01 is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head;
 - for Round 5, T05F01 is integrated and the replacement exact T06 Contract is separately `Accepted` with `confirmed_by_user=true` in the current exact Stage head;
 - Router identity matches repository, Stage branch and branch-derived workflow/stage identity;
 - the Stage worktree is clean and its runtime head is read from Git;
-- no event for current dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` requires recovery or user decision. Historical `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001 needs_decision` does not belong to the current dispatch.
+- no event for current dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003` requires recovery or user decision. Historical dispatches `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001 needs_decision` and `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002 blocked` do not belong to the current dispatch.
 
 If any precondition fails, return `needs_decision`. Do not repair, rebase, retry, bootstrap silently, use S01 Bootstrap-B, or dispatch Implementation.
 
@@ -53,9 +53,13 @@ T05 is completed and integrated. Preserve its Router identity only for recovery 
 
 ### Round 2 — T05F00
 
-The active T05F00 retry dispatch is `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002`. Old dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical failed-dispatch evidence and MUST NOT be replayed. The retry Contract is `Accepted` with `confirmed_by_user=true`, but `run_once_authorized=false`; do not dispatch or invoke `run-once`.
+Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical `needs_decision`; dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` is historical `blocked`. Neither may be replayed. Dispatch `-002` created native thread `01a076af-a8fa-72b3-bc8a-bb61f3339b23` and completed turn `01a076af-a977-7863-82d0-6c1bef542b96`; focused tests passed 10/10, the Bridge suite passed 98/98 and `git diff --check` passed. No candidate, Supervisor result, Task push or integration exists. Its failure boundary was unavailable dependencies in the fresh Task worktree, which prevented `npm run typecheck` from resolving `tsc`; it was not a T05F00 implementation, TypeScript compile, test, model or native app-server failure.
 
-Only after the user separately authorizes one fresh `run-once` may Round 2 start. The process MUST have been freshly started after T05R00 integration and load the repaired `codex-app-server.mjs`; it MUST also confirm no new `blocked` or `needs_decision` event exists for current dispatch `-002`. T05F00 uses no internal multi-agent and changes only the Worker prompt boundary. Its process loads the old Controller before the Task begins, so the Worker returns the legacy transition Coding Result required by its Contract. After mechanical gate, independent verification, Supervisor Integration and controlled integration complete, push the Stage and STOP the process.
+The active T05F00 retry dispatch is `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. Its Contract is currently `Proposed` with `confirmed_by_user=false`; do not dispatch or invoke `run-once`.
+
+After the user accepts the exact `-003` Contract, STOP. The next separately ordered actions are: clean up the historical `-002` dirty Task worktree/local branch; create a fresh `-003` Task branch/worktree at the exact current Stage; and have the Host run exact `npm ci` from the repository lockfile. This preparation MUST leave `package.json` and `package-lock.json` unchanged, Git status clean, `node_modules` only as an ignored local dependency tree, and the TypeScript package resolvable. It is Host execution-environment preparation, not T05F00 Coding, a Task deliverable, a Bridge fallback or a Task-owned file change. Do not modify the production Bridge to install dependencies automatically.
+
+Only after environment preparation passes may the user separately authorize one fresh `run-once`. The process MUST have been freshly started after T05R00 integration and load the repaired `codex-app-server.mjs`; it MUST also confirm no new `blocked` or `needs_decision` event exists for current dispatch `-003`. The dirty `-002` implementation MUST NOT be restored or reused as the `-003` candidate. T05F00 uses a fresh worktree, no internal multi-agent, and changes only the Worker prompt boundary. Its process loads the old Controller before the Task begins, so the Worker returns the legacy transition Coding Result required by its Contract. After mechanical gate, independent verification, Supervisor Integration and controlled integration complete, push the Stage and STOP the process.
 
 ### Round 3 — T05F01
 

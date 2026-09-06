@@ -3,11 +3,11 @@
 ## Contract
 
 ```yaml
-status: Accepted
-confirmed_by_user: true
+status: Proposed
+confirmed_by_user: false
 task_id: T05F00-root-multi-agent-prompt-boundary
 type: Implementation Task
-dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-002
+dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-003
 task_branch: task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary
 depends_on:
   - T05-native-codex-thread-backend
@@ -22,9 +22,11 @@ This planning revision generates the exact Contract only. It does not accept or 
 
 ## Background
 
-The old dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` failed before native thread creation and produced no thread, turn, candidate or remote Task. The root cause was the then-current sandbox wire enum in the native backend, not T05F00 implementation. T05R00 repaired that boundary and is integrated into the Stage at `ad3e00989932828e58e742bce66a6cf1e8ab0745` from source `ba077fc1a39f85c179e65aa39b64646f4aed716a`.
+Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical `needs_decision`: it failed before native thread creation and produced no thread, turn, candidate or remote Task. The root cause was the then-current sandbox wire enum in the native backend, not T05F00 implementation. T05R00 repaired that boundary and is integrated into the Stage at `ad3e00989932828e58e742bce66a6cf1e8ab0745` from source `ba077fc1a39f85c179e65aa39b64646f4aed716a`.
 
-This Contract preserves the same T05F00 implementation scope under the new retry dispatch identity `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002`. The complete retry Contract must be accepted again by the user before any separate fresh `run-once` authorization. The old `-001` dispatch remains historical and MUST NOT be replayed.
+Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` is historical `blocked` and MUST NOT be replayed. It successfully created native thread `01a076af-a8fa-72b3-bc8a-bb61f3339b23`; native turn `01a076af-a977-7863-82d0-6c1bef542b96` completed with model `gpt-5.6-sol` and reasoning effort `medium`. Focused tests passed 10/10, the Bridge suite passed 98/98 and `git diff --check` passed. `npm run typecheck` was not successfully executable because the fresh Git Task worktree did not have repository dependencies materialized and therefore could not resolve `tsc`. No candidate commit, Supervisor result, Task push or integration exists, and the Stage remained unchanged at `03be655aa170a6ce40776e1e3dd0e1ed42510103`. This is an execution-environment preparation gap, not a T05F00 implementation defect, TypeScript compile failure, test regression, model failure or native app-server failure.
+
+This Contract preserves the same T05F00 implementation scope under the new retry dispatch identity `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. The complete retry Contract must be accepted again by the user before the ordered cleanup, environment preparation and any separate fresh `run-once` authorization. Dispatches `-001` and `-002` remain historical terminal dispatches and MUST NOT be replayed.
 
 T05 is integrated and the native Worker now receives its exact Task Contract through `buildWorkerPrompt`. The current prompt and dispatch envelope still unconditionally state `worker_spawned_subagents=false` and `do not spawn subagents` for every Worker. That absolute rule conflicts with the downstream T05F01 exact Contract, which authorizes only its Root Supervisor Router to use Codex native multi-agent capability.
 
@@ -96,6 +98,26 @@ Everything else is read-only context.
 
 The historical T05 baseline-equivalence amendment does not apply. Every command above requires ordinary pass. `npm test` is not required and MUST NOT be reported as passed.
 
+## Host execution-environment preparation
+
+This section is a precondition for any future `-003 run-once`; it is not part of T05F00 Worker Verification.
+
+After the exact `-003` Contract is accepted and the historical `-002` dirty Task worktree/local branch is cleaned up under the separately ordered authorization, the Host MUST create a fresh, clean Task branch/worktree at the exact current Stage. Before `run-once`, the Host MUST use the repository lockfile and run exactly:
+
+```text
+npm ci
+```
+
+The Host MUST then confirm all of the following:
+
+- `package.json` is unchanged;
+- `package-lock.json` is unchanged;
+- Git status remains clean;
+- `node_modules` exists only as the ignored local dependency tree;
+- the TypeScript package is resolvable.
+
+This is Host execution-environment preparation. It is not T05F00 Coding, a Task deliverable, a Bridge fallback or a Task-owned file change. The production Bridge MUST NOT install dependencies automatically. If preparation or any confirmation fails, return `needs_decision` and do not start `run-once`. Only after all confirmations pass may the user separately authorize one fresh `run-once` for dispatch `-003`.
+
 ## Bootstrap execution compatibility
 
 The Bridge process that executes T05F00 loads the old Controller before T05F00 changes are made. Therefore T05F00's final Worker result MUST use the legacy transition envelope accepted by that already-loaded Controller. This is one-time execution compatibility; production code MUST NOT add `if task_id == T05F00`, another task-ID special case or a compatibility branch.
@@ -114,7 +136,7 @@ Return `needs_decision` and stop if the prompt boundary cannot be implemented wi
 
 ```yaml
 task_id: T05F00-root-multi-agent-prompt-boundary
-dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-002
+dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-003
 reported_base_sha: <dispatch base>
 reported_task_head_sha: <40-char worker-reported Git SHA>
 changed_files:
