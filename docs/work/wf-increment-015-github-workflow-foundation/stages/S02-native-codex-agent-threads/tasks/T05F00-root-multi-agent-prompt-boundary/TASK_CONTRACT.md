@@ -3,11 +3,11 @@
 ## Contract
 
 ```yaml
-status: Accepted
-confirmed_by_user: true
+status: Proposed
+confirmed_by_user: false
 task_id: T05F00-root-multi-agent-prompt-boundary
 type: Implementation Task
-dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-001
+dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-002
 task_branch: task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary
 depends_on:
   - T05-native-codex-thread-backend
@@ -21,6 +21,10 @@ worker_spawned_subagents: false
 This planning revision generates the exact Contract only. It does not accept or dispatch T05F00. Execution requires separate user acceptance of this complete Contract at the exact pushed Stage SHA.
 
 ## Background
+
+The old dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` failed before native thread creation and produced no thread, turn, candidate or remote Task. The root cause was the then-current sandbox wire enum in the native backend, not T05F00 implementation. T05R00 repaired that boundary and is integrated into the Stage at `ad3e00989932828e58e742bce66a6cf1e8ab0745` from source `ba077fc1a39f85c179e65aa39b64646f4aed716a`.
+
+This Contract preserves the same T05F00 implementation scope under the new retry dispatch identity `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002`. The complete retry Contract must be accepted again by the user before any separate fresh `run-once` authorization. The old `-001` dispatch remains historical and MUST NOT be replayed.
 
 T05 is integrated and the native Worker now receives its exact Task Contract through `buildWorkerPrompt`. The current prompt and dispatch envelope still unconditionally state `worker_spawned_subagents=false` and `do not spawn subagents` for every Worker. That absolute rule conflicts with the downstream T05F01 exact Contract, which authorizes only its Root Supervisor Router to use Codex native multi-agent capability.
 
@@ -110,7 +114,7 @@ Return `needs_decision` and stop if the prompt boundary cannot be implemented wi
 
 ```yaml
 task_id: T05F00-root-multi-agent-prompt-boundary
-dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-001
+dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-002
 reported_base_sha: <dispatch base>
 reported_task_head_sha: <40-char worker-reported Git SHA>
 changed_files:
