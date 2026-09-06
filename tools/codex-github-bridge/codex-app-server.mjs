@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline';
+import { isAbsolute } from 'node:path';
 import { needsDecision } from './errors.mjs';
-import { spawnProcess } from './process.mjs';
+import { runChecked, runProcess, spawnProcess } from './process.mjs';
 
 const APP_SERVER_ARGS = ['app-server', '--listen', 'stdio://'];
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'interrupted']);
@@ -115,12 +116,23 @@ function nativeResult({ codexBin, status, threadId, turnId, lastMessage, stderr,
   };
 }
 
-export async function runNativeWorker({ codexBin, worktree, model, prompt, spawn = spawnProcess }) {
+export async function runNativeWorker({ codexBin, worktree, model, prompt, run = runProcess, spawn = spawnProcess }) {
   let connection;
   let threadId = null;
   let turnId = null;
   let lastMessage = '';
   try {
+    const gitCommonDirResult = await runChecked(
+      run,
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { cwd: worktree },
+    );
+    const gitCommonDir = gitCommonDirResult.stdout.trim();
+    if (!gitCommonDir || !isAbsolute(gitCommonDir)) {
+      throw new Error('git common directory must be a non-empty absolute path');
+    }
+
     const child = spawn(codexBin, APP_SERVER_ARGS, { cwd: worktree });
     connection = new AppServerConnection(child);
 
@@ -153,6 +165,11 @@ export async function runNativeWorker({ codexBin, worktree, model, prompt, spawn
       model: model.resolvedModel,
       effort: model.reasoningEffort,
       approvalPolicy: 'never',
+      sandboxPolicy: {
+        type: 'workspaceWrite',
+        writableRoots: [worktree, gitCommonDir],
+        networkAccess: false,
+      },
     });
     turnId = turnResult?.turn?.id;
     if (typeof turnId !== 'string' || turnId.length === 0) {
