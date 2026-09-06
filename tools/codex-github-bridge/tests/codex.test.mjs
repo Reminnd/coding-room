@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import test from 'node:test';
+import { runNativeWorker } from '../codex-app-server.mjs';
 import { CodexLauncher, buildWorkerPrompt } from '../codex.mjs';
 
 class FakeAppServer extends EventEmitter {
@@ -127,7 +129,94 @@ function immediate() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+test('native worker resolves the Git common dir before launch and sends the exact sandbox policy', async () => {
+  const worktree = 'C:\\workers\\A';
+  const gitCommonDir = 'C:\\repositories\\shared.git';
+  const server = new FakeAppServer({ threadId: 'thread-preflight', turnId: 'turn-preflight' });
+  const runCalls = [];
+  let spawnCalls = 0;
+  const promise = runNativeWorker({
+    codexBin: 'codex-test',
+    worktree,
+    model: context('preflight', worktree).model,
+    prompt: 'contract-preflight',
+    run: async (command, args, options) => {
+      runCalls.push({ command, args, options });
+      return { command, args, exitCode: 0, signal: null, stdout: `  ${gitCommonDir}\n`, stderr: '', error: null };
+    },
+    spawn: () => {
+      spawnCalls += 1;
+      return server;
+    },
+  });
+  await server.turnStarted;
+
+  assert.deepEqual(runCalls, [{
+    command: 'git',
+    args: ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+    options: { cwd: worktree },
+  }]);
+  assert.equal(spawnCalls, 1);
+  const threadStart = server.requests.find((request) => request.method === 'thread/start');
+  assert.equal(threadStart.params.sandbox, 'workspace-write');
+  assert.equal(threadStart.params.approvalPolicy, 'never');
+  assert.equal(threadStart.params.cwd, worktree);
+  assert.deepEqual(server.turnRequest.params.sandboxPolicy, {
+    type: 'workspaceWrite',
+    writableRoots: [worktree, gitCommonDir],
+    networkAccess: false,
+  });
+  assert.equal(server.turnRequest.params.approvalPolicy, 'never');
+  assert.equal(server.turnRequest.params.cwd, worktree);
+
+  server.finish('completed', 'status: candidate_ready');
+  const result = await promise;
+  assert.equal(result.exitCode, 0);
+});
+
+test('invalid Git common-dir preflight needs a decision without launching App Server', async (t) => {
+  const cases = [
+    {
+      name: 'command failure',
+      result: { exitCode: 1, signal: null, stdout: '', stderr: 'git failed', error: null },
+      message: /git rev-parse .* failed: git failed/,
+    },
+    {
+      name: 'empty output',
+      result: { exitCode: 0, signal: null, stdout: '  \n', stderr: '', error: null },
+      message: /non-empty absolute path/,
+    },
+    {
+      name: 'non-absolute output',
+      result: { exitCode: 0, signal: null, stdout: '..\\.git\n', stderr: '', error: null },
+      message: /non-empty absolute path/,
+    },
+  ];
+
+  for (const testCase of cases) {
+    await t.test(testCase.name, async () => {
+      let spawnCalls = 0;
+      const result = await runNativeWorker({
+        codexBin: 'codex-test',
+        worktree: 'C:\\workers\\preflight-failure',
+        model: context('preflight-failure', 'C:\\workers\\preflight-failure').model,
+        prompt: 'contract-preflight-failure',
+        run: async (command, args) => ({ command, args, ...testCase.result }),
+        spawn: () => {
+          spawnCalls += 1;
+          throw new Error('App Server must not launch');
+        },
+      });
+      assert.equal(result.error.status, 'needs_decision');
+      assert.match(result.error.message, testCase.message);
+      assert.equal(spawnCalls, 0);
+      assert.deepEqual(result.native, { threadId: null, turnId: null, status: null });
+    });
+  }
+});
+
 test('native worker sends exact task fields and ignores unrelated terminal events', async () => {
+  const worktree = process.cwd();
   const server = new FakeAppServer({ threadId: 'thread-A', turnId: 'turn-A' });
   let execCalls = 0;
   const launcher = new CodexLauncher({
@@ -136,11 +225,11 @@ test('native worker sends exact task fields and ignores unrelated terminal event
     spawn: (command, args, options) => {
       assert.equal(command, 'codex-test');
       assert.deepEqual(args, ['app-server', '--listen', 'stdio://']);
-      assert.equal(options.cwd, 'C:\\workers\\A');
+      assert.equal(options.cwd, worktree);
       return server;
     },
   });
-  const workerContext = context('A', 'C:\\workers\\A', {
+  const workerContext = context('A', worktree, {
     dependencies: [{ task_id: 'dependency-A', source_task_sha: 'dependency-sha' }],
   });
   const promise = launcher.launchWorker(workerContext, 'contract-A-only');
@@ -153,7 +242,7 @@ test('native worker sends exact task fields and ignores unrelated terminal event
   ]);
   const threadStart = server.requests.find((request) => request.method === 'thread/start');
   assert.deepEqual(threadStart.params, {
-    cwd: 'C:\\workers\\A',
+    cwd: worktree,
     model: 'gpt-5.6-sol',
     approvalPolicy: 'never',
     sandbox: 'workspace-write',
@@ -161,7 +250,7 @@ test('native worker sends exact task fields and ignores unrelated terminal event
     serviceName: 'codex_github_bridge',
   });
   assert.equal(server.turnRequest.params.threadId, 'thread-A');
-  assert.equal(server.turnRequest.params.cwd, 'C:\\workers\\A');
+  assert.equal(server.turnRequest.params.cwd, worktree);
   assert.equal(server.turnRequest.params.model, 'gpt-5.6-sol');
   assert.equal(server.turnRequest.params.effort, 'high');
   const prompt = server.turnRequest.params.input[0].text;
@@ -194,18 +283,16 @@ test('native worker sends exact task fields and ignores unrelated terminal event
 });
 
 test('two independent native Worker turns overlap with isolated requests', async () => {
-  const servers = [
-    new FakeAppServer({ threadId: 'thread-A', turnId: 'turn-A' }),
-    new FakeAppServer({ threadId: 'thread-B', turnId: 'turn-B' }),
-  ];
+  const worktreeA = join(process.cwd(), 'tools');
+  const worktreeB = join(process.cwd(), 'docs');
+  const serverA = new FakeAppServer({ threadId: 'thread-A', turnId: 'turn-A' });
+  const serverB = new FakeAppServer({ threadId: 'thread-B', turnId: 'turn-B' });
   const launcher = new CodexLauncher({
     codexBin: 'codex-test',
-    spawn: () => servers.shift(),
+    spawn: (_command, _args, options) => (options.cwd === worktreeA ? serverA : serverB),
   });
-  const serverA = servers[0];
-  const serverB = servers[1];
-  const launchA = launcher.launchWorker(context('A', 'C:\\workers\\A'), 'contract-A-only');
-  const launchB = launcher.launchWorker(context('B', 'C:\\workers\\B'), 'contract-B-only');
+  const launchA = launcher.launchWorker(context('A', worktreeA), 'contract-A-only');
+  const launchB = launcher.launchWorker(context('B', worktreeB), 'contract-B-only');
   let settledA = false;
   let settledB = false;
   launchA.then(() => { settledA = true; });
@@ -214,8 +301,8 @@ test('two independent native Worker turns overlap with isolated requests', async
 
   assert.equal(settledA, false);
   assert.equal(settledB, false);
-  assert.equal(serverA.turnRequest.params.cwd, 'C:\\workers\\A');
-  assert.equal(serverB.turnRequest.params.cwd, 'C:\\workers\\B');
+  assert.equal(serverA.turnRequest.params.cwd, worktreeA);
+  assert.equal(serverB.turnRequest.params.cwd, worktreeB);
   assert.equal(serverA.turnRequest.params.threadId, 'thread-A');
   assert.equal(serverB.turnRequest.params.threadId, 'thread-B');
   assert.match(serverA.turnRequest.params.input[0].text, /contract-A-only/);
@@ -237,7 +324,7 @@ for (const status of ['failed', 'interrupted']) {
   test(`native ${status} terminal status produces a failed normalized Worker outcome`, async () => {
     const server = new FakeAppServer({ threadId: `thread-${status}`, turnId: `turn-${status}` });
     const launcher = new CodexLauncher({ codexBin: 'codex-test', spawn: () => server });
-    const promise = launcher.launchWorker(context(status, `C:\\workers\\${status}`), `contract-${status}`);
+    const promise = launcher.launchWorker(context(status, process.cwd()), `contract-${status}`);
     await server.turnStarted;
     server.finish(status, `status: ${status === 'failed' ? 'blocked' : 'needs_decision'}`);
     const result = await promise;
@@ -256,7 +343,7 @@ test('native request rejection and missing terminal observation need a decision 
       run: async () => { execCalls += 1; },
       spawn: () => server,
     });
-    const result = await launcher.launchWorker(context('error', 'C:\\workers\\error'), 'contract-error');
+    const result = await launcher.launchWorker(context('error', process.cwd()), 'contract-error');
     assert.equal(result.error.status, 'needs_decision');
     assert.match(result.error.message, /turn\/start unsupported/);
     assert.deepEqual(result.args, ['app-server', '--listen', 'stdio://']);
@@ -266,7 +353,7 @@ test('native request rejection and missing terminal observation need a decision 
   await t.test('app-server closes before terminal event', async () => {
     const server = new FakeAppServer({ threadId: 'thread-close', turnId: 'turn-close' });
     const launcher = new CodexLauncher({ codexBin: 'codex-test', spawn: () => server });
-    const promise = launcher.launchWorker(context('close', 'C:\\workers\\close'), 'contract-close');
+    const promise = launcher.launchWorker(context('close', process.cwd()), 'contract-close');
     await server.turnStarted;
     server.closeBeforeTerminal();
     const result = await promise;
@@ -277,7 +364,7 @@ test('native request rejection and missing terminal observation need a decision 
   await t.test('requested model is rerouted', async () => {
     const server = new FakeAppServer({ threadId: 'thread-reroute', turnId: 'turn-reroute' });
     const launcher = new CodexLauncher({ codexBin: 'codex-test', spawn: () => server });
-    const promise = launcher.launchWorker(context('reroute', 'C:\\workers\\reroute'), 'contract-reroute');
+    const promise = launcher.launchWorker(context('reroute', process.cwd()), 'contract-reroute');
     await server.turnStarted;
     server.notify('model/rerouted', {
       threadId: 'thread-reroute',
