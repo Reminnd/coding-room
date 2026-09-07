@@ -15,6 +15,14 @@ function parseWorktrees(output) {
   });
 }
 
+function parseNulPaths(output) {
+  return output.split('\0').filter(Boolean);
+}
+
+function samePaths(left, right) {
+  return left.length === right.length && left.every((path, index) => path === right[index]);
+}
+
 export class GitRepository {
   constructor({ repositoryRoot, worktreeRoot, run = runProcess }) {
     this.repositoryRoot = resolve(repositoryRoot);
@@ -44,6 +52,49 @@ export class GitRepository {
 
   async status(cwd) {
     return this.output(['status', '--porcelain=v1', '--untracked-files=all'], cwd);
+  }
+
+  async paths(args, cwd) {
+    return parseNulPaths((await this.git(args, cwd)).stdout).sort();
+  }
+
+  async observeWorkingTree(cwd) {
+    const [head, branch, stagedPaths, trackedPaths, untrackedPaths] = await Promise.all([
+      this.head(cwd),
+      this.currentBranch(cwd),
+      this.paths(['diff', '--cached', '--name-only', '--no-renames', '-z'], cwd),
+      this.paths(['diff', '--name-only', '--no-renames', '-z'], cwd),
+      this.paths(['ls-files', '--others', '--exclude-standard', '-z'], cwd),
+    ]);
+    return {
+      head,
+      branch,
+      stagedPaths,
+      workingPaths: [...new Set([...trackedPaths, ...untrackedPaths])].sort(),
+    };
+  }
+
+  async createCandidateCommit(task, worktree, paths) {
+    const expectedPaths = [...paths].sort();
+    const stage = await this.run('git', ['add', '--', ...expectedPaths], { cwd: worktree });
+    if (stage.exitCode !== 0 || stage.error) {
+      throw blocked(`exact-path staging failed: ${stage.stderr.trim() || stage.error?.message}`);
+    }
+
+    const stagedPaths = await this.paths(['diff', '--cached', '--name-only', '--no-renames', '-z'], worktree);
+    if (!samePaths(stagedPaths, expectedPaths)) {
+      throw blocked(`staged paths do not match verified working paths: ${stagedPaths.join(', ')}`);
+    }
+
+    const diffCheck = await this.run('git', ['diff', '--cached', '--check'], { cwd: worktree });
+    if (diffCheck.exitCode !== 0 || diffCheck.error) {
+      throw blocked(`cached diff check failed: ${diffCheck.stderr.trim() || diffCheck.error?.message}`);
+    }
+
+    const commit = await this.run('git', ['commit', '-m', `chore(task): complete ${task.task_id}`], { cwd: worktree });
+    if (commit.exitCode !== 0 || commit.error) {
+      throw blocked(`candidate commit failed: ${commit.stderr.trim() || commit.error?.message}`);
+    }
   }
 
   async repositoryOrigin() {

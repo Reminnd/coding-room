@@ -56,8 +56,10 @@ test('collects actual Git facts, gates owned files, and records cherry-pick mapp
   const data = await fixture();
   try {
     const remoteReads = [];
+    const candidateWrites = [];
     const run = async (command, args, options) => {
       if (command === 'git' && args[0] === 'ls-remote') remoteReads.push(args);
+      if (command === 'git' && (args[0] === 'add' || args[0] === 'commit')) candidateWrites.push(args);
       return runProcess(command, args, options);
     };
     const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees, run });
@@ -68,13 +70,23 @@ test('collects actual Git facts, gates owned files, and records cherry-pick mapp
     git(worktree, 'config', 'user.name', 'Bridge Test');
     await mkdir(join(worktree, 'owned'));
     await writeFile(join(worktree, 'owned', 'result.txt'), 'candidate\n');
-    git(worktree, 'add', 'owned/result.txt');
-    git(worktree, 'commit', '-m', 'feat(bridge): add candidate');
+    const working = await repository.observeWorkingTree(worktree);
+    assert.equal(working.head, data.baseSha);
+    assert.equal(working.branch, 'task/test/A');
+    assert.deepEqual(working.stagedPaths, []);
+    assert.deepEqual(working.workingPaths, ['owned/result.txt']);
+    await repository.createCandidateCommit(selected, worktree, working.workingPaths);
+    assert.equal(git(worktree, 'log', '-1', '--pretty=%s'), 'chore(task): complete A');
 
     const facts = await repository.collectTaskFacts(selected, worktree, data.baseSha);
     await repository.mechanicalGate(selected, facts);
     assert.equal(facts.parentSha, data.baseSha);
     assert.deepEqual(facts.actualChangedFiles, ['owned/result.txt']);
+    assert.equal(facts.worktreeStatus, '');
+    assert.deepEqual(candidateWrites, [
+      ['add', '--', 'owned/result.txt'],
+      ['commit', '-m', 'chore(task): complete A'],
+    ]);
 
     await repository.pushTask(selected, worktree, facts.taskHeadSha);
     const integration = await repository.integrate(data.repository, selected, facts.taskHeadSha);
@@ -95,6 +107,96 @@ test('collects actual Git facts, gates owned files, and records cherry-pick mapp
       ['ls-remote', '--refs', 'origin', 'refs/heads/stage/test'],
       ['ls-remote', '--refs', 'origin', 'refs/heads/task/test/A'],
     ]);
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('observes tracked unstaged and ordinary untracked paths as one working set', async () => {
+  const data = await fixture();
+  try {
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+    const selected = task('A', 'task/test/A', ['shared.txt', 'owned/**']);
+    const worktree = await repository.ensureTaskWorktree(selected, data.baseSha);
+    await writeFile(join(worktree, 'shared.txt'), 'changed\n');
+    await mkdir(join(worktree, 'owned'));
+    await writeFile(join(worktree, 'owned', 'new.txt'), 'new\n');
+
+    const observed = await repository.observeWorkingTree(worktree);
+    assert.deepEqual(observed.stagedPaths, []);
+    assert.deepEqual(observed.workingPaths, ['owned/new.txt', 'shared.txt']);
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('blocks Controller commit when staged paths do not exactly match verified paths', async () => {
+  const data = await fixture();
+  try {
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+    const selected = task('A', 'task/test/A', ['shared.txt', 'owned/**']);
+    const worktree = await repository.ensureTaskWorktree(selected, data.baseSha);
+    git(worktree, 'config', 'user.email', 'bridge@example.test');
+    git(worktree, 'config', 'user.name', 'Bridge Test');
+    await writeFile(join(worktree, 'shared.txt'), 'staged elsewhere\n');
+    git(worktree, 'add', 'shared.txt');
+    await mkdir(join(worktree, 'owned'));
+    await writeFile(join(worktree, 'owned', 'result.txt'), 'candidate\n');
+
+    await assert.rejects(
+      repository.createCandidateCommit(selected, worktree, ['owned/result.txt']),
+      (error) => error.status === 'blocked' && /staged paths do not match/.test(error.message),
+    );
+    assert.equal(git(worktree, 'rev-parse', 'HEAD'), data.baseSha);
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('cached diff check failure blocks before commit', async () => {
+  const data = await fixture();
+  try {
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+    const selected = task('A', 'task/test/A');
+    const worktree = await repository.ensureTaskWorktree(selected, data.baseSha);
+    git(worktree, 'config', 'user.email', 'bridge@example.test');
+    git(worktree, 'config', 'user.name', 'Bridge Test');
+    await mkdir(join(worktree, 'owned'));
+    await writeFile(join(worktree, 'owned', 'result.txt'), 'trailing whitespace  \n');
+
+    await assert.rejects(
+      repository.createCandidateCommit(selected, worktree, ['owned/result.txt']),
+      (error) => error.status === 'blocked' && /cached diff check failed/.test(error.message),
+    );
+    assert.equal(git(worktree, 'rev-parse', 'HEAD'), data.baseSha);
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('candidate commit failure is attempted exactly once without retry', async () => {
+  const data = await fixture();
+  try {
+    let commitCalls = 0;
+    const run = async (command, args, options) => {
+      if (command === 'git' && args[0] === 'commit') {
+        commitCalls += 1;
+        return { command, args, exitCode: 1, signal: null, stdout: '', stderr: 'commit rejected', error: null };
+      }
+      return runProcess(command, args, options);
+    };
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees, run });
+    const selected = task('A', 'task/test/A');
+    const worktree = await repository.ensureTaskWorktree(selected, data.baseSha);
+    await mkdir(join(worktree, 'owned'));
+    await writeFile(join(worktree, 'owned', 'result.txt'), 'candidate\n');
+
+    await assert.rejects(
+      repository.createCandidateCommit(selected, worktree, ['owned/result.txt']),
+      (error) => error.status === 'blocked' && /candidate commit failed: commit rejected/.test(error.message),
+    );
+    assert.equal(commitCalls, 1);
+    assert.equal(git(worktree, 'rev-parse', 'HEAD'), data.baseSha);
   } finally {
     await rm(data.owner, { recursive: true, force: true });
   }

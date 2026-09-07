@@ -129,21 +129,15 @@ function immediate() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-test('native worker resolves the Git common dir before launch and sends the exact sandbox policy', async () => {
+test('native worker uses only the exact worktree as its writable root', async () => {
   const worktree = 'C:\\workers\\A';
-  const gitCommonDir = 'C:\\repositories\\shared.git';
   const server = new FakeAppServer({ threadId: 'thread-preflight', turnId: 'turn-preflight' });
-  const runCalls = [];
   let spawnCalls = 0;
   const promise = runNativeWorker({
     codexBin: 'codex-test',
     worktree,
     model: context('preflight', worktree).model,
     prompt: 'contract-preflight',
-    run: async (command, args, options) => {
-      runCalls.push({ command, args, options });
-      return { command, args, exitCode: 0, signal: null, stdout: `  ${gitCommonDir}\n`, stderr: '', error: null };
-    },
     spawn: () => {
       spawnCalls += 1;
       return server;
@@ -151,11 +145,6 @@ test('native worker resolves the Git common dir before launch and sends the exac
   });
   await server.turnStarted;
 
-  assert.deepEqual(runCalls, [{
-    command: 'git',
-    args: ['rev-parse', '--path-format=absolute', '--git-common-dir'],
-    options: { cwd: worktree },
-  }]);
   assert.equal(spawnCalls, 1);
   const threadStart = server.requests.find((request) => request.method === 'thread/start');
   assert.equal(threadStart.params.sandbox, 'workspace-write');
@@ -163,56 +152,15 @@ test('native worker resolves the Git common dir before launch and sends the exac
   assert.equal(threadStart.params.cwd, worktree);
   assert.deepEqual(server.turnRequest.params.sandboxPolicy, {
     type: 'workspaceWrite',
-    writableRoots: [worktree, gitCommonDir],
+    writableRoots: [worktree],
     networkAccess: false,
   });
   assert.equal(server.turnRequest.params.approvalPolicy, 'never');
   assert.equal(server.turnRequest.params.cwd, worktree);
 
-  server.finish('completed', 'status: candidate_ready');
+  server.finish('completed', 'status: implementation_ready');
   const result = await promise;
   assert.equal(result.exitCode, 0);
-});
-
-test('invalid Git common-dir preflight needs a decision without launching App Server', async (t) => {
-  const cases = [
-    {
-      name: 'command failure',
-      result: { exitCode: 1, signal: null, stdout: '', stderr: 'git failed', error: null },
-      message: /git rev-parse .* failed: git failed/,
-    },
-    {
-      name: 'empty output',
-      result: { exitCode: 0, signal: null, stdout: '  \n', stderr: '', error: null },
-      message: /non-empty absolute path/,
-    },
-    {
-      name: 'non-absolute output',
-      result: { exitCode: 0, signal: null, stdout: '..\\.git\n', stderr: '', error: null },
-      message: /non-empty absolute path/,
-    },
-  ];
-
-  for (const testCase of cases) {
-    await t.test(testCase.name, async () => {
-      let spawnCalls = 0;
-      const result = await runNativeWorker({
-        codexBin: 'codex-test',
-        worktree: 'C:\\workers\\preflight-failure',
-        model: context('preflight-failure', 'C:\\workers\\preflight-failure').model,
-        prompt: 'contract-preflight-failure',
-        run: async (command, args) => ({ command, args, ...testCase.result }),
-        spawn: () => {
-          spawnCalls += 1;
-          throw new Error('App Server must not launch');
-        },
-      });
-      assert.equal(result.error.status, 'needs_decision');
-      assert.match(result.error.message, testCase.message);
-      assert.equal(spawnCalls, 0);
-      assert.deepEqual(result.native, { threadId: null, turnId: null, status: null });
-    });
-  }
 });
 
 test('native worker sends exact task fields and ignores unrelated terminal events', async () => {
@@ -389,4 +337,7 @@ test('worker prompt contains only its contract, dispatch, ownership and dependen
   assert.match(prompt, /contract-A-only/);
   assert.match(prompt, /stage-A/);
   assert.match(prompt, /worker_spawned_subagents=false/);
+  assert.match(prompt, /Do not run git add, git commit, git checkout, git branch, git reset, git rebase, or git push/);
+  assert.match(prompt, /status implementation_ready/);
+  assert.doesNotMatch(prompt, /create exactly one Conventional Commit/);
 });

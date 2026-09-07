@@ -13,7 +13,6 @@ const WORKER_RESULT_SCALARS = new Set([
   'task_id',
   'dispatch_id',
   'reported_base_sha',
-  'reported_task_head_sha',
   'status',
 ]);
 const WORKER_RESULT_LISTS = new Set(['changed_files', 'deviations', 'unresolved', 'questions']);
@@ -111,6 +110,14 @@ function validateWorkerCodingResult(processResult, task, baseSha) {
   for (const key of WORKER_RESULT_LISTS) {
     if (!Array.isArray(result[key])) throw new Error(`missing field ${key}`);
   }
+  if (result.task_id !== task.task_id) throw new Error('task_id does not match the current Task');
+  if (result.dispatch_id !== task.dispatch_id) throw new Error('dispatch_id does not match the current dispatch');
+  if (result.reported_base_sha !== baseSha) throw new Error('reported_base_sha does not match the original dispatch base');
+  if (!['implementation_ready', 'blocked', 'needs_decision'].includes(result.status)) {
+    throw new Error('status must be implementation_ready, blocked, or needs_decision');
+  }
+  if (result.status !== 'implementation_ready') return result;
+
   for (const [section, required] of Object.entries(WORKER_RESULT_MAPS)) {
     if (typeof result[section] !== 'object' || result[section] === null || Array.isArray(result[section])) {
       throw new Error(`missing field ${section}`);
@@ -119,12 +126,6 @@ function validateWorkerCodingResult(processResult, task, baseSha) {
       if (!Object.hasOwn(result[section], key)) throw new Error(`missing field ${section}.${key}`);
     }
   }
-
-  if (result.task_id !== task.task_id) throw new Error('task_id does not match the current Task');
-  if (result.dispatch_id !== task.dispatch_id) throw new Error('dispatch_id does not match the current dispatch');
-  if (result.reported_base_sha !== baseSha) throw new Error('reported_base_sha does not match the original dispatch base');
-  if (!/^[0-9a-f]{40}$/i.test(result.reported_task_head_sha)) throw new Error('reported_task_head_sha must be a Git SHA');
-  if (result.status !== 'candidate_ready') throw new Error('status must be candidate_ready');
   if (result.native_backend.worker_mode !== 'one_thread_per_task') {
     throw new Error('native_backend.worker_mode must be one_thread_per_task');
   }
@@ -154,12 +155,35 @@ function validateWorkerCodingResult(processResult, task, baseSha) {
     throw new Error('verification.full_tests must report semantic pass');
   }
   if (result.changed_files.length === 0) {
-    throw new Error('changed_files must not be empty for candidate_ready');
-  }
-  if (result.changed_files.some((path) => !/^tools\/codex-github-bridge\/\S+$/.test(path))) {
-    throw new Error('changed_files must contain T05-owned paths');
+    throw new Error('changed_files must not be empty for implementation_ready');
   }
   return result;
+}
+
+function samePathSet(left, right) {
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.length === sortedRight.length
+    && sortedLeft.every((path, index) => path === sortedRight[index]);
+}
+
+function validateWorkingTreeObservation(observation, task, baseSha, expectedPaths = null) {
+  if (observation.head !== baseSha) throw blocked(`task HEAD must equal dispatch base ${baseSha}`);
+  if (observation.branch !== task.task_branch) {
+    throw blocked(`task worktree is on ${observation.branch}, expected ${task.task_branch}`);
+  }
+  if (observation.stagedPaths.length > 0) {
+    throw blocked(`task worktree has preexisting staged paths: ${observation.stagedPaths.join(', ')}`);
+  }
+  if (observation.workingPaths.length === 0) throw blocked('task working tree has no changed files');
+  try {
+    assertOwnedFiles(task, observation.workingPaths);
+  } catch (error) {
+    throw blocked(error.message);
+  }
+  if (expectedPaths !== null && !samePathSet(observation.workingPaths, expectedPaths)) {
+    throw blocked('actual working-tree changed files do not match the expected path set');
+  }
 }
 
 function nativeFacts(processResult) {
@@ -366,19 +390,33 @@ export class BridgeController {
       });
       return;
     }
+    if (codingResult.status !== 'implementation_ready') {
+      const details = [...codingResult.unresolved, ...codingResult.questions];
+      await this.publish(task, codingResult.status, {
+        reason: details.join('; ') || `Worker reported ${codingResult.status}`,
+        process_exit: result.processResult.exitCode,
+        ...workerNativeFacts,
+      });
+      return;
+    }
     let facts;
     let verification;
     try {
-      facts = await this.git.collectTaskFacts(task, result.worktree, result.baseSha);
-      if (codingResult.reported_task_head_sha !== facts.taskHeadSha) {
-        throw blocked('reported_task_head_sha does not match the independent Git task head');
-      }
-      await this.git.mechanicalGate(task, facts);
+      const beforeVerification = await this.git.observeWorkingTree(result.worktree);
+      validateWorkingTreeObservation(beforeVerification, task, result.baseSha, codingResult.changed_files);
       verification = await runVerification(task.verification, result.worktree, this.git.run);
       const failed = verification.filter((item) => item.kind === 'command' && !item.passed);
       if (failed.length > 0) throw blocked(`focused verification failed: ${failed.map((item) => item.requirement).join(', ')}`);
-      const postVerificationStatus = await this.git.status(result.worktree);
-      if (postVerificationStatus !== '') throw blocked(`verification left the task worktree dirty: ${postVerificationStatus}`);
+      const afterVerification = await this.git.observeWorkingTree(result.worktree);
+      validateWorkingTreeObservation(afterVerification, task, result.baseSha, beforeVerification.workingPaths);
+
+      await this.git.createCandidateCommit(task, result.worktree, beforeVerification.workingPaths);
+      facts = await this.git.collectTaskFacts(task, result.worktree, result.baseSha);
+      if (facts.taskHeadSha === facts.baseSha) throw blocked('Controller did not create a candidate commit');
+      if (!samePathSet(facts.actualChangedFiles, beforeVerification.workingPaths)) {
+        throw blocked('candidate commit changed files do not match the verified working-tree path set');
+      }
+      await this.git.mechanicalGate(task, facts);
     } catch (error) {
       await this.publish(task, error.status ?? 'blocked', { reason: error.message, process_exit: result.processResult.exitCode, ...workerNativeFacts });
       return;
