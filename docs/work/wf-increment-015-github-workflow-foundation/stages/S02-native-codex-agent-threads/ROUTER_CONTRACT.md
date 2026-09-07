@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Owner: Codex。更新日期：2026-09-07。当前 T05F00 -004 已 immutable terminal blocked，不可 replay。当前只规划 [T05R02](./tasks/T05R02-controller-owned-candidate-commit/TASK_CONTRACT.md)，Proposed / confirmed_by_user=false / router_dispatchable=false。JSON 保持 byte-equivalent；status: dispatch_ready 是既有 Router 格式字段，不授予执行权限。
+> Owner: Codex。更新日期：2026-09-07。当前 T05F00 -004 已 immutable terminal blocked，不可 replay。用户已接受 [T05R02](./tasks/T05R02-controller-owned-candidate-commit/TASK_CONTRACT.md)，Accepted / confirmed_by_user=true / router_dispatchable=false；仍为 non-Router manual bootstrap repair，尚未 environment prepared/authorized/executed。JSON 保持 byte-equivalent；status: dispatch_ready 是既有 Router 格式字段，不授予执行权限。
 <!-- ROUTER_CONTRACT_V1 -->
 
 ```json
@@ -103,14 +103,14 @@
 
 ## Dispatch gates
 
-- main authority=bd41ea8a1e259300241a345a659e7da90e24af0d；planning exact Stage=f777c32cce0852ef1eb4f89ac2a4121e02bc3e2f。
+- main authority=bd41ea8a1e259300241a345a659e7da90e24af0d；planning exact Stage=f777c32cce0852ef1eb4f89ac2a4121e02bc3e2f；acceptance exact base Stage=4f3ea99d279cac0d7281eff850766623b754d47a。
 - T05、T05R00、T05R01 已 integrated，source/Stage mapping 见 [Stage](./STAGE.md)。T05 entry 只供 recovery/dependency，T05R00/T05R01 不属于 tasks[]；不得 replay 或补造 Bridge event。
 - T05F00 -001/-002/-003/-004 均为 immutable terminal history。当前 JSON 保留 wf15-s02-t05f00-root-multi-agent-prompt-boundary-004；其 status=blocked，exact reason 为 Worker completed with invalid required Coding Result: reported_task_head_sha must be a non-empty string。thread/turn 与 T05D00 probe 见 T05R02 Contract。
 - T05D00 native_git_candidate_capability=fail：可写 working tree，不可写 linked-worktree Git metadata。T05R01 gitCommonDir writableRoot 不足以解决。不得 replay -004、准备 -005、旋转 dispatch、修改 dependencies/owns 或继续执行 T05F00。
 - T05R02 仅为 Router 外 Native Bootstrap Repair Task；execution_surface=manual_pre_native_codex_exec，model_policy=coding_strong，gpt-5.6-sol/high，fallback none，internal_multi_agent false。不得加入 tasks[]/Ready Set，不伪造 task_integrated。
-- 当前 next_required_action=T05R02_exact_contract_acceptance。目标 authority 为 Worker working_tree_implementation_only / Git metadata none，Controller outside sandbox 创建 candidate，Router owns + independent facts 和 runVerification 为 gate authority；完整順序见 exact T05R02 Contract，当前生产尚未实现。
+- 当前 next_required_action=T05R02_environment_preparation_authorization。T05R02 已 Accepted，但 environment_preparation_completed=false、implementation_authorized=false、manual_pre_native_codex_exec_authorized=false；environment preparation 后仍须 separate manual execution authorization。目标 authority 为 Worker working_tree_implementation_only / Git metadata none，Controller outside sandbox 创建 candidate，Router owns + independent facts 和 runVerification 为 gate authority；完整順序见 exact T05R02 Contract，当前生产尚未实现。
 - T05R02 integrated 且 process STOP 后才 fresh planning T05F00 -005，使用 implementation_ready → Controller-owned candidate。T05F01 仍 Proposed/confirmed_by_user=false，当前 Contract unchanged；届时重审并删除 T05R02 已解决的重复范围。
 - T06 保持 Router 外 Planning Placeholder，不 dispatch。必要 Task 未完成前不得 stage_candidate_ready 或 PR Ready for Review。
 - T05F00 -004 dirty worktree 与 T05D00 probe worktree/branch 必须保留不动。continuous start、run-once、任意 Task dispatch 本轮均禁止。
 - fixed Chat 是唯一 Formal Review Authority；Supervisor 不 approve/merge、无 main authority。未来既有 Task push、remote equality、controlled cherry-pick、Stage push 与 publication 语义不变；conflict abort/blocked，禁止 force/rebase/自动解冲突。
-- 本轮只修改四份 governance documents 的规划内容；JSON bytes 不变。通过 planning gates 后一次 planning commit、一次 ordinary non-force Stage push，随后 STOP。S01 immutable history、room:status --help Deferred 保持。
+- 本轮只修改四份 governance documents 的 acceptance 状态与 prose；JSON bytes 不变。通过 acceptance gates 后一次 docs(s02): accept T05R02 contract commit（parent=4f3ea99d279cac0d7281eff850766623b754d47a）、一次 ordinary non-force Stage push，随后 STOP。S01 immutable history、room:status --help Deferred 保持。

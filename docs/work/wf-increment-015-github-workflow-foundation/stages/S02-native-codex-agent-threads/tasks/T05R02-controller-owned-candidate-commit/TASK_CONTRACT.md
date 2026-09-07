@@ -4,8 +4,15 @@
 |---|---|
 | task_id | T05R02-controller-owned-candidate-commit |
 | type | Native Bootstrap Repair Task |
-| status | Proposed |
-| confirmed_by_user | false |
+| status | Accepted |
+| confirmed_by_user | true |
+| exact_contract_accepted_by_user | true |
+| acceptance_base_stage_sha | 4f3ea99d279cac0d7281eff850766623b754d47a |
+| environment_preparation_authorized | false |
+| environment_preparation_completed | false |
+| implementation_authorized | false |
+| manual_pre_native_codex_exec_authorized | false |
+| Host_mechanical_commit_authorized | false |
 | Owner / Reader | Codex / 用户、manual bootstrap Worker |
 | updated | 2026-09-07 |
 | execution_surface | manual_pre_native_codex_exec |
@@ -17,7 +24,7 @@
 | main_base_sha | bd41ea8a1e259300241a345a659e7da90e24af0d |
 | authority | [Stage](../../STAGE.md)、[Router](../../ROUTER_CONTRACT.md) |
 
-本 Contract 冻结 Proposed target，不授权 Implementation。MUST 表示强制要求。用户限定本轮四份 governance 文档，因此 architecture decision 在本 Contract 单一记录，不扩大到共享 ADR 或索引。
+本 Contract 冻结 Accepted target，不授权 Implementation。MUST 表示强制要求。用户限定本轮四份 governance 文档，因此 architecture decision 在本 Contract 单一记录，不扩大到共享 ADR 或索引。
 
 ## 1. Background / authoritative evidence
 
@@ -393,7 +400,7 @@ approvalPolicy=on-request
 
 把整个repository parent/home/drive加入writableRoots。
 
-十二、Proposed exact implementation scope
+十二、Accepted exact implementation scope
 
 Planning优先冻结为exactly以下production files：
 
@@ -555,7 +562,7 @@ generic Worker Result boundary
 
 ## 6. Verification
 
-下表用于后续 Implementation，当前 planning 不运行这些 implementation checks：
+下表用于后续 Implementation，当前 Acceptance Revision 不运行这些 implementation checks：
 
 | command | detects | decision_if_failed |
 |---|---|---|
@@ -566,13 +573,13 @@ generic Worker Result boundary
 
 direct tests MUST 从 buildWorkerPrompt、native launch、BridgeController.processResult、GitRepository public path 提供证据；期望值、调用次数与顺序来自 test-side Oracle。额外覆盖 branch mismatch、post-verification HEAD/branch/staged drift、commit failure 恰好一次尝试/no retry、post-commit set mismatch；不以 helper 自述替代 public evidence。
 
-本轮 planning gates：node --test tests/router-contract-reader.test.ts 必须 18/18；git diff --check pass；exact 四份 governance changed paths；Router JSON byte-equivalent；tools、T05F00 -004 Contract、T05F01 Contract、T06 unchanged。失败不 commit/push。JSON 直接 byte comparison，不使用 hash。
+本轮 acceptance gates：node --test tests/router-contract-reader.test.ts 必须 18/18；git diff --check pass；exact 四份 governance changed paths；Router JSON byte-equivalent；tools、T05F00 -004 Contract、T05F01 Contract、T06 unchanged。失败不 commit/push。JSON 直接 byte comparison，不使用 hash。
 
 ## 7. documentation_updates / execution compatibility
 
-后续 Implementation documentation_updates=none（exact seven-file scope）。本轮 Codex 仅维护本 Contract、STAGE、Router prose、Supervisor prose，新能力保持 Proposed，不宣称 Current/integrated。
+后续 Implementation documentation_updates=none（exact seven-file scope）。本轮 Codex 仅维护本 Contract、STAGE、Router prose、Supervisor prose，目标已 Accepted，新能力尚未实现，不宣称 Current/integrated。Contract Acceptance 不等于 environment preparation、manual execution 或 Host mechanical implementation commit 授权。
 
-exact Contract acceptance 后另行准备/记录实际 baseline、Task branch/worktree，并授权 manual execution；完整注入本 Contract。T05R02 Worker 只实现与 verification，不执行 Git metadata writes。自身 commit 受 sandbox 限制时保留 verified Diff / STOP；后续用户可单独授权一次 Host mechanical commit，仅用于 T05R02 bootstrap 自身。Git integration/publication 仍需后续授权，记录真实 Git source/Stage facts，不伪造 Bridge event。
+exact Contract 已由用户接受；下一 gate 为 environment preparation authorization，获授权并完成实际 baseline、Task branch/worktree 准备/记录后，仍须 separate manual execution authorization；完整注入本 Contract。T05R02 Worker 只实现与 verification，不执行 Git metadata writes。自身 commit 受 sandbox 限制时保留 verified Diff / STOP；后续用户可单独授权一次 Host mechanical commit，仅用于 T05R02 bootstrap 自身。Git integration/publication 仍需后续授权，记录真实 Git source/Stage facts，不伪造 Bridge event。
 
 T05R02 integrated 且 process STOP 后才 fresh planning -005，并重审 T05F01，删除已完成的重复范围。当前不生成该 retry Contract、不执行下游。
 
@@ -582,4 +589,4 @@ T05R02 integrated 且 process STOP 后才 fresh planning -005，并重审 T05F01
 
 未来 manual Worker final 包含 task_id、status（implementation_ready/blocked/needs_decision）、reported_base_sha、changed_files、summary、deviations、verification（逐命令真实 outcome）、unresolved、questions、documentation_changes、candidate_commit_created=false。manual bootstrap 无 Router dispatch_id，不伪造；本段自身交付格式不冒充 production transition。未运行不报 pass，无 candidate 不伪造 candidate SHA。
 
-next_required_action=T05R02_exact_contract_acceptance。本轮 planning commit 仅为 docs(s02): plan T05R02 candidate commit boundary，parent exact f777c32cce0852ef1eb4f89ac2a4121e02bc3e2f；一次普通 non-force Stage push 后 STOP。
+next_required_action=T05R02_environment_preparation_authorization。本轮 acceptance commit 仅为 docs(s02): accept T05R02 contract，parent exact 4f3ea99d279cac0d7281eff850766623b754d47a；仅 stage 四份 governance paths，exactly one commit 与一次普通 non-force Stage push 后 STOP。push 前 remote Stage 必须仍等于 acceptance base；remote drift 或 push failure 时 needs_decision / STOP，不 retry。
