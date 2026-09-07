@@ -1,6 +1,6 @@
 # Local Parallel Codex — S02 Native Task Thread Supervisor Router Agent
 
-Owner: Codex。更新日期：2026-09-07。当前 lifecycle：`waiting_for_T05F00_retry_004_contract_acceptance`。
+Owner: Codex。更新日期：2026-09-07。当前 lifecycle：`waiting_for_T05F00_retry_004_environment_preparation`。
 
 ## Role and authority
 
@@ -20,8 +20,8 @@ T05F00 `-001` historical needs_decision、`-002` historical blocked dependency g
 
 Active dispatch 为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`：
 
-- status: Proposed
-- confirmed_by_user: false
+- status: Accepted
+- confirmed_by_user: true
 - bridge_event_exists: false（本轮读取时）
 - environment_preparation_completed: false
 - run_once_authorized: false
@@ -31,7 +31,7 @@ Active dispatch 为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`：
 - internal_multi_agent: false
 - worker_spawned_subagents: false
 
-当前只能等待 exact Contract acceptance。不得因 Router JSON 保留 dispatch_ready 或 dependency 已满足就执行 Proposed Task。continuous start 禁止。
+用户已明确接受 Stage `23b0866cd3ff22c253c725fd73c9b94f71f37906` 中的 exact Contract；dispatch `-004` 不再旋转。当前仍不得 run-once：historical `-003` dirty worktree/local branch 尚未在单独授权下 cleanup，fresh `-004` worktree 尚未创建，Host `npm ci` 与 Git clean/environment gates 尚未完成，fresh run-once 尚未单独授权。Acceptance 不授予 environment preparation 或 execution authority；continuous start 禁止。
 
 ## Future execution gates
 
@@ -43,7 +43,7 @@ Active dispatch 为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`：
 6. Bridge 独立核验 candidate parent、single commit、changed files、clean worktree、reported SHA、native terminal 与 verification；Supervisor 仅 ready_to_integrate 时允许普通 Task push、remote equality gate、controlled cherry-pick、普通 Stage push、remote equality gate 与真实 task_integrated。
 7. Conflict → git cherry-pick --abort → blocked；禁止 force、rebase、自动解冲突。T05F00 integration + Stage push 后 STOP；不得在同一 process 继续下游。
 
-本轮不执行这些 future gates 中的 mutation；planning commit/push 不授予 execution。
+本轮不执行这些 future gates 中的 mutation；acceptance commit/push 不授予 environment preparation 或 execution，普通 Stage push 成功后立即 STOP。
 
 ## Downstream acceptance and handoff
 

@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Owner: Codex。更新日期：2026-09-07。Active T05F00 retry `-004` 为 Proposed / confirmed_by_user=false，尚无 Bridge event，environment 未准备，run-once 未授权。JSON 的既有 `status: dispatch_ready` 是 Router 格式字段，不替代 exact Task acceptance 或 execution 授权。当前 lifecycle 为 `waiting_for_T05F00_retry_004_contract_acceptance`。
+> Owner: Codex。更新日期：2026-09-07。Active T05F00 retry `-004` 为 Accepted / confirmed_by_user=true，尚无 Bridge event，environment 未准备，run-once 未授权。JSON 的既有 `status: dispatch_ready` 是 Router 格式字段，不替代 exact Task acceptance 或 execution 授权。当前 lifecycle 为 `waiting_for_T05F00_retry_004_environment_preparation`。
 
 <!-- ROUTER_CONTRACT_V1 -->
 
@@ -109,8 +109,8 @@
 - T05R00 已 integrated：source `ba077fc1a39f85c179e65aa39b64646f4aed716a` → Stage `ad3e00989932828e58e742bce66a6cf1e8ab0745`。
 - T05R01 已 integrated：source `e00aba7ad2cfb414c718c9a6be8ef9395711d6cc` → Stage `4ea459e8ff2beb9c8db8bc5c665f44ceebcf49fa`。两项 repair 不加入 tasks[] 或 Ready Set，不重复执行、不补造 Bridge event。
 - T05F00 `-001` historical needs_decision、`-002` historical blocked dependency gap、`-003` historical terminal blocked 均不可 replay。`-003` 已有真实 Bridge event，dirty worktree 保留为 failed_dispatch_evidence，禁止 commit/integrate；cleanup 等待后续单独授权。
-- Active dispatch 为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`，exact [Task Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md) 为 `Proposed`、`confirmed_by_user=false`，本轮读取时无 Bridge event。不能将 dispatch rotation 视为 acceptance、environment preparation 或 execution authority。
-- `-004` 必须先获得 exact Contract acceptance，再单独授权 cleanup、fresh worktree 与 Host npm ci，确认 package unchanged、Git clean、dependencies ignored、TypeScript resolvable，最后单独授权一次 fresh run-once；当前不得 run-once。
+- Active dispatch 保持 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`，不再旋转；用户已接受 Stage `23b0866cd3ff22c253c725fd73c9b94f71f37906` 中的 exact [Task Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md)，现为 `Accepted`、`confirmed_by_user=true`，尚无 Bridge event。Acceptance 不构成 environment preparation 或 execution authority。
+- `-004` exact Contract acceptance 已完成；cleanup、fresh worktree 与 Host npm ci 尚未单独授权或完成，package unchanged、Git clean、dependencies ignored、TypeScript resolvable gates 尚未完成，fresh run-once 尚未单独授权；当前不得 run-once。
 - continuous start 始终禁止。T05F00 integration + Stage push 后必须 STOP，再返回 fixed Chat 核验新 Stage 与真实 task_integrated。
 - T05F01 仍 Proposed / confirmed_by_user=false，不 dispatch。其 future exact acceptance 后必须用 fresh process 加载 T05F00 prompt；Root-only native multi-agent 不可用时 needs_decision，禁止 serial fake-agent fallback；integration 后 STOP。
 - T06 仍是 Router 外的 Planning Placeholder。T05F01 集成后才确定 exact docs scope 并单独接受；完成前不发布 stage_candidate_ready、不将 PR #6 标记 Ready for Review。

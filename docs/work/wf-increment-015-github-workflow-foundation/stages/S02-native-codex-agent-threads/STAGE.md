@@ -3,8 +3,8 @@
 - work_id: `wf-increment-015-github-workflow-foundation`
 - Owner: Codex
 - updated: 2026-09-07
-- status: `waiting_for_T05F00_retry_004_contract_acceptance`
-- lifecycle: `waiting_for_T05F00_retry_004_contract_acceptance`
+- status: `waiting_for_T05F00_retry_004_environment_preparation`
+- lifecycle: `waiting_for_T05F00_retry_004_environment_preparation`
 - purpose: `repair_native_worker_transition_boundaries`
 - goal: 在已集成 native backend 与 linked-worktree sandbox repair 上完成 Worker prompt delegation boundary，再处理独立确认的 generic Worker Result boundary 与文档。
 - main_base_sha: `bd41ea8a1e259300241a345a659e7da90e24af0d`
@@ -15,8 +15,8 @@
 - supervisor: [SUPERVISOR_ROUTER_AGENT.md](./SUPERVISOR_ROUTER_AGENT.md)
 - active_retry: [T05F00 exact Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md)
 - active_dispatch: `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`
-- active_contract_status: `Proposed`
-- confirmed_by_user: `false`
+- active_contract_status: `Accepted`
+- confirmed_by_user: `true`
 - environment_preparation_completed: `false`
 - run_once_authorized: `false`
 - active_dispatch_bridge_event_exists: `false`（本轮 GitHub 读取时）
@@ -43,7 +43,7 @@ T05 保留在 Router 供 recovery/dependency 使用；T05R00/T05R01 不属于 Ro
 
 ## 后续门禁与顺序
 
-1. 用户确认 `-004` exact Contract；当前 Proposed 不构成 execution authority。
+1. 用户已明确接受 Stage `23b0866cd3ff22c253c725fd73c9b94f71f37906` 中的 `-004` exact Contract；`exact_contract_accepted_by_user=true`。Acceptance 不构成 environment preparation 或 execution authority；`environment_preparation_authorized_by_user=false`、`run_once_authorized_by_user=false`。
 2. 后续单独授权历史 worktree/local branch cleanup、从届时 exact Stage 创建 fresh `-004` Task worktree、Host `npm ci`；完成 package unchanged、Git clean、ignored dependencies 与 TypeScript resolvable gates。
 3. 用户另行授权 exactly one fresh `run-once`，只执行 `-004`。native Worker 完成四项 verification、真实单一 candidate commit 与完整 result 后，既有 Bridge 独立 verification、Supervisor Integration 与 controlled integration 才能继续；失败即停止，禁止自动 Fix。
 4. T05F00 integration + Stage push 后 STOP，返回 fixed Chat 核验 Stage SHA 与真实 `task_integrated`，再处理 T05F01 exact acceptance。
@@ -51,4 +51,4 @@ T05 保留在 Router 供 recovery/dependency 使用；T05R00/T05R01 不属于 Ro
 6. [T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 仍为 `Planning Placeholder`、不可 dispatch。T05F01 integration 后重新检查实际 Controller，确定 exact docs scope 并单独接受。
 7. 所有必要 Task 完成后才允许既有 `stage_candidate_ready` 路径、Stage verification、fixed Chat Formal Review 和用户 exact-SHA acceptance。
 
-本轮只写四个 governance files、一个 planning commit 和一次普通 non-force Stage push。continuous `start`、Worker、`run-once`、Supervisor Integration、Task push、cherry-pick、Formal Review、main write 与 merge 均不执行。S01 是 immutable history，`room:status --help` 保持 Deferred，不恢复 S01 Bootstrap-B。
+本轮只写四个 governance files、一个 acceptance commit 和一次普通 non-force Stage push，push 成功后立即 STOP。continuous `start`、Worker、`run-once`、Supervisor Integration、Task push、cherry-pick、Formal Review、main write 与 merge 均不执行。S01 是 immutable history，`room:status --help` 保持 Deferred，不恢复 S01 Bootstrap-B。
