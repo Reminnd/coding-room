@@ -3,11 +3,11 @@
 ## Contract
 
 ```yaml
-status: Accepted
-confirmed_by_user: true
+status: Proposed
+confirmed_by_user: false
 task_id: T05F00-root-multi-agent-prompt-boundary
 type: Implementation Task
-dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-003
+dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-004
 task_branch: task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary
 depends_on:
   - T05-native-codex-thread-backend
@@ -18,19 +18,34 @@ internal_multi_agent: false
 worker_spawned_subagents: false
 ```
 
-This acceptance revision records the user's acceptance of this exact Contract. It does not dispatch T05F00 or authorize cleanup, environment preparation or a fresh `run-once`.
+Owner: Codex. Reader: 用户与未来 Local Codex Worker。更新日期：2026-09-07。本 revision 等待用户确认全文；implementation goal 与 exact two-file scope 保持原 Accepted T05F00 语义。MUST 表示强制要求。
 
 ## Background
 
-Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical `needs_decision`: it failed before native thread creation and produced no thread, turn, candidate or remote Task. The root cause was the then-current sandbox wire enum in the native backend, not T05F00 implementation. T05R00 repaired that boundary and is integrated into the Stage at `ad3e00989932828e58e742bce66a6cf1e8ab0745` from source `ba077fc1a39f85c179e65aa39b64646f4aed716a`.
+- `-001`：historical `needs_decision`，native thread 创建前因 sandbox wire enum mismatch 失败；不得 replay。
+- `-002`：historical `blocked`，fresh worktree dependency gap 导致无法解析 TypeScript；不得 replay。
+- T05R00 已 integrated：source `ba077fc1a39f85c179e65aa39b64646f4aed716a` → Stage `ad3e00989932828e58e742bce66a6cf1e8ab0745`。
+- T05R01 已 integrated：source `e00aba7ad2cfb414c718c9a6be8ef9395711d6cc` → Stage `4ea459e8ff2beb9c8db8bc5c665f44ceebcf49fa`。两项 repair 均不属于 Router Task；不得补造 Bridge event。
+- `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003` 已为 immutable terminal history：native thread `01a07a28-4b47-7c82-98c5-1bb4cdd3cb18`、turn `01a07a28-4bbd-7920-a605-386d96c6a455`、native terminal `completed`；[真实 Bridge terminal event](https://github.com/Reminnd/coding-room/pull/6#issuecomment-5565132417) 为 `blocked`，exact reason：`Worker completed with invalid required Coding Result: status must be candidate_ready`。
+- 历史 worktree 为 `D:\agent\case\codex-claudecode-room-codex-workers\T05F00-root-multi-agent-prompt-boundary`，branch 为本 Contract 的 `task_branch`，HEAD 为 `4ea459e8ff2beb9c8db8bc5c665f44ceebcf49fa`，`commit_count_from_base=0`、`staged_files=[]`；dirty files 恰为下述两个 owned files。该目录保留为 `failed_dispatch_evidence`，不得修改、commit、integrate 或复用为 `-004` candidate；cleanup 需要后续单独授权。
+- Stage base 的 Worker prompt 仍无条件禁止 delegation；历史 dirty Diff 将其改为 exact Contract 授权下的 default deny，并保留 Root-only、child writing descendants 禁止和完整 Contract 注入。T05F00 自身不使用 multi-agent。
 
-Dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` is historical `blocked` and MUST NOT be replayed. It successfully created native thread `01a076af-a8fa-72b3-bc8a-bb61f3339b23`; native turn `01a076af-a977-7863-82d0-6c1bef542b96` completed with model `gpt-5.6-sol` and reasoning effort `medium`. Focused tests passed 10/10, the Bridge suite passed 98/98 and `git diff --check` passed. `npm run typecheck` was not successfully executable because the fresh Git Task worktree did not have repository dependencies materialized and therefore could not resolve `tsc`. No candidate commit, Supervisor result, Task push or integration exists, and the Stage remained unchanged at `03be655aa170a6ce40776e1e3dd0e1ed42510103`. This is an execution-environment preparation gap, not a T05F00 implementation defect, TypeScript compile failure, test regression, model failure or native app-server failure.
+### 2026-09-07 diagnosis verification
 
-This Contract preserves the same T05F00 implementation scope under the new retry dispatch identity `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. The complete retry Contract is accepted by the user. Cleanup, environment preparation and any fresh `run-once` each remain separately ordered and authorized actions. Dispatches `-001` and `-002` remain historical terminal dispatches and MUST NOT be replayed.
+以下为本轮在历史 dirty worktree 重新运行的事实，不是恢复出的原 Worker verification：
 
-T05 is integrated and the native Worker now receives its exact Task Contract through `buildWorkerPrompt`. The current prompt and dispatch envelope still unconditionally state `worker_spawned_subagents=false` and `do not spawn subagents` for every Worker. That absolute rule conflicts with the downstream T05F01 exact Contract, which authorizes only its Root Supervisor Router to use Codex native multi-agent capability.
+| Command | Exit | Result | Test count |
+|---|---|---|---|
+| `node --test tools/codex-github-bridge/tests/codex.test.mjs` | 0 | pass | 15/15 |
+| `node --test tools/codex-github-bridge/tests/*.test.mjs` | 0 | pass | 103/103 |
+| `npm run typecheck` | 0 | pass | 不适用 |
+| `git diff --check` | 0 | pass | 不适用 |
 
-T05F00 is the transition prerequisite that removes only this contradiction. It does not itself use multi-agent execution.
+运行前后 branch、HEAD、status、unstaged/staged 完整 Diff 一致；exact two-file scope 保持不变，未运行 `npm test`。
+
+Case A 判断：`implementation_diff_appears_valid`、`candidate_or_result_completion_failed`，`scope_change_required=false`。未发现需要第三个 code file 或 architecture 扩展的证据。本轮不是 Formal Review，也不接受历史 candidate。
+
+Native backend 使用 ephemeral thread，仅把匹配 `final_answer` 保存在当次 `processResult.lastMessage`；Controller 要求 `status == candidate_ready`，否则归一为 Bridge `blocked`。原 Worker final message 无法恢复，因此具体失败原因属于 `unknown_due_to_unrecoverable_worker_final_message`；不能反推出原始 status 的具体值，不能声称已证明 Git sandbox commit 失败。当前重新验证未发现 `implementation_verification_failure` 或必须扩大范围的 `contract_or_scope_gap`。
 
 ## Goal
 
@@ -100,23 +115,23 @@ The historical T05 baseline-equivalence amendment does not apply. Every command 
 
 ## Host execution-environment preparation
 
-This section is a precondition for any future `-003 run-once`; it is not part of T05F00 Worker Verification.
+`-004` 当前为 `Proposed`、`confirmed_by_user=false`、`environment_preparation_completed=false`、`run_once_authorized=false`，尚无 Bridge event。
 
-After the exact `-003` Contract is accepted and the historical `-002` dirty Task worktree/local branch is cleaned up under the separately ordered authorization, the Host MUST create a fresh, clean Task branch/worktree at the exact current Stage. Before `run-once`, the Host MUST use the repository lockfile and run exactly:
+用户确认本 exact Contract 后，历史 `-003` worktree/local branch 的 cleanup、从届时 exact pushed Stage 创建 fresh Task branch/worktree、Host `npm ci` 与一次 fresh `run-once`仍分别需要授权。当前 planning 不执行这些动作。不得重放 `-001`、`-002` 或 `-003`，不得把历史 dirty Diff 直接提交或作为 candidate；fresh Worker 必须重新实现本 Contract。
 
-```text
-npm ci
-```
+未来 Host preparation 必须使用 repository lockfile 运行 `npm ci`，确认 package.json/package-lock.json unchanged、Git clean、node_modules 存在且 ignored、TypeScript resolvable。任一失败返回 `needs_decision` 并停止；production Bridge 不自动安装 dependencies。dispatch base 来自准备完成后获准执行时的实际 Stage，而非本 planning base。
 
-The Host MUST then confirm all of the following:
+## Candidate completion
 
-- `package.json` is unchanged;
-- `package-lock.json` is unchanged;
-- Git status remains clean;
-- `node_modules` exists only as the ignored local dependency tree;
-- the TypeScript package is resolvable.
+仅在本 Contract 后续 Accepted 且 execution 单独获准后，Worker MUST：
 
-This is Host execution-environment preparation. It is not T05F00 Coding, a Task deliverable, a Bridge fallback or a Task-owned file change. The production Bridge MUST NOT install dependencies automatically. If preparation or any confirmation fails, return `needs_decision` and do not start `run-once`. Only after all confirmations pass may the user separately authorize one fresh `run-once` for dispatch `-003`.
+1. 完整读取注入的 exact Contract，只在自己的 fresh Task worktree 实现下述两个 owned files。
+2. 四项 Verification 全部 ordinary pass 后，才允许 stage 或生成 candidate；任一失败如实返回 `blocked` 并停止，不自动 Fix。
+3. 仅执行 `git add -- tools/codex-github-bridge/codex.mjs tools/codex-github-bridge/tests/codex.test.mjs`，确认 staged paths 恰为两文件，禁止 `git add .`。
+4. 在 Task branch 创建 exactly one Conventional Commit；不得 amend。commit parent 必须等于 dispatch base，commit_count_from_base 必须为 1，changed files 必须恰为两文件。
+5. commit 成功后重新执行 `git rev-parse HEAD` 与 `git status --short`；确认 actual HEAD 是真实 candidate commit 且 worktree clean，再将 actual HEAD 写入 `reported_task_head_sha`。
+6. 仅在真实 candidate commit 存在且以上条件成立时，使用下方完整 Required Coding Result 返回 `status: candidate_ready`。不能在 commit 之前报告 candidate，不能用预期 SHA 代替 actual HEAD。
+7. commit 失败时保留实际 evidence，如实返回 `needs_decision` 或 `blocked` 与失败原因并停止；不得伪报 `candidate_ready`，不得 Host mechanical fallback。Controller 当前可能把非 candidate result 归一为 `blocked`，不因此修改 Controller 或加入 Task-specific compatibility。
 
 ## Bootstrap execution compatibility
 
@@ -136,7 +151,7 @@ Return `needs_decision` and stop if the prompt boundary cannot be implemented wi
 
 ```yaml
 task_id: T05F00-root-multi-agent-prompt-boundary
-dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-003
+dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-004
 reported_base_sha: <dispatch base>
 reported_task_head_sha: <40-char worker-reported Git SHA>
 changed_files:
@@ -157,7 +172,7 @@ verification:
 deviations: []
 unresolved: []
 questions: []
-status: candidate_ready | blocked | needs_decision
+status: candidate_ready
 ```
 
-For `candidate_ready`, the Worker creates exactly one Conventional Commit on the Task branch containing only the two owned files and does not push. Existing Local Bridge gates independently re-read Git, native execution and verification facts before controlled integration.
+上述 YAML 为成功 candidate 的完整 envelope。失败时如实填写实际 verification、unresolved/questions 与 `status: blocked` 或 `status: needs_decision`，不得沿用成功示例中的 pass；没有 candidate 时不得声称存在 candidate SHA。成功 envelope 的 `reported_task_head_sha` 必须来自 commit 后实际 HEAD。Worker 不 push；既有 Bridge gates 独立读取 Git、native execution 与 verification facts。

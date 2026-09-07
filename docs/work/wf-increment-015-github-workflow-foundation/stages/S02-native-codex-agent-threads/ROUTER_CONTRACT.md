@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Acceptance handoff: Router schema and the JSON block below are unchanged. T05F00 dispatches `-001` and `-002` remain historical terminal attempts. Active dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003` remains `Accepted` with `confirmed_by_user=true`, has no Bridge event, and is not rotated. Its environment was prepared at Stage `fc126bb1f7d52b51787970ca62786362a8c7b1c9`, but the prior planning commit advanced Stage and made that worktree stale for execution. T05R01 is now `Accepted` with `confirmed_by_user=true`, `execution_authorized=false` and `environment_preparation_completed=false`; it uses `manual_pre_native_codex_exec`, is not Router-dispatchable, and blocks T05F00 `-003` until it is separately prepared, authorized, implemented and integrated. After T05R01 integration and process STOP, the stale `-003` worktree must be separately cleaned up and recreated from the new Stage HEAD, followed by Host `npm ci`, clean Git and resolvable TypeScript checks, before the user may separately authorize one fresh `run-once`. T05F01 remains `Proposed`; T06 remains a `Planning Placeholder`; neither is in the Ready Set.
+> Owner: Codex。更新日期：2026-09-07。Active T05F00 retry `-004` 为 Proposed / confirmed_by_user=false，尚无 Bridge event，environment 未准备，run-once 未授权。JSON 的既有 `status: dispatch_ready` 是 Router 格式字段，不替代 exact Task acceptance 或 execution 授权。当前 lifecycle 为 `waiting_for_T05F00_retry_004_contract_acceptance`。
 
 <!-- ROUTER_CONTRACT_V1 -->
 
@@ -40,7 +40,7 @@
     },
     {
       "task_id": "T05F00-root-multi-agent-prompt-boundary",
-      "dispatch_id": "wf15-s02-t05f00-root-multi-agent-prompt-boundary-003",
+      "dispatch_id": "wf15-s02-t05f00-root-multi-agent-prompt-boundary-004",
       "task_contract_path": "docs/work/wf-increment-015-github-workflow-foundation/stages/S02-native-codex-agent-threads/tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md",
       "task_branch": "task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary",
       "depends_on": ["T05-native-codex-thread-backend"],
@@ -104,20 +104,16 @@
 
 ## Dispatch gates
 
-- The Stage planning base is exact GitHub `main` `bd41ea8a1e259300241a345a659e7da90e24af0d`; runtime `base_sha` is re-read from the actual Stage branch by Local Bridge at each dispatch.
-- T05 is already integrated with source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` mapped to Stage commit `dbd10202f5289d91d7caab9c67e1de878b0ae843`. Its Router entry remains only for recovery and dependency identity.
-- Failure discovery used `codex-cli 0.149.1`; repair-time schema revalidation used `codex-cli 0.153.4`. Both define the `ThreadStartParams.sandbox` write value as `workspace-write`. Version `0.149.1` is historical discovery evidence, not the current installed-version claim.
-- T05R00 is integrated: source `ba077fc1a39f85c179e65aa39b64646f4aed716a` → Stage commit `ad3e00989932828e58e742bce66a6cf1e8ab0745`. It was not Router-managed, so no synthetic `task_integrated` Bridge event exists. T05R00 MUST NOT be discovered, replayed or executed again.
-- T05R01 is `Accepted` with `confirmed_by_user=true`, `execution_authorized=false`, `environment_preparation_completed=false` and `execution_surface=manual_pre_native_codex_exec`. It is not a Router Task and MUST NOT be added to `tasks[]` or the Ready Set. Its environment preparation and execution require separate authorization.
-- Do not invoke Local Bridge `start`. Every remaining transition execution uses a separately authorized fresh `run-once`.
-- T05F00 dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-001` is historical `needs_decision`; dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-002` is historical `blocked`. Neither may be replayed or treated as current recovery state. Dispatch `-002` created the recorded native thread and completed turn, but fresh-worktree dependencies were unavailable: focused tests passed 10/10, the Bridge suite passed 98/98 and `git diff --check` passed, while `npm run typecheck` could not resolve the root `typescript` devDependency because `node_modules/` had not been materialized. It produced no candidate, Supervisor result or integration and did not modify the Stage.
-- The active T05F00 retry dispatch is `wf15-s02-t05f00-root-multi-agent-prompt-boundary-003`. Its exact Contract remains `Accepted` with `confirmed_by_user=true`; no Bridge event exists, so the dispatch MUST NOT rotate. Execution is blocked by T05R01 and no fresh `run-once` is authorized.
-- A fresh `-003` worktree already completed Host `npm ci` at Stage `fc126bb1f7d52b51787970ca62786362a8c7b1c9`. This planning commit advances Stage, so that environment becomes `stale_after_stage_advance` and MUST NOT execute `-003`. Do not clean it up in this planning round.
-- Before any T05F00 `-003 run-once`: T05R01 must remain `Accepted`, be separately prepared and authorized, and then be implemented and integrated; the process must stop; the retained stale `-003` worktree must then be separately cleaned up and recreated from the new Stage HEAD; Host must run exact `npm ci`; Git must remain clean and TypeScript must resolve; and the user must separately authorize one fresh `run-once`. This preparation is not T05F00 Coding or a production Bridge fallback.
-- T05F01 remains `Proposed` with `confirmed_by_user=false` and is not dispatchable. It may run only after T05F00 is integrated and the exact T05F01 Contract is separately changed to `Accepted`, `confirmed_by_user=true` at a later exact pushed Stage SHA. Its fresh process must load the T05F00 prompt boundary before dispatch.
-- T05F01 requires Contract-authorized Root-only native multi-agent. Native multi-agent unavailability returns `needs_decision`; serial fake-agent fallback is forbidden. After T05F01 integration, the process MUST stop.
-- T05F00 and T05F01 each return the legacy transition Coding Result envelope accepted by the Controller already loaded at that Task's process start. This is execution compatibility only; production code must not add permanent task-ID branches or a compatibility mode.
-- The current T06 file is a non-dispatchable Planning Placeholder and is not part of this Router's tasks or Ready Set. Only after T05F01 integration and a fresh inspection of the actual generic Controller may Codex determine material docs ownership and replace it with an exact Contract.
-- T06 requires separate user acceptance at its later exact Stage SHA. It may describe only behavior established by integrated source, tests and Git facts, and must not describe the Stage candidate as Current before fixed-Chat Review and user acceptance.
-- Do not read or dispatch the superseded `S02-room-status-help-pilot` or S01 task-scoped Router. `room:status --help` remains Deferred.
-- S02 uses only the existing stage-generic Actions workflow and normal candidate verification path. No S01 Bootstrap-B fallback is permitted.
+- Stage lineage 的 GitHub main 为 `bd41ea8a1e259300241a345a659e7da90e24af0d`；本 planning base 为 `4ea459e8ff2beb9c8db8bc5c665f44ceebcf49fa`。未来 dispatch base 由实际 Stage 重新读取。
+- T05 已 integrated，source `9cc6899b69a96c3d9cfbe12f57cf93fdf59bb434` → Stage `dbd10202f5289d91d7caab9c67e1de878b0ae843`；其 entry 仅供 recovery/dependency 使用，不得 replay。
+- T05R00 已 integrated：source `ba077fc1a39f85c179e65aa39b64646f4aed716a` → Stage `ad3e00989932828e58e742bce66a6cf1e8ab0745`。
+- T05R01 已 integrated：source `e00aba7ad2cfb414c718c9a6be8ef9395711d6cc` → Stage `4ea459e8ff2beb9c8db8bc5c665f44ceebcf49fa`。两项 repair 不加入 tasks[] 或 Ready Set，不重复执行、不补造 Bridge event。
+- T05F00 `-001` historical needs_decision、`-002` historical blocked dependency gap、`-003` historical terminal blocked 均不可 replay。`-003` 已有真实 Bridge event，dirty worktree 保留为 failed_dispatch_evidence，禁止 commit/integrate；cleanup 等待后续单独授权。
+- Active dispatch 为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-004`，exact [Task Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md) 为 `Proposed`、`confirmed_by_user=false`，本轮读取时无 Bridge event。不能将 dispatch rotation 视为 acceptance、environment preparation 或 execution authority。
+- `-004` 必须先获得 exact Contract acceptance，再单独授权 cleanup、fresh worktree 与 Host npm ci，确认 package unchanged、Git clean、dependencies ignored、TypeScript resolvable，最后单独授权一次 fresh run-once；当前不得 run-once。
+- continuous start 始终禁止。T05F00 integration + Stage push 后必须 STOP，再返回 fixed Chat 核验新 Stage 与真实 task_integrated。
+- T05F01 仍 Proposed / confirmed_by_user=false，不 dispatch。其 future exact acceptance 后必须用 fresh process 加载 T05F00 prompt；Root-only native multi-agent 不可用时 needs_decision，禁止 serial fake-agent fallback；integration 后 STOP。
+- T06 仍是 Router 外的 Planning Placeholder。T05F01 集成后才确定 exact docs scope 并单独接受；完成前不发布 stage_candidate_ready、不将 PR #6 标记 Ready for Review。
+- Transition Worker 继续使用当次 Controller 已支持的 legacy result envelope。production 不增加 Task-ID branch、Router field、policy engine、compatibility mode 或 fallback。
+- fixed Chat 是唯一 Formal Review Authority；Supervisor 不 approve、不 merge、无 main authority。Git conflict 必须 abort 后 blocked，禁止 rebase、自动解冲突或 force push。
+- S01 Router/Task 是 immutable history，不得作为 active dispatch source；room:status --help 仍 Deferred，不恢复 Bootstrap-B。历史 thread/turn、重新验证与 completion 要求详见 exact Task Contract；执行门禁见 [Supervisor](./SUPERVISOR_ROUTER_AGENT.md)。
