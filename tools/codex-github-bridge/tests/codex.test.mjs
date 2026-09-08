@@ -205,7 +205,7 @@ test('native worker sends exact task fields and ignores unrelated terminal event
   assert.match(prompt, /contract-A-only/);
   assert.match(prompt, /owned\/A\/\*\*/);
   assert.match(prompt, /dependency-sha/);
-  assert.match(prompt, /worker_spawned_subagents=false/);
+  assert.match(prompt, /must not spawn subagents unless the complete exact Accepted Task Contract explicitly authorizes Root-only native multi-agent delegation/);
   assert.doesNotMatch(prompt, /contract-B-only/);
 
   server.notify('item/completed', {
@@ -327,7 +327,7 @@ test('native request rejection and missing terminal observation need a decision 
   });
 });
 
-test('worker prompt contains only its contract, dispatch, ownership and dependency facts', () => {
+test('ordinary worker prompt defaults to forbidding subagent delegation', () => {
   const prompt = buildWorkerPrompt(context('A', 'C:\\workers\\A', {
     dependencies: [{ task_id: 'dependency-A', stage_commit_sha: 'stage-A' }],
   }), 'contract-A-only');
@@ -336,8 +336,30 @@ test('worker prompt contains only its contract, dispatch, ownership and dependen
   assert.match(prompt, /DEPENDENCY FACTS/);
   assert.match(prompt, /contract-A-only/);
   assert.match(prompt, /stage-A/);
-  assert.match(prompt, /worker_spawned_subagents=false/);
+  assert.match(prompt, /must not spawn subagents unless the complete exact Accepted Task Contract explicitly authorizes Root-only native multi-agent delegation/);
+  assert.match(prompt, /child-spawned writing descendants remain forbidden/);
+  assert.doesNotMatch(prompt, /worker_spawned_subagents=false/);
   assert.match(prompt, /Do not run git add, git commit, git checkout, git branch, git reset, git rebase, or git push/);
   assert.match(prompt, /status implementation_ready/);
   assert.doesNotMatch(prompt, /create exactly one Conventional Commit/);
+});
+
+test('worker prompt preserves exact Root-only native multi-agent authorization', () => {
+  const contract = `status: Accepted
+confirmed_by_user: true
+internal_multi_agent: true
+worker_spawned_subagents: true
+authorization: Root-only native multi-agent delegation`;
+  const prompt = buildWorkerPrompt(context('root-authorized', 'C:\\workers\\root-authorized', {
+    dependencies: [{ task_id: 'dependency-root', stage_commit_sha: 'stage-root' }],
+  }), contract);
+
+  assert.match(prompt, new RegExp(contract));
+  assert.match(prompt, /task_id=root-authorized/);
+  assert.match(prompt, /owned\/root-authorized\/\*\*/);
+  assert.match(prompt, /stage-root/);
+  assert.match(prompt, /unless the complete exact Accepted Task Contract explicitly authorizes Root-only native multi-agent delegation/);
+  assert.match(prompt, /child-spawned writing descendants remain forbidden/);
+  assert.doesNotMatch(prompt, /worker_spawned_subagents=false/);
+  assert.doesNotMatch(prompt, /and do not spawn subagents\./);
 });
