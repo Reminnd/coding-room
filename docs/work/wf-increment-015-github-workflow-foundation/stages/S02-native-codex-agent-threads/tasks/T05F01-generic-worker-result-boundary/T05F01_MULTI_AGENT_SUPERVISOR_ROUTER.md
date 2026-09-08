@@ -1,6 +1,6 @@
 # T05F01 Native Multi-Agent Root Supervisor Router
 
-> Bundle state: Accepted under exact outer T05F01 Contract acceptance at Stage planning SHA `f55b256c9e43c6d54b86c35fa88a06c41c36edb2`. Acceptance does not authorize environment preparation or execution.
+> Bundle state: Proposed under T05F01 Retry `-002` at Stage planning base `ec62546d6126ef5ecfbd0eceed100f916d75aa27`. It awaits fresh outer Contract acceptance and does not authorize environment preparation or execution.
 
 ## Role
 
@@ -35,7 +35,7 @@ Before dispatching any child, independently require:
 
 - outer task and dispatch identity equal the exact Contract;
 - outer branch and worktree equal the Local Bridge dispatch envelope;
-- T05F00 is integrated and the outer T05F01 exact Contract bundle is separately Accepted at the active exact Stage SHA;
+- T05F00 is integrated and the outer T05F01 Retry `-002` exact Contract bundle is separately Accepted at the then-active exact Stage SHA;
 - native multi-agent capability is available;
 - outer worktree is the one task worktree and child ownership is disjoint;
 - Root has no push, Stage integration, main, formal Review or child-scope modification authority.
@@ -49,7 +49,7 @@ Every child initial turn MUST contain this envelope followed by that child's com
 ```text
 [ROOT DISPATCH ENVELOPE]
 parent_task_id=T05F01-generic-worker-result-boundary
-parent_dispatch_id=wf15-s02-t05f01-generic-worker-result-boundary-001
+parent_dispatch_id=wf15-s02-t05f01-generic-worker-result-boundary-002
 worktree=<exact outer T05F01 worktree>
 owned_paths=<exact child ownership>
 git_authority=none
@@ -102,26 +102,20 @@ Root MUST:
 - preserve Router verification and ownership authority;
 - preserve existing Supervisor, dependency, push and controlled integration paths;
 - leave exactly the two owned implementation files unstaged after all gates pass;
-- output the one-time `implementation_ready` transition envelope because the executing Bridge process still has the old Controller loaded;
+- output exactly one YAML code fence containing the complete one-time `implementation_ready` transition envelope because the executing Bridge process still has the old Controller loaded;
 - STOP after returning the result.
 
 Root MUST NOT `git add`, commit, push, integrate the Stage, publish formal Review, modify main, alter child scope, amend an unowned file, launch a writing descendant, or generate T06.
 
 ## Root result
 
-Return a short internal summary followed by every field in the outer one-time transition Required Coding Result:
+Before a successful final response, confirm internally:
 
-```yaml
-task_id: T05F01-generic-worker-result-boundary
-internal_orchestration: native_multi_agent
-subtasks:
-  A01-generic-result-production: implementation_ready | blocked | needs_decision
-  A02-generic-result-tests: implementation_ready | blocked | needs_decision
-  A03-boundary-audit: implementation_ready | blocked | needs_decision
-outer_changed_files_exact: true | false
-working_tree_unstaged: true | false
-root_commit_authority: false
-status: implementation_ready | blocked | needs_decision
-```
+- A01 result is `implementation_ready`;
+- A02 result is `implementation_ready`;
+- A03 result is `implementation_ready`;
+- the outer changed-file set is exactly the two owned files;
+- the implementation remains unstaged;
+- Root has no commit authority.
 
-The summary does not replace the outer Required Coding Result schema.
+Do not emit those orchestration facts as a second top-level summary. The successful final message MUST consist only of the single YAML code fence defined by the outer one-time transition Required Coding Result. Do not add prose before or after it. In the complete final message, each known parser field (`task_id`, `dispatch_id`, `reported_base_sha`, `changed_files`, `native_backend`, `verification`, `deviations`, `unresolved`, `questions`, `status`) appears exactly once. Duplicate known fields remain invalid; do not ask production to accept, ignore or choose among duplicates.

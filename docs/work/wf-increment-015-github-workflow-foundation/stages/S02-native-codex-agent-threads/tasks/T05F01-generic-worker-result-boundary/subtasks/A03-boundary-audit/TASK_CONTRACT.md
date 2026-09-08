@@ -3,9 +3,11 @@
 ## Contract
 
 ```yaml
-status: Accepted under outer T05F01 acceptance
+status: Proposed
+confirmed_by_user: false
 task_id: A03-boundary-audit
 parent_task_id: T05F01-generic-worker-result-boundary
+parent_dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-002
 type: Internal Read-Only Audit Subtask
 depends_on:
   - A01-generic-result-production
@@ -19,7 +21,7 @@ child_spawned_writing_subagents: false
 owns: []
 ```
 
-This Subtask may run only after A01/A02 complete and Root focused verification passes. It is read-only and MUST NOT modify any file.
+This Subtask may run only after fresh acceptance of the outer T05F01 Retry `-002` Contract, A01/A02 completion and Root focused verification pass. It is read-only and MUST NOT modify any file.
 
 ## Goal
 

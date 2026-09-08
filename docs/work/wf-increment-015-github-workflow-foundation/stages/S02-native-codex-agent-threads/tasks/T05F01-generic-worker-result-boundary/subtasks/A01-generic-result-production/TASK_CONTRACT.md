@@ -3,9 +3,11 @@
 ## Contract
 
 ```yaml
-status: Accepted under outer T05F01 acceptance
+status: Proposed
+confirmed_by_user: false
 task_id: A01-generic-result-production
 parent_task_id: T05F01-generic-worker-result-boundary
+parent_dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-002
 type: Internal Implementation Subtask
 depends_on: []
 model_policy: coding_strong
@@ -17,7 +19,7 @@ owns:
   - tools/codex-github-bridge/controller.mjs
 ```
 
-This Subtask is executable only when Root dispatches the complete exact text under an Accepted outer T05F01 Contract. It is not an independent Local Bridge Task or Git authority.
+This Subtask is executable only after fresh acceptance of the outer T05F01 Retry `-002` Contract and when Root dispatches this complete exact text. It is not an independent Local Bridge Task or Git authority.
 
 ## Goal
 

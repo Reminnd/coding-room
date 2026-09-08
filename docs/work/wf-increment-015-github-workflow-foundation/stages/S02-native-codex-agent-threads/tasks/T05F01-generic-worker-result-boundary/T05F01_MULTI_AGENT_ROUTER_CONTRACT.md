@@ -1,6 +1,6 @@
 # T05F01 INTERNAL MULTI-AGENT ROUTER CONTRACT
 
-> Bundle state: Accepted under exact outer T05F01 Contract acceptance at Stage planning SHA `f55b256c9e43c6d54b86c35fa88a06c41c36edb2`. Acceptance does not authorize environment preparation, dispatch or Coding.
+> Bundle state: Proposed under T05F01 Retry `-002` at Stage planning base `ec62546d6126ef5ecfbd0eceed100f916d75aa27`. It awaits fresh outer Contract acceptance and does not authorize environment preparation, dispatch or Coding.
 
 This is an internal execution contract for one logical T05F01 Task. It is not the Local Bridge Router, a Git Task graph, a formal Review result or a second workflow authority.
 
@@ -8,11 +8,11 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
 {
   "contract_type": "t05f01_internal_multi_agent_router",
   "contract_version": 1,
-  "status": "accepted_under_outer_exact_contract_acceptance",
+  "status": "proposed_waiting_for_fresh_outer_acceptance",
   "outer_task": {
     "task_id": "T05F01-generic-worker-result-boundary",
-    "dispatch_id": "wf15-s02-t05f01-generic-worker-result-boundary-001",
-    "task_branch": "task/wf-increment-015-github-workflow-foundation/T05F01-generic-worker-result-boundary",
+    "dispatch_id": "wf15-s02-t05f01-generic-worker-result-boundary-002",
+    "task_branch": "task/wf-increment-015-github-workflow-foundation/T05F01-generic-worker-result-boundary-002",
     "depends_on": ["T05F00-root-multi-agent-prompt-boundary"],
     "owns": [
       "tools/codex-github-bridge/controller.mjs",
@@ -96,6 +96,9 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
     "transition_result_status": "implementation_ready",
     "transition_compatibility_maps": ["native_backend", "verification"],
     "transition_compatibility_maps_authoritative": false,
+    "single_parseable_outer_mapping": true,
+    "duplicate_known_fields_allowed": false,
+    "production_parser_relaxed": false,
     "stop_after_result": true
   }
 }
@@ -111,4 +114,4 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
 6. Root focused verification MUST pass before A03 is dispatched.
 7. A03 is read-only. It may identify A01/A02 ownership of a defect but may not edit.
 8. Root full verification MUST pass before Root confirms exactly the two outer owned files are modified and unstaged.
-9. Root MUST NOT `git add`, commit or push. It returns the one-time `implementation_ready` transition envelope and stops. The production Controller retains candidate creation, push, integration and lifecycle authority.
+9. Root MUST NOT `git add`, commit or push. On success it returns exactly one YAML code fence containing the complete one-time `implementation_ready` transition envelope, with no second known-field summary before or after it, and stops. The production Controller retains candidate creation, push, integration and lifecycle authority.

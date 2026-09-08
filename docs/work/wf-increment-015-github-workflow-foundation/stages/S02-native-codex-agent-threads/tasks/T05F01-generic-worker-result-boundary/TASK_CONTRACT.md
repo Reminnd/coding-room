@@ -3,12 +3,12 @@
 ## Contract
 
 ```yaml
-status: Accepted
-confirmed_by_user: true
+status: Proposed
+confirmed_by_user: false
 task_id: T05F01-generic-worker-result-boundary
 type: Implementation Task
-dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-001
-task_branch: task/wf-increment-015-github-workflow-foundation/T05F01-generic-worker-result-boundary
+dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-002
+task_branch: task/wf-increment-015-github-workflow-foundation/T05F01-generic-worker-result-boundary-002
 depends_on:
   - T05F00-root-multi-agent-prompt-boundary
 model_policy: coding_strong
@@ -24,13 +24,15 @@ environment_preparation_completed: false
 run_once_authorized: false
 ```
 
-The user accepted this complete exact outer Contract and its internal Contract bundle at Stage planning SHA `f55b256c9e43c6d54b86c35fa88a06c41c36edb2`. Acceptance does not authorize environment preparation, dispatch, Implementation or `run-once`; those remain separate gates.
+This fresh Retry `-002` outer Contract and its complete internal Contract bundle are Proposed at Stage planning base `ec62546d6126ef5ecfbd0eceed100f916d75aa27` and await fresh user acceptance. The `-001` acceptance does not carry forward. Fresh acceptance will not authorize environment preparation, dispatch, Implementation or `run-once`; those remain separate gates.
 
 ## Background
 
 The integrated Controller's Worker Result boundary is still globally T05-specific: it requires the Worker to self-report `native_backend` and `verification` and accepts the T05-only `pass-under-accepted-amendment` vocabulary. Those requirements reject a future docs-owned Task and assign authority to Worker self-report that already belongs to native process facts and Router verification.
 
 T05F01 replaces only that result boundary and its direct tests. Existing Supervisor Integration, dependency gate, task push, controlled Task-to-Stage integration and lifecycle publication remain unchanged.
+
+Dispatch `wf15-s02-t05f01-generic-worker-result-boundary-001` is immutable terminal `blocked` with exact reason `Worker completed with invalid required Coding Result: duplicate field task_id`. The production parser is correct to reject a duplicate known field. The duplicate arose because the Root was required to output an internal summary containing `task_id` and then a second outer Required Coding Result containing `task_id`. Retry `-002` repairs only that Contract output shape; it does not relax the parser. The `-001` branch/worktree remain untouched evidence and are not inputs to the fresh candidate.
 
 ## Goal
 
@@ -153,7 +155,11 @@ Every command requires ordinary pass. The T05 baseline amendment does not apply.
 
 ## Transition execution compatibility
 
-The Bridge process that executes T05F01 loads the current Controller before T05F01 changes begin. Therefore the final outer Worker result MUST use the transition envelope accepted by that already-loaded Controller. It MUST NOT be routed through the new generic validator during the same process. This is a one-time execution envelope, not a production compatibility mode; production code MUST NOT add `if task_id == T05F01` or any transition-task branch.
+The Bridge process that executes T05F01 loads the current Controller before T05F01 changes begin. Therefore the final outer Worker result MUST use the transition envelope required by that already-loaded Controller. It MUST NOT be routed through the new generic validator during the same process. This is a one-time execution envelope, not a production compatibility mode; production code MUST NOT add `if task_id == T05F01` or any transition-task branch.
+
+On success, the Root final message MUST contain exactly one parseable outer Coding Result mapping: one YAML code fence containing the complete mapping below, with no prose or second YAML summary before or after it. Each known parser field (`task_id`, `dispatch_id`, `reported_base_sha`, `changed_files`, `native_backend`, `verification`, `deviations`, `unresolved`, `questions`, `status`) MUST occur exactly once in the final message. Duplicate known fields remain invalid; production MUST NOT implement first-value-wins, last-value-wins or duplicate-field tolerance.
+
+Before producing that single final mapping, Root MUST confirm internally that A01, A02 and A03 each returned `implementation_ready`, the exact outer changed-file set is correct, the working tree changes are unstaged, and Root has no commit authority. These orchestration facts stay in reasoning/internal coordination and MUST NOT be emitted as a second top-level Worker Result summary.
 
 The legacy `full_tests` key is only the old parser's field name. Its value is the ordinary Bridge-suite command, not `npm test`.
 
@@ -169,7 +175,7 @@ Return `needs_decision` and stop if native multi-agent is unavailable, serial fa
 
 ```yaml
 task_id: T05F01-generic-worker-result-boundary
-dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-001
+dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-002
 reported_base_sha: <dispatch base>
 changed_files:
   - tools/codex-github-bridge/controller.mjs
