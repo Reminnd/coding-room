@@ -33,27 +33,29 @@ A03 MUST independently report each boolean:
 - `permanent_t05_special_case_absent=true`
 - `worker_native_self_report_removed=true`
 - `worker_verification_self_report_removed=true`
-- `candidate_identity_order=true`
-- `independent_head_match=true`
-- `independent_changed_files_match=true`
+- `implementation_ready_status=true`
+- `reported_task_head_sha_absent=true`
+- `worker_observed_changed_files_match=true`
 - `ownership_preserved=true`
 - `native_facts_preserved=true`
 - `router_verification_preserved=true`
 - `semantic_status_stop_gate=true`
 - `supervisor_preserved=true`
 - `git_delivery_preserved=true`
+- `controller_candidate_path_preserved=true`
+- `root_git_authority_absent=true`
 - `t05f00_contract_governed_root_delegation=true`
 
-The audit MUST inspect the complete combined Diff and the focused verification result. It MUST distinguish identity agreement from Router ownership and must verify that `blocked`/`needs_decision` stop before Git facts.
+The audit MUST inspect the complete combined Diff and the focused verification result. It MUST distinguish Worker/observed path agreement from Router ownership, verify that `blocked`/`needs_decision` stop before working-tree observation, and verify that current candidate creation/delivery gates were preserved rather than reimplemented.
 
 ## Finding routing
 
 - A production defect in `controller.mjs`: return `blocked` with `owner=A01`.
 - A test/evidence defect in `controller.test.mjs`: return `blocked` with `owner=A02`.
 - A change required in any other production file: return `needs_decision` and identify the path/reason.
-- No finding: state that the combined boundary is correct and return `candidate_ready`.
+- No finding: state that the combined boundary is correct and return `implementation_ready`.
 
-Do not edit, fix, reformat, commit, push, checkout, rebase, spawn a writing child, perform formal Review or expand scope.
+Do not edit, fix, reformat, commit, push, checkout, rebase, reset, spawn a writing child, perform formal Review or expand scope.
 
 ## Required Audit Result
 
@@ -64,19 +66,21 @@ generic_worker_result_boundary: true | false
 permanent_t05_special_case_absent: true | false
 worker_native_self_report_removed: true | false
 worker_verification_self_report_removed: true | false
-candidate_identity_order: true | false
-independent_head_match: true | false
-independent_changed_files_match: true | false
+implementation_ready_status: true | false
+reported_task_head_sha_absent: true | false
+worker_observed_changed_files_match: true | false
 ownership_preserved: true | false
 native_facts_preserved: true | false
 router_verification_preserved: true | false
 semantic_status_stop_gate: true | false
 supervisor_preserved: true | false
 git_delivery_preserved: true | false
+controller_candidate_path_preserved: true | false
+root_git_authority_absent: true | false
 t05f00_contract_governed_root_delegation: true | false
 owner: A01 | A02 | none
 findings: []
 unresolved: []
 questions: []
-status: candidate_ready | blocked | needs_decision
+status: implementation_ready | blocked | needs_decision
 ```

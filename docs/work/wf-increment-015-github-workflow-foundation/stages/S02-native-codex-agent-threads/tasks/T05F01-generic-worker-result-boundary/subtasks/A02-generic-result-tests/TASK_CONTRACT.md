@@ -21,39 +21,36 @@ This Subtask is executable only when Root dispatches the complete exact text und
 
 ## Goal
 
-Add direct `BridgeController.processResult` coverage proving the generic Worker Result boundary, identity-gate order and preservation of downstream authorities.
+Add direct `BridgeController.processResult` coverage proving the generic Worker Result boundary, semantic stop gate and preservation of the current Controller-owned candidate path and downstream authorities.
 
 ## Required test matrix
 
 Tests MUST exercise the real `BridgeController.processResult` path and MUST NOT replace it with a mocked final-validator boolean.
 
-1. A docs-owned candidate reaches the normal Controller path, for example Router `owns=[docs/example.md]` and Worker/Git `changed_files=[docs/example.md]`.
-2. A generic Worker result does not need `native_backend`.
-3. A generic Worker result does not need `verification`.
-4. Worker/Git changed-file set mismatch publishes `blocked` before `mechanicalGate`.
-5. Reported head mismatch publishes `blocked` before `mechanicalGate`.
-6. Matching Worker/Git file sets that violate Router ownership are rejected by `mechanicalGate`.
-7. `status=blocked` publishes `blocked` without collecting Git facts.
-8. `status=needs_decision` publishes `needs_decision` without collecting Git facts.
-9. An incomplete `candidate_ready` result is blocked.
-10. Wrong `task_id`, `dispatch_id`, `reported_base_sha`, or malformed `reported_task_head_sha` is rejected at the required semantic gate.
-11. Native thread/turn/status facts still come from `processResult.native`.
-12. `task.verification` is still actually executed and controls progress.
-13. Existing Supervisor, dependency, push, controlled integration and publication regressions continue to pass.
+1. A docs-owned `implementation_ready` Task reaches the normal path, for example Router `owns=[docs/example.md]` and Worker/observed `changed_files=[docs/example.md]`, without `native_backend` or `verification` mappings.
+2. A valid `blocked` result with common identity and list fields, but no `changed_files`, settles before `observeWorkingTree`.
+3. A valid `needs_decision` result has the same early-settlement behavior.
+4. `implementation_ready` without `changed_files` is blocked.
+5. Worker `changed_files` and actual working-path mismatch is blocked before Router verification and candidate creation.
+6. Matching `changed_files` that violate Router `owns` are blocked by the existing ownership gate.
+7. Router verification failure is blocked before candidate creation.
+8. Native thread/turn/status facts come from `processResult.native` and continue into existing lifecycle and Supervisor evidence.
+9. Existing Controller candidate regressions remain passing: exact staging, one Controller commit, candidate-file/mechanical gates, Supervisor, dependency, Task push, controlled Stage integration and publication.
+10. Production contains no T05, T05F00 or T05F01 task-ID special case.
 
-The order Oracle MUST demonstrate that head mismatch is checked first, changed-file exact-set mismatch second, Router ownership third, and Router verification afterward. The Worker/Git changed-file comparison is order-insensitive exact set membership after the same path normalization used by the production boundary.
+The order Oracle MUST demonstrate semantic non-success before observation, Worker/observed exact-set agreement before Router verification/candidate creation, ownership as an independent gate, Router verification before candidate creation, and the unchanged downstream Controller sequence afterward. Path-set comparison is order-insensitive after the same normalization used by the production boundary.
 
 ## Scope and non-goals
 
 - Writable only: `tools/codex-github-bridge/tests/controller.test.mjs`.
 - Do not modify production, fixtures outside this file, Router, Contracts or package files.
 - Do not add a separate validator implementation in tests or derive expected results from production parser tables.
-- Do not add T05 task-ID cases or preserve T05 baseline-amendment vocabulary as generic behavior.
-- Do not commit, push, checkout, rebase, publish lifecycle events or spawn a writing child.
+- Do not add T05 task-ID cases, `candidate_ready`, `reported_task_head_sha` or T05 baseline-amendment vocabulary as generic behavior.
+- Do not commit, push, checkout, rebase, reset, publish lifecycle events or spawn a writing child.
 
 ## Acceptance criteria
 
-- All thirteen required behaviors have direct, assertion-backed coverage through `processResult`.
+- All ten required regressions have direct, assertion-backed coverage through `processResult` or direct source assertion for the task-ID prohibition.
 - Gate-order cases assert downstream calls were not made.
 - Existing successful integration path remains covered.
 - Only `controller.test.mjs` changes.
@@ -73,5 +70,5 @@ required_matrix: covered | blocked | needs_decision
 deviations: []
 unresolved: []
 questions: []
-status: candidate_ready | blocked | needs_decision
+status: implementation_ready | blocked | needs_decision
 ```

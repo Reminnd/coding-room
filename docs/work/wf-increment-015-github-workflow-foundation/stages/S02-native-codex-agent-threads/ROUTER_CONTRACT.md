@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Owner: Codex。更新日期：2026-09-08。T05R02 manual bootstrap repair 已集成到 Stage `e2388030199400d62f11576fff51ff08441d6742`，未生成 synthetic Bridge lifecycle event。T05F00 -004 保持 immutable terminal blocked；fresh -005 Contract 为 Accepted / confirmed_by_user=true。`status: dispatch_ready` 是 Router 格式字段，不授予 environment preparation、Implementation、Worker、Supervisor execution 或 `run-once` 权限。
+> Owner: Codex。更新日期：2026-09-08。T05F00 -005 已由真实 production Bridge 集成到 Stage `f79780251332ad89844392cc3185a981cc2f496d`。T05F01 `-001` 仍 fresh；fresh Contract 为 Proposed / confirmed_by_user=false。`status: dispatch_ready` 是 Router 格式字段，不授予 Contract acceptance、environment preparation、Implementation、Worker、Supervisor execution 或 `run-once` 权限。
 <!-- ROUTER_CONTRACT_V1 -->
 
 ```json
@@ -103,15 +103,16 @@
 
 ## Dispatch gates
 
-- main authority=`bd41ea8a1e259300241a345a659e7da90e24af0d`；fresh planning base Stage=`e2388030199400d62f11576fff51ff08441d6742`。
-- T05R02 已作为 non-Router manual bootstrap repair 集成：source=`eb4e375cf2e044f3ddb23a99c5fb0d3370bc7dab` → Stage=`e2388030199400d62f11576fff51ff08441d6742`；`router_dispatchable=false`、`synthetic_bridge_event_created=false`。不得补造 `task_dispatched`、`task_supervised`、`task_integrated` 或其它 Bridge lifecycle event。
-- T05F00 `-001/-002/-003/-004` 均为 immutable terminal history。`-004` status=`blocked`，exact reason 为 `Worker completed with invalid required Coding Result: reported_task_head_sha must be a non-empty string`；不得 replay、cleanup 或复用其 dirty worktree。T05D00 probe worktree/branch 同样保留 untouched。
-- T05F00 JSON 只把 dispatch 旋转为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-005`，并把 branch 旋转为 `task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary-005`。该 fresh local branch、remote branch 与 worktree 在 planning preflight 均不存在；本轮不得创建。
-- T05F00 其它 JSON 字段保持 semantic-equivalent；T05F01 entry 与 scheduler/integration/review/fix_policy/execution 均 unchanged。
-- Fresh T05F00 Contract=`Accepted`、`confirmed_by_user=true`。Goal、exact two-file owns、model=`coding_strong`、reasoning effort=`medium`、fallback=`none` 保持；自身 `internal_multi_agent=false`、`worker_spawned_subagents=false`。
-- Completion 使用已集成 production authority：Worker `implementation_ready` → Controller independent working-tree/ownership gates → `runVerification` → revalidation → exact-path stage → deterministic candidate commit → `collectTaskFacts` → `mechanicalGate` → existing Supervisor/push/integration。Worker Git metadata authority=`none`，不得要求 `candidate_ready` 或 `reported_task_head_sha`。
-- `native_backend` 与 `verification` 只属于 current transition envelope compatibility；native facts 来自 `processResult.native`，verification authority 来自 Router verification，ownership authority 来自 Router `owns`、Controller working-tree facts 与 `mechanicalGate`。
-- T05F01 保持 `Proposed`、`confirmed_by_user=false` 且 entry/Contract 文件不变；未来 fresh planning 删除 T05R02 已解决的重复 scope，只保留 generic Worker Result cleanup。T06 unchanged。
-- 当前 next_required_action=`T05F00_005_environment_preparation_authorization`。`dispatch_ready` 不等于 `run-once` authorization；下一 gate 仅为 environment preparation 的单独授权。在该授权前禁止 environment preparation、Task branch/worktree creation、Worker、Supervisor execution、continuous start 与 `run-once`。
-- fixed Chat 是唯一 Formal Review Authority；Supervisor 不 approve/merge、无 main authority。未来既有 Task push、controlled cherry-pick、Stage push 与 publication 语义不变；禁止 force/rebase/自动解冲突。
-- 本轮只修改四份 governance Acceptance documents。通过 minimal Acceptance validation 后只允许一个 `docs(s02): accept T05F00 retry 005 contract` commit（parent=`f8f3a2c47b97887493f29a766a571c26d70955b6`）与一次 ordinary non-force Stage push，随后 STOP。
+- main authority=`bd41ea8a1e259300241a345a659e7da90e24af0d`；fresh planning base Stage=`f79780251332ad89844392cc3185a981cc2f496d`。
+- T05R02 manual bootstrap history 与 synthetic-event prohibition 保持不变。T05F00 `-001/-002/-003/-004` 仍是 immutable terminal history；`-004` dirty worktree 与 T05D00 probe worktree/branch 必须 untouched。
+- T05F00 -005 已由 production Bridge 集成：source=`3acabe66784ff1e66501b9c09e08cbf86ff9976a` → Stage=`f79780251332ad89844392cc3185a981cc2f496d`；native thread=`01a07fdf-33d1-7153-8cf6-e681eb08c1f9`，turn=`01a07fdf-3450-70a3-be08-fe722c96abe2`，model=`gpt-5.6-sol / medium`；Controller focused=`11/11`、Bridge=`112/112`、typecheck=`pass`、diff-check=`pass`；Supervisor=`ready_to_integrate`。
+- T05F01 preflight 已确认 dispatch `wf15-s02-t05f01-generic-worker-result-boundary-001` 无 Bridge lifecycle event、local/remote branch 或 existing non-residue worktree，因此 identity 不旋转。上方 Router JSON（包括 T05F00 entry 与 T05F01 identity/scope/dependency/model/verification）保持 semantic unchanged；不得新增 native multi-agent schema field。
+- Fresh T05F01 Contract=`Proposed`、`confirmed_by_user=false`、`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。当前 next_required_action=`T05F01_contract_acceptance`。
+- T05F01 只清理 Worker Result generic boundary：common fields=`task_id/dispatch_id/reported_base_sha/deviations/unresolved/questions/status`；status 只允许 `implementation_ready/blocked/needs_decision`；仅 `implementation_ready` 额外要求 non-empty `changed_files`。
+- Future generic Worker Result 不要求 `native_backend`、`verification` 或 `reported_task_head_sha`。Native authority=`processResult.native`；verification authority=`task.verification → runVerification()`；ownership authority=`Router owns + observed working paths + mechanicalGate()`；candidate identity 由 Controller Git facts产生。
+- Current successful sequence保持：semantic status gate → `observeWorkingTree` 与 HEAD/branch/staged/working-path/changed-files/ownership gates → Router verification → post-verification re-observation → exact staging/cached diff-check/deterministic commit → `collectTaskFacts`/candidate-file gate/`mechanicalGate` → Supervisor → dependency → Task push → controlled Stage integration → `task_integrated`。T05F01 不重写这些 gates。
+- T05F01 production owns 精确为 `controller.mjs` 与 `tests/controller.test.mjs`。若必须修改第三个 production/test file，返回 `needs_decision` 并停止。T06 unchanged。
+- T05F01 保留 Root-only native multi-agent execution：A01/A02 concurrent initial Ready Set，A03 在两者完成且 Root focused verification通过后 read-only audit；children 无 Git 或 writing-descendant authority；Root 不 add/commit/push，只留下 unstaged implementation 并返回 `implementation_ready`。
+- 执行 T05F01 的既有 Bridge process 会预先加载 current Controller，所以该单次 Root final result临时包含 `native_backend` 与 `verification` mappings，仅用于 transition compatibility，且均非 authoritative；不得添加 T05F01 task-ID production branch。
+- fixed Chat 是唯一 Formal Review Authority；Supervisor 不 approve/merge、无 main authority。当前禁止 Contract acceptance、environment preparation、Task branch/worktree、Worker/children、Supervisor execution、`run-once`、Formal Review、PR Ready、merge 或 main write。
+- 本轮只修改九份列明的 governance planning files。通过 governance validation 后只允许一个 `docs(s02): replan T05F01 generic result cleanup` commit（parent=`f79780251332ad89844392cc3185a981cc2f496d`）与一次 ordinary non-force Stage push，随后 STOP。

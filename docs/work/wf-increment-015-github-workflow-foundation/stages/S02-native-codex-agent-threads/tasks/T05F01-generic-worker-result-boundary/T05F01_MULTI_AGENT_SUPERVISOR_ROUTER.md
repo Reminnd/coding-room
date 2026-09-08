@@ -71,8 +71,8 @@ Sending only “read `<path>/TASK_CONTRACT.md`” is forbidden. Root MUST inject
 5. Only if focused verification passes, dispatch `A03-boundary-audit` read-only over the combined worktree using its complete exact Contract.
 6. If A03 returns `blocked`, preserve its declared owner (`A01` or `A02`) and stop. If A03 needs another production file, return `needs_decision`; do not expand scope.
 7. After A03 passes, run the full verification in the outer Contract.
-8. Inspect the complete outer owned Diff, verify exactly the two owned files changed, and create exactly one outer Conventional Commit.
-9. Return the outer Contract's exact legacy transition Required Coding Result and STOP.
+8. Inspect the complete outer owned Diff, verify exactly the two owned files changed, require the implementation remains unstaged, and perform no Git write.
+9. Return the outer Contract's exact one-time `implementation_ready` transition Required Coding Result and STOP.
 
 ## Verification ownership
 
@@ -99,25 +99,27 @@ Root MUST:
 - preserve native facts from the outer `processResult.native` boundary;
 - preserve Router verification and ownership authority;
 - preserve existing Supervisor, dependency, push and controlled integration paths;
-- create exactly one outer Task commit after all gates pass;
-- output the legacy transition envelope because the executing Bridge process still has the old Controller loaded;
+- leave exactly the two owned implementation files unstaged after all gates pass;
+- output the one-time `implementation_ready` transition envelope because the executing Bridge process still has the old Controller loaded;
 - STOP after returning the result.
 
-Root MUST NOT push, integrate the Stage, publish formal Review, modify main, alter child scope, amend an unowned file, create a second commit, launch a writing descendant, or generate T06.
+Root MUST NOT `git add`, commit, push, integrate the Stage, publish formal Review, modify main, alter child scope, amend an unowned file, launch a writing descendant, or generate T06.
 
 ## Root result
 
-Return a short internal summary followed by every field in the outer legacy transition Required Coding Result:
+Return a short internal summary followed by every field in the outer one-time transition Required Coding Result:
 
 ```yaml
 task_id: T05F01-generic-worker-result-boundary
 internal_orchestration: native_multi_agent
 subtasks:
-  A01-generic-result-production: candidate_ready | blocked | needs_decision
-  A02-generic-result-tests: candidate_ready | blocked | needs_decision
-  A03-boundary-audit: candidate_ready | blocked | needs_decision
-outer_commit_count: 1
-status: candidate_ready | blocked | needs_decision
+  A01-generic-result-production: implementation_ready | blocked | needs_decision
+  A02-generic-result-tests: implementation_ready | blocked | needs_decision
+  A03-boundary-audit: implementation_ready | blocked | needs_decision
+outer_changed_files_exact: true | false
+working_tree_unstaged: true | false
+root_commit_authority: false
+status: implementation_ready | blocked | needs_decision
 ```
 
 The summary does not replace the outer Required Coding Result schema.

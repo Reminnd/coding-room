@@ -29,32 +29,29 @@ Implement the task-generic Worker Result production boundary in `controller.mjs`
 2. Keep the generic parser a small deterministic subset; do not add YAML/schema dependencies or registries.
 3. Do not require Worker `native_backend`.
 4. Do not require Worker `verification`.
-5. Support exactly `candidate_ready`, `blocked` and `needs_decision`.
-6. Validate always-required identity/status/list fields before any Git facts; publish `blocked` and `needs_decision` without `collectTaskFacts`.
-7. Require a valid 40-character `reported_task_head_sha` and non-empty `changed_files` for `candidate_ready`.
-8. Immediately after `collectTaskFacts`, compare the reported head with `facts.taskHeadSha`.
-9. Next compare the normalized reported `changed_files` set with normalized `facts.actualChangedFiles` as exact sets.
-10. Preserve `mechanicalGate` as the Router ownership authority after both identity gates pass.
-11. Preserve independent `runVerification(task.verification)` after the ownership gate.
-12. Preserve `processResult.native` as the source of native thread/turn/status facts.
-13. Preserve existing clean verification, complete Diff, Supervisor Integration, dependency gate, push, controlled integration and publication flow.
-14. Modify no other file.
+5. Support exactly `implementation_ready`, `blocked` and `needs_decision`.
+6. Validate common identity/status/list fields before working-tree observation; publish valid `blocked` and `needs_decision` without `observeWorkingTree`.
+7. Require non-empty list-valued `changed_files` only for `implementation_ready`; do not parse or require `reported_task_head_sha`.
+8. Preserve the current `implementation_ready` sequence and change no existing gate: working-tree observation and HEAD/branch/staged/working-path checks; Worker/observed changed-file exact-set check; Router ownership; Router verification; post-verification re-observation; exact staging; cached diff-check; deterministic Controller commit; `collectTaskFacts`; candidate-file gate; `mechanicalGate`; Supervisor; dependency; push; integration; publication.
+9. Preserve `processResult.native` as the source of native thread/turn/status facts.
+10. Modify no other file.
 
 ## Required generic semantics
 
 Always required: `task_id`, `dispatch_id`, `reported_base_sha`, list-valued `deviations`, `unresolved`, `questions`, and allowed `status`.
 
-For `candidate_ready` only: valid `reported_task_head_sha` and non-empty `changed_files`.
+For `implementation_ready` only: non-empty `changed_files`.
 
-Both candidate identity mismatches publish `blocked` before `mechanicalGate`, `runVerification`, Supervisor, push or integration. Worker `native_backend` and `verification` maps, if present in prose, do not become authority or a required schema.
+Worker/observed working-path mismatch publishes `blocked` before Router verification or candidate creation. Router ownership remains a separate existing gate. Worker `native_backend` and `verification` maps, if present in prose, do not become authority or a required production schema.
 
 ## Scope and non-goals
 
 - Writable only: `tools/codex-github-bridge/controller.mjs`.
 - Do not modify tests, Router, Supervisor, Git, verification, native adapter or any Contract.
-- Do not add permanent T05/T05F00/T05F01 branches, universal Bridge path rules or T05 baseline-amendment semantics.
+- Do not add permanent T05/T05F00/T05F01 branches or T05 baseline-amendment semantics.
+- Do not redesign Worker commit authority, `implementation_ready` transition, working-tree observation, ownership, verification, revalidation, exact staging, candidate commit, Git facts, mechanical gate, push or integration.
 - Do not add YAML, registry, provider abstraction, `Result`/`Either`, retry, compatibility, local DB, hash or patch-id infrastructure.
-- Do not commit, push, checkout, rebase, publish lifecycle events or spawn a writing child.
+- Do not commit, push, checkout, rebase, reset, publish lifecycle events or spawn a writing child.
 
 ## Acceptance criteria
 
@@ -77,5 +74,5 @@ production_boundary: implemented | blocked | needs_decision
 deviations: []
 unresolved: []
 questions: []
-status: candidate_ready | blocked | needs_decision
+status: implementation_ready | blocked | needs_decision
 ```

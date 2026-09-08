@@ -28,7 +28,9 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
     "owns_contract_delivery": true,
     "owns_focused_verification": true,
     "owns_full_verification": true,
-    "owns_single_outer_commit": true
+    "owns_scope_validation": true,
+    "leaves_unstaged_implementation": true,
+    "git_authority": "none"
   },
   "scheduler": {
     "authority": "t05f01_root_supervisor_router",
@@ -81,14 +83,19 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
     "push": false,
     "checkout": false,
     "rebase": false,
+    "reset": false,
     "spawned_writing_subagents": false,
     "github_lifecycle_events": false
   },
   "delivery": {
-    "root_outer_commit_count": 1,
+    "root_git_add": false,
+    "root_commit": false,
     "root_push": false,
     "root_stage_integration": false,
-    "legacy_transition_result": true,
+    "working_tree_delivery": "exact_two_owned_files_unstaged",
+    "transition_result_status": "implementation_ready",
+    "transition_compatibility_maps": ["native_backend", "verification"],
+    "transition_compatibility_maps_authoritative": false,
     "stop_after_result": true
   }
 }
@@ -103,5 +110,5 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
 5. A01 and A02 MUST start concurrently. Their ownership is disjoint.
 6. Root focused verification MUST pass before A03 is dispatched.
 7. A03 is read-only. It may identify A01/A02 ownership of a defect but may not edit.
-8. Root full verification MUST pass before exactly one outer Task commit is created.
-9. Root returns the legacy transition envelope and stops. Local Bridge retains push, integration and lifecycle authority.
+8. Root full verification MUST pass before Root confirms exactly the two outer owned files are modified and unstaged.
+9. Root MUST NOT `git add`, commit or push. It returns the one-time `implementation_ready` transition envelope and stops. The production Controller retains candidate creation, push, integration and lifecycle authority.
