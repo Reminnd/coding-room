@@ -1,12 +1,12 @@
 # Local Parallel Codex — S02 Native Task Thread Supervisor Router Agent
 
-Owner: Codex。更新日期：2026-09-08。当前 lifecycle：`waiting_for_T05F01_fresh_contract_acceptance`。
+Owner: Codex。更新日期：2026-09-08。当前 lifecycle：`waiting_for_T05F01_environment_preparation`。
 
 ## Role and authority
 
 Local Bridge 拥有 discovery、DAG/Ready Set 和受控 Git delivery；fixed Chat 是唯一 Formal Review Authority。Supervisor 只返回 `ready_to_integrate | blocked | needs_decision`，不 approve、merge、修改 `main` 或实现 Task。
 
-当前入口为 [Router](./ROUTER_CONTRACT.md)、[Stage](./STAGE.md) 与 fresh [T05F01 Proposed Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md)。本轮只完成 fresh planning；Contract 尚未接受，environment preparation、dispatch、Task branch/worktree、Worker/children、Supervisor execution 与 `run-once` 均未授权。
+当前入口为 [Router](./ROUTER_CONTRACT.md)、[Stage](./STAGE.md) 与 fresh [T05F01 Accepted Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md)。Complete exact Contract bundle 已由用户在 Stage planning SHA `f55b256c9e43c6d54b86c35fa88a06c41c36edb2` 上接受；acceptance 不授权 environment preparation、dispatch、Task branch/worktree、Worker/children、Supervisor execution 或 `run-once`。
 
 ## Integrated repair / immutable history
 
@@ -42,7 +42,7 @@ This confirms the T05F00 Root-only prompt boundary and current Controller-owned 
 ## T05F01 fresh planning boundary
 
 - Fresh identity remains dispatch=`wf15-s02-t05f01-generic-worker-result-boundary-001` and branch=`task/wf-increment-015-github-workflow-foundation/T05F01-generic-worker-result-boundary`; preflight found no execution trace requiring rotation.
-- Contract=`Proposed`、`confirmed_by_user=false`、`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。
+- Contract=`Accepted`、`confirmed_by_user=true`、`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。
 - Goal仅为 generic Worker Result cleanup：future parser/validator common fields固定为 identity、three list fields与 status；success=`implementation_ready` 且需 non-empty `changed_files`；`blocked/needs_decision` 在 Git observation前settle。
 - Future production result不要求 `native_backend`、`verification` 或 `reported_task_head_sha`。Native facts来自 `processResult.native`；verification来自 Router `task.verification → runVerification()`；ownership来自 Router `owns`、observed working paths与 `mechanicalGate()`。
 - Current Controller observation、ownership、verification、revalidation、exact staging、candidate commit、Git facts、mechanical gate、Supervisor、push与Stage integration path全部保留，不属于新实现 scope。
@@ -52,6 +52,6 @@ This confirms the T05F00 Root-only prompt boundary and current Controller-owned 
 
 ## Downstream / stopping boundary
 
-当前 next action 只有 `T05F01_contract_acceptance`，不是 environment preparation、`run-once` 或 Formal Review。[T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 保持 unchanged。
+当前 next action 只有 `T05F01_environment_preparation_authorization`；acceptance 不授权 environment preparation、`run-once` 或 Formal Review。[T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 保持 unchanged。
 
-本轮只允许九份列明的 governance planning files、一个 `docs(s02): replan T05F01 generic result cleanup` commit 和一次 ordinary non-force Stage push。push 后停止；不得接受 T05F01、创建 Task branch/worktree、执行 Worker/children/Supervisor、运行 Bridge、修改 production、Formal Review、PR Ready、merge 或写 main。
+本轮只允许九份列明的 governance acceptance files、一个 `docs(s02): accept T05F01 generic result contract` commit 和一次 ordinary non-force Stage push。push 后停止；不得准备环境、创建 Task branch/worktree、执行 Worker/children/Supervisor、运行 Bridge、修改 production、Formal Review、PR Ready、merge 或写 main。

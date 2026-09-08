@@ -3,7 +3,7 @@
 ## Contract
 
 ```yaml
-status: Proposed under outer T05F01 acceptance
+status: Accepted under outer T05F01 acceptance
 task_id: A03-boundary-audit
 parent_task_id: T05F01-generic-worker-result-boundary
 type: Internal Read-Only Audit Subtask

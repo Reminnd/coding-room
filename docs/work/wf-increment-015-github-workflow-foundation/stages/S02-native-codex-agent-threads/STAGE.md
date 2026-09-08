@@ -3,8 +3,8 @@
 - work_id: wf-increment-015-github-workflow-foundation
 - Owner: Codex
 - updated: 2026-09-08
-- status: T05F00_005_integrated_waiting_for_T05F01_fresh_contract_acceptance
-- lifecycle: waiting_for_T05F01_fresh_contract_acceptance
+- status: T05F01_contract_accepted_waiting_for_environment_preparation_authorization
+- lifecycle: waiting_for_T05F01_environment_preparation
 - purpose: fresh_plan_generic_worker_result_boundary
 - goal: 仅清理 Worker Result parser/validator 的 T05-specific self-report requirement，保留现有 Controller-owned candidate architecture。
 - main_base_sha: bd41ea8a1e259300241a345a659e7da90e24af0d
@@ -14,16 +14,17 @@
 - router: [ROUTER_CONTRACT.md](./ROUTER_CONTRACT.md)
 - supervisor: [SUPERVISOR_ROUTER_AGENT.md](./SUPERVISOR_ROUTER_AGENT.md)
 - integrated_repair_history: [T05R02 exact Contract](./tasks/T05R02-controller-owned-candidate-commit/TASK_CONTRACT.md)
-- proposed_contract: [T05F01 fresh Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md)
-- proposed_contract_status: Proposed
-- confirmed_by_user: false
+- accepted_contract: [T05F01 fresh Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md)
+- accepted_contract_status: Accepted
+- accepted_at_stage_sha: f55b256c9e43c6d54b86c35fa88a06c41c36edb2
+- confirmed_by_user: true
 - environment_preparation_completed: false
 - implementation_authorized: false
 - router_dispatchable: false
 - run_once_authorized: false
 - current_integrated_dispatch: wf15-s02-t05f00-root-multi-agent-prompt-boundary-005
-- proposed_dispatch: wf15-s02-t05f01-generic-worker-result-boundary-001
-- next_required_action: T05F01_contract_acceptance
+- accepted_dispatch: wf15-s02-t05f01-generic-worker-result-boundary-001
+- next_required_action: T05F01_environment_preparation_authorization
 
 ## 已集成事实
 
@@ -68,11 +69,11 @@ supervisor: ready_to_integrate
 ## Scope freeze / next gates
 
 1. T05F00 -005 已通过真实 production Bridge 集成；T05F00 -004 dirty worktree 与 T05D00 probe evidence 继续 untouched。
-2. [T05F01 fresh Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md) 保持 `Proposed`、`confirmed_by_user=false`。Fresh preflight 已确认 `-001` 无 lifecycle event、local/remote branch 或非 planning-residue worktree，因此 identity 不旋转。
+2. [T05F01 fresh Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md) 已由用户在 exact planning Stage SHA `f55b256c9e43c6d54b86c35fa88a06c41c36edb2` 上完整接受，`status=Accepted`、`confirmed_by_user=true`。Fresh preflight 已确认 `-001` 无 lifecycle event、local/remote branch 或非 planning-residue worktree，因此 identity 不旋转。
 3. T05F01 仅清理 generic Worker Result parser/validator：future result 不要求 `native_backend`、`verification` 或 `reported_task_head_sha`，成功 status 为 `implementation_ready`。T05R02 与 T05F00 已建立的 Controller candidate path 全部作为 current behavior 保留。
 4. T05F01 future production scope 精确为 `controller.mjs` 与 `tests/controller.test.mjs`；若需要第三个 production/test file，必须 `needs_decision` 并停止。
-5. T05F01 仍是 T05F00 Root-only native multi-agent prompt boundary 的真实 consumer；当前只生成 Contract，不接受、不准备环境、不 dispatch、不执行 children 或 `run-once`。
+5. T05F01 仍是 T05F00 Root-only native multi-agent prompt boundary 的真实 consumer；当前 exact Contract bundle 已接受，但未授权 environment preparation、dispatch、children 或 `run-once`。
 6. [T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 保持 unchanged、不可 dispatch。
-7. 当前唯一 next gate 是 `T05F01_contract_acceptance`；不是 environment preparation、`run-once` 或 Formal Review。
+7. 当前唯一 next gate 是 `T05F01_environment_preparation_authorization`；acceptance 不授权 environment preparation、`run-once` 或 Formal Review。
 
-本轮只修改九份列明的 T05F01 governance planning files。验证后只允许一个 `docs(s02): replan T05F01 generic result cleanup` commit（parent exact `f79780251332ad89844392cc3185a981cc2f496d`）和一次 ordinary non-force Stage push；push 后立即停止。
+本轮只修改九份列明的 T05F01 governance acceptance files。验证后只允许一个 `docs(s02): accept T05F01 generic result contract` commit（parent exact `f55b256c9e43c6d54b86c35fa88a06c41c36edb2`）和一次 ordinary non-force Stage push；push 后立即停止。

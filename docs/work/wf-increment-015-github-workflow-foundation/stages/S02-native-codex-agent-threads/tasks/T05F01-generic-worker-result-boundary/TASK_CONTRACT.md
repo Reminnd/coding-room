@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: T05F01-generic-worker-result-boundary
 type: Implementation Task
 dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-001
@@ -24,7 +24,7 @@ environment_preparation_completed: false
 run_once_authorized: false
 ```
 
-This planning revision generates the exact outer Contract and its internal Contract bundle only. It does not accept or dispatch T05F01. Execution requires T05F00 integration and separate user acceptance of this complete T05F01 bundle at the then-current exact pushed Stage SHA.
+The user accepted this complete exact outer Contract and its internal Contract bundle at Stage planning SHA `f55b256c9e43c6d54b86c35fa88a06c41c36edb2`. Acceptance does not authorize environment preparation, dispatch, Implementation or `run-once`; those remain separate gates.
 
 ## Background
 
