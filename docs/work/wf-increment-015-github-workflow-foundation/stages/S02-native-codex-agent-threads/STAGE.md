@@ -2,9 +2,9 @@
 
 - work_id: wf-increment-015-github-workflow-foundation
 - Owner: Codex
-- updated: 2026-09-07
-- status: T05F00_005_proposed_waiting_for_contract_acceptance
-- lifecycle: waiting_for_T05F00_005_contract_acceptance
+- updated: 2026-09-08
+- status: T05F00_005_accepted_waiting_for_environment_preparation
+- lifecycle: waiting_for_T05F00_005_environment_preparation
 - purpose: fresh_plan_root_multi_agent_prompt_boundary
 - goal: 以已集成的 Controller-owned candidate completion authority，冻结 T05F00 fresh retry -005 Contract。
 - main_base_sha: bd41ea8a1e259300241a345a659e7da90e24af0d
@@ -14,8 +14,8 @@
 - router: [ROUTER_CONTRACT.md](./ROUTER_CONTRACT.md)
 - supervisor: [SUPERVISOR_ROUTER_AGENT.md](./SUPERVISOR_ROUTER_AGENT.md)
 - integrated_repair_history: [T05R02 exact Contract](./tasks/T05R02-controller-owned-candidate-commit/TASK_CONTRACT.md)
-- T05F00_005_contract_status: Proposed
-- confirmed_by_user: false
+- accepted_contract_status: Accepted
+- confirmed_by_user: true
 - environment_preparation_completed: false
 - implementation_authorized: false
 - router_dispatchable: false
@@ -23,6 +23,7 @@
 - current_terminal_dispatch: wf15-s02-t05f00-root-multi-agent-prompt-boundary-004
 - proposed_dispatch: wf15-s02-t05f00-root-multi-agent-prompt-boundary-005
 - retry_005_created: true
+- next_required_action: T05F00_005_environment_preparation_authorization
 
 ## 已集成事实
 
@@ -49,10 +50,10 @@ T05F00 `-001`、`-002`、`-003`、`-004` 全部是 immutable terminal history，
 ## Scope freeze / next gates
 
 1. Fresh identity 固定为 dispatch `wf15-s02-t05f00-root-multi-agent-prompt-boundary-005`、branch `task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary-005`。Planning preflight 已确认 local branch、remote branch 与 worktree 均不存在；本轮不创建它们。
-2. [T05F00 -005 Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md) 为 `Proposed`、`confirmed_by_user=false`。只修复 Worker prompt 的 Root-only native multi-agent 授权边界；future writable production paths 精确为 `codex.mjs` 与 `tests/codex.test.mjs`。
+2. [T05F00 -005 Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md) 为 `Accepted`、`confirmed_by_user=true`。只修复 Worker prompt 的 Root-only native multi-agent 授权边界；future writable production paths 精确为 `codex.mjs` 与 `tests/codex.test.mjs`。
 3. T05R02 已解决 Worker commit authority、`implementation_ready` transition、Controller-owned candidate creation 与 precommit working-tree gates。T05F00 -005 使用该 production authority，不再要求 Worker `git add`、`git commit`、`candidate_ready` 或 `reported_task_head_sha`。
 4. [T05F01](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md) 保持 `Proposed`、`confirmed_by_user=false` 且文件不变。后续必须 fresh planning，删除 T05R02 已完成的重复 scope，仅保留 generic Worker Result cleanup。
 5. [T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 保持 unchanged、不可 dispatch。
-6. 当前 next gate 仅为 `T05F00_005_contract_acceptance`。`dispatch_ready` 是 Router 格式状态，不是 execution authorization；environment preparation、Implementation、Worker、Supervisor execution 与 `run-once` 均未授权。
+6. 当前 next gate 仅为 `T05F00_005_environment_preparation_authorization`。`dispatch_ready` 是 Router 格式状态，不是 `run-once` 授权；environment preparation、Implementation、Worker、Supervisor execution 与 `run-once` 均未授权。
 
-本轮 planning 仅修改 `STAGE.md`、`ROUTER_CONTRACT.md`、`SUPERVISOR_ROUTER_AGENT.md` 与 T05F00 `TASK_CONTRACT.md`。验证后只允许一个 `docs(s02): plan T05F00 retry 005` commit（parent exact `e2388030199400d62f11576fff51ff08441d6742`）和一次 ordinary non-force Stage push；push 后立即停止，不执行 Acceptance、environment preparation、Implementation、Task/Stage integration、Formal Review、PR Ready、merge 或 main write。
+本轮 Acceptance 仅修改 `STAGE.md`、`ROUTER_CONTRACT.md`、`SUPERVISOR_ROUTER_AGENT.md` 与 T05F00 `TASK_CONTRACT.md`。验证后只允许一个 `docs(s02): accept T05F00 retry 005 contract` commit（parent exact `f8f3a2c47b97887493f29a766a571c26d70955b6`）和一次 ordinary non-force Stage push；push 后立即停止，不执行 environment preparation、Implementation、Task/Stage integration、Formal Review、PR Ready、merge 或 main write。

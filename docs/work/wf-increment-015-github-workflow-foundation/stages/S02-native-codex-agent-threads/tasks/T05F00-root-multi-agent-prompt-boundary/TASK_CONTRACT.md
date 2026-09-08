@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: T05F00-root-multi-agent-prompt-boundary
 type: Implementation Task
 dispatch_id: wf15-s02-t05f00-root-multi-agent-prompt-boundary-005
@@ -21,7 +21,7 @@ environment_preparation_completed: false
 run_once_authorized: false
 ```
 
-Owner: Codex。Reader: 用户与未来 Local Codex Worker。更新日期：2026-09-07。本 fresh `-005` revision 等待用户确认 exact planning SHA；MUST 表示强制要求。
+Owner: Codex。Reader: 用户与未来 Local Codex Worker。更新日期：2026-09-08。本 fresh `-005` revision 已由用户按 exact planning SHA `f8f3a2c47b97887493f29a766a571c26d70955b6` 确认；MUST 表示强制要求。
 
 ## Background
 
@@ -195,9 +195,9 @@ Worker `verification` 值 MUST 来自 Worker 实际运行结果；Controller 仍
 
 ## Environment preparation / execution authorization
 
-当前 Contract 为 `Proposed`、`confirmed_by_user=false`。`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。
+当前 Contract 为 `Accepted`、`confirmed_by_user=true`。`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。
 
-Acceptance 需要下一轮用户确认 exact planning SHA。Contract Acceptance 不自动授权创建 fresh branch/worktree、安装 dependencies、启动 Worker、Supervisor execution 或 `run-once`；这些动作继续受各自门禁约束。禁止删除或复用 `-004` evidence 与 T05D00 probe。
+Contract Acceptance 不自动授权创建 fresh branch/worktree、安装 dependencies、启动 Worker、Supervisor execution 或 `run-once`；下一 gate 仅为 `T05F00_005_environment_preparation_authorization`，这些动作继续受各自门禁约束。禁止删除或复用 `-004` evidence 与 T05D00 probe。
 
 ## Documentation updates
 

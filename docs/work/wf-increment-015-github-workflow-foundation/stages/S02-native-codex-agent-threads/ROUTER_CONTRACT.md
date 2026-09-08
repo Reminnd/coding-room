@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S02 Native Codex Transition Repair
 
-> Owner: Codex。更新日期：2026-09-07。T05R02 manual bootstrap repair 已集成到 Stage `e2388030199400d62f11576fff51ff08441d6742`，未生成 synthetic Bridge lifecycle event。T05F00 -004 保持 immutable terminal blocked；fresh -005 Contract 为 Proposed / confirmed_by_user=false。`status: dispatch_ready` 是 Router 格式字段，不授予 Acceptance、environment preparation、Implementation、Worker、Supervisor execution 或 `run-once` 权限。
+> Owner: Codex。更新日期：2026-09-08。T05R02 manual bootstrap repair 已集成到 Stage `e2388030199400d62f11576fff51ff08441d6742`，未生成 synthetic Bridge lifecycle event。T05F00 -004 保持 immutable terminal blocked；fresh -005 Contract 为 Accepted / confirmed_by_user=true。`status: dispatch_ready` 是 Router 格式字段，不授予 environment preparation、Implementation、Worker、Supervisor execution 或 `run-once` 权限。
 <!-- ROUTER_CONTRACT_V1 -->
 
 ```json
@@ -108,10 +108,10 @@
 - T05F00 `-001/-002/-003/-004` 均为 immutable terminal history。`-004` status=`blocked`，exact reason 为 `Worker completed with invalid required Coding Result: reported_task_head_sha must be a non-empty string`；不得 replay、cleanup 或复用其 dirty worktree。T05D00 probe worktree/branch 同样保留 untouched。
 - T05F00 JSON 只把 dispatch 旋转为 `wf15-s02-t05f00-root-multi-agent-prompt-boundary-005`，并把 branch 旋转为 `task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary-005`。该 fresh local branch、remote branch 与 worktree 在 planning preflight 均不存在；本轮不得创建。
 - T05F00 其它 JSON 字段保持 semantic-equivalent；T05F01 entry 与 scheduler/integration/review/fix_policy/execution 均 unchanged。
-- Fresh T05F00 Contract=`Proposed`、`confirmed_by_user=false`。Goal、exact two-file owns、model=`coding_strong`、reasoning effort=`medium`、fallback=`none` 保持；自身 `internal_multi_agent=false`、`worker_spawned_subagents=false`。
+- Fresh T05F00 Contract=`Accepted`、`confirmed_by_user=true`。Goal、exact two-file owns、model=`coding_strong`、reasoning effort=`medium`、fallback=`none` 保持；自身 `internal_multi_agent=false`、`worker_spawned_subagents=false`。
 - Completion 使用已集成 production authority：Worker `implementation_ready` → Controller independent working-tree/ownership gates → `runVerification` → revalidation → exact-path stage → deterministic candidate commit → `collectTaskFacts` → `mechanicalGate` → existing Supervisor/push/integration。Worker Git metadata authority=`none`，不得要求 `candidate_ready` 或 `reported_task_head_sha`。
 - `native_backend` 与 `verification` 只属于 current transition envelope compatibility；native facts 来自 `processResult.native`，verification authority 来自 Router verification，ownership authority 来自 Router `owns`、Controller working-tree facts 与 `mechanicalGate`。
 - T05F01 保持 `Proposed`、`confirmed_by_user=false` 且 entry/Contract 文件不变；未来 fresh planning 删除 T05R02 已解决的重复 scope，只保留 generic Worker Result cleanup。T06 unchanged。
-- 当前 next_required_action=`T05F00_005_contract_acceptance`。`dispatch_ready` 不等于 execution authorization；禁止 Acceptance、environment preparation、Worker、Supervisor execution、continuous start 与 `run-once`。
+- 当前 next_required_action=`T05F00_005_environment_preparation_authorization`。`dispatch_ready` 不等于 `run-once` authorization；下一 gate 仅为 environment preparation 的单独授权。在该授权前禁止 environment preparation、Task branch/worktree creation、Worker、Supervisor execution、continuous start 与 `run-once`。
 - fixed Chat 是唯一 Formal Review Authority；Supervisor 不 approve/merge、无 main authority。未来既有 Task push、controlled cherry-pick、Stage push 与 publication 语义不变；禁止 force/rebase/自动解冲突。
-- 本轮只修改四份 governance planning documents。通过 minimal planning validation 后只允许一个 `docs(s02): plan T05F00 retry 005` commit（parent=`e2388030199400d62f11576fff51ff08441d6742`）与一次 ordinary non-force Stage push，随后 STOP。
+- 本轮只修改四份 governance Acceptance documents。通过 minimal Acceptance validation 后只允许一个 `docs(s02): accept T05F00 retry 005 contract` commit（parent=`f8f3a2c47b97887493f29a766a571c26d70955b6`）与一次 ordinary non-force Stage push，随后 STOP。

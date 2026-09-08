@@ -1,12 +1,12 @@
 # Local Parallel Codex — S02 Native Task Thread Supervisor Router Agent
 
-Owner: Codex。更新日期：2026-09-07。当前 lifecycle：`waiting_for_T05F00_005_contract_acceptance`。
+Owner: Codex。更新日期：2026-09-08。当前 lifecycle：`waiting_for_T05F00_005_environment_preparation`。
 
 ## Role and authority
 
 Local Bridge 拥有 discovery、DAG/Ready Set 和受控 Git delivery；fixed Chat 是唯一 Formal Review Authority。Supervisor 只返回 `ready_to_integrate | blocked | needs_decision`，不 approve、merge、修改 `main` 或实现 Task。
 
-当前入口为 [Router](./ROUTER_CONTRACT.md)、[Stage](./STAGE.md) 与 fresh [T05F00 -005 Proposed Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md)。该 Contract 尚未 Accepted；禁止 dispatch、environment preparation、Worker、Supervisor execution 与 `run-once`。
+当前入口为 [Router](./ROUTER_CONTRACT.md)、[Stage](./STAGE.md) 与 fresh [T05F00 -005 Accepted Contract](./tasks/T05F00-root-multi-agent-prompt-boundary/TASK_CONTRACT.md)。Contract Acceptance 不等于 execution authorization；在 environment preparation 获得单独授权前，禁止 dispatch、environment preparation、Task branch/worktree creation、Worker、Supervisor execution 与 `run-once`。
 
 ## Integrated repair / immutable history
 
@@ -28,7 +28,7 @@ synthetic_bridge_event_created: false
 ## T05F00 -005 planning boundary
 
 - Fresh dispatch=`wf15-s02-t05f00-root-multi-agent-prompt-boundary-005`；fresh branch=`task/wf-increment-015-github-workflow-foundation/T05F00-root-multi-agent-prompt-boundary-005`。本轮只把 identity 写入 governance，不创建 branch/worktree。
-- Contract=`Proposed`、`confirmed_by_user=false`、`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。
+- Contract=`Accepted`、`confirmed_by_user=true`、`implementation_authorized=false`、`environment_preparation_completed=false`、`run_once_authorized=false`。
 - 业务 Goal 仍仅是 Worker prompt 的 Root-only native multi-agent 授权边界；T05F00 自身 `internal_multi_agent=false`、`worker_spawned_subagents=false`。
 - Future production scope 精确为 `tools/codex-github-bridge/codex.mjs` 与 `tools/codex-github-bridge/tests/codex.test.mjs`；不得增加第三个 production/test file。
 - Completion 使用已集成的 `implementation_ready → Controller-owned candidate` authority。Worker Git metadata authority=`none`；不得要求或执行 Worker `git add`、`git commit`、`git push`、checkout、branch、reset 或 rebase。
@@ -36,8 +36,8 @@ synthetic_bridge_event_created: false
 
 ## Downstream / stopping boundary
 
-当前 next action 只有 `T05F00_005_contract_acceptance`。未取得用户对 exact planning SHA 的下一轮确认前，不得把 Contract 改为 `Accepted` 或 `confirmed_by_user=true`，不得 dispatch 或准备执行环境。
+当前 next action 只有 `T05F00_005_environment_preparation_authorization`。在该授权前不得 dispatch、准备执行环境、创建 Worker 或创建 Task worktree；`run-once` 继续需要独立授权。
 
 [T05F01](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md) 保持 `Proposed`、`confirmed_by_user=false`、文件不变；后续 fresh planning 只保留 generic Worker Result cleanup，删除 T05R02 已解决的 Worker commit authority、`implementation_ready` transition、Controller-owned candidate creation 与 precommit gate 重复 scope。[T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 保持 unchanged。
 
-本轮只允许四份 governance planning 文件、一个 `docs(s02): plan T05F00 retry 005` commit 和一次 ordinary non-force Stage push。push 后停止；不得 Acceptance、environment preparation、Task branch/worktree creation、Worker、Supervisor execution、`run-once`、Task push、cherry-pick、Formal Review、PR Ready、merge 或 main write。
+本轮只允许四份 governance Acceptance 文件、一个 `docs(s02): accept T05F00 retry 005 contract` commit 和一次 ordinary non-force Stage push。push 后停止；不得 environment preparation、Task branch/worktree creation、Worker、Supervisor execution、`run-once`、Task push、cherry-pick、Formal Review、PR Ready、merge 或 main write。
