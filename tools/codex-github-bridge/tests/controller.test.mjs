@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -55,20 +55,6 @@ function validCodingResult(overrides = {}) {
     dispatch_id: 'dispatch-1',
     reported_base_sha: 'base-sha',
     changed_files: ['owned/result.txt'],
-    native_backend: {
-      interface: 'codex app-server JSON-RPC',
-      worker_mode: 'one_thread_per_task',
-      explicit_thread_cwd: 'pass',
-      explicit_turn_cwd: 'pass',
-      terminal_event: 'turn/completed',
-      silent_fallback: false,
-    },
-    verification: {
-      bridge_tests: 'pass - node --test tools/codex-github-bridge/tests/*.test.mjs',
-      typecheck: 'pass - npm run typecheck',
-      full_tests: 'pass - npm test',
-      diff_check: 'pass - git diff --check',
-    },
     deviations: [],
     unresolved: [],
     questions: [],
@@ -79,12 +65,9 @@ function validCodingResult(overrides = {}) {
     `task_id: ${values.task_id}`,
     `dispatch_id: ${values.dispatch_id}`,
     `reported_base_sha: ${values.reported_base_sha}`,
-    'changed_files:',
-    ...values.changed_files.map((path) => `  - ${path}`),
-    'native_backend:',
-    ...Object.entries(values.native_backend).map(([key, value]) => `  ${key}: ${value}`),
-    'verification:',
-    ...Object.entries(values.verification).map(([key, value]) => `  ${key}: ${value}`),
+    ...(values.changed_files === undefined
+      ? []
+      : ['changed_files:', ...values.changed_files.map((path) => `  - ${path}`)]),
     values.deviations.length === 0 ? 'deviations: []' : `deviations:\n${values.deviations.map((item) => `  - ${item}`).join('\n')}`,
     values.unresolved.length === 0 ? 'unresolved: []' : `unresolved:\n${values.unresolved.map((item) => `  - ${item}`).join('\n')}`,
     values.questions.length === 0 ? 'questions: []' : `questions:\n${values.questions.map((item) => `  - ${item}`).join('\n')}`,
@@ -92,24 +75,26 @@ function validCodingResult(overrides = {}) {
   ].join('\n');
 }
 
-function setup(supervisorStatus) {
+function setup(supervisorStatus, overrides = {}) {
   const calls = [];
+  const records = { candidateCommits: [], publishedEvents: [], supervisorInputs: [] };
+  const workingPaths = overrides.workingPaths ?? ['owned/result.txt'];
   const facts = {
     baseSha: 'base-sha',
     taskHeadSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     parentSha: 'base-sha',
-    actualChangedFiles: ['owned/result.txt'],
+    actualChangedFiles: [...workingPaths],
   };
   const observation = {
     head: 'base-sha',
     branch: 'task/test/T01',
     stagedPaths: [],
-    workingPaths: ['owned/result.txt'],
+    workingPaths: [...workingPaths],
   };
   const git = {
     run: async () => { throw new Error('verification process should not run'); },
     observeWorkingTree: async () => { calls.push('working:observe'); return observation; },
-    createCandidateCommit: async () => { calls.push('candidate:commit'); },
+    createCandidateCommit: async (...args) => { calls.push('candidate:commit'); records.candidateCommits.push(args); },
     collectTaskFacts: async () => { calls.push('mechanical:facts'); return facts; },
     mechanicalGate: async () => { calls.push('mechanical:gate'); },
     status: async () => { calls.push('mechanical:status'); return ''; },
@@ -121,11 +106,15 @@ function setup(supervisorStatus) {
     },
   };
   const github = {
-    publishEvent: async (_repository, _prNumber, event) => { calls.push(`publish:${event.status}`); },
+    publishEvent: async (_repository, _prNumber, event) => {
+      calls.push(`publish:${event.status}`);
+      records.publishedEvents.push(event);
+    },
   };
   const launcher = {
-    execute: async () => {
+    execute: async (input) => {
       calls.push(`supervisor:${supervisorStatus}`);
+      records.supervisorInputs.push(input);
       return {
         error: null,
         exitCode: 0,
@@ -157,8 +146,8 @@ function setup(supervisorStatus) {
     dispatch_id: 'dispatch-1',
     task_branch: 'task/test/T01',
     depends_on: [],
-    owns: ['owned/**'],
-    verification: [],
+    owns: overrides.owns ?? ['owned/**'],
+    verification: overrides.verification ?? [],
   };
   const result = {
     baseSha: facts.baseSha,
@@ -169,10 +158,11 @@ function setup(supervisorStatus) {
       error: null,
       exitCode: 0,
       stderr: '',
-      lastMessage: validCodingResult(),
+      lastMessage: validCodingResult({ changed_files: overrides.workerPaths ?? [...workingPaths] }),
+      native: overrides.native,
     },
   };
-  return { calls, controller, task, result };
+  return { calls, controller, facts, records, task, result };
 }
 
 test('does not push a task candidate when Supervisor Integration is not ready', async () => {
@@ -186,8 +176,13 @@ test('does not push a task candidate when Supervisor Integration is not ready', 
   }
 });
 
-test('ordinary verification passes the semantic gate and continues through the normal controller path', async () => {
-  const context = setup('ready_to_integrate');
+test('docs-owned generic result reaches the unchanged Controller delivery path', async () => {
+  const paths = ['docs/second.md', 'docs/example.md'];
+  const context = setup('ready_to_integrate', {
+    owns: ['docs/example.md', 'docs/second.md'],
+    workingPaths: ['docs/example.md', 'docs/second.md'],
+    workerPaths: paths,
+  });
   await context.controller.processResult(context.task, context.result);
 
   assert.equal(context.calls.filter((call) => call === 'working:observe').length, 2);
@@ -199,6 +194,9 @@ test('ordinary verification passes the semantic gate and continues through the n
   assert.ok(context.calls.indexOf('supervisor:ready_to_integrate') < context.calls.indexOf('push:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'));
   assert.ok(context.calls.indexOf('push:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') < context.calls.indexOf('integrate'));
   assert.ok(context.calls.includes('publish:task_integrated'));
+  assert.deepEqual(context.records.candidateCommits, [[context.task, 'task-worktree', ['docs/example.md', 'docs/second.md']]]);
+  assert.equal(context.records.publishedEvents.at(-1).source_task_sha, context.facts.taskHeadSha);
+  assert.deepEqual(context.records.publishedEvents.at(-1).actual_changed_files, ['docs/example.md', 'docs/second.md']);
 });
 
 test('native failure and missing required Coding Result cannot reach Git facts or integration', async () => {
@@ -216,10 +214,11 @@ test('native failure and missing required Coding Result cannot reach Git facts o
   }
 });
 
-test('status-only implementation result is blocked before Git observation', async () => {
+test('implementation_ready without changed_files is blocked before Git observation', async () => {
   const context = setup('ready_to_integrate');
-  context.result.processResult.lastMessage = 'status: implementation_ready';
+  context.result.processResult.lastMessage = validCodingResult({ changed_files: undefined });
   await context.controller.processResult(context.task, context.result);
+  assert.equal(context.calls.includes('working:observe'), false);
   assert.equal(context.calls.includes('mechanical:facts'), false);
   assert.equal(context.calls.some((call) => call.startsWith('push:')), false);
   assert.equal(context.calls.includes('integrate'), false);
@@ -230,19 +229,6 @@ for (const field of [
   'task_id',
   'dispatch_id',
   'reported_base_sha',
-  'changed_files',
-  'native_backend',
-  'native_backend.interface',
-  'native_backend.worker_mode',
-  'native_backend.explicit_thread_cwd',
-  'native_backend.explicit_turn_cwd',
-  'native_backend.terminal_event',
-  'native_backend.silent_fallback',
-  'verification',
-  'verification.bridge_tests',
-  'verification.typecheck',
-  'verification.full_tests',
-  'verification.diff_check',
   'deviations',
   'unresolved',
   'questions',
@@ -281,14 +267,6 @@ for (const [field, value] of [
 
 for (const [name, mutate] of [
   ['changed_files scalar', (message) => message.replace('changed_files:\n  - owned/result.txt', 'changed_files: result.txt')],
-  ['native_backend scalar', (message) => message.replace(/native_backend:\n(?:  .+\n)+/, 'native_backend: []\n')],
-  ['quoted silent_fallback', (message) => message.replace('silent_fallback: false', 'silent_fallback: "false"')],
-  ['enabled silent_fallback', (message) => message.replace('silent_fallback: false', 'silent_fallback: true')],
-  ['wrong worker_mode', (message) => message.replace('worker_mode: one_thread_per_task', 'worker_mode: shared_thread')],
-  ['invalid cwd outcome', (message) => message.replace('explicit_thread_cwd: pass', 'explicit_thread_cwd: yes')],
-  ['failed explicit thread cwd', (message) => message.replace('explicit_thread_cwd: pass', 'explicit_thread_cwd: fail')],
-  ['failed explicit turn cwd', (message) => message.replace('explicit_turn_cwd: pass', 'explicit_turn_cwd: fail')],
-  ['verification without command', (message) => message.replace('typecheck: pass - npm run typecheck', 'typecheck: pass')],
   ['invalid status', (message) => message.replace('status: implementation_ready', 'status: completed')],
 ]) {
   test(`${name} is blocked before Git fact collection`, async () => {
@@ -302,57 +280,18 @@ for (const [name, mutate] of [
   });
 }
 
-for (const verification of ['bridge_tests', 'typecheck', 'full_tests', 'diff_check']) {
-  test(`failed ${verification} is blocked before Git fact collection`, async () => {
-    const context = setup('ready_to_integrate');
-    context.result.processResult.lastMessage = validCodingResult({
-      verification: {
-        bridge_tests: 'pass - node --test tools/codex-github-bridge/tests/*.test.mjs',
-        typecheck: 'pass - npm run typecheck',
-        full_tests: 'pass - npm test',
-        diff_check: 'pass - git diff --check',
-        [verification]: `fail - ${verification} command`,
-      },
-    });
-    await context.controller.processResult(context.task, context.result);
-    assert.equal(context.calls.includes('mechanical:facts'), false);
-    assert.equal(context.calls.includes('mechanical:gate'), false);
-    assert.equal(context.calls.some((call) => call.startsWith('supervisor:')), false);
-    assert.equal(context.calls.some((call) => call.startsWith('push:')), false);
-    assert.equal(context.calls.includes('integrate'), false);
-    assert.ok(context.calls.includes('publish:blocked'));
-  });
-}
-
-for (const verification of ['bridge_tests', 'typecheck', 'diff_check']) {
-  test(`accepted amendment marker is rejected for ${verification} before Git fact collection`, async () => {
-    const context = setup('ready_to_integrate');
-    context.result.processResult.lastMessage = validCodingResult({
-      verification: {
-        bridge_tests: 'pass - node --test tools/codex-github-bridge/tests/*.test.mjs',
-        typecheck: 'pass - npm run typecheck',
-        full_tests: 'pass - npm test',
-        diff_check: 'pass - git diff --check',
-        [verification]: `pass-under-accepted-amendment - ${verification} command`,
-      },
-    });
-    await context.controller.processResult(context.task, context.result);
-    assert.equal(context.calls.includes('mechanical:facts'), false);
-    assert.equal(context.calls.includes('mechanical:gate'), false);
-    assert.equal(context.calls.some((call) => call.startsWith('supervisor:')), false);
-    assert.equal(context.calls.some((call) => call.startsWith('push:')), false);
-    assert.equal(context.calls.includes('integrate'), false);
-    assert.ok(context.calls.includes('publish:blocked'));
-  });
-}
-
 test('worker changed_files mismatch is blocked before verification or commit', async () => {
-  const context = setup('ready_to_integrate');
+  const context = setup('ready_to_integrate', { verification: ['node --test must-not-run.test.mjs'] });
+  context.controller.git.run = async () => {
+    context.calls.push('verification:run');
+    return { exitCode: 0, stdout: '', stderr: '', error: null };
+  };
   context.result.processResult.lastMessage = validCodingResult({
     changed_files: ['owned/other.txt'],
   });
   await context.controller.processResult(context.task, context.result);
   assert.equal(context.calls[0], 'working:observe');
+  assert.equal(context.calls.includes('verification:run'), false);
   assert.equal(context.calls.includes('candidate:commit'), false);
   assert.equal(context.calls.includes('mechanical:facts'), false);
   assert.equal(context.calls.includes('mechanical:gate'), false);
@@ -362,22 +301,19 @@ test('worker changed_files mismatch is blocked before verification or commit', a
   assert.ok(context.calls.includes('publish:blocked'));
 });
 
-test('matching task head and the full-tests amendment marker continue through the normal controller path', async () => {
-  const context = setup('ready_to_integrate');
-  context.result.processResult.lastMessage = validCodingResult({
-    verification: {
-      bridge_tests: 'pass - node --test tools/codex-github-bridge/tests/*.test.mjs',
-      typecheck: 'pass - npm run typecheck',
-      full_tests: 'pass-under-accepted-amendment - npm test',
-      diff_check: 'pass - git diff --check',
-    },
+test('matching Worker and observed paths still pass through the independent Router ownership gate', async () => {
+  const context = setup('ready_to_integrate', {
+    owns: ['owned/**'],
+    workingPaths: ['other/result.txt'],
+    workerPaths: ['other/result.txt'],
+    verification: ['node --test must-not-run.test.mjs'],
   });
+  context.controller.git.run = async () => {
+    context.calls.push('verification:run');
+    return { exitCode: 0, stdout: '', stderr: '', error: null };
+  };
   await context.controller.processResult(context.task, context.result);
-  assert.ok(context.calls.includes('mechanical:facts'));
-  assert.ok(context.calls.includes('mechanical:gate'));
-  assert.ok(context.calls.includes('supervisor:ready_to_integrate'));
-  assert.ok(context.calls.includes('push:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'));
-  assert.ok(context.calls.includes('integrate'));
+  assert.deepEqual(context.calls, ['working:observe', 'publish:blocked']);
 });
 
 for (const [name, override] of [
@@ -385,7 +321,6 @@ for (const [name, override] of [
   ['branch mismatch', { branch: 'task/test/other' }],
   ['preexisting staged change', { stagedPaths: ['owned/staged.txt'] }],
   ['empty working tree', { workingPaths: [] }],
-  ['ownership violation', { workingPaths: ['other/result.txt'] }],
 ]) {
   test(`${name} is blocked before verification and Controller commit`, async () => {
     const context = setup('ready_to_integrate');
@@ -402,10 +337,15 @@ for (const [name, override] of [
 test('verification failure blocks before staging and commit', async () => {
   const context = setup('ready_to_integrate');
   context.task.verification = ['node --test failing.test.mjs'];
-  context.controller.git.run = async () => ({ exitCode: 1, stdout: '', stderr: 'failed', error: null });
+  context.controller.git.run = async () => {
+    context.calls.push('verification:run');
+    return { exitCode: 1, stdout: '', stderr: 'failed', error: null };
+  };
   await context.controller.processResult(context.task, context.result);
   assert.equal(context.calls.filter((call) => call === 'working:observe').length, 1);
+  assert.ok(context.calls.indexOf('working:observe') < context.calls.indexOf('verification:run'));
   assert.equal(context.calls.includes('candidate:commit'), false);
+  assert.equal(context.calls.includes('mechanical:facts'), false);
   assert.ok(context.calls.includes('publish:blocked'));
 });
 
@@ -467,9 +407,7 @@ test('post-commit changed path mismatch blocks before the mechanical gate', asyn
 for (const status of ['blocked', 'needs_decision']) {
   test(`complete ${status} result settles before Git observation`, async () => {
     const context = setup('ready_to_integrate');
-    context.result.processResult.lastMessage = validCodingResult({ status, changed_files: [] })
-      .replace(/native_backend:\n(?:  .+\n)+/, '')
-      .replace(/verification:\n(?:  .+\n)+/, '');
+    context.result.processResult.lastMessage = validCodingResult({ status, changed_files: undefined });
     await context.controller.processResult(context.task, context.result);
     assert.equal(context.calls.includes('working:observe'), false);
     assert.equal(context.calls.includes('mechanical:facts'), false);
@@ -478,6 +416,41 @@ for (const status of ['blocked', 'needs_decision']) {
     assert.ok(context.calls.includes(`publish:${status}`));
   });
 }
+
+test('native process facts continue into Supervisor evidence and lifecycle publication', async () => {
+  const native = { threadId: 'thread-7', turnId: 'turn-9', status: 'completed' };
+  const context = setup('ready_to_integrate', { native });
+  await context.controller.processResult(context.task, context.result);
+
+  assert.equal(context.records.supervisorInputs.length, 1);
+  assert.match(context.records.supervisorInputs[0].prompt, /"native_thread_id": "thread-7"/);
+  assert.match(context.records.supervisorInputs[0].prompt, /"native_turn_id": "turn-9"/);
+  assert.match(context.records.supervisorInputs[0].prompt, /"native_turn_status": "completed"/);
+  assert.deepEqual(
+    {
+      native_thread_id: context.records.publishedEvents.at(-1).native_thread_id,
+      native_turn_id: context.records.publishedEvents.at(-1).native_turn_id,
+      native_turn_status: context.records.publishedEvents.at(-1).native_turn_status,
+    },
+    { native_thread_id: 'thread-7', native_turn_id: 'turn-9', native_turn_status: 'completed' },
+  );
+});
+
+test('missing dependency blocks after Supervisor and before Task push', async () => {
+  const context = setup('ready_to_integrate');
+  context.task.depends_on = ['T00'];
+  await context.controller.processResult(context.task, context.result);
+  assert.ok(context.calls.includes('supervisor:ready_to_integrate'));
+  assert.equal(context.calls.some((call) => call.startsWith('push:')), false);
+  assert.equal(context.calls.includes('integrate'), false);
+  assert.ok(context.calls.includes('publish:blocked'));
+});
+
+test('production result boundary contains no transition Task-ID or amendment special case', async () => {
+  const source = await readFile(new URL('../controller.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /T05(?:F00|F01)?/);
+  assert.doesNotMatch(source, /pass-under-accepted-amendment/);
+});
 
 test('native capability failure is published as needs_decision before Git fact collection', async () => {
   const context = setup('ready_to_integrate');
