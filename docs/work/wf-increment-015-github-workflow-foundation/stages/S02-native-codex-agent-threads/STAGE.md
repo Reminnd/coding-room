@@ -3,10 +3,10 @@
 - work_id: wf-increment-015-github-workflow-foundation
 - Owner: Codex
 - updated: 2026-09-09
-- status: T05F01_002_contract_accepted_waiting_for_environment_preparation_authorization
-- lifecycle: waiting_for_T05F01_002_environment_preparation
-- purpose: retry_002_result_envelope_repair
-- goal: 仅清理 Worker Result parser/validator 的 T05-specific self-report requirement，保留现有 Controller-owned candidate architecture。
+- status: S02_implementation_complete_formal_review_gated
+- lifecycle: post_task_integration_formal_review_cycle
+- purpose: formal_review_blocker_repair
+- goal: 保持已集成的 S02 Router implementation，修复 Formal Review blocker，并继续由 fresh candidate publication、GitHub verification 与 fixed Chat Formal Review 控制 Stage→main。
 - main_base_sha: bd41ea8a1e259300241a345a659e7da90e24af0d
 - planning_base_stage_sha: ec62546d6126ef5ecfbd0eceed100f916d75aa27
 - stage_branch: stage/wf-increment-015-github-workflow-foundation/S02-native-codex-agent-threads
@@ -14,17 +14,16 @@
 - router: [ROUTER_CONTRACT.md](./ROUTER_CONTRACT.md)
 - supervisor: [SUPERVISOR_ROUTER_AGENT.md](./SUPERVISOR_ROUTER_AGENT.md)
 - integrated_repair_history: [T05R02 exact Contract](./tasks/T05R02-controller-owned-candidate-commit/TASK_CONTRACT.md)
-- accepted_contract: [T05F01 Retry -002 fresh Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md)
-- accepted_contract_status: Accepted
-- accepted_at_stage_sha: 8b86c1e175e2294c6004a1321f294915ce7a28fc
-- confirmed_by_user: true
-- environment_preparation_completed: false
-- implementation_authorized: false
+- historical_accepted_contract: [T05F01 Retry -002 fresh Contract](./tasks/T05F01-generic-worker-result-boundary/TASK_CONTRACT.md)
+- historical_accepted_contract_status: Accepted
+- historical_accepted_at_stage_sha: 8b86c1e175e2294c6004a1321f294915ce7a28fc
+- historical_confirmed_by_user: true
 - router_dispatchable: false
-- run_once_authorized: false
-- current_integrated_dispatch: wf15-s02-t05f00-root-multi-agent-prompt-boundary-005
-- accepted_dispatch: wf15-s02-t05f01-generic-worker-result-boundary-002
-- next_required_action: T05F01_002_environment_preparation_authorization
+- all_router_tasks_integrated: true
+- current_integrated_dispatch: wf15-s02-t05f01-generic-worker-result-boundary-002
+- formal_review_candidate_sha: 7de85b277693f7a907af907929d00239f9c62fd4
+- formal_review_result: REQUEST_CHANGES
+- formal_review_blockers: FR-S02-001, FR-S02-002
 
 ## 已集成事实
 
@@ -35,6 +34,7 @@
 | T05R01-native-linked-worktree-git-sandbox | integrated | `e00aba7ad2cfb414c718c9a6be8ef9395711d6cc` | `4ea459e8ff2beb9c8db8bc5c665f44ceebcf49fa` | non-Router repair；不得补造 |
 | T05R02-controller-owned-candidate-commit | manual bootstrap repair integrated | `eb4e375cf2e044f3ddb23a99c5fb0d3370bc7dab` | `e2388030199400d62f11576fff51ff08441d6742` | `router_dispatchable=false`；`synthetic_bridge_event_created=false` |
 | T05F00-root-multi-agent-prompt-boundary -005 | integrated | `3acabe66784ff1e66501b9c09e08cbf86ff9976a` | `f79780251332ad89844392cc3185a981cc2f496d` | production Bridge；Supervisor `ready_to_integrate` |
+| T05F01-generic-worker-result-boundary -002 | integrated | `f6bafbf5df27a6cab8440fd7b577e49f8b6a74d6` | `7de85b277693f7a907af907929d00239f9c62fd4` | production Bridge；Supervisor `ready_to_integrate` |
 
 T05R02 的 authoritative Git facts 仅为上述 source/Stage mapping。不得补造 `task_dispatched`、`task_supervised`、`task_integrated` 或其它 Bridge lifecycle event。
 
@@ -84,14 +84,11 @@ controller_verification:
 supervisor: ready_to_integrate
 ```
 
-## Scope freeze / next gates
+## Current Formal Review gate
 
-1. T05F00 -005 已通过真实 production Bridge 集成；T05F00 -004 dirty worktree 与 T05D00 probe evidence 继续 untouched。
-2. T05F01 `-001` 因 final message 重复 `task_id` terminal blocked；dirty implementation只作为 immutable evidence，不形成 candidate。Retry `-002` 使用 fresh dispatch与fresh branch；complete exact Contract bundle 已由用户在 exact planning Stage SHA `8b86c1e175e2294c6004a1321f294915ce7a28fc` 上接受，`status=Accepted`、`confirmed_by_user=true`。
-3. T05F01 仅清理 generic Worker Result parser/validator：future result 不要求 `native_backend`、`verification` 或 `reported_task_head_sha`，成功 status 为 `implementation_ready`。T05R02 与 T05F00 已建立的 Controller candidate path 全部作为 current behavior 保留。
-4. T05F01 future production scope 精确为 `controller.mjs` 与 `tests/controller.test.mjs`；若需要第三个 production/test file，必须 `needs_decision` 并停止。
-5. T05F01 仍是 T05F00 Root-only native multi-agent prompt boundary 的真实 consumer；Retry `-002` exact Contract bundle 已接受，但未授权 environment preparation、dispatch、children 或 `run-once`。
-6. [T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 保持 unchanged、不可 dispatch。
-7. 当前唯一 next gate 是 `T05F01_002_environment_preparation_authorization`；acceptance 不授权 environment preparation、`run-once` 或 Formal Review。
-
-本轮只修改九份列明的 T05F01 governance acceptance files。验证后只允许一个 `docs(s02): accept T05F01 retry 002 contract` commit（parent exact `8b86c1e175e2294c6004a1321f294915ce7a28fc`）和一次 ordinary non-force Stage push；push 后立即停止。
+1. T05、T05F00 -005 与 T05F01 -002 已全部集成；Router 当前没有新的 Task dispatch。T05F00 -004 dirty worktree、T05D00 probe evidence 与 T05F01 -001 terminal evidence 继续 untouched。
+2. Stage `7de85b277693f7a907af907929d00239f9c62fd4` 已作为 Formal Review candidate 提交 fixed Chat Review，结果为 `REQUEST_CHANGES`，blockers 为 `FR-S02-001` 与 `FR-S02-002`；尚无 Formal Review `PASS`。
+3. S02 implementation 已完成但仍受 Formal Review gate 约束。每个新的 Stage head 都必须经过 fresh candidate publication、GitHub verification 与 fixed Chat Formal Review。
+4. 未取得 fixed Chat `PASS` 与后续用户授权前，不得执行 Stage→main integration、merge 或写 `main`。
+5. S02FR01 是 manual non-Router Formal Review repair；不得创建 Bridge Task lifecycle、Worker、children、Supervisor execution 或 synthetic lifecycle event。
+6. [T06](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md) 仍为 `Planning Placeholder`、`dispatchable=false`、`confirmed_by_user=false`，必须等待当前 S02 Formal Review cycle resolution 后再进行 fresh exact planning。

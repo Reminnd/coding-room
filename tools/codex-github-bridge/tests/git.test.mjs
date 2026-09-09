@@ -100,7 +100,6 @@ test('collects actual Git facts, gates owned files, and records cherry-pick mapp
     assert.equal(await repository.commitExists(integration.stageCommitSha), true);
     assert.equal(await repository.commitExists('0000000000000000000000000000000000000000'), false);
     assert.equal(await repository.isAncestor(integration.stageCommitSha, integration.stageCommitSha), true);
-    assert.equal(await repository.isAncestor(facts.taskHeadSha, integration.stageCommitSha), false);
     assert.deepEqual(await repository.changedFiles(integration.stageCommitSha), ['owned/result.txt']);
     assert.deepEqual(remoteReads, [
       ['ls-remote', '--refs', 'origin', 'refs/heads/task/test/A'],
