@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: A02-generic-result-tests
 parent_task_id: T05F01-generic-worker-result-boundary
 parent_dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-002

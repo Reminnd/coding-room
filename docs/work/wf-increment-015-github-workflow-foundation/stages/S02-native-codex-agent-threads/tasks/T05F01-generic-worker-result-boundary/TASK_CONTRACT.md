@@ -3,8 +3,8 @@
 ## Contract
 
 ```yaml
-status: Proposed
-confirmed_by_user: false
+status: Accepted
+confirmed_by_user: true
 task_id: T05F01-generic-worker-result-boundary
 type: Implementation Task
 dispatch_id: wf15-s02-t05f01-generic-worker-result-boundary-002
@@ -24,7 +24,7 @@ environment_preparation_completed: false
 run_once_authorized: false
 ```
 
-This fresh Retry `-002` outer Contract and its complete internal Contract bundle are Proposed at Stage planning base `ec62546d6126ef5ecfbd0eceed100f916d75aa27` and await fresh user acceptance. The `-001` acceptance does not carry forward. Fresh acceptance will not authorize environment preparation, dispatch, Implementation or `run-once`; those remain separate gates.
+The user accepted this complete exact Retry `-002` outer Contract and its internal Contract bundle at Stage planning SHA `8b86c1e175e2294c6004a1321f294915ce7a28fc`. The `-001` acceptance did not carry forward. This acceptance does not authorize environment preparation, dispatch, Implementation or `run-once`; those remain separate gates.
 
 ## Background
 

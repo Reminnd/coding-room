@@ -1,6 +1,6 @@
 # T05F01 INTERNAL MULTI-AGENT ROUTER CONTRACT
 
-> Bundle state: Proposed under T05F01 Retry `-002` at Stage planning base `ec62546d6126ef5ecfbd0eceed100f916d75aa27`. It awaits fresh outer Contract acceptance and does not authorize environment preparation, dispatch or Coding.
+> Bundle state: Accepted under exact outer T05F01 Retry `-002` acceptance at Stage planning SHA `8b86c1e175e2294c6004a1321f294915ce7a28fc`. Acceptance does not authorize environment preparation, dispatch or Coding.
 
 This is an internal execution contract for one logical T05F01 Task. It is not the Local Bridge Router, a Git Task graph, a formal Review result or a second workflow authority.
 
@@ -8,7 +8,7 @@ This is an internal execution contract for one logical T05F01 Task. It is not th
 {
   "contract_type": "t05f01_internal_multi_agent_router",
   "contract_version": 1,
-  "status": "proposed_waiting_for_fresh_outer_acceptance",
+  "status": "accepted_under_outer_exact_contract_acceptance",
   "outer_task": {
     "task_id": "T05F01-generic-worker-result-boundary",
     "dispatch_id": "wf15-s02-t05f01-generic-worker-result-boundary-002",
