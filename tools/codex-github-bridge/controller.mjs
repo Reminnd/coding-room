@@ -15,18 +15,8 @@ const WORKER_RESULT_SCALARS = new Set([
   'reported_base_sha',
   'status',
 ]);
-const WORKER_RESULT_LISTS = new Set(['changed_files', 'deviations', 'unresolved', 'questions']);
-const WORKER_RESULT_MAPS = {
-  native_backend: new Set([
-    'interface',
-    'worker_mode',
-    'explicit_thread_cwd',
-    'explicit_turn_cwd',
-    'terminal_event',
-    'silent_fallback',
-  ]),
-  verification: new Set(['bridge_tests', 'typecheck', 'full_tests', 'diff_check']),
-};
+const WORKER_RESULT_LISTS = new Set(['deviations', 'unresolved', 'questions']);
+const WORKER_IMPLEMENTATION_LISTS = new Set(['changed_files']);
 
 function parseWorkerString(raw) {
   const value = raw.trim();
@@ -43,8 +33,8 @@ function setWorkerField(target, key, value, path) {
   target[key] = value;
 }
 
-// Worker final messages use the exact small YAML subset in the T05 Contract.
-// This parser deliberately does not become a generic YAML or cross-Task schema layer.
+// Worker final messages use a small task-generic YAML subset.
+// This parser deliberately does not become a generic YAML or Task-specific schema layer.
 function parseWorkerCodingResult(lastMessage) {
   if (typeof lastMessage !== 'string' || lastMessage.trim().length === 0) {
     throw new Error('result is empty');
@@ -63,14 +53,10 @@ function parseWorkerCodingResult(lastMessage) {
         const value = parseWorkerString(raw);
         if (value === null) throw new Error(`${key} must be a non-empty string`);
         setWorkerField(result, key, value, key);
-      } else if (WORKER_RESULT_LISTS.has(key)) {
+      } else if (WORKER_RESULT_LISTS.has(key) || WORKER_IMPLEMENTATION_LISTS.has(key)) {
         if (raw !== '' && raw !== '[]') throw new Error(`${key} must be a list`);
         setWorkerField(result, key, [], key);
         if (raw === '') section = { kind: 'list', key };
-      } else if (Object.hasOwn(WORKER_RESULT_MAPS, key)) {
-        if (raw !== '') throw new Error(`${key} must be a mapping`);
-        setWorkerField(result, key, {}, key);
-        section = { kind: 'map', key };
       }
       continue;
     }
@@ -83,20 +69,6 @@ function parseWorkerCodingResult(lastMessage) {
         result[section.key].push(value);
       }
       continue;
-    }
-
-    if (section?.kind === 'map') {
-      const field = /^  ([a-z_]+):(?:\s*(.*))?$/.exec(line);
-      if (!field || !WORKER_RESULT_MAPS[section.key].has(field[1])) continue;
-      const [, key, raw = ''] = field;
-      if (section.key === 'native_backend' && key === 'silent_fallback') {
-        if (raw !== 'false') throw new Error('native_backend.silent_fallback must be boolean false');
-        setWorkerField(result[section.key], key, false, `${section.key}.${key}`);
-      } else {
-        const value = parseWorkerString(raw);
-        if (value === null) throw new Error(`${section.key}.${key} must be a non-empty string`);
-        setWorkerField(result[section.key], key, value, `${section.key}.${key}`);
-      }
     }
   }
   return result;
@@ -118,43 +90,7 @@ function validateWorkerCodingResult(processResult, task, baseSha) {
   }
   if (result.status !== 'implementation_ready') return result;
 
-  for (const [section, required] of Object.entries(WORKER_RESULT_MAPS)) {
-    if (typeof result[section] !== 'object' || result[section] === null || Array.isArray(result[section])) {
-      throw new Error(`missing field ${section}`);
-    }
-    for (const key of required) {
-      if (!Object.hasOwn(result[section], key)) throw new Error(`missing field ${section}.${key}`);
-    }
-  }
-  if (result.native_backend.worker_mode !== 'one_thread_per_task') {
-    throw new Error('native_backend.worker_mode must be one_thread_per_task');
-  }
-  if (result.native_backend.silent_fallback !== false) throw new Error('native_backend.silent_fallback must be false');
-  for (const key of ['explicit_thread_cwd', 'explicit_turn_cwd']) {
-    if (result.native_backend[key] !== 'pass') {
-      throw new Error(`native_backend.${key} must report semantic pass`);
-    }
-  }
-  for (const key of ['bridge_tests', 'typecheck', 'diff_check']) {
-    const value = result.verification[key];
-    const outcome = /^(pass-under-accepted-amendment|pass|fail)\b/i.exec(value);
-    if (!outcome || value.replace(outcome[0], '').replace(/[\s`():+\-—]/g, '').length === 0) {
-      throw new Error(`verification.${key} must contain a semantic outcome and command`);
-    }
-    if (outcome[1].toLowerCase() !== 'pass') {
-      throw new Error(`verification.${key} must report ordinary pass`);
-    }
-  }
-
-  const fullTests = result.verification.full_tests;
-  const fullTestsOutcome = /^(pass-under-accepted-amendment|pass|fail)\b/i.exec(fullTests);
-  if (!fullTestsOutcome || fullTests.replace(fullTestsOutcome[0], '').replace(/[\s`():+\-—]/g, '').length === 0) {
-    throw new Error('verification.full_tests must contain a semantic outcome and command');
-  }
-  if (!['pass', 'pass-under-accepted-amendment'].includes(fullTestsOutcome[1].toLowerCase())) {
-    throw new Error('verification.full_tests must report semantic pass');
-  }
-  if (result.changed_files.length === 0) {
+  if (!Array.isArray(result.changed_files) || result.changed_files.length === 0) {
     throw new Error('changed_files must not be empty for implementation_ready');
   }
   return result;
