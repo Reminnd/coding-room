@@ -593,8 +593,15 @@ test('skill re-reads the durable Room after every invocation and reports only th
 });
 
 test('launcher regression: npm --prefix reaches the Agent Room CLI from a temporary target cwd without a package manifest', () => {
-  const npmCliJs = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
-  assert.ok(existsSync(npmCliJs), `npm cli not found next to node: ${npmCliJs}`);
+  const npmCliCandidates = [
+    typeof process.env.npm_execpath === 'string' && process.env.npm_execpath.trim() !== ''
+      ? process.env.npm_execpath
+      : undefined,
+    join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    join(dirname(dirname(process.execPath)), 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ].filter((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0);
+  const npmCliJs = npmCliCandidates.find((candidate) => existsSync(candidate));
+  assert.ok(npmCliJs, `npm cli not found; checked: ${npmCliCandidates.join(', ')}`);
   const target = mkdtempSync(join(tmpdir(), 'agent-room-target-'));
   try {
     // temporary target cwd 没有 package.json 或 room:run script，必须仍能经 --prefix 到达 Agent Room CLI。

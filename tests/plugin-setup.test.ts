@@ -83,6 +83,8 @@ function makeGitProject(): string {
       GIT_CONFIG_NOSYSTEM: '1',
     },
   });
+  execFileSync('git', ['config', '--local', 'user.name', 't'], { cwd: fixture });
+  execFileSync('git', ['config', '--local', 'user.email', 't@example.com'], { cwd: fixture });
   execFileSync('git', ['config', '--local', 'commit.gpgsign', 'false'], { cwd: fixture });
   execFileSync('git', ['config', '--local', 'core.autocrlf', 'false'], { cwd: fixture });
   writeFileSync(join(fixture, 'seed.txt'), 'base');
@@ -679,11 +681,12 @@ test('v0.2 binding is rejected byte-for-byte before direct v0.5 migration', () =
     const oldDbBytes = readFileSync(oldDb);
 
     const legacyPort = 43210;
+    const legacyRoot = join(fixture, 'legacy-agent-room-root');
     writeFileSync(
       join(fixture, '.agent-room', 'runtime.json'),
       JSON.stringify(
         {
-          agent_room_root: 'D:/agent/room-v02-launcher',
+          agent_room_root: legacyRoot,
           database_path: oldDb,
           project_path: fixture,
           port: legacyPort,
