@@ -1,6 +1,6 @@
 # Local Parallel Codex — S03 Native Contract Supervisor Router Agent
 
-Owner: Codex。当前 lifecycle：`contract_frozen_locally_waiting_for_stage_push_authorization`。
+Owner: Codex。当前 lifecycle：`s03cf01_repaired_locally_waiting_for_stage_push_authorization`。
 
 ## Role and authority
 
@@ -26,7 +26,7 @@ Before dispatch, all conditions must hold:
 - repository Actions settings are already Ready; no bootstrap is required;
 - actual GitHub `main` contains exact accepted S02 head `c6f22fa110076a2784a39702c18a7c6ba99199db`;
 - S03 branch, branch-derived identity, Router path and normalized Router fields agree;
-- the exact S03 Contract bundle has been pushed, mechanically validated and explicitly accepted by the user at that pushed SHA;
+- the `S03CF01` repaired Contract bundle has been pushed, mechanically validated with a fresh exact handoff and explicitly accepted by the user at that pushed SHA; rejected candidate `ddbc5a35d734eaca908090013b3ce29202086483` is not acceptable dispatch authority;
 - separate authorization exists for T06 task branch/worktree preparation and one `run-once`;
 - actual Stage worktree is clean and has no conflicting current dispatch/recovery fact.
 
@@ -40,7 +40,7 @@ Dispatch T06 through `CodexLauncher.launchWorker` as one fresh native app-server
 
 - `thread/start`: exact task worktree `cwd`, resolved model, `approvalPolicy=never`, `sandbox=workspace-write`, `ephemeral=true`;
 - `turn/start`: the same worktree `cwd`, thread ID, model/effort, `workspaceWrite` with only that worktree writable and network disabled;
-- prompt: exact Accepted T06 Contract, dispatch envelope, exact six owned paths and dependency facts;
+- prompt: exact Accepted T06 Contract, dispatch envelope, exact fourteen owned paths and dependency facts;
 - subagents: forbidden for T06; no Contract exception is present;
 - completion: only the matching thread/turn `final_answer` plus matching terminal `turn/completed` is relevant.
 
@@ -57,10 +57,10 @@ Authority remains separated:
 - ownership: Router `owns` + observed working paths + `mechanicalGate()`;
 - candidate identity: Controller-observed Git facts after exact-path staging and deterministic commit.
 
-For `implementation_ready`, require exact base/branch, zero pre-existing staged paths, exact six working paths, Worker/observed path equality, ownership, Router verification, post-verification path stability, exact-path candidate commit, candidate-file equality and mechanical gate. Then run Supervisor Integration; only `ready_to_integrate` permits Task push and controlled cherry-pick.
+For `implementation_ready`, require exact base/branch, zero pre-existing staged paths, exact fourteen working paths, Worker/observed path equality, ownership, Router verification, post-verification path stability, exact-path candidate commit, candidate-file equality and mechanical gate. Router verification must run the existing Bridge test suite and `git diff --check`; exact changed-path/Worker consistency, immutable S01/S02 history, Current authority consistency, Agent Room Claude runtime versus Local Codex development-surface distinction, Markdown links and merge markers remain `supervisor_check` evidence. No shell fallback is permitted. Then run Supervisor Integration; only `ready_to_integrate` permits Task push and controlled cherry-pick.
 
 ## Stop boundaries
 
-This locally frozen bundle authorizes none of the dispatch or delivery actions above. Until later gates are separately granted, do not push S03, create T06 branch/worktree, invoke `start`/`run-once`, start a Worker/Supervisor, stage implementation files, integrate or publish lifecycle events.
+The locally repaired `S03CF01` governance bundle consists only of the six existing PLAN/EXECUTION_PLAN/STAGE/ROUTER/Supervisor/T06 Contract files; it is distinct from T06's future fourteen-path implementation ownership. It authorizes none of the dispatch or delivery actions above. Until later gates are separately granted, do not push the repair, create T06 branch/worktree, invoke `start`/`run-once`, start a Worker/Supervisor, stage implementation files, integrate or publish lifecycle events.
 
 During later execution, conflict means abort the cherry-pick and return `blocked`. Automatic retry, repair, rebase, conflict resolution, force push, formal Review, Stage-to-main write, alternate workflow, hash/patch-id index and local workflow/thread database remain forbidden.

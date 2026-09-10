@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S03 Native Codex Thread Contracts
 
-> Owner: Codex。冻结基线：`c6f22fa110076a2784a39702c18a7c6ba99199db`。该 JSON 使用现有 stage-generic Router grammar；`status: dispatch_ready` 仅表示机械格式可验证，不表示本地 freeze 已获得 Stage push、Contract acceptance、environment preparation 或 T06 dispatch authority。
+> Owner: Codex。Stage creation base：`c6f22fa110076a2784a39702c18a7c6ba99199db`；`S03CF01` repair parent：`ddbc5a35d734eaca908090013b3ce29202086483`。该 JSON 使用现有 stage-generic Router grammar；`status: dispatch_ready` 仅表示机械格式可验证，不表示 local repair 已获得 push、Contract acceptance、environment preparation 或 T06 dispatch authority。
 <!-- ROUTER_CONTRACT_V1 -->
 
 ```json
@@ -28,21 +28,32 @@
       "depends_on": [],
       "owns": [
         "AGENTS.md",
+        "CLAUDE.md",
         "PROJECT_RULES.md",
-        "docs/documents/DEVELOPMENT_LOG.md",
         "docs/documents/README.md",
+        "docs/documents/ARCHITECTURE.md",
+        "docs/documents/DEVELOPMENT_LOG.md",
+        "docs/documents/MVP_PLAN.md",
         "docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md",
-        "docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md"
+        "docs/documents/agent-guides/README.md",
+        "docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md",
+        "docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md",
+        "docs/documents/agent-guides/CLAUDE_CODING_AND_FIX.md",
+        "docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md",
+        "docs/work/wf-increment-015-github-workflow-foundation/SUPERVISOR_ROUTER_AGENT.md"
       ],
-      "model_policy": "fast_general",
-      "reasoning_effort": "low",
+      "model_policy": "coding_strong",
+      "reasoning_effort": "high",
       "fallback_model_policy": null,
       "verification": [
+        "node --test tools/codex-github-bridge/tests/*.test.mjs",
         "git diff --check",
-        "relative Markdown link audit for the exact six changed governance files",
-        "merge marker audit for the exact six changed governance files",
-        "native task-thread and generic Worker Result authority consistency audit against integrated source and tests",
-        "Current/candidate and exact ownership audit"
+        "exact changed-path / Worker changed_files consistency",
+        "no S01/S02 historical Stage modification",
+        "Current authority consistency",
+        "Agent Room Claude runtime and Local Codex development surface distinction",
+        "relative Markdown link audit for the exact fourteen changed T06 implementation files",
+        "merge marker audit for the exact fourteen changed T06 implementation files"
       ]
     }
   ],
@@ -73,7 +84,7 @@
 
 - S03 planning base is exact accepted/integrated GitHub `main` `c6f22fa110076a2784a39702c18a7c6ba99199db`; runtime `base_sha` must be re-read from the actual Stage branch at dispatch.
 - Router `depends_on=[]` is correct because T05/T05F00/T05F01 are cross-Stage accepted history already contained in the S03 base, not S03 tasks.
-- Do not push this Stage until separately authorized. After push, do not create the T06 task branch/worktree or invoke Local Bridge until the user accepts the exact pushed Contract SHA and separately authorizes environment preparation and one-shot execution.
+- S03 Stage and Draft PR #7 already exist; pushed candidate `ddbc5a35d734eaca908090013b3ce29202086483` is rejected Contract history, not accepted dispatch authority. Do not push the `S03CF01` repair until separately authorized. After repair push, do not create the T06 task branch/worktree or invoke Local Bridge until Actions emits a fresh exact handoff, the user accepts that exact pushed Contract SHA and separately authorizes environment preparation and one-shot execution.
 - T06 must use one fresh native Codex task thread bound to its assigned worktree. Native capability, exact model/effort, explicit `cwd`, reroute or matching terminal observation failure returns `needs_decision`; no pre-S02 `codex exec` fallback is allowed.
 - T06 Worker Result is task-generic. Worker self-report is not authority for native facts, Router verification, ownership or candidate commit identity.
 - S01/S02 remain immutable accepted history. `room:status --help` remains Deferred. Repository bootstrap, alternate Stage, local workflow database, replay and silent repair are forbidden.
