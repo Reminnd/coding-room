@@ -4,6 +4,8 @@
 > Reader：Codex  
 > Trigger：需求分析、架构、规划、Task Contract、Code Review、Fix finding、解决方案、Review 后运维文档维护或 Fix 验收后经验回收
 
+Current repository-development native Worker/generic Result source authority 为已接受并集成的 S02 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 对本指南的同步仍是 candidate。
+
 ## 1. 开始前建立证据边界
 
 1. 读取 `PROJECT_RULES.md`、会话必读文档、当前 Accepted Contract、相关协议/ADR/计划与开发状态。
@@ -71,7 +73,7 @@ Verification 条目必须包含：
 7. 文档、Coding Result 和实际 Diff 是否描述同一行为。
 8. 本次 Diff 是否改变人工运维所需的接口、架构、结构、命令、状态/制品位置、故障或恢复语义。
 
-Coding Result 至少核对 `task_id`、status、summary、changed files、deviations、verification、tests、documentation changes、unresolved 和 questions；模型自述不能替代实际 Git 与命令证据。
+Agent Room/Claude Runner Coding Result 至少核对 `task_id`、status、summary、changed files、deviations、verification、tests、documentation changes、unresolved 和 questions。Local Bridge native Worker 使用独立的 task-generic Result：common fields 只有 `task_id/dispatch_id/reported_base_sha/deviations/unresolved/questions/status`，`implementation_ready` 另需 non-empty `changed_files`；不得向 Worker 索取 `native_backend`、`verification` 或 `reported_task_head_sha`。两类模型自述都不能替代实际 Git、process 与命令证据。
 
 ### 4.2 测试全绿后的必要追问
 
@@ -165,6 +167,8 @@ finding 成立不自动证明某个方案正确。Reviewer 也可能错误；未
 ## 8. Review 输出与阶段
 
 正式项目开发Review的Authority是ChatGPT fixed Chat，持久化surface是GitHub Pull Request；Work只通知，Actions与Supervisor不得作Review decision、approve或merge。完整规则见[Chat/GitHub Review指南](./CHAT_GITHUB_REVIEW.md)。
+
+S02 之后，Formal Review 输入中的 native identity/status 必须来自 Controller 保存的 `processResult.native`，verification 必须来自 Router `task.verification → runVerification()`，ownership/candidate identity 必须来自 Router与Controller-observed Git facts。Worker Result 只作为 semantic handoff；native thread/UI history仅可导航，不是恢复或验收 authority。Review 仍针对 Stage exact head，不在 Task 或 Supervisor 层给出 Formal Review decision。
 
 
 每个 finding 包含：严重性、标题、文件/行号、触发路径、错误与证据、影响、规则关系、最小方向。

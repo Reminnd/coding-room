@@ -1,5 +1,8 @@
 # Claude Code Coding 与 Fix 指南
 
+> Scope：本指南只约束 Agent Room 产品 runtime 的 Claude Code execution。Current repository-development Worker 已由 S02 切换为 Local Codex fresh native task thread；其 prompt、task-generic Result 与 Controller handoff 以 [Stage 4 Local Parallel Amendment](../STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 为准，不复用本指南的 Claude Coding Result schema。
+> Source status：S02 已接受并集成于 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 对本指南的同步在 Stage Review、用户接受与 main 集成前仅为 candidate。
+
 > 状态：Current  
 > Reader：Claude Code  
 > Trigger：任意 Implementation Task 或 Fix Task
@@ -147,7 +150,7 @@ Node.js 异步 `execFile` 的 callback 为 `(error, stdout, stderr)`；stderr �
 - 注释解释关键 invariant、非显然顺序及为什么 transaction 能保证 rollback；不逐行复述。
 - `DEVELOPMENT_LOG.md` 记录实际 changed files、行为、测试数、命令结果、偏差和 `REVIEW_REQUIRED` 阶段。
 - 不修改 Contract 禁止触及的共享规范或架构文档；若必须改变，返回 `needs_decision`。
-- Coding Result 必须列出 task_id、状态、摘要、changed files、deviations、verification、tests、documentation changes、unresolved 和 questions。
+- Agent Room/Claude Runner Coding Result 必须列出 task_id、状态、摘要、changed files、deviations、verification、tests、documentation changes、unresolved 和 questions；不得把该 shape 强加给 Local Bridge task-generic Worker Result。
 - 完成后停止在 `REVIEW_REQUIRED`；不 commit、不宣布 Review 通过或 Increment 被接受。
 
 ## 10. Process settlement 与 Frozen Authority

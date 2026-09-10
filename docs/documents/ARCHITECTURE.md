@@ -605,3 +605,11 @@ Fix后权威语义：
 - `room:serve`使用v0.5 source与新database监听原port。reload continuation只通过project-scoped MCP创建一次同ID Room并再次读取；snapshot为Room=`DISCUSSION`、`planning_waiting_actor=planner`、cursor=`1`、唯一Event=`room_created`，所有Plan/Revision/Approval/Task/Run/Attempt/Review/Question/GitAction集合为空。
 - bootstrap authority为`codex-app → planner/reviewer/orchestrator`、`claude-code-cli → worker`、`local-runner → executor/git_controller`；`local-runner` capabilities包含`execution`与`git_control`。Git mutation仍只允许经exact preview、用户Approval与one-shot `room:git`执行，cutover本身未创建或执行GitAction。
 - setup在Room可读且处于`DISCUSSION`后停止；未自动开始Architecture Review、创建Plan/Task/Run、调用`room:run`或清理旧database/worktree。service仍为本地manual process，不新增service manager、automatic restart或health scheduler。
+
+## 18. Current repository-development control plane
+
+> 状态：Current。S02 native Worker 与 generic Result 已由用户接受并集成，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 文档 Diff 在 Stage Review、用户接受与 main 集成前仅为 candidate。
+
+Repository development 位于 Agent Room 产品 runtime 之外：GitHub/Git 持久化 accepted Contract、dispatch、branch/commit、PR/Check 与 Review handoff；Local Bridge 计算 DAG/Ready Set、创建 Task worktree、启动 fresh ephemeral native Codex thread，并独立完成 verification、candidate Git facts、Supervisor Integration、Task push 与 controlled Stage cherry-pick；fixed Chat 对 Stage exact head 执行唯一 Formal Review。
+
+Native thread/turn 只是绑定 Task worktree 的 app-server execution surface，不拥有 workflow state、recovery、Review 或 merge。Worker Result 只是 task-generic semantic handoff；native、verification、ownership和candidate identity各自由 process/Router/Controller/Git事实拥有。完整 lifecycle、failure、prompt与Result boundary见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)，精确Git delivery顺序见 [Git 与并行工作流指南](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。本节不改变Room protocol、SQLite、product Runner或Claude Code行为。
