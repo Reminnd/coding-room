@@ -11,7 +11,8 @@
 > Increment 7：Review `review-increment-007-codex-005` `approved` / 用户已接受 / `ACCEPTED` / main commit `97005f54555f6485c79f15860a58fe79c3ed593d`
 > Increment 8：Fix Review 3 `approved` / 用户已最终接受 / `ACCEPTED` / main commit `8428046dded5f7542690735b3df8a5c5490e8090`
 > Agent Room v0.3：Stage 1已获用户最终接受并进入版本化`main`；active runtime已完成独立授权的database/binding cutover，Increment 10 workflow Room=`ACCEPTED`
-> Increment 14：Contract与Fix Task 1/2均为`Accepted` / Fix candidate `REVIEW_REQUIRED` / branch `codex/increment-14-fix-2-process-close-f95c63c`
+> Increment 14：`accepted_and_integrated` / final commit `d5827a052190d63fb2fbbd9fbd970ba9db92ed64`
+> Increment 15：S01/S02已完成；native Codex Worker/generic Result为Current，accepted/integrated `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06文档同步为candidate
 
 ## 1. 目标
 
@@ -331,9 +332,11 @@ Fix范围：`startClaudeProcess`把同步stdout callback异常转为typed Promis
 
 验证：Fix candidate按Accepted Contract执行typecheck、process/runner、execution-core、Room/MCP/CLI/Git及full suite；最终结果与Git/文档检查记录在[开发日志](./DEVELOPMENT_LOG.md)。
 
-### 增量 15 — GitHub Workflow Foundation（Revision 2 Accepted / PLAN_READY）
+### 增量 15 — GitHub Workflow Foundation（S02 Current / S03 candidate）
 
-[Architecture Review](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md)与[No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md)均为`Approved / User Confirmed`；[Increment 15 Revision 2 Contract](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md)=`Accepted / PLAN_READY`、`confirmed_by_user=true`。目标是用`room:status --help`真实Pilot证明GitHub Plan/Contract/Actions/Codex Cloud/PR/Chat Review闭环；本Bootstrap只建立Foundation，不实现Pilot代码。
+S01建立GitHub/Git、Local Bridge、Stage/Task与fixed Chat基础控制面；S02已把repository-development Worker切换为fresh native Codex task thread，并把Result收敛为task-generic semantic handoff。S02经fixed Chat Review、用户exact-SHA接受与non-force fast-forward后成为Current，source authority为`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。
+
+S03 T06只同步十四份治理文档，不改变source、tests、Room protocol、SQLite、product Runner或Claude Code。其Diff在Stage exact-head verification、fixed Chat Formal Review、用户exact-SHA接受与main集成前保持candidate。Current project-development路径与职责分离见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)。
 
 ## 5. Task Contract 规则
 

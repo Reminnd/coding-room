@@ -84,6 +84,7 @@ docs/work/
 | Increment 顺序与验收 | `MVP_PLAN.md`、Accepted Task Contract | Development Log 只记录事实 |
 | 当前阶段与验证历史 | `DEVELOPMENT_LOG.md` | 其它文档不维护平行进度 |
 | 人工操作与故障处置 | `OPERATIONS.md` | 架构文档链接 Runbook |
+| repository-development native Worker、generic Result 与 authority separation | `STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md` | 入口与角色指南只路由；Git 顺序由 Git guide 细化 |
 
 ## 5. 编写与维护流程
 
@@ -94,6 +95,8 @@ docs/work/
 5. **区分 Current 与 Candidate**：未接受或未集成内容只能标记 candidate，不得写成当前可用能力。
 6. **一致性检查**：核对源码接口、`package.json` command、Git baseline、测试证据、协议和相对链接。
 7. **收口决策**：集中列出风险、待确认项、Owner 和后续行动；不把开放问题藏在正文。
+
+项目开发控制面文档还 MUST 区分两类实现事实：accepted/integrated S02 native Worker/generic Result 是 Current，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；后续 Stage 文档 Diff 在 fixed Chat Review、用户 exact-SHA 接受与 main 集成前始终是 candidate。不得用 native thread/UI history替代GitHub/Git事实，也不得把 Local Codex Worker描述为 Agent Room product Runner 或 Claude Code session。
 
 ## 6. 每次 Review 后的文档维护门禁
 

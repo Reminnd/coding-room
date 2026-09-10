@@ -4,6 +4,8 @@
 > 维护者：Codex；Claude Code 可按 Implementation Task 提交候选更新  
 > 作用：为 `AGENTS.md` 与 `CLAUDE.md` 提供按任务触发的渐进式读取结构；项目文档总入口见 [文档中心](../README.md)
 
+S02 native Worker/generic Result 已接受并集成于 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 对本索引的同步在 Stage Review、用户接受与 main 集成前仅为 candidate。
+
 ## 1. 权威关系
 
 - `AGENTS.md` 与 `CLAUDE.md` 是各自角色的入口和最高角色契约。
@@ -19,9 +21,10 @@
 | Codex | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、[CODEX_DOCUMENTATION_AUTHORING.md](./CODEX_DOCUMENTATION_AUTHORING.md) 与 [文档中心](../README.md) |
 | Claude Code | 任意 Implementation Task 或 Fix Task | [CLAUDE_CODING_AND_FIX.md](./CLAUDE_CODING_AND_FIX.md) |
 | Codex | branch、worktree、并行拆分、integration、baseline 或 commit | [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) 的 Codex 部分 |
+| Local Codex Worker | Current native task thread、prompt、generic Result 或 Controller handoff | [Stage 4 Local Parallel Amendment](../STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 与 [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) |
 | Codex Supervisor | 历史 Cloud Router（Superseded）；Current 路由见 Local Parallel amendment | [CODEX_SUPERVISOR_ROUTER.md](./CODEX_SUPERVISOR_ROUTER.md) |
 | ChatGPT fixed Chat | GitHub PR正式Review、finding或acceptance | [CHAT_GITHUB_REVIEW.md](./CHAT_GITHUB_REVIEW.md) 与 [CODEX_REVIEW_AND_PLANNING.md](./CODEX_REVIEW_AND_PLANNING.md) |
-| Claude Code | 并行模块、worktree、integration 或任何 Git 写操作 | [GIT_AND_PARALLEL_WORKFLOW.md](./GIT_AND_PARALLEL_WORKFLOW.md) 的 Claude Code 部分 |
+| Claude Code | Agent Room 产品 runtime 的 Coding/Fix、Claude process/session | [CLAUDE_CODING_AND_FIX.md](./CLAUDE_CODING_AND_FIX.md)；repository-development native Worker 不读取此指南作为 Result authority |
 
 ## 3. 维护规则
 

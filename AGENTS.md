@@ -5,6 +5,8 @@
 
 本文件只保留 Codex 必须在入口上下文中持有的角色边界、阶段门禁和文档路由。详细方法按任务触发读取 `docs/documents/agent-guides/`，不得仅凭本文件摘要执行非平凡任务。
 
+Current repository-development Worker/generic Result 来自已接受并集成的 S02，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`。S03 T06 对本文件的同步在 Stage Review、用户接受与 main 集成前仅为 candidate。
+
 ## 1. 权威来源与指令边界
 
 - 当前用户明确要求决定本次目标和范围；本文件决定 Codex 的项目内职责与权限。
@@ -39,7 +41,7 @@
 - 确认 Review finding 的解决方案、最终接受与 Git 写操作。
 - 未确认的讨论结论不得被当作已批准方案派发。
 
-### 3.2 Codex
+### 3.2 fixed Chat Codex
 
 Codex 可以：
 
@@ -49,21 +51,28 @@ Codex 可以：
 - 作为全项目文档编写者及维护者，调用 `backend-doc-authoring` skill 编写、补全、迁移、Review 并维护 `docs/documents/` 下全部项目文档。
 - 为 Review 运行能改变结论的只读检查、构建或测试。
 - 通过ChatGPT fixed Chat审查GitHub PR的代码、测试、配置和候选文档Diff。
-- 在本地维护方案与已批准 Contract；Local Bridge 依据 GitHub 持久化事实调度 Local Codex。fixed Chat 承担正式 Review，GitHub Actions 仅执行机械校验。
+- 在本地维护方案与已批准 Contract；Local Bridge 依据 GitHub/Git 持久化事实调度 Local Codex Implementation Worker。fixed Chat 承担正式 Review，GitHub Actions 仅执行机械校验。
 
 Codex 不得：
 
-- 在未获Accepted Contract授权时编写、修改或自动修复业务代码、测试或实现配置。
+- 以 fixed Chat 规划/Review 身份编写、修改或自动修复业务代码、测试或实现配置；Coding 只由已获 Accepted Contract 与独立 dispatch 授权的 Local Codex Worker 执行。
 - 在用户确认方案前派发 Implementation Task，或在 Review 后跳过用户讨论直接派发 Fix Task。
 - 把推测性风险、无关清理、既有问题或纯风格意见作为阻塞 finding。
 - 未经明确授权执行 commit、push、merge、rebase、reset、checkout、clean、切换分支或改写历史。
 
-### 3.3 Claude Code 边界
+### 3.3 Local Codex Implementation Worker 边界
+
+- Current 项目开发 Worker backend 为 `codex_native_task_threads`：Local Bridge 为每个 Ready Task 在分配的 Task worktree 启动一个 fresh ephemeral native thread。
+- Worker 只执行完整 Accepted Contract、dispatch envelope、owned paths 与 dependency facts；它不拥有 workflow state、recovery、Formal Review、Git staging/commit/push 或 integration。
+- Worker subagent 默认禁止；只有 exact Accepted Contract 可以授权 Root-only native multi-agent，child-spawned writing descendants 始终禁止。
+- Worker Result 是 task-generic semantic handoff；native process、verification、ownership 与 candidate Git identity 分别由 Local Bridge/Controller 的实际观察拥有。详细 Current 契约见 [Stage 4 Local Parallel Amendment](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 与 [Git/Parallel Guide](./docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。
+
+### 3.4 Claude Code 边界
 
 - Claude Code 只实现已批准 Task Contract 或 Fix Task，并负责测试及实现相关候选文档。
 - Claude Code 不拥有需求、架构、范围、最终 Review 或用户接受决定。
 - Claude Code 的共享文档变更在 Codex Review 前只是候选变更。
-- Codex 不代替 Claude Code Coding；Claude Code 不代替 Codex 规划或 Review。
+- Claude Code 继续作为 Agent Room 产品 runtime 的既有执行 surface，不是 Current repository-development Local Bridge Worker；Claude Code 不代替 fixed Chat Codex 规划或 Review。
 
 ## 4. 启动协议与阶段门禁
 
@@ -97,7 +106,7 @@ DISCUSSION
 ```
 
 - `WAITING_FOR_USER_CONFIRMATION`：没有用户确认，不得派发。
-- `CODING`：Claude Code 执行；Codex 不抢做实现。
+- `CODING`：repository development 由独立 Local Codex Worker 执行；Agent Room 产品 runtime 仍可由 Claude Code Runner 执行。fixed Chat Codex 不抢做实现。
 - `REVIEW_REQUIRED`：Codex 审查完整 task-owned Diff 与证据。
 - `REVIEW_DISCUSSION`：先与用户讨论 finding 和方案。
 - `FIX_PLAN_READY`：仅在用户确认方案后生成并派发范围受限的 Fix Task。

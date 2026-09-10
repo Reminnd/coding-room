@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前规划阶段：PLAN_READY / Increment 15 Revision 2已由用户确认；Increment 14已`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Stage 1–3历史Accepted成果继续有效
+> 当前规划阶段：S03 T06 Implementation candidate；S02 native Worker/generic Result 已在用户接受后集成至 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；T06 文档同步尚未经过 Stage Review、用户接受或 main 集成
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -68,18 +68,19 @@
 - 确认需求、架构、Task Contract、Review 解决方案和最终接受。
 - 决定是否初始化 Git、提交、推送或执行其他有外部影响的操作。
 
-### 4.2 Codex
+### 4.2 fixed Chat Codex 与 Local Codex Worker
 
 - 负责需求分析、架构、规划、共享文档和 Review。
 - 作为全项目文档编写者及维护者，调用 `backend-doc-authoring` skill 编写、补全、迁移、Review 并维护 `docs/documents/` 下所有项目文档。
 - 只有在用户确认后才能提交 Implementation Task 或 Fix Task。
 - 可以读取代码、Git 状态和 Diff，并运行与 Review 结论直接相关的只读检查或测试。
-- 不编写业务代码、测试或实现配置，不代替 Claude Code 完成 Coding Task。
+- fixed Chat Codex 不编写业务代码、测试或实现配置；Local Codex 仅在 Local Bridge 派发完整 Accepted Contract 后，以 fresh native task thread 在指定 Task worktree 执行 Coding。
 - Review 后必须先与用户讨论；用户确认解决方案后才能提交 Fix Task。
 - 已确认 Task 到达可执行 Coding state 后，Increment 7 Plugin workflow固定由Codex发起一次exact `room:run`，且host内部审批模式固定为UI“帮我批准”（`approvals_reviewer=auto_review`）。该权限不允许Codex或Plugin修改approval policy、绕过用户门禁、循环调度Run或代替Claude Code编写业务代码；`auto_review`拒绝时必须停止并报告。
 
 ### 4.3 Claude Code
 
+- Claude Code 是 Agent Room 产品 runtime 的既有执行 surface，不是 Current repository-development Local Bridge Worker。
 - 只执行已批准 Task Contract 或 Fix Task。
 - 负责业务代码、测试、必要配置和实现相关候选文档。
 - 不改变需求、架构、范围或验收标准。
@@ -94,9 +95,9 @@
 
 ## 4.5 项目开发控制面（Current）
 
-ChatGPT fixed Chat是正式Review Authority，GitHub Pull Request是正式Review surface。GitHub持久化项目开发Plan、Contract、commit、branch、PR、Check与Review交接；Local Bridge负责discovery、DAG/Ready Set调度与Git交付；Local Codex负责Coding。Work不属于Current控制面；GitHub Actions仅是机械控制面，不运行LLM。
+ChatGPT fixed Chat是正式Review Authority，GitHub Pull Request是正式Review surface。GitHub/Git持久化项目开发Plan、Contract、dispatch、commit、branch、PR、Check与Review交接；Local Bridge负责discovery、DAG/Ready Set、Task worktree与Git交付；Local Codex fresh native task thread负责Coding。Work不属于Current控制面；GitHub Actions仅是机械控制面，不运行LLM。
 
-Room SQLite继续拥有Agent Room产品运行时Run/RunAttempt等事实，但不再拥有项目开发Plan、Contract或Review authority。既有Room产品能力不删除，Stage 1–3历史Accepted成果继续有效。详细决定见[Stage 4 Architecture Review](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md)与[No-API-Key Amendment](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md)。
+S02 native Worker 与 task-generic Worker Result 已成为 Current implementation，accepted/integrated `main=c6f22fa110076a2784a39702c18a7c6ba99199db`。Native thread/UI history仅供观察；workflow recovery与交付继续以GitHub/Git事实为准。Room SQLite继续拥有Agent Room产品运行时Run/RunAttempt等事实，但不拥有项目开发Plan、Contract或Review authority；既有Room产品能力不删除。详细 Current 决定见[Stage 4 Local Parallel Amendment](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)。
 
 ## 5. 状态所有权
 
@@ -106,6 +107,8 @@ Room SQLite继续拥有Agent Room产品运行时Run/RunAttempt等事实，但不
 | Agent Room产品的Task、Review、Question、Run/RunAttempt、Event和Room状态 | SQLite |
 | 项目开发Plan、Contract、commit、branch、PR、Check与Review handoff | GitHub |
 | 项目开发正式Review decision | ChatGPT fixed Chat |
+| Local Codex native thread/turn identity 与 terminal status | Local Bridge `processResult.native` |
+| 项目开发 verification、owned working paths 与 candidate commit identity | Local Bridge Controller 对 Router/Git/process 的实际观察 |
 | Claude process 与 session 生命周期 | Claude Runner |
 | 用户与 Codex 的自由讨论 | Codex App |
 | 人工代码与 Diff 查看 | VS Code |
@@ -272,8 +275,8 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md](./docs/documents/agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Cloud Supervisor历史路由 | Codex | Historical evidence | Superseded |
 | [docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | GitHub/Chat Review控制面 | Codex | Stage 4+开发工作流 | Approved |
 | [docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | No-API-Key历史边界 | Codex | Historical evidence | Superseded |
-| [docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | Local Codex、Local Bridge、DAG/Ready Set控制面 | Codex | Current开发工作流 | Current |
-| [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 Revision 2 Bootstrap | Codex | Bootstrap与Pilot规划 | Accepted / PLAN_READY |
+| [docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | native Codex Worker、task-generic Result、Local Bridge与DAG/Ready Set控制面 | Codex | Current开发工作流 | Current at `main=c6f22fa110076a2784a39702c18a7c6ba99199db` |
+| [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 workflow foundation | Codex | S01/S02历史与S03 candidate | S02 Current / S03 candidate |
 | [docs/work/README.md](./docs/work/README.md) | 具体Workflow实例与模板入口 | Codex | Workflow执行 | Current |
 | [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
 | [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
@@ -441,4 +444,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15 Revision 2=`Accepted / PLAN_READY`、`confirmed_by_user=true`；当前一次性Bootstrap从该exact commit创建Stage branch。Room active v0.5 runtime继续存在且不因新项目开发控制面改变。
+Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15 S01/S02 已完成既定控制面迁移；S02 native Worker/generic Result 经 fixed Chat Review、用户 exact-SHA 接受和 non-force fast-forward 后成为 Current，`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。S03 T06 只同步十四份治理文档，当前仍是 Stage candidate；未经过 Stage Review、用户接受与 main 集成前不得写成 Current 文档变更。Room active v0.5 runtime继续存在且不因项目开发控制面改变。

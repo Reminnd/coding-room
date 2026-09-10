@@ -2,7 +2,9 @@
 
 ## Current Local Parallel control plane
 
-Local Bridge owns discovery, dependency-DAG/Ready-Set scheduling, independent worktrees, task-branch Git facts, task push and controlled task-to-Stage cherry-pick. Model policy and reasoning effort are immutable dispatch facts. Integration MUST stop on conflict; it never rebases or auto-resolves. Stage verification records the exact head and invalidates Ready for Review after any Stage change. Stage-to-main is a non-force fast-forward of the exact user-accepted Stage SHA.
+Local Bridge owns discovery, dependency-DAG/Ready-Set scheduling, independent worktrees, task-branch Git facts, task push and controlled task-to-Stage cherry-pick. Since accepted/integrated S02 (`main=c6f22fa110076a2784a39702c18a7c6ba99199db`), each Ready Task runs in one fresh ephemeral native Codex thread bound to its assigned worktree; model policy and reasoning effort are immutable dispatch facts. Integration MUST stop on conflict; it never rebases or auto-resolves. Stage verification records the exact head and invalidates Ready for Review after any Stage change. Stage-to-main is a non-force fast-forward of the exact user-accepted Stage SHA.
+
+S03 T06 changes to this guide remain a Stage candidate until fixed Chat Review, user exact-SHA acceptance and main integration.
 
 Repository lifecycle is `discovery → explicit codex-github-bridge bootstrap → Repository Ready → create/push Stage Router/branch → single existing stage-generic Actions workflow → normal Local Bridge execution`. Bootstrap is idempotent and changes only missing required repository Actions settings. Normal `start`/`run-once` perform read-only prerequisite checks and never silently bootstrap. Recovery uses durable GitHub comments, current dispatch identity, and minimum Git revalidation: remote Task SHA, Stage commit existence/ancestry, and current ownership are all required; inconsistency becomes `needs_decision`, never automatic repair or replay.
 
@@ -36,6 +38,12 @@ Repository lifecycle is `discovery → explicit codex-github-bridge bootstrap �
 
 ## 4. Claude Code：并行模块执行
 
+本节只适用于 Agent Room 产品 runtime 或历史 Claude execution。Current repository-development Worker 是 Local Codex native task thread，其 worktree/Git 权限如下：
+
+- Worker 只在 dispatch 指定 Task worktree 写 owned paths，并留下 unstaged Diff；不得 `git add`、commit、push、cherry-pick、branch/worktree 管理或 conflict resolution。
+- Worker Result 只报告 task identity、dispatch base、semantic status、deviation/question 与 success path set；native facts、verification、ownership 和 candidate commit identity 均由 Controller 独立拥有。
+- exact Accepted Contract 未授权时不得 spawn subagent；授权只可赋予 Root Worker，child-spawned writing descendants 始终禁止。
+
 - 只有 Contract 与 dispatch context 已明确 parent goal、accepted interface、scope、共享边界、baseline、branch/worktree 和独立验收时才开始。
 - 只在分配 worktree 工作；不读取其他 worker 未接受修改作为依赖，不向其他 worktree 写入。
 - 正确实现若必须修改共享 protocol/schema/package metadata/lockfile/central wiring 或其他 worker 所有路径，返回 `needs_decision`。
@@ -65,3 +73,19 @@ Claude Code 不执行角色契约或 Increment 自动提交，不预先 stage，
 项目开发采用Stage integration + logical Task branch/worktree；logical Task是默认调度单元，不再把Subtask作为Current默认路径。GitHub持久化Plan、Contract、commit、branch、PR、Check与Review交接。最终main集成只允许exact `accepted_head_sha`的non-force fast-forward；不得自动rebase、解冲突、force push或创建integration merge commit，真实Git失败立即停止。ChatGPT fixed Chat正式Review后若immutable reviewed SHA不变，最终FF后不重复Review。Supervisor不得approve或merge；Fix始终需要用户确认。
 
 The Stage-generic Actions path uses one existing `stage/**` workflow. For `stage/<workflow_id>/<stage_id>`, `workflow_id`, `stage_id`, and Router path are derived deterministically from the actual Stage branch; normalized Router identity MUST equal the GitHub event facts, while stale-readiness and exact-head gates remain. `main` is the exact source already accepted by the user; fixed Chat is the sole formal Review Authority, task candidates are never formally approved at Task level, and user exact-SHA acceptance precedes the non-force fast-forward to `main`.
+
+### Controller-owned candidate 顺序
+
+Worker native process 成功并返回 `implementation_ready` 后，Controller MUST 按以下顺序执行，不得让 Worker self-report 替代任一步：
+
+1. 校验 task-generic Result identity、base、common lists、status 与 non-empty `changed_files`。
+2. 观察 Task worktree 的 HEAD、branch、staged/working paths；要求 exact dispatch base、exact Task branch、zero staged、non-empty owned working paths，并要求 Worker/observed path set 相等。
+3. 执行 Router `task.verification → runVerification()`；command failure 阻塞，非 command requirement 保留为 Supervisor check evidence。
+4. verification 后再次观察，要求 HEAD/branch/staged 与原 working path set 未漂移。
+5. Controller 只 stage exact observed paths，核对 cached path set，执行 cached diff-check，并创建 deterministic `chore(task): complete <task_id>` candidate commit。
+6. 重新读取 candidate SHA、single parent、branch、changed files 与 clean status；要求 parent=dispatch base、candidate/observed path set 相等，并通过 `mechanicalGate()`。
+7. 将完整 Contract、actual Git/native/dependency/verification facts 与完整 Diff 交给 Supervisor Integration；Supervisor 只可返回 `ready_to_integrate | blocked | needs_decision`。
+8. Supervisor 与 dependency gate 均通过后，才 push exact Task candidate；随后在单一 Stage worktree controlled cherry-pick、确认 exact remote Stage head并发布 `task_integrated` lifecycle fact。
+9. 所有 Task 集成后发布 exact Stage `candidate_ready`；GitHub mechanical verification 后交 fixed Chat Formal Review。用户接受 exact reviewed SHA 后，另行授权 Stage→main non-force fast-forward。
+
+Recovery 只读取 current dispatch identity 的 durable GitHub comments，并重新验证 remote Task SHA、Stage commit existence/ancestry 与 current ownership；任何不一致为 `needs_decision`，不得自动 repair 或 replay。Native thread/UI history不参与恢复。

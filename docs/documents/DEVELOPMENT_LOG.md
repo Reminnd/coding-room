@@ -1,5 +1,12 @@
 # 开发日志
 
+## 2026-09-10 — S03 T06 native thread contracts candidate
+
+- S02 native Worker与task-generic Worker Result已完成fixed Chat Formal Review、用户exact-SHA接受与non-force fast-forward，Current source authority为`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。本次T06只同步十四份governance documents，不修改Bridge source/tests、Agent Room protocol、SQLite、product Runner或Claude Code行为。
+- Local Bridge实际派发`task_id=T06-native-codex-thread-contracts`、`dispatch_id=wf15-s03-t06-native-codex-thread-contracts-001`；immutable dispatch base=`d7f74f871eb4fcf55689dcb77406d0fbfed702c6`，Task branch=`task/wf-increment-015-github-workflow-foundation/T06-native-codex-thread-contracts`，worktree=`D:/agent/case/codex-claudecode-room-codex-workers/T06-native-codex-thread-contracts`，resolved model=`gpt-5.6-sol`，reasoning effort=`high`，dependency facts为空。Worker-spawned subagent未授权且未使用。
+- 本次native thread observation为`01a08a4c-1f3e-79d0-aa75-6014bee723a6`。turn ID不在Worker dispatch/env中暴露，必须由Worker返回后的Controller `processResult.native`与GitHub lifecycle publication记录；本文不猜测该值。当前尚未发生Controller staging/candidate commit、Supervisor Integration、Task push、Stage cherry-pick、candidate publication、Formal Review、用户接受或main集成，因此不记录candidate/Stage SHA，也不把T06 Diff写成Current。
+- Worker focused verification：`node --test tools/codex-github-bridge/tests/*.test.mjs`通过，86/86；`git diff --check`通过。交付检查确认HEAD/base与Task branch未漂移、zero staged、working set恰为十四个owned paths；本次新增/调整的relative Markdown links均指向既有目标，Diff无merge marker，Current/candidate与Agent Room/Local Codex边界一致。Worker status=`implementation_ready`；Controller仍须独立执行Router verification、Supervisor semantic checks与Git/mechanical gates。
+
 ## 2026-09-03 — Increment 15 Revision 2一次性Bootstrap
 
 - 用户确认Stage 4 GitHub/Chat Review Architecture与No-API-Key Amendment；两者状态为`Approved / User Confirmed`。Increment 15 Revision 2为`Accepted / PLAN_READY`、`confirmed_by_user=true`。

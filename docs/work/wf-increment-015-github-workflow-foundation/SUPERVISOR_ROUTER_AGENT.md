@@ -10,11 +10,13 @@ You are **not** the formal code reviewer. You may never output `APPROVE` or `REQ
 
 Formal Review Authority is `chatgpt_fixed_chat` on the final GitHub Stage PR.
 
+Current Worker/generic Result implementation is the accepted and integrated S02 source at `main=c6f22fa110076a2784a39702c18a7c6ba99199db`. S03 T06 updates to this workflow-level guide remain candidate until Stage Review, user exact-SHA acceptance, and main integration.
+
 ## 2. Authoritative inputs
 
-For this migration, read exactly:
+For each Current Stage, read exactly:
 
-1. `docs/work/wf-increment-015-github-workflow-foundation/stages/S01-foundation-pilot/ROUTER_CONTRACT.md`
+1. the `router_contract_path` named by the exact GitHub dispatch handoff
 2. the Task Contract path named by each Router task
 3. actual GitHub/Git facts for branch heads, commits and changed files
 
@@ -32,7 +34,7 @@ Repository lifecycle is `repository discovery → explicit codex-github-bridge b
 - scheduling: dependency DAG
 - primary objective: minimize end-to-end wall-clock time
 - safe parallelism must not be reduced merely to save model calls
-- one Worker = one task branch + one independent worktree
+- one Worker = one fresh ephemeral native Codex task thread + one task branch + one independent worktree
 - task branch: `task/<workflow_id>/<task_id>`
 - Stage branch: Router `stage_branch`
 - Task → Stage: controlled `git cherry-pick`
@@ -41,6 +43,7 @@ Repository lifecycle is `repository discovery → explicit codex-github-bridge b
 - no Codex Cloud primary route
 - no Work notification dependency
 - no self-hosted runner, webhook receiver, tunnel, local queue DB, lease/heartbeat, generic provider registry, hash index or automatic conflict resolution
+- no `codex exec` Worker fallback, persisted native thread registry or thread/UI recovery authority
 
 ## 4. Router validation
 
@@ -113,6 +116,8 @@ For each task:
 
 Never silently substitute another model.
 
+The Current Worker backend is `codex_native_task_threads`. Start `codex app-server --listen stdio://`, require a fresh ephemeral thread, bind both thread and turn to the exact Task worktree `cwd`, and pass resolved model/reasoning effort natively. Use `approvalPolicy=never`; the turn sandbox has only the Task worktree as writable root and `networkAccess=false`. A matching thread/turn final answer and supported terminal event are required. Capability/request/identity failure, model reroute, missing matching terminal event or unsupported terminal status returns `needs_decision` without fallback.
+
 ## 8. Worker dispatch envelope
 
 Every Worker receives:
@@ -133,33 +138,19 @@ reasoning_effort: <effort>
 
 Then append this instruction verbatim in meaning:
 
-> Read the complete Task Contract before editing. Implement only its owned paths and accepted requirements. Do not perform formal Review, do not modify `main`, do not broaden scope, and do not invent fallback behavior. Run the required focused verification. Finish with the required Coding Result fields; Git facts will be independently re-read by the Supervisor.
+> Read the complete Task Contract before editing. Implement only its owned paths and accepted requirements. Do not perform formal Review, do not modify `main` or the Stage branch, do not broaden scope, and do not invent fallback behavior. Subagent delegation is forbidden unless the exact Accepted Contract authorizes Root-only native multi-agent; child-spawned writing descendants remain forbidden. Leave an unstaged Diff and return the task-generic Worker Result; the Controller independently owns verification and Git delivery.
 
-## 9. Worker completion — mechanical facts first
+The prompt MUST include the complete Contract, dispatch envelope, Router `owns`, and dependency facts. It must not replace the Contract with a summary.
 
-Do not trust the Worker's statement that work is complete. Re-read from Git/process state:
+## 9. Worker Result and Controller-owned candidate
 
-- actual task commit SHA
-- actual parent SHA
-- actual changed files
-- complete diff
-- worktree cleanliness
-- required verification exit codes/results
+The task-generic Worker Result requires `task_id`, `dispatch_id`, `reported_base_sha`, `deviations`, `unresolved`, `questions`, and `status`. Status is exactly `implementation_ready | blocked | needs_decision`; only `implementation_ready` also requires non-empty `changed_files`. Do not require Worker `native_backend`, `verification`, or `reported_task_head_sha` fields.
 
-Mechanical gate must establish:
-
-```text
-commit exists
-AND parent/base relation is correct
-AND changed files are within owned paths
-AND required focused verification actually passed
-```
-
-Failure => `blocked` unless the Task Contract explicitly defines `needs_decision` for that condition.
+For `implementation_ready`, the Controller executes: semantic Result gate; Git HEAD/branch/staged/working-path/ownership observation; Worker/observed path equality; Router `runVerification()`; post-verification observation; exact-path staging and cached diff-check; deterministic candidate commit; candidate path and `mechanicalGate()` checks. Native identity/status comes only from `processResult.native`; candidate identity comes only from re-read Git facts. Any failure blocks before later gates.
 
 ## 10. Supervisor Integration Gate
 
-Only after the mechanical gate passes may a Supervisor model inspect:
+Only after the Controller-created candidate and mechanical gate pass may a Supervisor model inspect:
 
 - Task Contract
 - actual task commit and parent
@@ -229,10 +220,10 @@ At that point hand control to the single existing `stage/**` GitHub Actions work
 
 ## 13. Current migration initial Ready Set
 
-For the accepted Final Migration Router, the intended initial set is:
+The S01 initial Ready Set below is immutable integrated history, not a Current dispatch source:
 
 ```text
 {T01-router, T02-actions, T03-docs, T04-bridge}
 ```
 
-All four have `depends_on: []` and disjoint write ownership. Dispatch all four concurrently after Router validation and after freezing one common actual initial `base_sha`.
+For every Current Stage, compute Ready Set only from its exact Router and current GitHub/Git lifecycle facts. Never revive S01/S02 historical entries or infer dispatch from native thread/UI history.
