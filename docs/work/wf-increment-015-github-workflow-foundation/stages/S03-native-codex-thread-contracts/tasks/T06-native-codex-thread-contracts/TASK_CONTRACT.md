@@ -3,11 +3,14 @@
 ## Contract
 
 ```yaml
-status: Exact Contract Repair Candidate / Awaiting Pushed-SHA Acceptance
+status: Accepted
 dispatchable: false
-confirmed_by_user: false
+confirmed_by_user: true
+accepted_at_stage_sha: 708462449d73345b0cc3d50ff065c743a4896960
 implementation_authorized: false
+environment_preparation_completed: false
 run_once_authorized: false
+next_required_action: T06_environment_preparation_authorization
 task_id: T06-native-codex-thread-contracts
 type: Implementation Task
 model_policy: coding_strong
@@ -24,7 +27,7 @@ S02 T05 replaced the project-development Implementation Worker boundary with Cod
 
 T06 is a new single-task S03 documentation implementation. It does not modify or replay S02. It uses the integrated native backend to synchronize the exact fourteen project-development authority documents approved by Fresh Planning with behavior already established by source, tests and Git facts.
 
-S03 Stage and Draft PR #7 already exist. The pushed candidate `ddbc5a35d734eaca908090013b3ce29202086483` is rejected Contract history because it reduced the approved model/effort and future ownership. `S03CF01` repairs only the six existing Contract governance files; those six repair paths are not T06 implementation ownership. This Contract remains unconfirmed, unauthorized and non-dispatchable until the repaired Stage head is pushed under separate authorization, mechanically validated, handed off at an exact SHA and explicitly accepted by the user.
+S03 Stage and Draft PR #7 already exist. The pushed candidate `ddbc5a35d734eaca908090013b3ce29202086483` is rejected Contract history because it reduced the approved model/effort and future ownership. `S03CF01` repaired only the six existing Contract governance files; those six repair paths are not T06 implementation ownership. The user explicitly accepted this exact Contract at Stage SHA `708462449d73345b0cc3d50ff065c743a4896960`. Acceptance does not authorize environment preparation, T06 task branch/worktree creation, Implementation, one `run-once`, Worker/Supervisor execution, Formal Review, push or main write; the Contract remains non-dispatchable and `environment_preparation_completed=false`.
 
 ## Goal
 
@@ -110,7 +113,7 @@ The six-file S03 Contract governance bundle is read-only during future T06 imple
 - modifying or re-testing production source, Bridge source, product runtime, Room protocol, SQLite, Claude Runner, MCP/CLI, Plugin or package metadata;
 - changing the native app-server interface, generic Result grammar, model policy mapping, scheduler, recovery, Git gates or GitHub lifecycle;
 - authorizing native multi-agent for T06;
-- accepting T06, approving S03, pushing any branch or modifying `main`;
+- accepting T06 implementation, approving S03, pushing any branch or modifying `main`;
 - reviving `room:status --help`, S01 routing or the obsolete S02 placeholder as a dispatch source;
 - documenting hypothetical Codex capability not exercised by the integrated implementation.
 

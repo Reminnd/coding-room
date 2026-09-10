@@ -1,6 +1,6 @@
 # ROUTER CONTRACT — S03 Native Codex Thread Contracts
 
-> Owner: Codex。Stage creation base：`c6f22fa110076a2784a39702c18a7c6ba99199db`；`S03CF01` repair parent：`ddbc5a35d734eaca908090013b3ce29202086483`。该 JSON 使用现有 stage-generic Router grammar；`status: dispatch_ready` 仅表示机械格式可验证，不表示 local repair 已获得 push、Contract acceptance、environment preparation 或 T06 dispatch authority。
+> Owner: Codex。Stage creation base：`c6f22fa110076a2784a39702c18a7c6ba99199db`；`S03CF01` repair parent：`ddbc5a35d734eaca908090013b3ce29202086483`；accepted Contract Stage SHA：`708462449d73345b0cc3d50ff065c743a4896960`。该 JSON 使用现有 stage-generic Router grammar，且其 semantic identity 保持不变；`status: dispatch_ready` 仅表示机械格式可验证，不表示 Contract acceptance 已授权 environment preparation、T06 task branch/worktree、Worker、Supervisor execution、run-once、Formal Review 或 main write。
 <!-- ROUTER_CONTRACT_V1 -->
 
 ```json
@@ -84,7 +84,7 @@
 
 - S03 planning base is exact accepted/integrated GitHub `main` `c6f22fa110076a2784a39702c18a7c6ba99199db`; runtime `base_sha` must be re-read from the actual Stage branch at dispatch.
 - Router `depends_on=[]` is correct because T05/T05F00/T05F01 are cross-Stage accepted history already contained in the S03 base, not S03 tasks.
-- S03 Stage and Draft PR #7 already exist; pushed candidate `ddbc5a35d734eaca908090013b3ce29202086483` is rejected Contract history, not accepted dispatch authority. Do not push the `S03CF01` repair until separately authorized. After repair push, do not create the T06 task branch/worktree or invoke Local Bridge until Actions emits a fresh exact handoff, the user accepts that exact pushed Contract SHA and separately authorizes environment preparation and one-shot execution.
+- S03 Stage and Draft PR #7 already exist; pushed candidate `ddbc5a35d734eaca908090013b3ce29202086483` is rejected Contract history. The repaired T06 Contract is Accepted at exact Stage SHA `708462449d73345b0cc3d50ff065c743a4896960`, but acceptance does not authorize environment preparation, T06 task branch/worktree creation, Local Bridge, Worker, Supervisor execution, run-once, Formal Review or main write. The local acceptance-persistence commit requires separate Stage push authorization; T06 environment preparation and one-shot execution remain later, separate gates.
 - T06 must use one fresh native Codex task thread bound to its assigned worktree. Native capability, exact model/effort, explicit `cwd`, reroute or matching terminal observation failure returns `needs_decision`; no pre-S02 `codex exec` fallback is allowed.
 - T06 Worker Result is task-generic. Worker self-report is not authority for native facts, Router verification, ownership or candidate commit identity.
 - S01/S02 remain immutable accepted history. `room:status --help` remains Deferred. Repository bootstrap, alternate Stage, local workflow database, replay and silent repair are forbidden.

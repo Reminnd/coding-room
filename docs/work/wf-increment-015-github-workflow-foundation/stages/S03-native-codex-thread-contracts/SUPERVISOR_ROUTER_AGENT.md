@@ -1,6 +1,8 @@
 # Local Parallel Codex — S03 Native Contract Supervisor Router Agent
 
-Owner: Codex。当前 lifecycle：`s03cf01_repaired_locally_waiting_for_stage_push_authorization`。
+Owner: Codex。当前 lifecycle：`waiting_for_T06_environment_preparation_authorization`。T06 Contract 已由用户接受。
+
+accepted_at_stage_sha: `708462449d73345b0cc3d50ff065c743a4896960`
 
 ## Role and authority
 
@@ -13,7 +15,7 @@ The Supervisor must not implement T06, edit authority documents, approve, publis
 Read exactly:
 
 1. [`ROUTER_CONTRACT.md`](./ROUTER_CONTRACT.md)
-2. [`tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md`](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md)
+2. Accepted [`tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md`](./tasks/T06-native-codex-thread-contracts/TASK_CONTRACT.md), accepted at Stage SHA `708462449d73345b0cc3d50ff065c743a4896960`
 3. actual GitHub/Git facts for repository, exact pushed Stage head, dispatch identity, worktree, changed files, candidate commit and Stage integration
 4. native process facts emitted by the integrated app-server Worker boundary
 
@@ -26,7 +28,7 @@ Before dispatch, all conditions must hold:
 - repository Actions settings are already Ready; no bootstrap is required;
 - actual GitHub `main` contains exact accepted S02 head `c6f22fa110076a2784a39702c18a7c6ba99199db`;
 - S03 branch, branch-derived identity, Router path and normalized Router fields agree;
-- the `S03CF01` repaired Contract bundle has been pushed, mechanically validated with a fresh exact handoff and explicitly accepted by the user at that pushed SHA; rejected candidate `ddbc5a35d734eaca908090013b3ce29202086483` is not acceptable dispatch authority;
+- the `S03CF01` repaired Contract bundle was explicitly accepted by the user at exact Stage SHA `708462449d73345b0cc3d50ff065c743a4896960`; rejected candidate `ddbc5a35d734eaca908090013b3ce29202086483` is not acceptable dispatch authority;
 - separate authorization exists for T06 task branch/worktree preparation and one `run-once`;
 - actual Stage worktree is clean and has no conflicting current dispatch/recovery fact.
 
@@ -61,6 +63,6 @@ For `implementation_ready`, require exact base/branch, zero pre-existing staged 
 
 ## Stop boundaries
 
-The locally repaired `S03CF01` governance bundle consists only of the six existing PLAN/EXECUTION_PLAN/STAGE/ROUTER/Supervisor/T06 Contract files; it is distinct from T06's future fourteen-path implementation ownership. It authorizes none of the dispatch or delivery actions above. Until later gates are separately granted, do not push the repair, create T06 branch/worktree, invoke `start`/`run-once`, start a Worker/Supervisor, stage implementation files, integrate or publish lifecycle events.
+The T06 Contract is Accepted at Stage SHA `708462449d73345b0cc3d50ff065c743a4896960`. That acceptance and its local six-file PLAN/EXECUTION_PLAN/STAGE/ROUTER/Supervisor/T06 Contract persistence bundle are distinct from T06's future fourteen-path implementation ownership and authorize none of the dispatch or delivery actions above. Until later gates are separately granted, do not push the acceptance-persistence commit, prepare a T06 branch/worktree, invoke `start`/`run-once`, start a Worker/Supervisor, stage implementation files, enter Formal Review, integrate or publish lifecycle events.
 
 During later execution, conflict means abort the cherry-pick and return `blocked`. Automatic retry, repair, rebase, conflict resolution, force push, formal Review, Stage-to-main write, alternate workflow, hash/patch-id index and local workflow/thread database remain forbidden.
