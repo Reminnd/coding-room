@@ -1,6 +1,6 @@
 # 开发日志
 
-## 2026-09-10 — S03 T06 native thread contracts candidate
+## 2026-09-10 — Increment 15 accepted_and_integrated 与 closure reconciliation
 
 - S02 native Worker与task-generic Worker Result已完成fixed Chat Formal Review、用户exact-SHA接受与non-force fast-forward，Current source authority为`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。本次T06只同步十四份governance documents，不修改Bridge source/tests、Agent Room protocol、SQLite、product Runner或Claude Code行为。
 - Local Bridge实际派发`task_id=T06-native-codex-thread-contracts`、`dispatch_id=wf15-s03-t06-native-codex-thread-contracts-001`；immutable dispatch base=`d7f74f871eb4fcf55689dcb77406d0fbfed702c6`，Task branch=`task/wf-increment-015-github-workflow-foundation/T06-native-codex-thread-contracts`，worktree=`D:/agent/case/codex-claudecode-room-codex-workers/T06-native-codex-thread-contracts`，resolved model=`gpt-5.6-sol`，reasoning effort=`high`，dependency facts为空。Worker-spawned subagent未授权且未使用。
@@ -11,6 +11,8 @@
 - Stage candidate publication已发生：status=`candidate_ready`、`stage_head_sha=0be517aa19f4dfb6e5c01409dfb1cfe497f32925`、`mapping_count=1`。GitHub workflow `Codex supervisor dispatch` run number=`85`、run id=`34453783472`对该exact Stage head完成mechanical verification并返回`success`：Router reader 18/18、Bridge tests 86/86、`npm run typecheck` passed、`npm test` 409/409、`git diff --check` passed。该exact Stage head被标记Ready，并发布`CHAT_REVIEW_HANDOFF_V1`，review authority=`chatgpt_fixed_chat`。
 - Fixed Chat已对exact Stage SHA `0be517aa19f4dfb6e5c01409dfb1cfe497f32925`完成Formal Review，结果=`REQUEST_CHANGES`，blocking finding count=`1`，finding=`FR-S03-001`：本日志自身仍保存pre-Controller/pre-integration中间状态，与已经发生的durable GitHub/Git delivery facts不一致。`S03FR01`正在执行manual non-Router Formal Review repair，只纠正该finding；不创建synthetic Bridge lifecycle或candidate事实。
 - T06仍是Stage candidate；final Stage acceptance=`not granted`，Stage→main authorization=`not granted`，`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。不得把`0be517aa19f4dfb6e5c01409dfb1cfe497f32925`写成accepted或Current，也不得预写S03FR01未来commit SHA。
+- 随后的S03FR01只修复`FR-S03-001`，形成exact SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8`。用户现已确认该exact SHA为Increment 15 terminal accepted/integrated SHA，且S03已完成main集成；Increment 15状态收口为`accepted_and_integrated`，Active Stage=`none`、Active Task=`none`。
+- 本次manual non-Router closure reconciliation从exact base `97ae2d869c39730fe77fb14df2ac34f57c681eb8`更新十五个Current ledger/docs，不修改S01/S02/S03 immutable Stage/Router/Task/Fix Contract，不创建S04/T07，也不运行Bridge、Worker或Supervisor。该SHA作为Increment 15 terminal evidence与本次reconciliation base记录，不表示reconciliation完成后的永久current `main` HEAD。
 
 ## 2026-09-03 — Increment 15 Revision 2一次性Bootstrap
 
@@ -22,13 +24,13 @@
 
 ## 当前状态
 
-- 日期：2026-09-03
-- 项目阶段：Increment 14 Fix Task 2 candidate=`REVIEW_REQUIRED`；Increment 13及此前能力保持`ACCEPTED`，active v0.5 runtime未变化
-- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Increment 10–13 accepted source已进入版本化`main`；active runtime/database/binding现为protocol `0.5-design`
-- Implementation/Fix Task：[Increment 14 Task Contract](./INCREMENT_14_TASK_CONTRACT.md)、[Fix Task 1](./INCREMENT_14_FIX_TASK_1.md)与[Fix Task 2](./INCREMENT_14_FIX_TASK_2.md)均为`Accepted`、`confirmed_by_user=true`；Fix 2 Coding与验证已完成，等待GitHub Fix Review 3
-- Previous Increment：Increment 1–11均已接受并进入版本化`main`
-- 业务代码：版本化`main` source包含accepted protocol `0.5-design` Graph/Scheduler foundation、Git Controller与`integration_only`闭环；active project binding指向`room-v0.5.sqlite`与新Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`
-- Git repository：原candidate=`origin/codex/increment-14-validation-boundary-ee3cd96@41496df6b37d40d871460f1164dacaade37e1c3d`；Fix 1=`origin/codex/increment-14-fix-1-progress-settlement-41496df@f95c63c02817115d1ded566e3032a4c0d32cd085`；Fix 2 branch=`codex/increment-14-fix-2-process-close-f95c63c`，固定提交信息=`fix(runner): wait for process close before settlement`
+- 日期：2026-09-10
+- 项目阶段：Increment 15=`accepted_and_integrated`；Active Stage=`none`，Active Task=`none`
+- Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Current repository-development control plane见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)
+- Increment状态：Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Increment 15=`accepted_and_integrated`，terminal accepted/integrated SHA=`97ae2d869c39730fe77fb14df2ac34f57c681eb8`
+- 业务代码：S02 native Worker/generic Result实现 source authority仍为`c6f22fa110076a2784a39702c18a7c6ba99199db`；S03仅同步治理文档，未改变Bridge source/tests、Room protocol、SQLite、product Runner或Claude Code行为
+- Active runtime：protocol `0.5-design`、`room-v0.5.sqlite`与Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`继续有效，未因Increment 15 closure改变
+- Git记录：`97ae2d869c39730fe77fb14df2ac34f57c681eb8`同时是本次manual non-Router closure reconciliation exact base；它不是reconciliation完成后的永久current `main` HEAD声明
 
 ## 已完成
 

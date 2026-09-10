@@ -4,7 +4,7 @@
 > Reader：Codex  
 > Trigger：需求分析、架构、规划、Task Contract、Code Review、Fix finding、解决方案、Review 后运维文档维护或 Fix 验收后经验回收
 
-Current repository-development native Worker/generic Result source authority 为已接受并集成的 S02 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 对本指南的同步仍是 candidate。
+Current repository-development native Worker/generic Result实现 source authority 为已接受并集成的 S02 `c6f22fa110076a2784a39702c18a7c6ba99199db`；Increment 15 已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`，S03 T06 对本指南的同步现为 Current。该 SHA 同时是 closure reconciliation exact base，不是 reconciliation 完成后的永久 current `main` HEAD。
 
 ## 1. 开始前建立证据边界
 

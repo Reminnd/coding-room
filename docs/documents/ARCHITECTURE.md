@@ -608,7 +608,7 @@ Fix后权威语义：
 
 ## 18. Current repository-development control plane
 
-> 状态：Current。S02 native Worker 与 generic Result 已由用户接受并集成，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 文档 Diff 在 Stage Review、用户接受与 main 集成前仅为 candidate。
+> 状态：Current。S02 native Worker 与 generic Result 已由用户接受并集成，实现 source authority 为 `c6f22fa110076a2784a39702c18a7c6ba99199db`。Increment 15 已收口为 `accepted_and_integrated`，S03 T06 文档同步现为 Current；terminal accepted/integrated SHA 与 manual non-Router closure reconciliation exact base 为 `97ae2d869c39730fe77fb14df2ac34f57c681eb8`，该 SHA 不是 reconciliation 完成后的永久 current `main` HEAD。
 
 Repository development 位于 Agent Room 产品 runtime 之外：GitHub/Git 持久化 accepted Contract、dispatch、branch/commit、PR/Check 与 Review handoff；Local Bridge 计算 DAG/Ready Set、创建 Task worktree、启动 fresh ephemeral native Codex thread，并独立完成 verification、candidate Git facts、Supervisor Integration、Task push 与 controlled Stage cherry-pick；fixed Chat 对 Stage exact head 执行唯一 Formal Review。
 

@@ -5,7 +5,9 @@
 | 文档状态 | Current |
 | Owner | Codex |
 | Current implementation | S02 accepted/integrated `main=c6f22fa110076a2784a39702c18a7c6ba99199db` |
-| Candidate | S03 T06 文档同步；Stage Review、用户接受与 main 集成前不生效 |
+| Increment 15 terminal | `accepted_and_integrated` at `97ae2d869c39730fe77fb14df2ac34f57c681eb8`; Active Stage/Task均为空 |
+
+`97ae2d869c39730fe77fb14df2ac34f57c681eb8`同时是manual non-Router closure reconciliation exact base；它记录Increment 15终态与本次reconciliation起点，不是reconciliation完成后的永久current `main` HEAD。
 
 ## 1. 结论与主路径
 

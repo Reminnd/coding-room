@@ -1,17 +1,15 @@
 # EXECUTION PLAN — wf-increment-015-github-workflow-foundation
 
-- status: `waiting_for_T06_environment_preparation_authorization`
+- status: `accepted_and_integrated`
 - planning_base: `c6f22fa110076a2784a39702c18a7c6ba99199db`
-- repair_parent: `ddbc5a35d734eaca908090013b3ce29202086483`
-- accepted_contract_sha: `708462449d73345b0cc3d50ff065c743a4896960`
-- stage: `S03-native-codex-thread-contracts`
-- stage_branch: `stage/wf-increment-015-github-workflow-foundation/S03-native-codex-thread-contracts`
-- router: [`S03 Stage Router`](./stages/S03-native-codex-thread-contracts/ROUTER_CONTRACT.md)
-- current_tasks: `T06-native-codex-thread-contracts`
+- terminal_accepted_integrated_sha: `97ae2d869c39730fe77fb14df2ac34f57c681eb8`
+- closure_reconciliation_base: `97ae2d869c39730fe77fb14df2ac34f57c681eb8`
+- active_stage: `none`
+- active_task: `none`
 - fix_policy: `always_confirm`
 
-S01 与 S02 是 immutable accepted/integrated history。S03 的 Ready Set 仅含 T06；其跨 Stage prerequisite 是 S02 exact accepted/integrated `main=c6f22fa110076a2784a39702c18a7c6ba99199db`，因此 Router 内 `depends_on=[]`。T06 使用当前 native Codex task-thread backend，并同步 exact 14 个 future Worker-owned documents。本次 `S03CF01` 仅修复 6 个既有 freeze/governance files，不改变 future T06 ownership。
+S01、S02 与 S03 是 immutable accepted/integrated history。S02 native Worker/generic Result 实现 source authority 仍为 `c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 只同步十四份治理文档，不改变 product source、tests、Agent Room protocol、SQLite、product Runner 或 Claude Code behavior。
 
-S03 Stage 与 Draft PR #7 已建立；remote candidate `ddbc5a35d734eaca908090013b3ce29202086483` 是未接受的历史。`S03CF01` repaired Contract 已由用户在 exact Stage SHA `708462449d73345b0cc3d50ff065c743a4896960` 接受。当前 lifecycle gate 为 `waiting_for_T06_environment_preparation_authorization`；Contract acceptance 不授权 environment preparation、T06 task branch/worktree、Local Bridge `start`/`run-once`、Worker、Supervisor execution、Formal Review、Task/Stage push、merge 或 main write。本次 acceptance persistence commit 只记录已发生事实，仍需单独的 Stage push authorization。
+S03FR01 形成的 exact SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 已由用户确认并完成 main 集成；Increment 15 收口为 `accepted_and_integrated`，当前不存在 Active Stage 或 Active Task。
 
-Repository 已 Ready；不得再次 bootstrap。Normal `start`/`run-once` 继续只做 read-only prerequisite checks，不得 silent bootstrap、fallback、replay S02，或把 Contract acceptance、尚未 push 的 acceptance persistence commit 当作 environment preparation 或 dispatch authority。
+本次 manual non-Router closure reconciliation 以同一 exact SHA 为 base，只更新十五个 Current ledger/docs；不修改 S01/S02/S03 immutable Stage/Router/Task/Fix Contract，不创建 S04/T07，也不运行 Bridge、Worker 或 Supervisor。该 SHA 记录 Increment 15 terminal evidence 与本次 reconciliation 起点，不是 reconciliation 完成后的永久 current `main` HEAD。

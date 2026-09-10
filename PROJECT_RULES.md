@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前规划阶段：S03 T06 Implementation candidate；S02 native Worker/generic Result 已在用户接受后集成至 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；T06 文档同步尚未经过 Stage Review、用户接受或 main 集成
+> 当前规划阶段：Increment 15=`accepted_and_integrated`；Active Stage=`none`，Active Task=`none`；terminal accepted/integrated SHA 与 manual non-Router closure reconciliation exact base 均为 `97ae2d869c39730fe77fb14df2ac34f57c681eb8`，该 SHA 不是 reconciliation 完成后的永久 current `main` HEAD
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -276,7 +276,7 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | GitHub/Chat Review控制面 | Codex | Stage 4+开发工作流 | Approved |
 | [docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | No-API-Key历史边界 | Codex | Historical evidence | Superseded |
 | [docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | native Codex Worker、task-generic Result、Local Bridge与DAG/Ready Set控制面 | Codex | Current开发工作流 | Current at `main=c6f22fa110076a2784a39702c18a7c6ba99199db` |
-| [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 workflow foundation | Codex | S01/S02历史与S03 candidate | S02 Current / S03 candidate |
+| [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 workflow foundation | Codex | Increment 15 immutable历史 | accepted_and_integrated at `97ae2d869c39730fe77fb14df2ac34f57c681eb8` |
 | [docs/work/README.md](./docs/work/README.md) | 具体Workflow实例与模板入口 | Codex | Workflow执行 | Current |
 | [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
 | [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
@@ -444,4 +444,4 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15 S01/S02 已完成既定控制面迁移；S02 native Worker/generic Result 经 fixed Chat Review、用户 exact-SHA 接受和 non-force fast-forward 后成为 Current，`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。S03 T06 只同步十四份治理文档，当前仍是 Stage candidate；未经过 Stage Review、用户接受与 main 集成前不得写成 Current 文档变更。Room active v0.5 runtime继续存在且不因项目开发控制面改变。
+Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15=`accepted_and_integrated`，Active Stage=`none`、Active Task=`none`；S02 native Worker/generic Result 的实现 source authority 仍为`c6f22fa110076a2784a39702c18a7c6ba99199db`，S03 T06 十四份治理文档已完成 Review、用户接受与 main 集成。Increment 15 terminal accepted/integrated SHA 与本次 manual non-Router closure reconciliation exact base 均记录为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`；该历史终态/base记录不把它声明为 reconciliation 完成后的永久 current `main` HEAD。Room active v0.5 runtime继续存在且不因项目开发控制面改变。

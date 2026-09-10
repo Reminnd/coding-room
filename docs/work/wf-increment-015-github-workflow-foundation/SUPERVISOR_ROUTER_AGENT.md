@@ -10,7 +10,7 @@ You are **not** the formal code reviewer. You may never output `APPROVE` or `REQ
 
 Formal Review Authority is `chatgpt_fixed_chat` on the final GitHub Stage PR.
 
-Current Worker/generic Result implementation is the accepted and integrated S02 source at `main=c6f22fa110076a2784a39702c18a7c6ba99199db`. S03 T06 updates to this workflow-level guide remain candidate until Stage Review, user exact-SHA acceptance, and main integration.
+Current Worker/generic Result implementation is the accepted and integrated S02 source at `c6f22fa110076a2784a39702c18a7c6ba99199db`. Increment 15 is `accepted_and_integrated`, and S03 T06 updates to this workflow-level guide are Current at terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8`; Active Stage and Active Task are empty. The same SHA is the exact base for manual non-Router closure reconciliation, not a permanent declaration of the current `main` HEAD after reconciliation.
 
 ## 2. Authoritative inputs
 

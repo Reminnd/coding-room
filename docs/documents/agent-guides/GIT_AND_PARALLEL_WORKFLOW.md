@@ -4,7 +4,7 @@
 
 Local Bridge owns discovery, dependency-DAG/Ready-Set scheduling, independent worktrees, task-branch Git facts, task push and controlled task-to-Stage cherry-pick. Since accepted/integrated S02 (`main=c6f22fa110076a2784a39702c18a7c6ba99199db`), each Ready Task runs in one fresh ephemeral native Codex thread bound to its assigned worktree; model policy and reasoning effort are immutable dispatch facts. Integration MUST stop on conflict; it never rebases or auto-resolves. Stage verification records the exact head and invalidates Ready for Review after any Stage change. Stage-to-main is a non-force fast-forward of the exact user-accepted Stage SHA.
 
-S03 T06 changes to this guide remain a Stage candidate until fixed Chat Review, user exact-SHA acceptance and main integration.
+Increment 15 is `accepted_and_integrated`; S03 T06 changes to this guide are Current at terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8`. The same SHA is the exact base for manual non-Router closure reconciliation, not a permanent declaration of the current `main` HEAD after reconciliation.
 
 Repository lifecycle is `discovery → explicit codex-github-bridge bootstrap → Repository Ready → create/push Stage Router/branch → single existing stage-generic Actions workflow → normal Local Bridge execution`. Bootstrap is idempotent and changes only missing required repository Actions settings. Normal `start`/`run-once` perform read-only prerequisite checks and never silently bootstrap. Recovery uses durable GitHub comments, current dispatch identity, and minimum Git revalidation: remote Task SHA, Stage commit existence/ancestry, and current ownership are all required; inconsistency becomes `needs_decision`, never automatic repair or replay.
 

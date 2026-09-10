@@ -2,9 +2,12 @@
 
 | 字段 | 值 |
 |---|---|
-| status | T06 Contract Accepted / Waiting for Environment Preparation Authorization |
-| goal | 在已接受并集成的 S02 native Codex Worker 基线上恢复并执行 T06 exact 14-path authority synchronization |
-| current_stage | [`S03-native-codex-thread-contracts`](./stages/S03-native-codex-thread-contracts/STAGE.md) |
+| status | `accepted_and_integrated` |
+| goal | Increment 15 GitHub Workflow Foundation 已完成并收口 |
+| active_stage | `none` |
+| active_task | `none` |
+| terminal_accepted_integrated_sha | `97ae2d869c39730fe77fb14df2ac34f57c681eb8` |
+| closure_reconciliation_base | `97ae2d869c39730fe77fb14df2ac34f57c681eb8` |
 
 当前链路：GitHub/Git facts → Local Bridge → Local Codex → Supervisor Integration → controlled Stage → S01 Bootstrap-B exact-SHA verification + fixed Chat Review → accepted S01 FF main → S02+ normal Actions candidate verification。
 
@@ -12,6 +15,6 @@ Repository lifecycle：repository discovery → explicit `codex-github-bridge bo
 
 Stage dispatch uses one existing `stage/**` workflow. The `stage/<workflow_id>/<stage_id>` branch deterministically supplies the workflow/stage identity and Router path, which must match the normalized GitHub event facts; stale-readiness and exact-head gates remain.
 
-S01 Foundation 与 S02 native Codex task-thread transition 已完成、接受并集成；当前 GitHub `main` exact head 为 `c6f22fa110076a2784a39702c18a7c6ba99199db`。S03 只包含一个 docs-owned T06，不重开 S02 implementation，不恢复 legacy `room:status --help` Pilot。T06 future Worker implementation ownership 是 exact 14 paths；本次 `S03CF01` manual governance repair 只修改既有 6-file Contract bundle，两者不得混淆。
+S01 Foundation、S02 native Codex task-thread transition与S03 docs-owned T06均已完成、接受并集成。S02 Worker/generic Result实现 source authority仍为`c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06只同步十四份治理文档，不改变product source、tests或Agent Room runtime。
 
-S03 Stage 已建立并 push，Draft PR #7 已存在；pushed candidate `ddbc5a35d734eaca908090013b3ce29202086483` 因 Contract drift 未被接受。`S03CF01` 在该 parent 上恢复 Contract semantics 后，用户已明确接受 exact Contract Stage SHA `708462449d73345b0cc3d50ff065c743a4896960`。S03 当前 gate 已推进为 T06 Contract accepted、waiting for environment preparation authorization；该 acceptance 不授权 environment preparation、T06 task branch/worktree、Local Bridge `start`/`run-once`、Worker、Supervisor execution、Formal Review 或任何 GitHub/main write。本次 acceptance persistence commit 保持本地，仍需单独的 Stage push authorization。
+S03历史Stage/Router/Task/Fix Contract保持immutable。Increment 15 terminal accepted/integrated SHA为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`；本次manual non-Router closure reconciliation以同一exact SHA为base，只更新十五个Current ledger/docs。该SHA记录Increment 15终态与本次reconciliation起点，不是reconciliation完成后的永久current `main` HEAD。当前不存在Active Stage或Active Task，不创建S04/T07。

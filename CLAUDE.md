@@ -7,7 +7,7 @@
 
 本文件只保留 Claude Code 必须在入口上下文中持有的执行边界、门禁和文档路由。详细 Coding/Fix 方法按任务触发读取 `docs/documents/agent-guides/`。
 
-Current repository-development native Worker/generic Result 已由 S02 接受并集成，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 对本文件的同步仍是 candidate，不改变 Claude Code 的 Agent Room product-runtime boundary。
+Current repository-development native Worker/generic Result 已由 S02 接受并集成，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；Increment 15 已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`，S03 T06 对本文件的同步现为 Current。该 SHA 同时是 manual non-Router closure reconciliation 的 exact base，不表示 reconciliation 完成后的永久 current `main` HEAD；Claude Code 的 Agent Room product-runtime boundary 不变。
 
 ## 1. 指令与角色边界
 

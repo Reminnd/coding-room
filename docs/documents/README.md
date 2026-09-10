@@ -22,7 +22,7 @@
 
 根目录仅保留 `AGENTS.md`、`CLAUDE.md`、`PROJECT_RULES.md` 三个 agent/tooling 控制入口；它们不是第二套文档目录。
 
-Current repository-development control plane 已在 S02 集成：Local Bridge 以 fresh native Codex task thread 执行 Task，并在 generic Worker Result 后独立拥有 verification、Git candidate 与 delivery；source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`。详细契约只见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 与 [Git/Parallel Guide](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。S03 T06 对本目录的同步仍是 candidate，未经过 Stage Review、用户接受或 main 集成。
+Current repository-development control plane 已在 S02 集成：Local Bridge 以 fresh native Codex task thread 执行 Task，并在 generic Worker Result 后独立拥有 verification、Git candidate 与 delivery；实现 source authority 为 `c6f22fa110076a2784a39702c18a7c6ba99199db`。详细契约只见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 与 [Git/Parallel Guide](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。Increment 15 与 S03 T06 文档同步已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`；该 SHA 同时是 closure reconciliation exact base，不是 reconciliation 完成后的永久 current `main` HEAD。
 
 ## 2. 文档目录、目的与依赖
 
@@ -110,7 +110,7 @@ Current repository-development control plane 已在 S02 集成：Local Bridge �
 | [Stage 4 GitHub/Chat Architecture Review](./STAGE_4_GITHUB_CHAT_REVIEW_ARCHITECTURE_REVIEW.md) | Superseded | Codex | 历史控制面证据 |
 | [Stage 4 No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | Superseded | Codex | 历史 No-API-Key 边界 |
 | [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | Current at `main=c6f22fa110076a2784a39702c18a7c6ba99199db` | Codex | native Codex Worker、generic Result、Local Bridge与DAG/Ready Set |
-| [Increment 15 Revision 2](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | S02 Current / S03 candidate | Codex | GitHub/Git + Local Bridge + fixed Chat开发控制面 |
+| [Increment 15 Revision 2](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | accepted_and_integrated (`97ae2d869c39730fe77fb14df2ac34f57c681eb8`) | Codex | GitHub/Git + Local Bridge + fixed Chat开发控制面 |
 | [Chat/GitHub Review Guide](./agent-guides/CHAT_GITHUB_REVIEW.md) | Current | Codex | 正式PR Review与集成门禁 |
 | [Codex Supervisor Router Guide](./agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Superseded | Codex | 历史 Cloud Router |
 | [Increment 14](./INCREMENT_14_TASK_CONTRACT.md) | accepted_and_integrated (`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`) | 收敛validation ownership、删除不可达内部分支并简化Attempt/GitAction事务 |
@@ -151,4 +151,4 @@ Current repository-development control plane 已在 S02 集成：Local Bridge �
 - Increment 12已从exact baseline `51c9a50c83064fb9e2e4cc83e2f3942e4e06e5ae`完成Implementation与Fix。Fix Review 5确认链接finding已闭合；派发门禁随后从原task恢复到字段完整的Fix Task 4 `final_answer`，因此唯一result finding失效、Decision更正为`approved`。[Fix Task 5](./INCREMENT_12_FIX_TASK_5.md)未派发并已`Superseded`。用户已最终接受，阶段=`ACCEPTED`；完整accepted scope已进入版本化`main`并随Stage 3整体完成后进入active v0.5 runtime。push与旧database处理仍未授权。
 - Increment 13 Fix Task 2已完成。Fix Review 3 `review-increment-013-codex-003`确认simultaneous reservation、`failed` preview retry与本次结构化Coding Result全部闭环；无finding，Decision=`approved`。独立`typecheck`、Git Controller/CLI 9/9、full 385/385与`git diff --check`通过。用户已明确最终接受，阶段=`ACCEPTED`；完整accepted source已由commit `004969190215e354fc468e824d9c5e798f01e4fc`进入版本化`main`。
 - 2026-09-02经独立授权完成active v0.3→v0.5 cutover：binding指向`room-v0.5.sqlite`与Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`，复用port `59665`和framed `p~codex-app` route；v0.2/v0.3 database按序只读归档且字节验证不变。project-scoped MCP确认Room=`DISCUSSION`、planning waiting actor=`planner`、cursor=`1`且所有execution entities为空。真实项目GitAction、push、Plugin reinstall、candidate worktree cleanup、旧database删除与cutover文档提交仍未授权。
-- Increment 14已完成Review、获用户接受并集成；状态=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15 S01/S02已完成；S02 native Worker/generic Result为Current，accepted/integrated `main=c6f22fa110076a2784a39702c18a7c6ba99199db`。S03 T06十四文件同步仍是candidate。
+- Increment 14已完成Review、获用户接受并集成；状态=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15已完成，状态=`accepted_and_integrated`，Active Stage/Task均为空；terminal accepted/integrated SHA 与 closure reconciliation exact base 为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`，不作为 reconciliation 完成后的永久 current `main` HEAD声明。

@@ -4,7 +4,7 @@
 > 维护者：Codex；Claude Code 可按 Implementation Task 提交候选更新  
 > 作用：为 `AGENTS.md` 与 `CLAUDE.md` 提供按任务触发的渐进式读取结构；项目文档总入口见 [文档中心](../README.md)
 
-S02 native Worker/generic Result 已接受并集成于 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`；S03 T06 对本索引的同步在 Stage Review、用户接受与 main 集成前仅为 candidate。
+S02 native Worker/generic Result 实现已接受并集成于 `c6f22fa110076a2784a39702c18a7c6ba99199db`；Increment 15 已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`，S03 T06 对本索引的同步现为 Current。该 SHA 同时是 closure reconciliation exact base，不是 reconciliation 完成后的永久 current `main` HEAD。
 
 ## 1. 权威关系
 
