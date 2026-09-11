@@ -4,7 +4,14 @@ import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import test from 'node:test';
 import { runNativeWorker } from '../codex-app-server.mjs';
-import { CodexLauncher, buildWorkerPrompt } from '../codex.mjs';
+import {
+  CodexLauncher,
+  SUPERVISOR_ONLY_CODEX_EXECUTABLE,
+  SUPERVISOR_ONLY_DISABLED_FEATURES,
+  SUPERVISOR_ONLY_MODEL,
+  SupervisorOnlyLauncher,
+  buildWorkerPrompt,
+} from '../codex.mjs';
 
 class FakeAppServer extends EventEmitter {
   constructor({ threadId, turnId, failMethod = null }) {
@@ -128,6 +135,93 @@ function context(taskId, worktree, overrides = {}) {
 function immediate() {
   return new Promise((resolve) => setImmediate(resolve));
 }
+
+test('Supervisor-only launcher fixes executable, model, sandbox, integrations, and sanitized environment for one call', async () => {
+  const codexBin = SUPERVISOR_ONLY_CODEX_EXECUTABLE;
+  const worktree = 'C:\\workers\\T01';
+  const calls = [];
+  const base = new CodexLauncher({
+    codexBin,
+    run: async (command, args, options) => {
+      calls.push({ command, args, options });
+      return { exitCode: 0, signal: null, error: null, stdout: '', stderr: '' };
+    },
+  });
+  const launcher = new SupervisorOnlyLauncher({
+    launcher: base,
+    canonicalCodexExecutable: codexBin,
+    worktree,
+    environmentSource: {
+      SystemRoot: 'C:\\Windows',
+      PATH: 'C:\\Windows\\System32',
+      USERPROFILE: 'C:\\Users\\operator',
+      CODEX_HOME: 'C:\\secret-codex-home',
+      CODEX_CLI_PATH: 'C:\\wrong.exe',
+      OPENAI_API_KEY: 'secret',
+      ARBITRARY_SECRET: 'secret',
+      HTTP_PROXY: 'http://wrong-proxy.test',
+    },
+  });
+
+  const result = await launcher.execute({
+    worktree,
+    model: SUPERVISOR_ONLY_MODEL,
+    prompt: 'supervisor prompt',
+    outputSchema: { type: 'object' },
+    sandbox: 'read-only',
+  });
+  assert.equal(result.exitCode, 0);
+  assert.equal(calls.length, 1);
+  const [{ command, args, options }] = calls;
+  assert.equal(command, codexBin);
+  assert.equal(options.cwd, worktree);
+  assert.equal(options.input, 'supervisor prompt');
+  assert.deepEqual(options.env, {
+    SystemRoot: 'C:\\Windows',
+    PATH: 'C:\\Windows\\System32',
+    USERPROFILE: 'C:\\Users\\operator',
+    HTTP_PROXY: 'http://127.0.0.1:7890',
+    HTTPS_PROXY: 'http://127.0.0.1:7890',
+  });
+  assert.equal(args.includes('--ignore-user-config'), true);
+  assert.equal(args.includes('--strict-config'), true);
+  assert.equal(args.includes('--ephemeral'), true);
+  assert.equal(args.includes('read-only'), true);
+  assert.equal(args.includes(SUPERVISOR_ONLY_MODEL.resolvedModel), true);
+  assert.equal(args.includes(`model_reasoning_effort="${SUPERVISOR_ONLY_MODEL.reasoningEffort}"`), true);
+  for (const feature of SUPERVISOR_ONLY_DISABLED_FEATURES) {
+    assert.equal(args.some((value, index) => value === '--disable' && args[index + 1] === feature), true);
+  }
+  for (const override of [
+    'mcp_servers.agent_room.enabled=false',
+    'mcp_servers.node_repl.enabled=false',
+    'mcp_servers.cua_repl.enabled=false',
+    'notify=[]',
+  ]) {
+    assert.equal(args.some((value, index) => value === '--config' && args[index + 1] === override), true);
+  }
+});
+
+test('ordinary CodexLauncher execute keeps its existing environment and integration defaults', async () => {
+  const calls = [];
+  const launcher = new CodexLauncher({
+    codexBin: 'codex-test',
+    run: async (command, args, options) => {
+      calls.push({ command, args, options });
+      return { exitCode: 0, signal: null, error: null, stdout: '', stderr: '' };
+    },
+  });
+  await launcher.execute({
+    worktree: 'C:\\workers\\ordinary',
+    model: context('ordinary', 'C:\\workers\\ordinary').model,
+    prompt: 'ordinary prompt',
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(Object.hasOwn(calls[0].options, 'env'), false);
+  assert.equal(calls[0].args.includes('--ignore-user-config'), false);
+  assert.equal(calls[0].args.includes('--disable'), false);
+  assert.equal(calls[0].args.includes('workspace-write'), true);
+});
 
 test('native worker uses only the exact worktree as its writable root', async () => {
   const worktree = 'C:\\workers\\A';
@@ -293,6 +387,8 @@ test('native request rejection and missing terminal observation need a decision 
     });
     const result = await launcher.launchWorker(context('error', process.cwd()), 'contract-error');
     assert.equal(result.error.status, 'needs_decision');
+    assert.equal(result.error.details.failure_class, 'POST_MUTATION_UNCERTAIN');
+    assert.equal(result.error.details.boundary, 'worker_launch');
     assert.match(result.error.message, /turn\/start unsupported/);
     assert.deepEqual(result.args, ['app-server', '--listen', 'stdio://']);
     assert.equal(execCalls, 0);
@@ -306,6 +402,7 @@ test('native request rejection and missing terminal observation need a decision 
     server.closeBeforeTerminal();
     const result = await promise;
     assert.equal(result.error.status, 'needs_decision');
+    assert.equal(result.error.details.failure_class, 'POST_MUTATION_UNCERTAIN');
     assert.match(result.error.message, /before the matching terminal event/);
   });
 
@@ -323,6 +420,7 @@ test('native request rejection and missing terminal observation need a decision 
     });
     const result = await promise;
     assert.equal(result.error.status, 'needs_decision');
+    assert.equal(result.error.details.failure_class, 'POST_MUTATION_UNCERTAIN');
     assert.match(result.error.message, /rerouted requested model/);
   });
 });
