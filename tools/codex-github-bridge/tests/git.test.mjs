@@ -7,8 +7,12 @@ import test from 'node:test';
 import { GitRepository } from '../git.mjs';
 import { runProcess } from '../process.mjs';
 
+function gitRaw(cwd, ...args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
+}
+
 function git(cwd, ...args) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', windowsHide: true }).trim();
+  return gitRaw(cwd, ...args).trim();
 }
 
 async function fixture() {
@@ -259,4 +263,225 @@ test('aborts a conflicting cherry-pick and returns blocked with a clean Stage wo
   } finally {
     await rm(data.owner, { recursive: true, force: true });
   }
+});
+
+test('reads exact accepted blob bytes and observes an existing candidate with read-only Git commands', async () => {
+  const data = await fixture();
+  try {
+    const commands = [];
+    const run = async (command, args, options) => {
+      commands.push(args);
+      return runProcess(command, args, options);
+    };
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees, run });
+    const blobSha = git(data.repository, 'rev-parse', `${data.baseSha}:shared.txt`);
+    const blob = await repository.readBlobAtCommit(data.baseSha, 'shared.txt', blobSha);
+    assert.equal(blob.blobSha, blobSha);
+    assert.equal(blob.bytes.toString('utf8'), 'base\n');
+    await assert.rejects(
+      repository.readBlobAtCommit(data.baseSha, 'shared.txt', '0000000000000000000000000000000000000000'),
+      (error) => error.status === 'needs_decision' && error.details.failure_class === 'PRE_MUTATION_FAILURE',
+    );
+
+    await writeFile(join(data.repository, 'shared.txt'), 'candidate\n');
+    git(data.repository, 'add', 'shared.txt');
+    git(data.repository, 'commit', '-m', 'test: create candidate');
+    const candidateSha = git(data.repository, 'rev-parse', 'HEAD');
+    commands.length = 0;
+    const observed = await repository.observeSupervisorOnlyCandidate(data.repository, data.baseSha);
+    assert.equal(observed.head, candidateSha);
+    assert.equal(observed.branch, 'stage/test');
+    assert.equal(observed.status, '');
+    assert.equal(observed.commitExists, true);
+    assert.deepEqual(observed.parents, [data.baseSha]);
+    assert.deepEqual(observed.stagedPaths, []);
+    assert.deepEqual(observed.unstagedPaths, []);
+    assert.deepEqual(observed.untrackedPaths, []);
+    assert.deepEqual(observed.changedFiles, ['shared.txt']);
+    assert.equal(observed.diffCheckPassed, true);
+    assert.equal(commands.some((args) => ['fetch', 'add', 'commit', 'amend', 'push'].includes(args[0])), false);
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+for (const [messageCase, commitMessage] of [
+  ['subject only', 'chore(fix): prepare round-1'],
+  ['one-line body', 'chore(fix): prepare round-1\n\nPrepared fix body.'],
+  ['multiline body', 'chore(fix): prepare round-1\n\nFirst body line.\nSecond body line.'],
+]) {
+  test(`materializes and recovers one exact prepared Fix commit with ${messageCase}`, async () => {
+    const data = await fixture();
+    try {
+      const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+      const files = { 'prepared/router.md': 'exact router bytes\n', 'prepared/task.md': 'exact task bytes\n' };
+      const created = await repository.materializePreparedFix({
+        stageBranch: 'stage/test', sourceStageSha: data.baseSha, files, commitMessage,
+      });
+      assert.equal(created.status, 'created');
+      assert.notEqual(created.preparedStageSha, data.baseSha);
+      assert.equal(gitRaw(data.repository, 'log', '-1', '--pretty=format:%B', created.preparedStageSha), `${commitMessage}\n`);
+      assert.equal(git(data.repository, 'rev-parse', `${created.preparedStageSha}^`), data.baseSha);
+      assert.deepEqual(git(data.repository, 'diff-tree', '--no-commit-id', '--name-only', '-r', created.preparedStageSha).split(/\r?\n/).sort(), Object.keys(files).sort());
+
+      const freshRepository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+      const reused = await freshRepository.materializePreparedFix({
+        stageBranch: 'stage/test', sourceStageSha: data.baseSha, files, commitMessage,
+      });
+      assert.equal(reused.status, 'reused');
+      assert.equal(reused.preparedStageSha, created.preparedStageSha);
+      assert.equal(git(data.repository, 'rev-parse', 'HEAD'), created.preparedStageSha);
+      assert.equal(git(data.repository, 'rev-list', '--count', `${data.baseSha}..HEAD`), '1');
+    } finally {
+      await rm(data.owner, { recursive: true, force: true });
+    }
+  });
+}
+
+test('rejects prepared Fix recovery when the complete commit message differs', async () => {
+  const data = await fixture();
+  try {
+    const files = { 'prepared/router.md': 'exact router bytes\n' };
+    const storedMessage = 'chore(fix): prepare round-1\n\nBody A';
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+    const created = await repository.materializePreparedFix({
+      stageBranch: 'stage/test', sourceStageSha: data.baseSha, files, commitMessage: storedMessage,
+    });
+
+    for (const commitMessage of [
+      'fix(fix): prepare round-1\n\nBody A',
+      'chore(fix): prepare round-1\n\nBody B',
+    ]) {
+      const freshRepository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+      await assert.rejects(
+        freshRepository.materializePreparedFix({
+          stageBranch: 'stage/test', sourceStageSha: data.baseSha, files, commitMessage,
+        }),
+        (error) => error.details.failure_class === 'PRE_MUTATION_FAILURE'
+          && /neither source Stage .* nor the exact prepared commit/.test(error.message),
+      );
+      assert.equal(git(data.repository, 'rev-parse', 'HEAD'), created.preparedStageSha);
+      assert.equal(git(data.repository, 'rev-parse', `${created.preparedStageSha}^`), data.baseSha);
+      assert.equal(gitRaw(data.repository, 'log', '-1', '--pretty=format:%B', created.preparedStageSha), `${storedMessage}\n`);
+      assert.equal(git(data.repository, 'rev-list', '--count', `${data.baseSha}..HEAD`), '1');
+      assert.equal(git(data.repository, 'status', '--porcelain'), '');
+    }
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('recovers a prepared Fix commit after the commit response is lost', async () => {
+  const data = await fixture();
+  try {
+    const files = { 'prepared/router.md': 'exact router bytes\n' };
+    const commitMessage = 'chore(fix): prepare round-1\n\nPrepared fix body.';
+    let commitCalls = 0;
+    const uncertainRepository = new GitRepository({
+      repositoryRoot: data.repository,
+      worktreeRoot: data.worktrees,
+      run: async (command, args, options) => {
+        const result = await runProcess(command, args, options);
+        if (command === 'git' && args[0] === 'commit' && result.exitCode === 0) {
+          commitCalls += 1;
+          return { ...result, exitCode: 1, stderr: 'response lost' };
+        }
+        return result;
+      },
+    });
+    await assert.rejects(
+      uncertainRepository.materializePreparedFix({
+        stageBranch: 'stage/test', sourceStageSha: data.baseSha, files, commitMessage,
+      }),
+      (error) => error.details.failure_class === 'POST_MUTATION_UNCERTAIN'
+        && error.details.boundary === 'local_prepared_commit'
+        && error.details.effect_observed === true,
+    );
+    const preparedStageSha = git(data.repository, 'rev-parse', 'HEAD');
+
+    const freshRepository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+    const recovered = await freshRepository.materializePreparedFix({
+      stageBranch: 'stage/test', sourceStageSha: data.baseSha, files, commitMessage,
+    });
+    assert.equal(recovered.status, 'reused');
+    assert.equal(recovered.preparedStageSha, preparedStageSha);
+    assert.equal(commitCalls, 1);
+    assert.equal(git(data.repository, 'rev-list', '--count', `${data.baseSha}..HEAD`), '1');
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('classifies failures after Stage worktree creation starts as local commit uncertainty', async () => {
+  const data = await fixture();
+  try {
+    git(data.repository, 'branch', 'stage/other', data.baseSha);
+    const repository = new GitRepository({ repositoryRoot: data.repository, worktreeRoot: data.worktrees });
+    await assert.rejects(
+      repository.materializePreparedFix({
+        stageBranch: 'stage/other',
+        sourceStageSha: 'different-source-sha',
+        files: { 'prepared/router.md': 'exact router bytes\n' },
+        commitMessage: 'chore(fix): prepare round-1',
+      }),
+      (error) => error.details.failure_class === 'POST_MUTATION_UNCERTAIN'
+        && error.details.boundary === 'local_prepared_commit',
+    );
+    assert.equal((await repository.listWorktrees()).some((item) => item.branch === 'stage/other'), true);
+  } finally {
+    await rm(data.owner, { recursive: true, force: true });
+  }
+});
+
+test('main push uses one exact non-force SHA refspec and enforces the three-way remote state', async () => {
+  const expected = '1111111111111111111111111111111111111111';
+  const accepted = '2222222222222222222222222222222222222222';
+  let remote = expected;
+  const pushes = [];
+  const run = async (_command, args) => {
+    if (args[0] === 'ls-remote') return { exitCode: 0, stdout: `${remote}\trefs/heads/main\n`, stderr: '', error: null };
+    if (args[0] === 'push') {
+      pushes.push(args);
+      remote = accepted;
+      return { exitCode: 0, stdout: '', stderr: '', error: null };
+    }
+    throw new Error(`unexpected Git command: ${args.join(' ')}`);
+  };
+  const repository = new GitRepository({ repositoryRoot: '.', worktreeRoot: '.', run });
+  const pushed = await repository.pushMain(accepted, expected);
+  assert.equal(pushed.status, 'pushed');
+  assert.deepEqual(pushes, [['push', 'origin', `${accepted}:refs/heads/main`]]);
+  assert.equal(pushes[0].some((arg) => arg.includes('force') || arg.startsWith('+')), false);
+
+  const reused = await repository.pushMain(accepted, expected);
+  assert.equal(reused.status, 'reused');
+  assert.equal(pushes.length, 1);
+
+  remote = '3333333333333333333333333333333333333333';
+  await assert.rejects(
+    repository.pushMain(accepted, expected),
+    (error) => error.details.failure_class === 'PRE_MUTATION_FAILURE',
+  );
+  assert.equal(pushes.length, 1);
+});
+
+test('push response loss is POST_MUTATION_UNCERTAIN even when the exact ref is re-observed', async () => {
+  const expected = '1111111111111111111111111111111111111111';
+  const accepted = '2222222222222222222222222222222222222222';
+  let remote = expected;
+  const repository = new GitRepository({
+    repositoryRoot: '.', worktreeRoot: '.',
+    run: async (_command, args) => {
+      if (args[0] === 'ls-remote') return { exitCode: 0, stdout: `${remote}\trefs/heads/main\n`, stderr: '', error: null };
+      if (args[0] === 'push') {
+        remote = accepted;
+        return { exitCode: 1, stdout: '', stderr: 'response lost', error: null };
+      }
+      throw new Error(`unexpected Git command: ${args.join(' ')}`);
+    },
+  });
+  await assert.rejects(
+    repository.pushMain(accepted, expected),
+    (error) => error.details.failure_class === 'POST_MUTATION_UNCERTAIN' && error.details.observed_remote_sha === accepted,
+  );
 });
