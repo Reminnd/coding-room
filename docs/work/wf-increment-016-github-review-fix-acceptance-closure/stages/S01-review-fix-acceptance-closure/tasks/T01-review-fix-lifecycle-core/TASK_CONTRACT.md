@@ -398,8 +398,64 @@ scope_expansion: needs_decision
 | `node --test tools/codex-github-bridge/tests/structured-records.test.mjs tools/codex-github-bridge/tests/lifecycle.test.mjs` | strict record grammar、authority、idempotency and lifecycle order | blocked；do not deliver |
 | `node --test tools/codex-github-bridge/tests/cli.test.mjs tools/codex-github-bridge/tests/github.test.mjs tools/codex-github-bridge/tests/git.test.mjs tools/codex-github-bridge/tests/controller.test.mjs tools/codex-github-bridge/tests/codex.test.mjs` | public CLI、pre-dispatch gate、recovery、Git/GitHub order and launch | blocked；do not deliver |
 | `npm run typecheck` | type-contract inconsistency | blocked；do not deliver |
-| `npm test` | repository regression | blocked；do not deliver |
+| `npm test` | repository regression | exit `0` remains the standard success condition；a non-zero exit is `blocked；do not deliver` unless the exact one-time baseline-equivalence amendment below is satisfied in full |
 | `git diff --check` | patch-format defect | correct only owned paths |
+
+### One-time baseline-equivalence verification amendment
+
+This amendment is strictly bound to the following identity：
+
+```yaml
+task_id: T01-review-fix-lifecycle-core
+dispatch_id: wf16-s01-t01-review-fix-lifecycle-core-001
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+workflow_id: wf-increment-016-github-review-fix-acceptance-closure
+stage_id: S01-review-fix-acceptance-closure
+```
+
+It does not apply to any other Task、dispatch、Stage、base SHA or future unrelated `npm test` failure。`npm test` exiting `0` remains the standard full-regression success condition。A non-zero full regression may be classified only as `baseline_equivalent_no_new_regression` and only when every condition below is satisfied：
+
+1. A clean detached checkout of exact base `d4f09e920e783a6b789a8d744e2ff648f1cc5535` reproduces the baseline。
+2. The exact base and current T01 worktree have identical total、pass and fail counts。
+3. Their failing-test identity sets are exactly equal。
+4. The corresponding failure evidence for every failing test is exactly equal。
+5. `t01_new_regressions == 0`。
+6. The focused lifecycle/structured-record tests pass。
+7. The five Bridge test files required by this Contract pass。
+8. `npm run typecheck` passes。
+9. `git diff --check` passes。
+10. Every actual changed file remains inside T01 ownership。
+
+If any condition is not satisfied, the result remains `blocked；do not deliver`。
+
+The six `plugin-packaging` failures are not fixed。This amendment does not authorize changes to `tests/plugin-packaging.test.ts`、Plugin files、Plugin Markdown、line-ending configuration or any T01-unowned path。`npm test` MUST NOT be described as green or passed；the only permitted exception classification is `baseline_equivalent_no_new_regression`。
+
+The exact-base verification reconfirmed the following evidence：
+
+```yaml
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+
+clean_detached_exact_base:
+  total: 409
+  passed: 403
+  failed: 6
+
+current_T01_worktree:
+  total: 409
+  passed: 403
+  failed: 6
+
+failure_sets_identical: true
+failure_evidence_identical: true
+t01_new_regressions: 0
+
+existing_failure_scope: plugin-packaging CRLF/LF baseline outside T01 ownership
+accepted_exception: baseline_equivalent_no_new_regression
+```
+
+This amendment does not change the T01 Goal、Requirements、owned paths、model policy、architecture decisions or dispatch identity。It does not authorize a new Worker、T02、T03、Task delivery or Stage-to-main closure。
+
+Persisting this amendment to the Stage does not automatically authorize T01 resume。Only after the push may fixed Chat separately inspect and accept the exact amended Stage SHA before the existing T01 candidate lineage can continue。
 
 ## Documentation updates
 
