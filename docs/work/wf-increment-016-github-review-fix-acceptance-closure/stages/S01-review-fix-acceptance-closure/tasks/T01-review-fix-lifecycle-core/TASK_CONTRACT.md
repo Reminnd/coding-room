@@ -464,3 +464,33 @@ None。
 ## Question policy
 
 Return `needs_decision` without scope expansion if implementation requires `scheduler.mjs` or any unowned path；authority/identity is conflicting；binding/current state is stale or ambiguous；Worker-start state is unknown；external mutation cannot be re-observed；or a dependency/fifth command appears necessary。
+
+## One-time Supervisor-only operational gate amendment
+
+T01 may add one `supervise-only` Bridge operational execution mode using only its already-owned `cli.mjs`, `controller.mjs`, `codex.mjs`, `git.mjs` and corresponding already-owned tests.
+
+`supervise-only` is not a fifth lifecycle command. It creates no decision record, mechanical lifecycle record, Bridge event or authority; performs no lifecycle mutation, Worker launch, Task push, Stage integration, candidate publication or Stage closure; and never routes through normal `BridgeController.run()`, `processResult()` or `finishIfComplete()`.
+
+The mode has two phases. `plan` performs read-only preflight and emits the exact Host execution plan. `execute` directly compares fresh read-only facts with that approved plan, requires current Host authorization, invokes the existing read-only `runSupervisor()` exactly once for an already-created exact candidate, returns its complete status and reason, then stops unconditionally.
+
+Preflight binds the exact Task, dispatch, candidate, parent, branch, worktree, Accepted Contract ref/path/blob, Router ownership, remote Stage, PR facts, mechanical-gate facts, verification evidence, explicit Codex executable, model, reasoning effort, environment/network policy and complete parent-to-candidate Diff. Any mismatch returns `needs_decision` before Codex launch with zero Git/GitHub/lifecycle mutation.
+
+Every future `supervise-only plan` MUST explicitly disclose these accepted Host approval residuals:
+
+- the exact upstream request endpoint remains runtime-resolved by `codex.exe`; Host approval binds only an explicit provider/destination family, such as OpenAI Codex via ChatGPT auth / `chatgpt.com:443`, and does not freeze an exact request path;
+- one Host-approved `codex.exe` launch may perform internal transport retry; the Bridge performs no retry, fallback or automatic second Supervisor launch, but one launch is not represented as one HTTPS transmission;
+- the read-only Codex Supervisor may start necessary local read-only shell/Git children; MCP, `node_repl`, computer-use, completion notifier and other unnecessary integrations are disabled, without claiming an absolute bound on `codex.exe` internal child count.
+
+Normal `start`, `run-once` and Worker → Supervisor → delivery behavior remain unchanged. Task delivery continues to require separate authorization.
+
+This amendment does not itself authorize implementation, candidate amend, Supervisor execution, private-repository transmission or delivery. The accepted Host approval residuals likewise grant none of those authorities and are not a future candidate SHA bearer capability.
+
+The amendment is bound to the existing Task lineage:
+
+```yaml
+task_id: T01-review-fix-lifecycle-core
+dispatch_id: wf16-s01-t01-review-fix-lifecycle-core-001
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+```
+
+No replacement dispatch is authorized by this amendment.
