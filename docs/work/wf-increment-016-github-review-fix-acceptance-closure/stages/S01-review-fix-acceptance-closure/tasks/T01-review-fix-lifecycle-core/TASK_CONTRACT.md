@@ -494,3 +494,18 @@ dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
 ```
 
 No replacement dispatch is authorized by this amendment.
+
+## One-time zero-capacity subagent waiver for candidate-binding repair
+
+This waiver is strictly limited to the following existing T01 lineage and
+repair attempt:
+```yaml
+task_id: T01-review-fix-lifecycle-core
+dispatch_id: wf16-s01-t01-review-fix-lifecycle-core-001
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+pre_amend_candidate_sha: 612b46fdb11a4c72289e5be53b3bed73048fd3b1
+repair_scope:
+  - tools/codex-github-bridge/controller.mjs
+  - tools/codex-github-bridge/tests/controller.test.mjs
+repair_purpose: remove the static Supervisor-only candidate SHA binding and bind the exact per-invocation candidate to request, verification evidence, Git observation, complete Diff and approved-plan comparison
+```
