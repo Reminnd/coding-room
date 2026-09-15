@@ -509,3 +509,125 @@ repair_scope:
   - tools/codex-github-bridge/tests/controller.test.mjs
 repair_purpose: remove the static Supervisor-only candidate SHA binding and bind the exact per-invocation candidate to request, verification evidence, Git observation, complete Diff and approved-plan comparison
 ```
+
+The current Host execution environment reports `agents=0/0`, so no native
+read-only subagent capacity is available.
+
+For this exact repair only, the Contract requirement
+`required_fresh_read_only_subagents: 3` is waived to zero.
+
+This waiver does not change the general T01 constraint and does not create
+a fallback policy. `required_fresh_read_only_subagents: 3`,
+`maximum_subagents: 3`, and `subagent_fallback: forbidden` remain the
+governing constraints for all other implementation work, repair rounds and
+future findings.
+
+For this exact repair only, zero fresh read-only subagents is accepted
+because the Host reports zero available subagent capacity. The Root Worker
+must instead independently complete and report the same three audit
+responsibilities that would otherwise have been delegated:
+
+1. static binding and strict candidate-authority audit;
+2. request → verification evidence → Git observation → execution plan →
+   approved-plan lineage audit;
+3. regression-test coverage and candidate-drift audit.
+
+The Root Worker remains the sole writer. No additional writing agent is
+authorized. Root self-audit under this waiver is not a general subagent
+fallback mechanism and creates no precedent outside this exact repair.
+
+This waiver applies only to the already-completed dynamic candidate-binding
+repair whose pre-incorporation Task candidate HEAD is
+`612b46fdb11a4c72289e5be53b3bed73048fd3b1`.
+
+It applies only while all of the following facts remain true before the
+repair is incorporated into the candidate:
+
+- Task ID remains `T01-review-fix-lifecycle-core`;
+- dispatch ID remains `wf16-s01-t01-review-fix-lifecycle-core-001`;
+- dispatch base remains
+  `d4f09e920e783a6b789a8d744e2ff648f1cc5535`;
+- the Task worktree HEAD before incorporation remains
+  `612b46fdb11a4c72289e5be53b3bed73048fd3b1`;
+- that candidate has exactly one parent;
+- that parent remains
+  `d4f09e920e783a6b789a8d744e2ff648f1cc5535`;
+- the repair modifies only
+  `tools/codex-github-bridge/controller.mjs` and
+  `tools/codex-github-bridge/tests/controller.test.mjs`;
+- all other previously verified Supervisor-only implementation files remain
+  byte-for-byte unchanged during this repair;
+- the production hardcoded historical candidate SHA is removed;
+- per-invocation `candidate_sha` is strictly request-bound;
+- the request candidate is exactly bound to verification evidence;
+- the request candidate is exactly bound to local Git observation and HEAD;
+- parent, branch, ownership and mechanical-gate facts remain exact;
+- complete Diff authority remains
+  `dispatch_base_sha..request_candidate_sha`;
+- approved-plan candidate drift remains rejected before Codex launch;
+- focused tests pass;
+- the required Bridge test set passes;
+- typecheck passes;
+- diff-check passes;
+- the existing one-time baseline-equivalence amendment remains satisfied in
+  full;
+- `t01_new_regressions == 0`.
+
+For the verification evidence already produced for this exact repair, the
+accepted reported state is:
+
+- focused: `23/23`;
+- Bridge: `123/123`;
+- typecheck: `pass`;
+- diff-check: `pass`;
+- full suite: `403/409`;
+- exact-base baseline: `403/409`;
+- failure identity sets identical: `true`;
+- failure evidence identical: `true`;
+- new regressions: `0`;
+- classification:
+  `baseline_equivalent_no_new_regression`.
+
+The full suite is not green and MUST NOT be described as passed. The existing
+six `plugin-packaging` failures remain the accepted exact-base failures under
+the previously persisted baseline-equivalence amendment.
+
+Before this repair may be incorporated into the Task candidate, fixed Chat
+must separately accept the exact Stage SHA and exact TASK_CONTRACT blob
+containing this completed waiver, and a fresh read-only audit must confirm
+that the repair and worktree facts listed above have not changed.
+
+If that fresh audit finds any new implementation defect requiring additional
+code changes, this waiver does not authorize that new repair. If the normal
+three-subagent requirement still cannot be satisfied for that new repair, a
+new Contract decision is required.
+
+This waiver expires immediately after this exact candidate-binding repair is
+incorporated into the Task candidate, or earlier if any bound fact above
+changes.
+
+This waiver does not authorize a replacement dispatch. The existing
+`dispatch_id` and original dispatch base remain unchanged.
+
+This waiver does not authorize:
+
+- additional implementation edits beyond the already-completed exact repair;
+- changes to any unowned path;
+- modification of `supervisor.mjs`;
+- candidate amend by this Stage-maintenance operation;
+- Task branch push;
+- Supervisor execution;
+- `supervise-only execute`;
+- private-repository payload transmission to the Supervisor model;
+- Task delivery;
+- Stage integration of the Task candidate;
+- lifecycle event publication;
+- T02;
+- T03;
+- Stage-to-main closure;
+- PR merge;
+- force push.
+
+Candidate incorporation, `supervise-only plan`, Host execution approval,
+Supervisor execution and Task delivery each remain subject to their separate
+authorization boundaries.
