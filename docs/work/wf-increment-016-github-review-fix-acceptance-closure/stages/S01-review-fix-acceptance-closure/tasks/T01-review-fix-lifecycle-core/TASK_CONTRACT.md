@@ -631,3 +631,104 @@ This waiver does not authorize:
 Candidate incorporation, `supervise-only plan`, Host execution approval,
 Supervisor execution and Task delivery each remain subject to their separate
 authorization boundaries.
+
+## One-time dynamic Accepted-Contract authority repair amendment
+
+This amendment is strictly limited to the existing T01 lineage and the
+Supervisor-only Accepted-Contract authority defect discovered after candidate
+`3322fb35816d1bfde6355e31818c3eb9221caf86` was created.
+
+The defect is that Supervisor-only production binding still compiles concrete
+historical values for `accepted_stage_sha` and `task_contract_blob_sha`.
+
+Legitimate Stage-level Contract maintenance changes those Git object
+identities. Therefore concrete accepted Stage SHA and Contract blob SHA MUST
+NOT be production constants.
+
+For Supervisor-only requests, `accepted_stage_sha` and
+`task_contract_blob_sha` are exact per-invocation authority inputs.
+
+They are not trusted caller assertions.
+
+Before any Codex launch, fresh read-only preflight MUST prove:
+
+- request `accepted_stage_sha` equals the current remote Stage branch HEAD;
+- request `accepted_stage_sha` equals PR #8 head SHA;
+- PR #8 remains OPEN and draft, with base `main` and the exact Stage head branch;
+- the fixed T01 TASK_CONTRACT.md path exists at exactly the requested Stage SHA;
+- the Git blob of that exact path equals request `task_contract_blob_sha`;
+- Supervisor Contract bytes are read from that exact Stage Git object.
+
+The Contract bytes MUST NOT come from:
+- Task working tree;
+- mutable local docs;
+- default branch;
+- historical Contract object.
+
+Any mismatch returns `needs_decision` before Codex launch with zero
+Git/GitHub/lifecycle mutation.
+
+The execution plan MUST bind the exact requested/observed:
+- `accepted_stage_sha`;
+- `task_contract_blob_sha`.
+
+`execute` MUST freshly re-observe those facts and include them in the existing
+direct structural comparison against the Host-approved plan.
+
+Thus Stage or Contract authority drift prevents Supervisor launch.
+
+The repair authorized by this amendment is limited to:
+
+- `tools/codex-github-bridge/controller.mjs`;
+- `tools/codex-github-bridge/tests/controller.test.mjs`.
+
+No other implementation path is authorized without a fresh Contract decision.
+
+The Host currently reports `agents=0/0`.
+
+The previous zero-capacity waiver has been consumed and MUST NOT be reused.
+
+For this exact Accepted-Contract authority repair only,
+`required_fresh_read_only_subagents: 3` is waived to zero.
+
+The general T01 constraints remain unchanged:
+
+- `required_fresh_read_only_subagents: 3`;
+- `maximum_subagents: 3`;
+- `subagent_fallback: forbidden`.
+
+For this exact repair, Root must independently perform:
+
+1. static Accepted-Contract binding audit;
+2. request → remote Stage → PR → exact Git blob → execution-plan authority audit;
+3. approved-plan Stage/blob drift and regression-test audit.
+
+This amendment is bound to:
+
+- task `T01-review-fix-lifecycle-core`;
+- dispatch `wf16-s01-t01-review-fix-lifecycle-core-001`;
+- dispatch base `d4f09e920e783a6b789a8d744e2ff648f1cc5535`;
+- pre-repair candidate `3322fb35816d1bfde6355e31818c3eb9221caf86`.
+
+If a new implementation defect is discovered after this exact repair,
+this waiver does not cover it.
+
+This amendment does NOT authorize:
+
+- Task candidate amend;
+- Task branch push;
+- Supervisor execution;
+- supervise-only execute;
+- private payload transmission;
+- Task delivery;
+- Stage integration;
+- lifecycle publication;
+- T02;
+- T03;
+- Stage-to-main closure;
+- PR merge;
+- force push;
+- replacement dispatch.
+
+After persistence, fixed Chat must separately accept the new Stage SHA and
+new TASK_CONTRACT blob before implementation repair begins.
