@@ -398,8 +398,64 @@ scope_expansion: needs_decision
 | `node --test tools/codex-github-bridge/tests/structured-records.test.mjs tools/codex-github-bridge/tests/lifecycle.test.mjs` | strict record grammar、authority、idempotency and lifecycle order | blocked；do not deliver |
 | `node --test tools/codex-github-bridge/tests/cli.test.mjs tools/codex-github-bridge/tests/github.test.mjs tools/codex-github-bridge/tests/git.test.mjs tools/codex-github-bridge/tests/controller.test.mjs tools/codex-github-bridge/tests/codex.test.mjs` | public CLI、pre-dispatch gate、recovery、Git/GitHub order and launch | blocked；do not deliver |
 | `npm run typecheck` | type-contract inconsistency | blocked；do not deliver |
-| `npm test` | repository regression | blocked；do not deliver |
+| `npm test` | repository regression | exit `0` remains the standard success condition；a non-zero exit is `blocked；do not deliver` unless the exact one-time baseline-equivalence amendment below is satisfied in full |
 | `git diff --check` | patch-format defect | correct only owned paths |
+
+### One-time baseline-equivalence verification amendment
+
+This amendment is strictly bound to the following identity：
+
+```yaml
+task_id: T01-review-fix-lifecycle-core
+dispatch_id: wf16-s01-t01-review-fix-lifecycle-core-001
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+workflow_id: wf-increment-016-github-review-fix-acceptance-closure
+stage_id: S01-review-fix-acceptance-closure
+```
+
+It does not apply to any other Task、dispatch、Stage、base SHA or future unrelated `npm test` failure。`npm test` exiting `0` remains the standard full-regression success condition。A non-zero full regression may be classified only as `baseline_equivalent_no_new_regression` and only when every condition below is satisfied：
+
+1. A clean detached checkout of exact base `d4f09e920e783a6b789a8d744e2ff648f1cc5535` reproduces the baseline。
+2. The exact base and current T01 worktree have identical total、pass and fail counts。
+3. Their failing-test identity sets are exactly equal。
+4. The corresponding failure evidence for every failing test is exactly equal。
+5. `t01_new_regressions == 0`。
+6. The focused lifecycle/structured-record tests pass。
+7. The five Bridge test files required by this Contract pass。
+8. `npm run typecheck` passes。
+9. `git diff --check` passes。
+10. Every actual changed file remains inside T01 ownership。
+
+If any condition is not satisfied, the result remains `blocked；do not deliver`。
+
+The six `plugin-packaging` failures are not fixed。This amendment does not authorize changes to `tests/plugin-packaging.test.ts`、Plugin files、Plugin Markdown、line-ending configuration or any T01-unowned path。`npm test` MUST NOT be described as green or passed；the only permitted exception classification is `baseline_equivalent_no_new_regression`。
+
+The exact-base verification reconfirmed the following evidence：
+
+```yaml
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+
+clean_detached_exact_base:
+  total: 409
+  passed: 403
+  failed: 6
+
+current_T01_worktree:
+  total: 409
+  passed: 403
+  failed: 6
+
+failure_sets_identical: true
+failure_evidence_identical: true
+t01_new_regressions: 0
+
+existing_failure_scope: plugin-packaging CRLF/LF baseline outside T01 ownership
+accepted_exception: baseline_equivalent_no_new_regression
+```
+
+This amendment does not change the T01 Goal、Requirements、owned paths、model policy、architecture decisions or dispatch identity。It does not authorize a new Worker、T02、T03、Task delivery or Stage-to-main closure。
+
+Persisting this amendment to the Stage does not automatically authorize T01 resume。Only after the push may fixed Chat separately inspect and accept the exact amended Stage SHA before the existing T01 candidate lineage can continue。
 
 ## Documentation updates
 
@@ -408,3 +464,465 @@ None。
 ## Question policy
 
 Return `needs_decision` without scope expansion if implementation requires `scheduler.mjs` or any unowned path；authority/identity is conflicting；binding/current state is stale or ambiguous；Worker-start state is unknown；external mutation cannot be re-observed；or a dependency/fifth command appears necessary。
+
+## One-time Supervisor-only operational gate amendment
+
+T01 may add one `supervise-only` Bridge operational execution mode using only its already-owned `cli.mjs`, `controller.mjs`, `codex.mjs`, `git.mjs` and corresponding already-owned tests.
+
+`supervise-only` is not a fifth lifecycle command. It creates no decision record, mechanical lifecycle record, Bridge event or authority; performs no lifecycle mutation, Worker launch, Task push, Stage integration, candidate publication or Stage closure; and never routes through normal `BridgeController.run()`, `processResult()` or `finishIfComplete()`.
+
+The mode has two phases. `plan` performs read-only preflight and emits the exact Host execution plan. `execute` directly compares fresh read-only facts with that approved plan, requires current Host authorization, invokes the existing read-only `runSupervisor()` exactly once for an already-created exact candidate, returns its complete status and reason, then stops unconditionally.
+
+Preflight binds the exact Task, dispatch, candidate, parent, branch, worktree, Accepted Contract ref/path/blob, Router ownership, remote Stage, PR facts, mechanical-gate facts, verification evidence, explicit Codex executable, model, reasoning effort, environment/network policy and complete parent-to-candidate Diff. Any mismatch returns `needs_decision` before Codex launch with zero Git/GitHub/lifecycle mutation.
+
+Every future `supervise-only plan` MUST explicitly disclose these accepted Host approval residuals:
+
+- the exact upstream request endpoint remains runtime-resolved by `codex.exe`; Host approval binds only an explicit provider/destination family, such as OpenAI Codex via ChatGPT auth / `chatgpt.com:443`, and does not freeze an exact request path;
+- one Host-approved `codex.exe` launch may perform internal transport retry; the Bridge performs no retry, fallback or automatic second Supervisor launch, but one launch is not represented as one HTTPS transmission;
+- the read-only Codex Supervisor may start necessary local read-only shell/Git children; MCP, `node_repl`, computer-use, completion notifier and other unnecessary integrations are disabled, without claiming an absolute bound on `codex.exe` internal child count.
+
+Normal `start`, `run-once` and Worker → Supervisor → delivery behavior remain unchanged. Task delivery continues to require separate authorization.
+
+This amendment does not itself authorize implementation, candidate amend, Supervisor execution, private-repository transmission or delivery. The accepted Host approval residuals likewise grant none of those authorities and are not a future candidate SHA bearer capability.
+
+The amendment is bound to the existing Task lineage:
+
+```yaml
+task_id: T01-review-fix-lifecycle-core
+dispatch_id: wf16-s01-t01-review-fix-lifecycle-core-001
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+```
+
+No replacement dispatch is authorized by this amendment.
+
+## One-time zero-capacity subagent waiver for candidate-binding repair
+
+This waiver is strictly limited to the following existing T01 lineage and
+repair attempt:
+```yaml
+task_id: T01-review-fix-lifecycle-core
+dispatch_id: wf16-s01-t01-review-fix-lifecycle-core-001
+dispatch_base_sha: d4f09e920e783a6b789a8d744e2ff648f1cc5535
+pre_amend_candidate_sha: 612b46fdb11a4c72289e5be53b3bed73048fd3b1
+repair_scope:
+  - tools/codex-github-bridge/controller.mjs
+  - tools/codex-github-bridge/tests/controller.test.mjs
+repair_purpose: remove the static Supervisor-only candidate SHA binding and bind the exact per-invocation candidate to request, verification evidence, Git observation, complete Diff and approved-plan comparison
+```
+
+The current Host execution environment reports `agents=0/0`, so no native
+read-only subagent capacity is available.
+
+For this exact repair only, the Contract requirement
+`required_fresh_read_only_subagents: 3` is waived to zero.
+
+This waiver does not change the general T01 constraint and does not create
+a fallback policy. `required_fresh_read_only_subagents: 3`,
+`maximum_subagents: 3`, and `subagent_fallback: forbidden` remain the
+governing constraints for all other implementation work, repair rounds and
+future findings.
+
+For this exact repair only, zero fresh read-only subagents is accepted
+because the Host reports zero available subagent capacity. The Root Worker
+must instead independently complete and report the same three audit
+responsibilities that would otherwise have been delegated:
+
+1. static binding and strict candidate-authority audit;
+2. request → verification evidence → Git observation → execution plan →
+   approved-plan lineage audit;
+3. regression-test coverage and candidate-drift audit.
+
+The Root Worker remains the sole writer. No additional writing agent is
+authorized. Root self-audit under this waiver is not a general subagent
+fallback mechanism and creates no precedent outside this exact repair.
+
+This waiver applies only to the already-completed dynamic candidate-binding
+repair whose pre-incorporation Task candidate HEAD is
+`612b46fdb11a4c72289e5be53b3bed73048fd3b1`.
+
+It applies only while all of the following facts remain true before the
+repair is incorporated into the candidate:
+
+- Task ID remains `T01-review-fix-lifecycle-core`;
+- dispatch ID remains `wf16-s01-t01-review-fix-lifecycle-core-001`;
+- dispatch base remains
+  `d4f09e920e783a6b789a8d744e2ff648f1cc5535`;
+- the Task worktree HEAD before incorporation remains
+  `612b46fdb11a4c72289e5be53b3bed73048fd3b1`;
+- that candidate has exactly one parent;
+- that parent remains
+  `d4f09e920e783a6b789a8d744e2ff648f1cc5535`;
+- the repair modifies only
+  `tools/codex-github-bridge/controller.mjs` and
+  `tools/codex-github-bridge/tests/controller.test.mjs`;
+- all other previously verified Supervisor-only implementation files remain
+  byte-for-byte unchanged during this repair;
+- the production hardcoded historical candidate SHA is removed;
+- per-invocation `candidate_sha` is strictly request-bound;
+- the request candidate is exactly bound to verification evidence;
+- the request candidate is exactly bound to local Git observation and HEAD;
+- parent, branch, ownership and mechanical-gate facts remain exact;
+- complete Diff authority remains
+  `dispatch_base_sha..request_candidate_sha`;
+- approved-plan candidate drift remains rejected before Codex launch;
+- focused tests pass;
+- the required Bridge test set passes;
+- typecheck passes;
+- diff-check passes;
+- the existing one-time baseline-equivalence amendment remains satisfied in
+  full;
+- `t01_new_regressions == 0`.
+
+For the verification evidence already produced for this exact repair, the
+accepted reported state is:
+
+- focused: `23/23`;
+- Bridge: `123/123`;
+- typecheck: `pass`;
+- diff-check: `pass`;
+- full suite: `403/409`;
+- exact-base baseline: `403/409`;
+- failure identity sets identical: `true`;
+- failure evidence identical: `true`;
+- new regressions: `0`;
+- classification:
+  `baseline_equivalent_no_new_regression`.
+
+The full suite is not green and MUST NOT be described as passed. The existing
+six `plugin-packaging` failures remain the accepted exact-base failures under
+the previously persisted baseline-equivalence amendment.
+
+Before this repair may be incorporated into the Task candidate, fixed Chat
+must separately accept the exact Stage SHA and exact TASK_CONTRACT blob
+containing this completed waiver, and a fresh read-only audit must confirm
+that the repair and worktree facts listed above have not changed.
+
+If that fresh audit finds any new implementation defect requiring additional
+code changes, this waiver does not authorize that new repair. If the normal
+three-subagent requirement still cannot be satisfied for that new repair, a
+new Contract decision is required.
+
+This waiver expires immediately after this exact candidate-binding repair is
+incorporated into the Task candidate, or earlier if any bound fact above
+changes.
+
+This waiver does not authorize a replacement dispatch. The existing
+`dispatch_id` and original dispatch base remain unchanged.
+
+This waiver does not authorize:
+
+- additional implementation edits beyond the already-completed exact repair;
+- changes to any unowned path;
+- modification of `supervisor.mjs`;
+- candidate amend by this Stage-maintenance operation;
+- Task branch push;
+- Supervisor execution;
+- `supervise-only execute`;
+- private-repository payload transmission to the Supervisor model;
+- Task delivery;
+- Stage integration of the Task candidate;
+- lifecycle event publication;
+- T02;
+- T03;
+- Stage-to-main closure;
+- PR merge;
+- force push.
+
+Candidate incorporation, `supervise-only plan`, Host execution approval,
+Supervisor execution and Task delivery each remain subject to their separate
+authorization boundaries.
+
+## One-time dynamic Accepted-Contract authority repair amendment
+
+This amendment is strictly limited to the existing T01 lineage and the
+Supervisor-only Accepted-Contract authority defect discovered after candidate
+`3322fb35816d1bfde6355e31818c3eb9221caf86` was created.
+
+The defect is that Supervisor-only production binding still compiles concrete
+historical values for `accepted_stage_sha` and `task_contract_blob_sha`.
+
+Legitimate Stage-level Contract maintenance changes those Git object
+identities. Therefore concrete accepted Stage SHA and Contract blob SHA MUST
+NOT be production constants.
+
+For Supervisor-only requests, `accepted_stage_sha` and
+`task_contract_blob_sha` are exact per-invocation authority inputs.
+
+They are not trusted caller assertions.
+
+Before any Codex launch, fresh read-only preflight MUST prove:
+
+- request `accepted_stage_sha` equals the current remote Stage branch HEAD;
+- request `accepted_stage_sha` equals PR #8 head SHA;
+- PR #8 remains OPEN and draft, with base `main` and the exact Stage head branch;
+- the fixed T01 TASK_CONTRACT.md path exists at exactly the requested Stage SHA;
+- the Git blob of that exact path equals request `task_contract_blob_sha`;
+- Supervisor Contract bytes are read from that exact Stage Git object.
+
+The Contract bytes MUST NOT come from:
+- Task working tree;
+- mutable local docs;
+- default branch;
+- historical Contract object.
+
+Any mismatch returns `needs_decision` before Codex launch with zero
+Git/GitHub/lifecycle mutation.
+
+The execution plan MUST bind the exact requested/observed:
+- `accepted_stage_sha`;
+- `task_contract_blob_sha`.
+
+`execute` MUST freshly re-observe those facts and include them in the existing
+direct structural comparison against the Host-approved plan.
+
+Thus Stage or Contract authority drift prevents Supervisor launch.
+
+The repair authorized by this amendment is limited to:
+
+- `tools/codex-github-bridge/controller.mjs`;
+- `tools/codex-github-bridge/tests/controller.test.mjs`.
+
+No other implementation path is authorized without a fresh Contract decision.
+
+The Host currently reports `agents=0/0`.
+
+The previous zero-capacity waiver has been consumed and MUST NOT be reused.
+
+For this exact Accepted-Contract authority repair only,
+`required_fresh_read_only_subagents: 3` is waived to zero.
+
+The general T01 constraints remain unchanged:
+
+- `required_fresh_read_only_subagents: 3`;
+- `maximum_subagents: 3`;
+- `subagent_fallback: forbidden`.
+
+For this exact repair, Root must independently perform:
+
+1. static Accepted-Contract binding audit;
+2. request → remote Stage → PR → exact Git blob → execution-plan authority audit;
+3. approved-plan Stage/blob drift and regression-test audit.
+
+This amendment is bound to:
+
+- task `T01-review-fix-lifecycle-core`;
+- dispatch `wf16-s01-t01-review-fix-lifecycle-core-001`;
+- dispatch base `d4f09e920e783a6b789a8d744e2ff648f1cc5535`;
+- pre-repair candidate `3322fb35816d1bfde6355e31818c3eb9221caf86`.
+
+If a new implementation defect is discovered after this exact repair,
+this waiver does not cover it.
+
+This amendment does NOT authorize:
+
+- Task candidate amend;
+- Task branch push;
+- Supervisor execution;
+- supervise-only execute;
+- private payload transmission;
+- Task delivery;
+- Stage integration;
+- lifecycle publication;
+- T02;
+- T03;
+- Stage-to-main closure;
+- PR merge;
+- force push;
+- replacement dispatch.
+
+After persistence, fixed Chat must separately accept the new Stage SHA and
+new TASK_CONTRACT blob before implementation repair begins.
+
+## Review handoff identity clarification amendment
+
+The Accepted Contract previously required
+`FORMAL_REVIEW_V1.review_handoff_id` while the exact
+`CHAT_REVIEW_HANDOFF_V1` payload omitted a handoff identity field.
+That combination is internally inconsistent because a Formal Review
+cannot exactly bind an identifier that is absent from the mechanical
+handoff being referenced.
+
+The effective exact `CHAT_REVIEW_HANDOFF_V1` payload is therefore:
+```text
+status
+repository
+pull_request_number
+workflow_id
+stage_id
+base_branch
+base_sha
+head_branch
+head_sha
+stage_contract_path
+router_contract_path
+verification_id
+review_authority
+handoff_id
+```
+
+## Prepared Fix exact-lineage gate repair amendment
+
+A fresh Supervisor review discovered a T01 implementation defect in
+`gateDispatchBatch()`.
+
+The current implementation validates substantial Prepared Fix lineage,
+but it does not require the current `FIX_PREPARED_V1` to bind these
+five fields to the current Router / PR / Fix handoff:
+
+- `repository`;
+- `pull_request_number`;
+- `workflow_id`;
+- `stage_id`;
+- `stage_branch`.
+
+Therefore a cross-lineage `FIX_PREPARED_V1` can preserve the existing
+Fix IDs, verification IDs, SHA bindings and mapping while forging one
+of those lineage fields and still pass the Prepared Fix pre-dispatch
+gate.
+
+This violates the existing Contract requirement for exact
+Router / preparation / handoff / acceptance / Task lineage.
+
+For `prepared_fix_router` selection, before any execution preparation
+or mutation, the current `FIX_PREPARED_V1` MUST satisfy all of:
+
+```text
+preparation.repository == current repository
+preparation.pull_request_number == current PR number
+preparation.workflow_id == current Router workflow_id
+preparation.stage_id == current Router stage_id
+preparation.stage_branch == current Router stage_branch
+
+preparation.repository == current Fix handoff repository
+preparation.pull_request_number == current Fix handoff pull_request_number
+preparation.workflow_id == current Fix handoff workflow_id
+preparation.stage_id == current Fix handoff stage_id
+preparation.stage_branch == current Fix handoff stage_branch
+````
+These predicates are additive. All existing exact Fix-round,
+ preparation, Review, confirmation, verification, handoff, acceptance,
+ prepared-SHA, Router-path, Task-set and dispatch-mapping predicates
+ remain required.
+Any false, missing, stale, ambiguous or mismatched lineage value MUST
+ return command-level:
+```
+needs_decision
+failure_class: PRE_MUTATION_FAILURE
+```
+before every one of:
+```
+fetchStage
+ensureStageWorktree
+ensureTaskWorktree
+scheduler
+publishEvent
+processResult
+Worker launch
+replacement dispatch allocation
+Git mutation
+GitHub mutation
+```
+No normalization, inferred lineage, fallback lineage or partial
+ matching is permitted.
+This fresh Contract decision authorizes implementation repair only in:
+```
+tools/codex-github-bridge/lifecycle.mjs
+tools/codex-github-bridge/tests/lifecycle.test.mjs
+tools/codex-github-bridge/tests/controller.test.mjs
+```
+No other implementation file is authorized by this amendment.
+In particular this amendment does NOT authorize changes to:
+```
+tools/codex-github-bridge/structured-records.mjs
+tools/codex-github-bridge/controller.mjs
+tools/codex-github-bridge/github.mjs
+tools/codex-github-bridge/git.mjs
+tools/codex-github-bridge/codex.mjs
+tools/codex-github-bridge/cli.mjs
+tools/codex-github-bridge/index.mjs
+```
+unless fixed Chat makes another fresh Contract decision.
+The repair MUST add direct gate regression coverage proving each forged
+ preparation field is rejected independently:
+```
+repository
+pull_request_number
+workflow_id
+stage_id
+stage_branch
+```
+The repair MUST also add public start and run-once coverage proving
+ a cross-lineage preparation fails before all mutation / Worker launch
+ surfaces.
+The valid Prepared Fix path MUST remain accepted.
+The general T01 rule remains:
+```
+required_fresh_read_only_subagents: 3
+maximum_subagents: 3
+subagent_fallback: forbidden
+```
+At implementation-repair start, Root MUST report current agent
+ capacity.
+If and only if the Host reports exactly:
+```
+agents=0/0
+```
+then for this exact Prepared Fix lineage repair only,
+ required_fresh_read_only_subagents: 3 is conditionally waived to
+ zero.
+If any read-only subagent capacity is available, Root MUST use exactly
+ 3 fresh read-only subagents as required by the general Contract.
+A zero-capacity waiver under this amendment does not carry to any later
+ defect.
+If zero-capacity applies, Root independently performs these three
+ read-only audits:
+1.  exact preparation → Router / PR / Fix-handoff lineage audit;
+2.  forged-field rejection and zero-mutation public-path audit;
+3.  valid Prepared Fix path and existing lifecycle regression audit.
+The pre-repair candidate is:
+```
+0a4f0803e94b961567389994ef244917daabb490
+```
+Worker Git writes remain forbidden.
+Implementation repair is working-tree only until separately audited and
+ Host-amended.
+After repair, verification MUST include:
+```
+focused lifecycle/controller tests
+complete Bridge test suite
+npm run typecheck
+git diff --check
+npm test
+```
+npm test MUST NOT be described as green/pass unless it actually exits
+ successfully.
+If it remains the exact known baseline:
+```
+403/409
+```
+the existing baseline-equivalence amendment applies only when the
+ failure identity set and evidence remain exactly identical and
+ new_regressions == 0.
+This amendment authorizes only the implementation repair described
+ above.
+It does NOT authorize:
+```
+Task candidate amend
+Task branch push
+Supervisor-only plan
+Supervisor-only execute
+Supervisor execution
+private payload transmission
+Task delivery
+Stage integration of the Task candidate
+lifecycle publication
+T02
+T03
+Stage-to-main closure
+PR merge
+force push
+replacement dispatch
+```
+After this amendment is persisted, fixed Chat must separately accept
+ the new Stage SHA and new TASK_CONTRACT blob before implementation
+ repair begins.
