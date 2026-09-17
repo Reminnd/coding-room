@@ -759,3 +759,170 @@ verification_id
 review_authority
 handoff_id
 ```
+
+## Prepared Fix exact-lineage gate repair amendment
+
+A fresh Supervisor review discovered a T01 implementation defect in
+`gateDispatchBatch()`.
+
+The current implementation validates substantial Prepared Fix lineage,
+but it does not require the current `FIX_PREPARED_V1` to bind these
+five fields to the current Router / PR / Fix handoff:
+
+- `repository`;
+- `pull_request_number`;
+- `workflow_id`;
+- `stage_id`;
+- `stage_branch`.
+
+Therefore a cross-lineage `FIX_PREPARED_V1` can preserve the existing
+Fix IDs, verification IDs, SHA bindings and mapping while forging one
+of those lineage fields and still pass the Prepared Fix pre-dispatch
+gate.
+
+This violates the existing Contract requirement for exact
+Router / preparation / handoff / acceptance / Task lineage.
+
+For `prepared_fix_router` selection, before any execution preparation
+or mutation, the current `FIX_PREPARED_V1` MUST satisfy all of:
+
+```text
+preparation.repository == current repository
+preparation.pull_request_number == current PR number
+preparation.workflow_id == current Router workflow_id
+preparation.stage_id == current Router stage_id
+preparation.stage_branch == current Router stage_branch
+
+preparation.repository == current Fix handoff repository
+preparation.pull_request_number == current Fix handoff pull_request_number
+preparation.workflow_id == current Fix handoff workflow_id
+preparation.stage_id == current Fix handoff stage_id
+preparation.stage_branch == current Fix handoff stage_branch
+````
+These predicates are additive. All existing exact Fix-round,
+ preparation, Review, confirmation, verification, handoff, acceptance,
+ prepared-SHA, Router-path, Task-set and dispatch-mapping predicates
+ remain required.
+Any false, missing, stale, ambiguous or mismatched lineage value MUST
+ return command-level:
+```
+needs_decision
+failure_class: PRE_MUTATION_FAILURE
+```
+before every one of:
+```
+fetchStage
+ensureStageWorktree
+ensureTaskWorktree
+scheduler
+publishEvent
+processResult
+Worker launch
+replacement dispatch allocation
+Git mutation
+GitHub mutation
+```
+No normalization, inferred lineage, fallback lineage or partial
+ matching is permitted.
+This fresh Contract decision authorizes implementation repair only in:
+```
+tools/codex-github-bridge/lifecycle.mjs
+tools/codex-github-bridge/tests/lifecycle.test.mjs
+tools/codex-github-bridge/tests/controller.test.mjs
+```
+No other implementation file is authorized by this amendment.
+In particular this amendment does NOT authorize changes to:
+```
+tools/codex-github-bridge/structured-records.mjs
+tools/codex-github-bridge/controller.mjs
+tools/codex-github-bridge/github.mjs
+tools/codex-github-bridge/git.mjs
+tools/codex-github-bridge/codex.mjs
+tools/codex-github-bridge/cli.mjs
+tools/codex-github-bridge/index.mjs
+```
+unless fixed Chat makes another fresh Contract decision.
+The repair MUST add direct gate regression coverage proving each forged
+ preparation field is rejected independently:
+```
+repository
+pull_request_number
+workflow_id
+stage_id
+stage_branch
+```
+The repair MUST also add public start and run-once coverage proving
+ a cross-lineage preparation fails before all mutation / Worker launch
+ surfaces.
+The valid Prepared Fix path MUST remain accepted.
+The general T01 rule remains:
+```
+required_fresh_read_only_subagents: 3
+maximum_subagents: 3
+subagent_fallback: forbidden
+```
+At implementation-repair start, Root MUST report current agent
+ capacity.
+If and only if the Host reports exactly:
+```
+agents=0/0
+```
+then for this exact Prepared Fix lineage repair only,
+ required_fresh_read_only_subagents: 3 is conditionally waived to
+ zero.
+If any read-only subagent capacity is available, Root MUST use exactly
+ 3 fresh read-only subagents as required by the general Contract.
+A zero-capacity waiver under this amendment does not carry to any later
+ defect.
+If zero-capacity applies, Root independently performs these three
+ read-only audits:
+1.  exact preparation → Router / PR / Fix-handoff lineage audit;
+2.  forged-field rejection and zero-mutation public-path audit;
+3.  valid Prepared Fix path and existing lifecycle regression audit.
+The pre-repair candidate is:
+```
+0a4f0803e94b961567389994ef244917daabb490
+```
+Worker Git writes remain forbidden.
+Implementation repair is working-tree only until separately audited and
+ Host-amended.
+After repair, verification MUST include:
+```
+focused lifecycle/controller tests
+complete Bridge test suite
+npm run typecheck
+git diff --check
+npm test
+```
+npm test MUST NOT be described as green/pass unless it actually exits
+ successfully.
+If it remains the exact known baseline:
+```
+403/409
+```
+the existing baseline-equivalence amendment applies only when the
+ failure identity set and evidence remain exactly identical and
+ new_regressions == 0.
+This amendment authorizes only the implementation repair described
+ above.
+It does NOT authorize:
+```
+Task candidate amend
+Task branch push
+Supervisor-only plan
+Supervisor-only execute
+Supervisor execution
+private payload transmission
+Task delivery
+Stage integration of the Task candidate
+lifecycle publication
+T02
+T03
+Stage-to-main closure
+PR merge
+force push
+replacement dispatch
+```
+After this amendment is persisted, fixed Chat must separately accept
+ the new Stage SHA and new TASK_CONTRACT blob before implementation
+ repair begins.
