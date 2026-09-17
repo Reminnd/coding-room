@@ -732,3 +732,30 @@ This amendment does NOT authorize:
 
 After persistence, fixed Chat must separately accept the new Stage SHA and
 new TASK_CONTRACT blob before implementation repair begins.
+
+## Review handoff identity clarification amendment
+
+The Accepted Contract previously required
+`FORMAL_REVIEW_V1.review_handoff_id` while the exact
+`CHAT_REVIEW_HANDOFF_V1` payload omitted a handoff identity field.
+That combination is internally inconsistent because a Formal Review
+cannot exactly bind an identifier that is absent from the mechanical
+handoff being referenced.
+
+The effective exact `CHAT_REVIEW_HANDOFF_V1` payload is therefore:
+```text
+status
+repository
+pull_request_number
+workflow_id
+stage_id
+base_branch
+base_sha
+head_branch
+head_sha
+stage_contract_path
+router_contract_path
+verification_id
+review_authority
+handoff_id
+```
