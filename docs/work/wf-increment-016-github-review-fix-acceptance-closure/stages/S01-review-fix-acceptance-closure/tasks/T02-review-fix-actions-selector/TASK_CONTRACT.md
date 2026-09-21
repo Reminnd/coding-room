@@ -94,6 +94,91 @@ scope_expansion: needs_decision
 
 The Current-reader regression must deep-equal hard-coded scheduler、integration、review、fix-policy、execution and every normalized Task field, including exact IDs、paths、branches、dependencies、ownership、model policy、reasoning effort、fallback and verification。
 
+## One-time T02 baseline-equivalence verification amendment
+
+This amendment is strictly limited to the existing T02 lineage：
+
+```yaml
+task_id: T02-review-fix-actions-selector
+dispatch_id: wf16-s01-t02-review-fix-actions-selector-001
+workflow_id: wf-increment-016-github-review-fix-acceptance-closure
+stage_id: S01-review-fix-acceptance-closure
+maintenance_parent_stage_sha: 83643a99c8cdd2a923a4ead602a29aa9ad53ffc2
+existing_failure_scope: plugin-packaging CRLF/LF baseline outside T02 ownership
+accepted_exception: baseline_equivalent_no_new_regression
+```
+This amendment applies only to the first accepted Stage descendant produced by
+ this exact Contract-maintenance operation, where：
+-  the Stage commit has exactly one parent equal to
+ 83643a99c8cdd2a923a4ead602a29aa9ad53ffc2；
+-  the commit changes exactly this T02 TASK_CONTRACT.md and no other path；
+-  fixed Chat separately accepts that resulting exact Stage SHA and exact T02
+ Contract blob before T02 implementation begins。
+That accepted descendant becomes the exact T02 dispatch base。This amendment
+ does not apply to another Task、dispatch、Stage lineage、replacement dispatch or
+ later unrelated base。
+npm test exiting 0 remains the standard full-regression success condition。
+ A non-zero T02 full regression may be classified only as
+ baseline_equivalent_no_new_regression, and only if every condition below is
+ satisfied：
+1.  A clean detached checkout of the exact accepted T02 dispatch base reproduces
+ exactly 409 total tests、403 passed and 6 failed。
+2.  The T02 candidate produces exactly 409 total、403 passed and 6 failed。
+3.  The exact failing-test identity sets of dispatch base and T02 candidate are
+ identical。
+4.  The corresponding failure evidence for every failed test is exactly
+ identical。
+5.  Every failure remains inside the existing plugin-packaging CRLF/LF baseline
+ outside T02 ownership。
+6. t02_new_regressions == 0。
+7. node --test tests/router-contract-reader.test.ts passes。
+8. node --test tests/router-contract-reader.test.ts tests/stage-contract-selector.test.ts
+ passes。
+9. npm run typecheck passes。
+10. git diff --check passes。
+11.  Every actual T02 changed file remains inside exact T02 Router ownership。
+If any condition is not satisfied, the result remains
+ blocked；do not deliver。
+The full suite MUST NOT be described as green or passed while it exits non-zero。
+ The only permitted non-zero classification under this one-time amendment is：
+```
+baseline_equivalent_no_new_regression
+```
+This amendment does not authorize modification of：
+- tests/plugin-packaging.test.ts；
+-  Plugin files or Plugin Markdown；
+-  line-ending configuration；
+-  any T02-unowned path。
+It does not authorize a new dependency、second workflow、third Router mode、
+ automatic conflict resolution or scope expansion。
+The normal T02 implementation constraints remain unchanged：
+```
+root_worker: sole_writer
+required_fresh_read_only_subagents: 2
+maximum_subagents: 2
+subagent_fallback: forbidden
+git_writes_by_worker: forbidden
+```
+This Contract-maintenance operation does not consume or waive those two fresh
+ read-only subagents。They remain mandatory when the separately authorized T02
+ implementation actually begins。
+This amendment does not authorize：
+-  T02 Worker launch；
+-  T02 task worktree creation；
+- task_dispatched publication；
+-  T02 candidate commit by the Worker；
+-  T02 Task branch push；
+-  T02 Stage integration；
+-  T03；
+-  candidate-ready publication；
+-  Stage-to-main closure；
+-  PR merge；
+-  force push。
+After this Contract amendment is persisted to the Stage, fixed Chat must
+ separately inspect and accept the exact resulting Stage SHA and exact T02
+ Contract blob before the already-approved T02 implementation authorization may
+ be exercised.
+
 ## Documentation updates
 
 None。
