@@ -66,9 +66,12 @@ jobs:
             echo "pr_number=$pr_number"
             echo "pr_url=$(jq -r .url <<<"$pr_json")"
           } >> "$GITHUB_OUTPUT"
-      - id: router
+      - id: selector
+        name: Select canonical or prepared Fix Router
         env:
+          GH_TOKEN: ${{ github.token }}
           ROUTER_PATH: ${{ steps.stage.outputs.router_path }}
+          PR_NUMBER: ${{ steps.invalidate.outputs.pr_number }}
           STAGE_ID: ${{ steps.stage.outputs.stage_id }}
           WORKFLOW_ID: ${{ steps.stage.outputs.workflow_id }}
         shell: bash
@@ -79,48 +82,139 @@ jobs:
           [[ "$(jq -r .workflow_id <<<"$normalized")" == "$WORKFLOW_ID" ]]
           [[ "$(jq -r .stage_id <<<"$normalized")" == "$STAGE_ID" ]]
           [[ "$(jq -r .stage_branch <<<"$normalized")" == "$GITHUB_REF_NAME" ]]
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100" --jq '.[] | {body}' \
+            | jq -s '.' > "$RUNNER_TEMP/stage-comments.json"
+          selected="$(node .github/scripts/select-stage-contract.mjs select \
+            "$ROUTER_PATH" "$RUNNER_TEMP/stage-comments.json" "$GITHUB_REPOSITORY" "$PR_NUMBER" \
+            "$WORKFLOW_ID" "$STAGE_ID" "$GITHUB_REF_NAME" "$GITHUB_SHA")"
           {
-            echo "json=$normalized"
+            echo "mode=$(jq -r .mode <<<"$selected")"
+            echo "json=$selected"
             echo "path=$ROUTER_PATH"
-            echo "contract_sha=$(git log -1 --format=%H -- "$ROUTER_PATH")"
           } >> "$GITHUB_OUTPUT"
-      - name: Publish local dispatch handoff
+      - name: Publish canonical local dispatch handoff
+        if: steps.selector.outputs.mode == 'canonical_stage_router'
         env:
           GH_TOKEN: ${{ github.token }}
-          ROUTER_JSON: ${{ steps.router.outputs.json }}
-          ROUTER_PATH: ${{ steps.router.outputs.path }}
-          CONTRACT_SHA: ${{ steps.router.outputs.contract_sha }}
+          SELECTED_JSON: ${{ steps.selector.outputs.json }}
+          ROUTER_PATH: ${{ steps.selector.outputs.path }}
           PR_NUMBER: ${{ steps.invalidate.outputs.pr_number }}
           PR_URL: ${{ steps.invalidate.outputs.pr_url }}
         shell: bash
         run: |
           set -euo pipefail
-          stage_branch="$(jq -r .stage_branch <<<"$ROUTER_JSON")"
-          gh label create codex-dispatch-ready --color 1D76DB --description "Ready for Local Codex Bridge dispatch" --force
-          gh pr edit "$PR_NUMBER" --add-label codex-dispatch-ready
-
+          publish_exact_comment() {
+            local marker="$1" identity="$2" body_file="$3"
+            local body comments identity_count exact_count
+            body="$(cat "$body_file")"
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
+            identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            if [[ "$identity_count" == 0 ]]; then gh pr comment "$PR_NUMBER" --body-file "$body_file"; fi
+            if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
+              echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
+            fi
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
+            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+          }
+          router_json="$(jq -c .router <<<"$SELECTED_JSON")"
+          stage_branch="$(jq -r .stage_branch <<<"$router_json")"
           current_pr_head_sha="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
-          if [[ "$current_pr_head_sha" != "$GITHUB_SHA" ]]; then
-            echo "Superseded push $GITHUB_SHA; current PR head is $current_pr_head_sha"
-            exit 0
-          fi
-
+          [[ "$current_pr_head_sha" == "$GITHUB_SHA" ]] || { echo "Superseded push $GITHUB_SHA; current PR head is $current_pr_head_sha"; exit 0; }
           cat > "$RUNNER_TEMP/local-codex-handoff.md" <<HANDOFF
           <!-- LOCAL_CODEX_DISPATCH_HANDOFF_V1 -->
 
           status: dispatch_ready
           repository: $GITHUB_REPOSITORY
           pr_number: $PR_NUMBER
-          workflow_id: $(jq -r .workflow_id <<<"$ROUTER_JSON")
-          stage_id: $(jq -r .stage_id <<<"$ROUTER_JSON")
+          workflow_id: $(jq -r .workflow_id <<<"$router_json")
+          stage_id: $(jq -r .stage_id <<<"$router_json")
           router_contract_path: $ROUTER_PATH
-          contract_commit_sha: $CONTRACT_SHA
+          contract_commit_sha: $GITHUB_SHA
           stage_branch: $stage_branch
           stage_head_sha: $GITHUB_SHA
           execution_surface: local_codex
           HANDOFF
-          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/local-codex-handoff.md"
+          publish_exact_comment '<!-- LOCAL_CODEX_DISPATCH_HANDOFF_V1 -->' "stage_head_sha: $GITHUB_SHA" "$RUNNER_TEMP/local-codex-handoff.md"
+          gh label create codex-dispatch-ready --color 1D76DB --description "Ready for Local Codex Bridge dispatch" --force
+          gh pr edit "$PR_NUMBER" --add-label codex-dispatch-ready
           echo "Draft Stage PR: $PR_URL"
+
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        run: npm ci
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        run: node --test tests/router-contract-reader.test.ts
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        run: node --test tools/codex-github-bridge/tests/*.test.mjs
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        run: npm run typecheck
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        run: npm test
+      - if: steps.selector.outputs.mode == 'prepared_fix_router'
+        run: git diff --check
+      - name: Publish exact prepared verification
+        if: steps.selector.outputs.mode == 'prepared_fix_router'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.invalidate.outputs.pr_number }}
+          SELECTED_JSON: ${{ steps.selector.outputs.json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_exact_comment() {
+            local marker="$1" identity="$2" body_file="$3"
+            local body comments identity_count exact_count
+            body="$(cat "$body_file")"
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
+            identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            if [[ "$identity_count" == 0 ]]; then gh pr comment "$PR_NUMBER" --body-file "$body_file"; fi
+            if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
+              echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
+            fi
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
+            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+          }
+          current_pr_head_sha="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          [[ "$current_pr_head_sha" == "$GITHUB_SHA" ]]
+          jq -r .verification_comment <<<"$SELECTED_JSON" > "$RUNNER_TEMP/stage-verification.md"
+          verification_id="$(jq -r .verification.verification_id <<<"$SELECTED_JSON")"
+          publish_exact_comment '<!-- CODEX_GITHUB_LIFECYCLE_RECORD_V1 -->' "\"verification_id\": \"$verification_id\"" "$RUNNER_TEMP/stage-verification.md"
+      - name: Publish exact Fix dispatch handoff
+        if: steps.selector.outputs.mode == 'prepared_fix_router'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.invalidate.outputs.pr_number }}
+          SELECTED_JSON: ${{ steps.selector.outputs.json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_exact_comment() {
+            local marker="$1" identity="$2" body_file="$3"
+            local body comments identity_count exact_count
+            body="$(cat "$body_file")"
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
+            identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            if [[ "$identity_count" == 0 ]]; then gh pr comment "$PR_NUMBER" --body-file "$body_file"; fi
+            if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
+              echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
+            fi
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
+            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+          }
+          current_pr_head_sha="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          [[ "$current_pr_head_sha" == "$GITHUB_SHA" ]]
+          jq -r .fix_handoff_comment <<<"$SELECTED_JSON" > "$RUNNER_TEMP/fix-dispatch-handoff.md"
+          handoff_id="$(jq -r .fix_handoff.handoff_id <<<"$SELECTED_JSON")"
+          publish_exact_comment '<!-- CODEX_FIX_DISPATCH_HANDOFF_V1 -->' "\"handoff_id\": \"$handoff_id\"" "$RUNNER_TEMP/fix-dispatch-handoff.md"
+          gh label create codex-dispatch-ready --color 1D76DB --description "Ready for Local Codex Bridge dispatch" --force
+          gh pr edit "$PR_NUMBER" --add-label codex-dispatch-ready
 
   verify-stage-candidate:
     if: github.event_name == 'repository_dispatch' && github.event.action == 'stage_candidate_ready' && github.event.client_payload.status == 'candidate_ready'
@@ -177,7 +271,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: git diff --check
-      - name: Mark exact verified Stage head ready and publish Chat review handoff
+      - id: review-artifacts
+        name: Build exact Stage verification and Chat review handoff
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -195,31 +290,71 @@ jobs:
           base_sha="$(jq -r .baseRefOid <<<"$pr_json")"
           head_branch="$(jq -r .headRefName <<<"$pr_json")"
           stage_contract_path="${CANDIDATE_ROUTER_PATH%/ROUTER_CONTRACT.md}/STAGE.md"
+          artifacts="$(node .github/scripts/select-stage-contract.mjs review \
+            "$CANDIDATE_ROUTER_PATH" "$GITHUB_REPOSITORY" "$pr_number" "$CANDIDATE_WORKFLOW_ID" "$CANDIDATE_STAGE_ID" \
+            "$base_branch" "$base_sha" "$head_branch" "$CANDIDATE_STAGE_HEAD_SHA" "$stage_contract_path")"
+          echo "json=$artifacts" >> "$GITHUB_OUTPUT"
 
-          gh pr ready "$pr_number"
+      - name: Publish exact Stage verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACTS_JSON: ${{ steps.review-artifacts.outputs.json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_exact_comment() {
+            local marker="$1" identity="$2" body_file="$3"
+            local body comments identity_count exact_count
+            body="$(cat "$body_file")"
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
+            identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            if [[ "$identity_count" == 0 ]]; then gh pr comment "$CANDIDATE_PR_NUMBER" --body-file "$body_file"; fi
+            if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
+              echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
+            fi
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
+            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+          }
+          current_pr_head_sha="$(gh pr view "$CANDIDATE_PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          [[ "$current_pr_head_sha" == "$CANDIDATE_STAGE_HEAD_SHA" ]]
+          jq -r .verification_comment <<<"$ARTIFACTS_JSON" > "$RUNNER_TEMP/stage-verification.md"
+          verification_id="$(jq -r .verification.verification_id <<<"$ARTIFACTS_JSON")"
+          publish_exact_comment '<!-- CODEX_GITHUB_LIFECYCLE_RECORD_V1 -->' "\"verification_id\": \"$verification_id\"" "$RUNNER_TEMP/stage-verification.md"
+
+      - name: Publish exact Chat review handoff and mark ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACTS_JSON: ${{ steps.review-artifacts.outputs.json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_exact_comment() {
+            local marker="$1" identity="$2" body_file="$3"
+            local body comments identity_count exact_count
+            body="$(cat "$body_file")"
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
+            identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            if [[ "$identity_count" == 0 ]]; then gh pr comment "$CANDIDATE_PR_NUMBER" --body-file "$body_file"; fi
+            if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
+              echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
+            fi
+            comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
+            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+          }
+          current_pr_head_sha="$(gh pr view "$CANDIDATE_PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          [[ "$current_pr_head_sha" == "$CANDIDATE_STAGE_HEAD_SHA" ]]
+          jq -r .review_handoff_comment <<<"$ARTIFACTS_JSON" > "$RUNNER_TEMP/chat-review-handoff.md"
+          handoff_id="$(jq -r .review_handoff.handoff_id <<<"$ARTIFACTS_JSON")"
+          publish_exact_comment '<!-- CHAT_REVIEW_HANDOFF_V1 -->' "\"handoff_id\": \"$handoff_id\"" "$RUNNER_TEMP/chat-review-handoff.md"
+          gh pr ready "$CANDIDATE_PR_NUMBER"
           gh label create chat-review --color 5319E7 --description "Ready for formal ChatGPT fixed Chat review" --force
-          gh pr edit "$pr_number" --add-label chat-review --remove-label codex-dispatch-ready
-          cat > "$RUNNER_TEMP/chat-review-handoff.md" <<HANDOFF
-          <!-- CHAT_REVIEW_HANDOFF_V1 -->
-
-          status: ready_for_chat_review
-          repository: $GITHUB_REPOSITORY
-          pull_request: $pr_number
-          workflow_id: $CANDIDATE_WORKFLOW_ID
-          stage_id: $CANDIDATE_STAGE_ID
-          base_branch: $base_branch
-          base_sha: $base_sha
-          head_branch: $head_branch
-          head_sha: $CANDIDATE_STAGE_HEAD_SHA
-          stage_contract: $stage_contract_path
-          review_authority: chatgpt_fixed_chat
-          HANDOFF
-          gh pr comment "$pr_number" --body-file "$RUNNER_TEMP/chat-review-handoff.md"
-
-          final_pr_head_sha="$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)"
+          gh pr edit "$CANDIDATE_PR_NUMBER" --add-label chat-review --remove-label codex-dispatch-ready
+          final_pr_head_sha="$(gh pr view "$CANDIDATE_PR_NUMBER" --json headRefOid --jq .headRefOid)"
           if [[ "$final_pr_head_sha" != "$CANDIDATE_STAGE_HEAD_SHA" ]]; then
-            gh pr ready "$pr_number" --undo
-            gh pr edit "$pr_number" --remove-label chat-review --add-label codex-dispatch-ready
+            gh pr ready "$CANDIDATE_PR_NUMBER" --undo
+            gh pr edit "$CANDIDATE_PR_NUMBER" --remove-label chat-review --add-label codex-dispatch-ready
             echo "PR head changed while publishing readiness" >&2
             exit 1
           fi
