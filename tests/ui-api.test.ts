@@ -146,8 +146,10 @@ test('HTTP actions persist Question answer and Review acceptance through restart
   const fixture = makeFixture('lifecycle');
   const registry = new ProjectRegistry(join(fixture.root, 'ui-projects.json'));
   registry.add({ project_id: 'project', name: 'Lifecycle', project_path: fixture.project, database_path: fixture.dbPath, room_id: fixture.roomId, control_participant_id: 'codex-app', port: 42001 });
+  registry.add({ project_id: 'other', name: 'Other room', project_path: fixture.project, database_path: fixture.dbPath, room_id: 'other-room', control_participant_id: 'codex-app', port: 42001 });
   {
     const { db, service } = openService(fixture);
+    service.createRoom('other-room', PLANNER);
     service.transitionToArchitectureReview(fixture.roomId, PLANNER);
     service.transitionToWaitingForUserConfirmation(fixture.roomId, PLANNER);
     service.submitTask(makeTask({ task_id: 'task-life', room_id: fixture.roomId, run_id: 'run-life' }), PLANNER);
@@ -159,6 +161,9 @@ test('HTTP actions persist Question answer and Review acceptance through restart
   const server = createRoomUiHttpServer(new RoomUiApplication(registry), join(fixture.root, 'missing-dist'));
   const base = await listen(server);
   try {
+    const wrongQuestion = await request(base, '/api/projects/other/actions/answer-question', { method: 'POST', body: JSON.stringify({ question_id: 'question-life', answer: 'Wrong room', answer_changes_contract: false }) });
+    assert.equal(wrongQuestion.status, 409);
+    assert.match(wrongQuestion.body.error.message, /selected project room/);
     const answered = await request(base, '/api/projects/project/actions/answer-question', { method: 'POST', body: JSON.stringify({ question_id: 'question-life', answer: '保持 Contract', answer_changes_contract: false }) });
     assert.equal(answered.status, 200);
     assert.equal(answered.body.question.status, 'answered');
@@ -171,6 +176,9 @@ test('HTTP actions persist Question answer and Review acceptance through restart
     const review = await request(base, '/api/projects/project/actions/submit-review', { method: 'POST', body: JSON.stringify({ review_id: 'review-life', task_id: 'task-life', run_id: 'run-life', attempt_id: 'attempt-review', decision: 'approved', findings: [], open_questions: [], verification_summary: 'verified' }) });
     assert.equal(review.status, 200);
     assert.equal(review.body.run.status, 'review_discussion');
+    const wrongReview = await request(base, '/api/projects/other/actions/accept-review', { method: 'POST', body: JSON.stringify({ review_id: 'review-life', confirmed_by_user: true }) });
+    assert.equal(wrongReview.status, 409);
+    assert.match(wrongReview.body.error.message, /selected project room/);
     const accepted = await request(base, '/api/projects/project/actions/accept-review', { method: 'POST', body: JSON.stringify({ review_id: 'review-life', confirmed_by_user: true }) });
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.run.status, 'accepted');
@@ -216,7 +224,10 @@ test('Run launch returns immediately, uses the configured MCP binding, and rejec
     const duplicate = await request(base, '/api/projects/launch/runs/start', { method: 'POST', body: JSON.stringify({ run_id: 'run-launch', attempt_id: 'attempt-ui-2' }) });
     assert.equal(duplicate.status, 409);
     assert.equal(duplicate.body.error.code, 'run_already_active');
-    finish({});
+    finish({ attempt: { status: 'failed', failure: { message: 'runner fixture failed' } } });
+    const launches = await request(base, '/api/projects/launch/launches');
+    assert.equal(launches.body.launches[0].status, 'failed');
+    assert.equal(launches.body.launches[0].error, 'runner fixture failed');
   } finally {
     await close(server);
     rmSync(fixture.root, { recursive: true, force: true });

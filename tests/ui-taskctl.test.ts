@@ -47,6 +47,10 @@ test('taskctl drives projects, state, actions, events, export and VS Code APIs',
     const initial = JSON.parse((await run('state', 'cli')).stdout);
     assert.equal(initial.room.state, 'DISCUSSION');
 
+    await assert.rejects(run('action', 'cli', 'begin-architecture-review', '--data', '{}', '--unexpected'));
+    assert.equal(JSON.parse((await run('state', 'cli')).stdout).room.state, 'DISCUSSION');
+    await run('--help');
+
     await run('action', 'cli', 'begin-architecture-review', '--data', '{}');
     const events = JSON.parse((await run('events', 'cli', '--type', 'state_transition')).stdout);
     assert.equal(events.events.length, 1);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import type { Project, Snapshot } from './types';
 import { OverviewPage } from './pages/OverviewPage';
@@ -38,6 +38,7 @@ function Setup({ projects, onChanged }: { projects: Project[]; onChanged: (proje
 
 export function App() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [projectId, setProjectId] = useState(localStorage.getItem('room-ui-project') ?? '');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [launches, setLaunches] = useState<Array<Record<string, unknown>>>([]);
@@ -46,6 +47,9 @@ export function App() {
   const [lastError, setLastError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [theme, setThemeState] = useState(localStorage.getItem('room-ui-theme') ?? 'system');
+  const activeProject = useRef(projectId);
+  activeProject.current = projectId;
+  const refreshSequence = useRef(0);
 
   const selected = projects.find((project) => project.project_id === projectId) ?? null;
   const setTheme = (value: string) => { setThemeState(value); localStorage.setItem('room-ui-theme', value); };
@@ -53,7 +57,7 @@ export function App() {
 
   const loadProjects = useCallback(async (preferred?: Project) => {
     try {
-      const result = await api.projects(); setProjects(result);
+      const result = await api.projects(); setProjects(result); setProjectsLoaded(true);
       const next = preferred?.project_id ?? (result.some((project) => project.project_id === projectId) ? projectId : result[0]?.project_id ?? '');
       setProjectId(next); if (next) localStorage.setItem('room-ui-project', next); setShowSetup(false);
     } catch (err) { setConnection('error'); setLastError(err instanceof Error ? err.message : String(err)); }
@@ -61,24 +65,29 @@ export function App() {
 
   const refresh = useCallback(async () => {
     if (!projectId) return;
+    const sequence = ++refreshSequence.current;
     try {
       const [state, currentLaunches] = await Promise.all([api.state(projectId), api.launches(projectId)]);
+      if (activeProject.current !== projectId || sequence !== refreshSequence.current) return;
       setSnapshot(state); setLaunches(currentLaunches); setConnection('connected');
     } catch (err) {
+      if (activeProject.current !== projectId || sequence !== refreshSequence.current) return;
       setConnection('error'); setLastError(err instanceof Error ? err.message : String(err));
     }
   }, [projectId]);
 
   useEffect(() => { void loadProjects(); }, []);
+  useEffect(() => { if (projectsLoaded) return; const timer = window.setInterval(() => void loadProjects(), 4000); return () => window.clearInterval(timer); }, [projectsLoaded, loadProjects]);
   useEffect(() => { setSnapshot(null); setConnection('connecting'); void refresh(); const timer = window.setInterval(() => void refresh(), 4000); return () => window.clearInterval(timer); }, [refresh]);
 
   const pending = useMemo(() => snapshot ? snapshot.questions.filter((q) => q.status === 'open').length + snapshot.runs.filter((r) => ['review_required', 'review_discussion'].includes(r.status)).length : 0, [snapshot]);
   async function planning(action: string) { try { await api.action(projectId, action, {}); await refresh(); } catch (err) { setLastError(err instanceof Error ? err.message : String(err)); } }
 
-  if (projects.length === 0 || showSetup) return <Setup projects={projects} onChanged={loadProjects} />;
+  if (!projectsLoaded) return <main className="setup-shell"><Panel title="连接 Room"><ErrorNotice error={lastError} /><p>正在读取项目配置…</p><button onClick={() => void loadProjects()}>重试连接</button></Panel></main>;
+  if (projects.length === 0 || showSetup) return <><Setup projects={projects} onChanged={loadProjects} />{showSetup && <button className="setup-back" onClick={() => setShowSetup(false)}>返回工作台</button>}</>;
   return <div className="app-shell">
     <aside className="sidebar"><div className="brand"><span>AR</span><div><strong>Agent Room</strong><small>local workbench</small></div></div><label className="project-picker"><span>项目</span><select value={projectId} onChange={(e) => { setProjectId(e.target.value); localStorage.setItem('room-ui-project', e.target.value); }} aria-label="选择项目">{projects.map((project) => <option value={project.project_id} key={project.project_id}>{project.name}</option>)}</select></label><nav>{pages.map(([id, label, icon]) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><span>{icon}</span>{label}{id === 'questions' && pending > 0 && <em>{pending}</em>}</button>)}</nav><div className="sidebar-foot"><button onClick={() => setShowSetup(true)}>＋ 添加项目</button><small>{selected?.project_path}</small></div></aside>
-    <div className="workspace"><header className="topbar"><div><div className="eyebrow">{selected?.name}</div><h1>{pages.find(([id]) => id === page)?.[1]}</h1></div><div className="header-actions"><span className={`connection ${connection}`}><i />{connection === 'connected' ? '已连接' : connection === 'connecting' ? '连接中' : '连接异常'}</span>{snapshot && <span className="room-chip">{snapshot.room.room_id} · {snapshot.room.state}</span>}<button onClick={() => void refresh()}>刷新</button><button onClick={() => void api.openVscode(projectId)}>VS Code</button></div></header>
+    <div className="workspace"><header className="topbar"><div><div className="eyebrow">{selected?.name}</div><h1>{pages.find(([id]) => id === page)?.[1]}</h1></div><div className="header-actions"><span className={`connection ${connection}`}><i />{connection === 'connected' ? '已连接' : connection === 'connecting' ? '连接中' : '连接异常'}</span>{snapshot && <span className="room-chip">{snapshot.room.room_id} · {snapshot.room.state}</span>}<button onClick={() => void refresh()}>刷新</button><button onClick={() => void api.openVscode(projectId).catch((error) => setLastError(error.message))}>VS Code</button></div></header>
       {lastError && <div className="persistent-error" role="alert"><span>{lastError}</span><button onClick={() => setLastError(null)}>关闭</button></div>}
       {selected?.configuration_error && <div className="setup-warning"><div><strong>项目配置未就绪</strong><p>{selected.configuration_error}</p></div>{!selected.database_exists && <button className="primary" onClick={async () => { try { await api.createRoom(projectId); await loadProjects(); await refresh(); } catch (err) { setLastError(err instanceof Error ? err.message : String(err)); } }}>显式创建新 Room</button>}</div>}
       {snapshot && <div className="planning-bar"><span>Planning：<strong>{snapshot.room.state}</strong></span><button disabled={snapshot.room.state !== 'DISCUSSION'} title="仅 DISCUSSION 可进入" onClick={() => void planning('begin-architecture-review')}>开始 Architecture Review</button><button disabled={snapshot.room.state !== 'ARCHITECTURE_REVIEW'} title="仅 ARCHITECTURE_REVIEW 可进入" onClick={() => void planning('request-user-confirmation')}>请求用户确认</button></div>}

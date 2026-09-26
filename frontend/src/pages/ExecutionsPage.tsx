@@ -16,7 +16,8 @@ export function ExecutionsPage({ projectId, snapshot, refresh, launches }: PageP
     catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   }
   const activeAttempt = run ? snapshot.attempts.find((attempt) => attempt.run_id === run.run_id && ['running', 'decision_requested', 'cancel_requested'].includes(String(attempt.status))) : null;
-  const canStart = run?.status === 'ready' && !activeAttempt;
+  const pendingLaunch = launches.some((launch) => launch.run_id === run?.run_id && ['starting', 'running'].includes(String(launch.status)));
+  const canStart = run?.status === 'ready' && !activeAttempt && !pendingLaunch;
   const canRetry = run && ['failed', 'canceled'].includes(run.status);
   const canCancel = Boolean(activeAttempt);
   const canGuide = Boolean(run && !activeAttempt && run.status !== 'accepted');

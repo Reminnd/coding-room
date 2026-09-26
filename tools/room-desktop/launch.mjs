@@ -11,10 +11,10 @@ const runFile = promisify(execFile);
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function background(args, log, executable = process.execPath) {
+async function background(args, log, executable = process.execPath, visible = false) {
   const fd = openSync(log, 'a');
   try {
-    const child = spawn(executable, args, { cwd: root, detached: true, windowsHide: true, stdio: ['ignore', fd, fd] });
+    const child = spawn(executable, args, { cwd: root, detached: true, windowsHide: !visible, stdio: ['ignore', fd, fd] });
     await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
     child.unref();
     return child.pid;
@@ -43,6 +43,7 @@ async function codexExecutable() {
 }
 
 async function ensureMcp(binding, logs) {
+  if (!existsSync(binding.database_path)) throw new Error(`既有 Room 数据库不存在：${binding.database_path}`);
   const endpoint = `http://127.0.0.1:${binding.port}/mcp/participants/p~${encodeURIComponent(binding.control_participant_id)}`;
   const check = async () => { try { return (await fetch(endpoint, { signal: AbortSignal.timeout(1000) })).status === 405; } catch { return false; } };
   if (await check()) return;
@@ -73,7 +74,7 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
   }
   let targets = await codexTargets(cdpPort).catch(() => []);
   if (!targets.length) {
-    await background([`--user-data-dir=${join(local, 'codex-browser-profile')}`, `--remote-debugging-port=${cdpPort}`, '--remote-debugging-address=127.0.0.1', '--no-first-run'], join(local, 'codex-window.log'), await codexExecutable());
+    await background([`--user-data-dir=${join(local, 'codex-browser-profile')}`, `--remote-debugging-port=${cdpPort}`, '--remote-debugging-address=127.0.0.1', '--no-first-run'], join(local, 'codex-window.log'), await codexExecutable(), true);
     targets = await waitFor(async () => { const entries = await codexTargets(cdpPort).catch(() => []); return entries.length ? entries : null; }, 15000) ?? [];
   }
   const prior = await bridgeStatus(cdpPort);

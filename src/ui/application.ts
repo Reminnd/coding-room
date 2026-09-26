@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { dirname } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { z } from 'zod';
 import { runRoomRun } from '../cli/run.ts';
 import { GitController, previewGitActionInputSchema } from '../git/git-controller.ts';
@@ -98,7 +98,13 @@ function now(): string {
 
 function openVscodeDefault(target: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn('code', ['--reuse-window', target], { detached: true, stdio: 'ignore' });
+    let executable = 'code';
+    if (process.platform === 'win32') {
+      const candidates = (process.env.PATH ?? '').split(delimiter).flatMap((path) => [join(path, 'Code.exe'), join(path, '..', 'Code.exe')]);
+      executable = candidates.find((path) => existsSync(path)) ?? '';
+      if (!executable) { reject(new Error('找不到 VS Code；请安装 VS Code 并将其 bin 目录加入 PATH。')); return; }
+    }
+    const child = spawn(executable, ['--reuse-window', target], { detached: true, stdio: 'ignore' });
     child.once('spawn', () => {
       child.unref();
       resolve();
@@ -186,6 +192,8 @@ export class RoomUiApplication {
     if (action === 'git-execute' || action === 'git-reconcile') {
       const input = gitActionIdInput.parse(body);
       return this.withServiceAsync(project, async (_selected, service) => {
+        const gitAction = service.getGitAction(input.git_action_id);
+        if (gitAction) this.assertProjectRoom(project, gitAction.room_id);
         const controller = new GitController(service);
         const actor = this.actor(service, project, 'git_controller');
         return action === 'git-execute' ? controller.execute(input.git_action_id, actor) : controller.reconcile(input.git_action_id, actor);
@@ -219,6 +227,7 @@ export class RoomUiApplication {
     const run = this.withService(projectId, (_selected, service) => {
       const candidate = service.getRun(parsed.run_id);
       if (!candidate) throw new ProtocolError('entity_not_found', `run ${parsed.run_id} not found`);
+      this.assertProjectRoom(project, candidate.room_id);
       if (candidate.status !== 'ready') throw new ProtocolError('validation_failed', `run ${parsed.run_id} is not ready`);
       if (service.activeAttemptForRun(parsed.run_id)) throw new ProtocolError('run_already_active', `run ${parsed.run_id} already has an active attempt`);
       return candidate;
@@ -246,8 +255,9 @@ export class RoomUiApplication {
       runId: run.run_id,
       attemptId: launch.attempt_id,
       mcpUrl,
-    }).then(() => {
-      launch.status = 'completed';
+    }).then((result) => {
+      launch.status = result.attempt.status === 'failed' || result.attempt.status === 'interrupted' ? 'failed' : 'completed';
+      launch.error = result.attempt.failure?.message ?? null;
       launch.completed_at = now();
     }).catch((error: unknown) => {
       launch.status = 'failed';
@@ -270,6 +280,7 @@ export class RoomUiApplication {
       target = this.withService(projectId, (_selected, service) => {
         const run = service.getRun(parsed.run_id!);
         if (!run) throw new ProtocolError('entity_not_found', `run ${parsed.run_id} not found`);
+        this.assertProjectRoom(project, run.room_id);
         if (!run.worktree_path) throw new ProtocolError('validation_failed', `run ${parsed.run_id} has no worktree`);
         return run.worktree_path;
       });
@@ -326,6 +337,8 @@ export class RoomUiApplication {
       }
       case 'answer-question': {
         const input = answerQuestionInput.parse(body);
+        const question = service.getQuestion(input.question_id);
+        if (question) this.assertProjectRoom(project, question.room_id);
         return service.answerQuestion(input.question_id, input.answer, input.answer_changes_contract, this.actor(service, project, 'planner'));
       }
       case 'submit-review': {
@@ -334,6 +347,8 @@ export class RoomUiApplication {
       }
       case 'accept-review': {
         const input = acceptReviewInput.parse(body);
+        const review = service.getReview(input.review_id);
+        if (review) this.assertProjectRoom(project, review.room_id);
         return service.acceptReview(input.review_id, input.confirmed_by_user, this.actor(service, project, 'reviewer'));
       }
       case 'retry-run': {

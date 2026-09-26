@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 测试侧 literal 声明已冻结的 Scope boundary，避免与 future implementation 同源。
-const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli', 'scheduler']);
+const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli', 'scheduler', 'ui']);
+const allowedUiFiles = new Set(['application.ts', 'project-registry.ts', 'http-server.ts', 'serve.ts']);
 const allowedSchedulerFiles = new Set(['plan-scheduler.ts']);
 // v0.4：runner 边界新增 Executor/WorkerAdapter seam 两个文件；Stage 2 只允许这两个新模块。
 const allowedRunnerFiles = new Set([
@@ -68,7 +69,7 @@ function assertDirFiles(dir: string, allowed: Set<string>): void {
   }
 }
 
-test('Increment 13 allows the exact Git Controller boundary and keeps extra modules, plugin files and dependency drift rejected', () => {
+test('approved Git Controller and Room UI boundaries reject extra modules, plugin files and dependency drift', () => {
   for (const name of readdirSync(join(root, 'src')).sort()) {
     assert.ok(allowedTopLevelModules.has(name), `unapproved top-level module: src/${name}`);
   }
@@ -79,6 +80,7 @@ test('Increment 13 allows the exact Git Controller boundary and keeps extra modu
   assertDirFiles(join(root, 'src', 'room'), allowedRoomFiles);
   assertDirFiles(join(root, 'src', 'scheduler'), allowedSchedulerFiles);
   assertDirFiles(join(root, 'src', 'git'), allowedGitFiles);
+  assertDirFiles(join(root, 'src', 'ui'), allowedUiFiles);
 
   // Increment 7/8 packaging boundary：安装一次的 shared Plugin 与 repository-local
   // marketplace 是根目录唯一新增结构；plugin 树恰好四个文件（Increment 8 新增

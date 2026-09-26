@@ -18,7 +18,7 @@ export function Dag({ revisions, workItems, onSelect }: { revisions: Entity[]; w
     <div className="dag-nodes" style={{ minHeight: height }}>
       {nodes.map((node) => {
         const pos = positions.get(String(node.node_id))!;
-        const work = workItems.find((item) => item.node_id === node.node_id);
+        const work = workItems.find((item) => item.revision_id === latest.revision_id && item.node_id === node.node_id);
         return <button type="button" className="dag-node" style={{ left: pos.x, top: pos.y }} key={String(node.node_id)} onClick={() => onSelect(node)}>
           <strong>{String(node.node_id)}</strong>
           <span>{String(node.kind)}</span>

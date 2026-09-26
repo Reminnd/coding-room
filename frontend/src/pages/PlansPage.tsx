@@ -12,6 +12,7 @@ export function PlansPage({ projectId, snapshot, refresh }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Entity | null>(null);
+  const [graphPlan, setGraphPlan] = useState('');
   const [planId, setPlanId] = useState('plan-ui');
   const [revision, setRevision] = useState({ planId: 'plan-ui', revisionId: 'revision-ui-1', revisionNo: 1, concurrency: 1, policy: 'per_task', supersedes: '' });
   const [nodesJson, setNodesJson] = useState('[\n  \n]');
@@ -25,14 +26,14 @@ export function PlansPage({ projectId, snapshot, refresh }: PageProps) {
 
   async function run(label: string, action: string, body: unknown) {
     setError(null); setSuccess(null);
-    try { await api.action(projectId, action, body); setSuccess(`${label}已提交。`); await refresh(); }
+    try { await api.action(projectId, action, typeof body === 'function' ? body() : body); setSuccess(`${label}已提交。`); await refresh(); }
     catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   }
 
   return <div className="page-grid">
     <ErrorNotice error={error} /><SuccessNotice message={success} />
-    <Panel title="Task DAG" className="span-all" aside={<span className="muted">节点与 dependency edge 来自最新 revision</span>}>
-      <Dag revisions={snapshot.task_graph_revisions} workItems={snapshot.graph_work_items} onSelect={setSelectedNode} />
+    <Panel title="Task DAG" className="span-all" aside={<select aria-label="DAG Plan" value={graphPlan || String(snapshot.plans[0]?.plan_id ?? '')} onChange={(event) => { setGraphPlan(event.target.value); setSelectedNode(null); }}>{snapshot.plans.map((plan) => <option key={String(plan.plan_id)} value={String(plan.plan_id)}>{String(plan.plan_id)}</option>)}</select>}>
+      <Dag revisions={snapshot.task_graph_revisions.filter((item) => item.plan_id === (graphPlan || snapshot.plans[0]?.plan_id))} workItems={snapshot.graph_work_items} onSelect={setSelectedNode} />
       {selectedNode && <details open><summary>节点详情：{String(selectedNode.node_id)}</summary><div className="scope-details"><div><strong>Scope</strong><ul>{(((selectedNode.task_spec as Entity)?.scope as string[] | undefined) ?? []).map((item) => <li key={item}>{item}</li>)}</ul></div><div><strong>Acceptance criteria</strong><ul>{(((selectedNode.task_spec as Entity)?.acceptance_criteria as string[] | undefined) ?? []).map((item) => <li key={item}>{item}</li>)}</ul></div></div><JsonView value={selectedNode} /></details>}
     </Panel>
     <Panel title="创建 Plan">
@@ -43,11 +44,11 @@ export function PlansPage({ projectId, snapshot, refresh }: PageProps) {
       <div className="list compact top-gap">{snapshot.plans.map((plan) => <div className="list-row" key={String(plan.plan_id)}><strong>{String(plan.plan_id)}</strong><span>{latestByPlan[String(plan.plan_id)] ? `r${String(latestByPlan[String(plan.plan_id)].revision_no)}` : '无 revision'}</span></div>)}</div>
     </Panel>
     <Panel title="创建 TaskGraphRevision" className="span-2">
-      <form onSubmit={(event) => { event.preventDefault(); void run('Revision', 'create-plan-revision', {
+      <form onSubmit={(event) => { event.preventDefault(); void run('Revision', 'create-plan-revision', () => ({
         plan_id: revision.planId, revision_id: revision.revisionId, revision_no: revision.revisionNo,
         supersedes_revision_id: revision.supersedes || null, concurrency_limit: revision.concurrency,
         acceptance_policy: revision.policy, nodes: parseJson(nodesJson), created_at: new Date().toISOString(),
-      }); }}>
+      })); }}>
         <div className="form-grid">
           <Field label="Plan ID"><input value={revision.planId} onChange={(e) => setRevision({ ...revision, planId: e.target.value })} required /></Field>
           <Field label="Revision ID"><input value={revision.revisionId} onChange={(e) => setRevision({ ...revision, revisionId: e.target.value })} required /></Field>
@@ -70,7 +71,7 @@ export function PlansPage({ projectId, snapshot, refresh }: PageProps) {
     <Panel title="Reconcile Plan">
       <Field label="Plan ID"><input value={revision.planId} onChange={(e) => setRevision({ ...revision, planId: e.target.value })} /></Field>
       <Field label="Advanced JSON：worktree mappings"><textarea className="code-input" value={worktreesJson} onChange={(e) => setWorktreesJson(e.target.value)} /></Field>
-      <button className="primary" onClick={() => void run('Plan reconcile', 'reconcile-plan', { plan_id: revision.planId, worktrees: parseJson(worktreesJson) })}>执行一次 reconcile</button>
+      <button className="primary" onClick={() => void run('Plan reconcile', 'reconcile-plan', () => ({ plan_id: revision.planId, worktrees: parseJson(worktreesJson) }))}>执行一次 reconcile</button>
     </Panel>
   </div>;
 }

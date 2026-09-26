@@ -146,7 +146,9 @@ jobs:
           node-version: 24.15.0
           cache: npm
       - if: steps.selector.outputs.mode == 'prepared_fix_router'
-        run: npm ci
+        run: |
+          npm ci
+          if [[ -f frontend/package-lock.json ]]; then npm --prefix frontend ci; fi
       - if: steps.selector.outputs.mode == 'prepared_fix_router'
         run: node --test tests/router-contract-reader.test.ts
       - if: steps.selector.outputs.mode == 'prepared_fix_router'
@@ -265,7 +267,9 @@ jobs:
         with:
           node-version: 24.15.0
           cache: npm
-      - run: npm ci
+      - run: |
+          npm ci
+          if [[ -f frontend/package-lock.json ]]; then npm --prefix frontend ci; fi
       - run: node --test tests/router-contract-reader.test.ts
       - run: node --test tools/codex-github-bridge/tests/*.test.mjs
       - run: npm run typecheck

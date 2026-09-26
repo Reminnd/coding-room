@@ -56,10 +56,15 @@ export async function attachPanel(target, url) {
   try {
     const source = panelSource(url);
     await session.send('Page.enable');
+    const prepared = await session.send('Runtime.evaluate', { expression: 'window.__roomCdpReady === true', returnByValue: true });
+    // Codex's app:// frame-src policy blocks loopback frames until a new document
+    // is loaded under this CDP override. Apply it only to this Codex renderer.
+    await session.send('Page.setBypassCSP', { enabled: true });
     // Registered before evaluating the current document so reloads restore the entry.
-    const registration = await session.send('Page.addScriptToEvaluateOnNewDocument', { source });
+    const registration = await session.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__roomCdpReady = true; ${source}` });
     const evaluated = await session.send('Runtime.evaluate', { expression: source, returnByValue: true });
     if (evaluated.exceptionDetails) throw new Error(evaluated.exceptionDetails.text);
+    if (!prepared.result.value) await session.send('Page.reload');
     return { session, registration: registration.identifier, status: evaluated.result.value };
   } catch (error) {
     session.close();
