@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import test from 'node:test';
 import { main, parseArgs } from '../cli.mjs';
-import { SUPERVISOR_ONLY_CODEX_EXECUTABLE } from '../codex.mjs';
+
+const ABSOLUTE_CODEX_FIXTURE = resolve('fixture-codex');
 
 test('CLI exposes start and run-once with explicit external binary overrides', () => {
   assert.deepEqual(parseArgs(['bootstrap']), { mode: 'bootstrap' });
@@ -55,7 +57,7 @@ test('CLI exposes exactly four lifecycle commands with strict JSON input and typ
 });
 
 test('supervise-only is an operational two-phase mode outside the four lifecycle commands', async () => {
-  const codexBin = SUPERVISOR_ONLY_CODEX_EXECUTABLE;
+  const codexBin = ABSOLUTE_CODEX_FIXTURE;
   assert.deepEqual(parseArgs(['supervise-only', '--phase', 'plan', '--request-file', 'request.json', '--codex-bin', codexBin]), {
     mode: 'supervise-only', phase: 'plan', requestFile: 'request.json', codexBin,
   });
@@ -67,6 +69,7 @@ test('supervise-only is an operational two-phase mode outside the four lifecycle
     ['supervise-only', '--phase', 'plan', '--approved-plan-file', 'plan.json', '--codex-bin', codexBin],
     ['supervise-only', '--phase', 'execute', '--request-file', 'request.json', '--codex-bin', codexBin],
     ['supervise-only', '--phase', 'unknown', '--request-file', 'request.json', '--codex-bin', codexBin],
+    ['supervise-only', '--phase', 'plan', '--request-file', 'request.json', '--codex-bin', 'fixture-codex'],
   ]) {
     assert.throws(() => parseArgs(argv), (error) => error.status === 'needs_decision');
   }
@@ -112,7 +115,7 @@ test('supervise-only rejects malformed or duplicate-member JSON before its Contr
   await assert.rejects(
     main([
       'supervise-only', '--phase', 'plan', '--request-file', '-', '--codex-bin',
-      SUPERVISOR_ONLY_CODEX_EXECUTABLE, '--repository', 'owner/repo',
+      ABSOLUTE_CODEX_FIXTURE, '--repository', 'owner/repo',
     ], dependencies),
     (error) => error.status === 'needs_decision' && error.details.failure_class === 'PRE_MUTATION_FAILURE',
   );

@@ -15,7 +15,7 @@ const pluginManifestPath = join(pluginDir, '.codex-plugin', 'plugin.json');
 const marketplacePath = join(root, '.agents', 'plugins', 'marketplace.json');
 
 function readText(p: string): string {
-  return readFileSync(p, 'utf8');
+  return readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 }
 
 // 只扫描 code-fence 块（``` 围栏内）做 secret 检查，避免误伤 prose 中合法示例词。

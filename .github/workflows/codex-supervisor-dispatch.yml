@@ -109,13 +109,13 @@ jobs:
             body="$(cat "$body_file")"
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
             identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
-            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")"
             if [[ "$identity_count" == 0 ]]; then gh pr comment "$PR_NUMBER" --body-file "$body_file"; fi
             if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
               echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
             fi
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
-            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+            [[ "$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")" == 1 ]]
           }
           router_json="$(jq -c .router <<<"$SELECTED_JSON")"
           stage_branch="$(jq -r .stage_branch <<<"$router_json")"
@@ -172,13 +172,13 @@ jobs:
             body="$(cat "$body_file")"
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
             identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
-            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")"
             if [[ "$identity_count" == 0 ]]; then gh pr comment "$PR_NUMBER" --body-file "$body_file"; fi
             if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
               echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
             fi
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
-            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+            [[ "$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")" == 1 ]]
           }
           current_pr_head_sha="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
           [[ "$current_pr_head_sha" == "$GITHUB_SHA" ]]
@@ -200,13 +200,13 @@ jobs:
             body="$(cat "$body_file")"
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
             identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
-            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")"
             if [[ "$identity_count" == 0 ]]; then gh pr comment "$PR_NUMBER" --body-file "$body_file"; fi
             if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
               echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
             fi
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100")"
-            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+            [[ "$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")" == 1 ]]
           }
           current_pr_head_sha="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
           [[ "$current_pr_head_sha" == "$GITHUB_SHA" ]]
@@ -308,13 +308,13 @@ jobs:
             body="$(cat "$body_file")"
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
             identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
-            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")"
             if [[ "$identity_count" == 0 ]]; then gh pr comment "$CANDIDATE_PR_NUMBER" --body-file "$body_file"; fi
             if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
               echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
             fi
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
-            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+            [[ "$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")" == 1 ]]
           }
           current_pr_head_sha="$(gh pr view "$CANDIDATE_PR_NUMBER" --json headRefOid --jq .headRefOid)"
           [[ "$current_pr_head_sha" == "$CANDIDATE_STAGE_HEAD_SHA" ]]
@@ -335,13 +335,13 @@ jobs:
             body="$(cat "$body_file")"
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
             identity_count="$(jq --arg marker "$marker" --arg identity "$identity" '[.[][] | select((.body | contains($marker)) and (.body | contains($identity)))] | length' <<<"$comments")"
-            exact_count="$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")"
+            exact_count="$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")"
             if [[ "$identity_count" == 0 ]]; then gh pr comment "$CANDIDATE_PR_NUMBER" --body-file "$body_file"; fi
             if [[ "$identity_count" != 0 && ( "$identity_count" != 1 || "$exact_count" != 1 ) ]]; then
               echo "Conflicting or ambiguous lifecycle projection for $identity" >&2; exit 1
             fi
             comments="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues/$CANDIDATE_PR_NUMBER/comments?per_page=100")"
-            [[ "$(jq --arg body "$body" '[.[][] | select(.body == $body)] | length' <<<"$comments")" == 1 ]]
+            [[ "$(jq --arg body "$body" '[.[][] | select((.body | sub("\n+$"; "")) == ($body | sub("\n+$"; "")))] | length' <<<"$comments")" == 1 ]]
           }
           current_pr_head_sha="$(gh pr view "$CANDIDATE_PR_NUMBER" --json headRefOid --jq .headRefOid)"
           [[ "$current_pr_head_sha" == "$CANDIDATE_STAGE_HEAD_SHA" ]]

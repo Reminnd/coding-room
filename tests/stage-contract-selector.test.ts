@@ -235,6 +235,10 @@ test('selects the exact Stage contract and emits only the matching strict handof
   assert.match(source, /mode == 'prepared_fix_router'/);
   assert.match(source, /publish_exact_comment/);
   assert.match(source, /current_pr_head_sha.*GITHUB_SHA/s);
+  const normalizedExactCommentComparison = 'select((.body | sub("\\n+$"; "")) == ($body | sub("\\n+$"; "")))';
+  assert.equal(source.split(normalizedExactCommentComparison).length - 1, 10);
+  assert.equal(source.includes('select(.body == $body)'), false);
+  assert.equal((source.match(/Conflicting or ambiguous lifecycle projection/g) ?? []).length, 5);
   for (const forbidden of ['record-acceptance', 'FIX_BUNDLE_ACCEPTANCE_V1', 'launch Worker', 'start Worker']) {
     assert.equal(source.includes(forbidden), false);
   }
