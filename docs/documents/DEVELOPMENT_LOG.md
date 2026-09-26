@@ -1,5 +1,12 @@
 # 开发日志
 
+## 2026-09-27 — Increment 16 accepted_and_integrated；Room UI 开始
+
+- Increment 16 已由 Local Codex 按用户持续交付授权完成 Review、CI 修复和 non-force fast-forward；terminal SHA=`5a5ad734a5a5cbe0fffa02a628a505f0f108c363`，PR #8 已 MERGED。完整证据与历史 Contract 状态解释见 [closure](./INCREMENT_16_CLOSURE.md)。
+- Ubuntu Router 17/17、Bridge 166/166、全套 409/409、typecheck、diff check 和 handoff publication 均通过。Windows CRLF packaging fixture 已修复，focused 20/20。
+- 当前工作为 [Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md)：React UI、taskctl、Codex Skill 共用 HTTP API，Tauri 一键入口，优先 CDP sidebar/panel 注入，不修改 Codex 源码/app.asar；不可行时使用 Codex 内置浏览器。前端尚未验收。
+- 本次授权取代此交付内 fixed-Chat-only Review 与逐轮确认；保留 Room 数据、历史证据及既有未提交文档修改。
+
 ## 2026-09-26 — Increment 16 T03 documentation implementation（Candidate）
 
 - Increment 16仍是Candidate；Current仍为Increment 15。S01 Stage按`T01 → T02 → T03`推进：T01 lifecycle implementation与T02 Actions selector已集成到Stage，T02 source Task SHA=`6fa4c55aea7226550d23077560647da38e7ab15d`、Stage commit=`b135a4fc3fa06421b33eedbc58a92976634968f8`；T03从accepted dispatch base `bee4e37a25ec1cd5b607adae8dc3dfb7ed94d263`开始18-file documentation-only implementation。

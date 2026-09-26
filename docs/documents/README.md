@@ -11,6 +11,8 @@
 
 ## 1. 结论与查看入口
 
+2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。当前开发为 [Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md)，[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。下文旧 Candidate 描述属于先前发布时的状态，由本条及 closure 覆盖。
+
 本目录是所有人类可查看项目文档的唯一集合。按以下顺序可以快速建立完整上下文：
 
 1. [项目共享规则](../../PROJECT_RULES.md)
