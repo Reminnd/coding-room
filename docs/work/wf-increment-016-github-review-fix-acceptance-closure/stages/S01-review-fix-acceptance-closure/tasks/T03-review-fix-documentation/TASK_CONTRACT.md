@@ -110,8 +110,125 @@ scope_expansion: needs_decision
 
 The Router `verification` array must mirror the six names above in the same order。The capitalization of `Documentation Map` and the absence of the obsolete word `grammar` after `handoff` are the Fixed Chat-approved non-semantic persistence clarification；no other verification entry changes。
 
-## Documentation updates
+## One-time T03 baseline-equivalence verification amendment
 
+This amendment is strictly limited to the existing T03 lineage：
+
+```yaml
+task_id: T03-review-fix-documentation
+dispatch_id: wf16-s01-t03-review-fix-documentation-001
+workflow_id: wf-increment-016-github-review-fix-acceptance-closure
+stage_id: S01-review-fix-acceptance-closure
+maintenance_parent_stage_sha: b135a4fc3fa06421b33eedbc58a92976634968f8
+existing_failure_scope: plugin-packaging CRLF/LF baseline outside T03 ownership
+accepted_exception: baseline_equivalent_no_new_regression
+```
+
+This amendment applies only to the first accepted Stage descendant produced by
+this exact Contract-maintenance operation, where：
+
+- the Stage commit has exactly one parent equal to
+  `b135a4fc3fa06421b33eedbc58a92976634968f8`；
+- the commit changes exactly this T03 `TASK_CONTRACT.md` and no other path；
+- Fixed Chat separately accepts the resulting exact Stage SHA and exact T03
+  Contract blob before T03 implementation begins。
+
+That accepted descendant becomes the exact T03 dispatch base。This amendment
+does not apply to another Task、dispatch、Stage lineage、replacement dispatch or
+later unrelated base。
+
+`npm test` exiting 0 remains the standard full-regression success condition。
+A non-zero T03 full regression may be classified only as
+`baseline_equivalent_no_new_regression`, and only if every condition below is
+satisfied：
+
+1. A clean detached checkout of the exact accepted T03 dispatch base reproduces
+   exactly 409 total tests、403 passed and 6 failed。
+2. The T03 candidate produces exactly 409 total tests、403 passed and 6 failed。
+3. The exact failing-test identity sets of dispatch base and T03 candidate are
+   identical。
+4. The corresponding failure evidence for every failed test is exactly
+   identical。
+5. Every failure remains inside the existing `plugin-packaging` CRLF/LF
+   baseline outside T03 ownership。
+6. `t03_new_regressions == 0`。
+7. `git diff --check` passes。
+8. `npm run typecheck` passes。
+9. `relative Markdown link and Documentation Map audit` passes。
+10. `decision/mechanical/handoff, Router-mode, four-command, lifecycle-order and failure-semantics audit`
+    passes。
+11. `merge marker audit` passes。
+12. The actual T03 candidate changed-file set is exactly the 18 owned paths
+    declared by this Contract and contains no other path。
+
+If any condition is not satisfied, the result remains `blocked`；do not
+deliver。
+
+The full suite MUST NOT be described as green or passed while it exits
+non-zero。The only permitted non-zero classification under this one-time
+amendment is：
+
+```text
+baseline_equivalent_no_new_regression
+```
+
+This amendment does not authorize modification of：
+
+- `tests/plugin-packaging.test.ts`；
+- Plugin files or Plugin Markdown；
+- line-ending configuration；
+- `CLAUDE.md`；
+- `docs/documents/ROOM_PROTOCOL.md`；
+- `docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md`；
+- `tools/**`；
+- `.github/**`；
+- `src/**`；
+- `tests/**`；
+- any path outside exact T03 ownership。
+
+It does not authorize a fifth lifecycle command、third Router mode、new
+authority/storage/ADR/dependency、automatic conflict resolution or scope
+expansion。
+
+The normal T03 implementation constraints remain unchanged：
+
+```yaml
+root_worker: sole_writer
+required_fresh_read_only_subagents: 2
+maximum_subagents: 2
+subagent_fallback: forbidden
+backend_doc_authoring_required: true
+T02_integrated_before_dispatch: true
+git_writes_by_worker: forbidden
+scope_expansion: needs_decision
+```
+
+This Contract-maintenance operation does not consume or waive those two fresh
+read-only subagents。They remain mandatory when a separately authorized T03
+implementation actually begins。
+
+This amendment does not authorize：
+
+- changing `implementation_authorized: false`；
+- T03 Worker launch；
+- T03 task worktree creation；
+- `task_dispatched` publication；
+- T03 candidate commit by the Worker；
+- T03 Task branch push；
+- T03 Stage integration；
+- candidate-ready publication；
+- Formal Review；
+- Stage acceptance；
+- Stage-to-main closure；
+- PR merge；
+- force push。
+
+After this Contract amendment is persisted to the Stage, Fixed Chat must
+separately inspect and accept the exact resulting Stage SHA and exact T03
+Contract blob。T03 implementation still requires separate explicit user
+authorization。
+
+## Documentation updates
 Mode is `exact_owned_documentation_synchronization` over every path in scope。
 
 ## Question policy
