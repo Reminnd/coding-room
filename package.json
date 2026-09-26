@@ -9,12 +9,14 @@
   },
   "packageManager": "npm@11.12.1",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm --prefix frontend run typecheck",
     "test": "node --test \"tests/**/*.test.ts\"",
     "room:serve": "node src/mcp/serve.ts",
     "room:status": "node src/cli/status.ts",
     "room:run": "node src/cli/run.ts",
-    "room:git": "node src/cli/git.ts"
+    "room:git": "node src/cli/git.ts",
+    "room:ui": "npm --prefix frontend run build && node src/ui/serve.ts",
+    "taskctl": "node tools/taskctl.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
