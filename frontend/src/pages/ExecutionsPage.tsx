@@ -9,6 +9,8 @@ export function ExecutionsPage({ projectId, snapshot, refresh, launches }: PageP
   const [success, setSuccess] = useState<string | null>(null);
   const run = snapshot.runs.find((item) => item.run_id === selected) ?? null;
   const item = snapshot.run_work_items.find((candidate) => candidate.run_id === selected);
+  const attempts = snapshot.attempts.filter((attempt) => attempt.run_id === run?.run_id);
+  const events = snapshot.events.filter((event) => (event.entity_type === 'run' && event.entity_id === run?.run_id) || (event.entity_type === 'run_attempt' && attempts.some((attempt) => attempt.attempt_id === event.entity_id)));
 
   async function act(label: string, fn: () => Promise<unknown>) {
     setError(null); setSuccess(null);
@@ -40,7 +42,8 @@ export function ExecutionsPage({ projectId, snapshot, refresh, launches }: PageP
           <Field label="Guidance" hint={canGuide ? '保存后由下一 attempt 恰好消费一次。' : 'active attempt 期间不可 live steer。'}><textarea value={guidance} onChange={(e) => setGuidance(e.target.value)} /></Field>
           <button disabled={!canGuide || !guidance.trim()} onClick={() => void act('Guidance', () => api.action(projectId, 'add-guidance', { guidance_id: `guidance-${crypto.randomUUID()}`, run_id: run.run_id, text: guidance }))}>保存 guidance</button>
         </Panel>
-        <Panel title="Attempt / durable evidence" className="span-2"><JsonView value={snapshot.attempts.filter((attempt) => attempt.run_id === run.run_id)} /></Panel>
+        <Panel title="执行进度与事件" className="span-all"><ol className="timeline">{events.map((event) => <li key={event.sequence}><div className="timeline-mark">{event.sequence}</div><div><strong>{event.summary}</strong><p>{event.type} · {event.entity_id}</p><small>{formatTime(event.created_at)}</small></div></li>)}</ol>{events.length === 0 && <p className="muted">尚无执行事件。</p>}</Panel>
+        <Panel title="Attempt / durable evidence" className="span-2"><JsonView value={attempts} /></Panel>
         <Panel title="UI launch 状态"><JsonView value={launches.filter((launch) => launch.run_id === run.run_id)} /></Panel>
       </>}
     </div>
