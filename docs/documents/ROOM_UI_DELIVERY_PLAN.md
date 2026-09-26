@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted scope; implementation pending |
+| Status | Accepted scope; implementation reviewed and installed |
 | Owner | Local Codex |
 | Date | 2026-09-27 |
 | Authorization | User goal and explicit acceptance of recommendations 2–7 |
@@ -11,7 +11,7 @@
 
 The user requests closure, integration and archival of current work followed by a complete Room UI inside Local Codex. The user accepted Windows local single-user operation, multiple local projects, simplified Chinese, system light/dark themes, a compact workspace, existing authenticated Codex/Claude execution and no additional paid API by default.
 
-For this delivery, Local Codex owns planning, contracts, implementation dispatch, review, fixes, validation, commits, push and integration without repeated user approval. This is a task-scoped replacement for the previous fixed-Chat-only review and per-round confirmation requirements. Implementation remains assigned to independent Local Codex Workers. Product-facing approval functionality remains present. Material scope changes, unresolved conflicts and new paid services require user input.
+For this delivery, Local Codex owns planning, contracts, implementation, Worker dispatch, review, fixes, validation, commits, push and integration without repeated user approval. This is a task-scoped replacement for the previous fixed-Chat-only review and per-round confirmation requirements. Local Codex implements the desktop integration directly and assigns the API/React/CLI to an independent Worker with bounded ownership. Product-facing approval functionality remains present. Material scope changes, unresolved conflicts and new paid services require user input.
 
 Archive accepted history and evidence; clean only integrated, clean temporary branches/worktrees. Preserve databases, uncommitted work and the active task. No permission to delete historical data or rewrite Git history is inferred.
 
@@ -30,6 +30,8 @@ Use existing Room services and Local Bridge operations, preserving their data au
 
 ## Current evidence
 
-Remote main is `92928bf53cd8f916e9caf6f3a27e6180c936beed`; Increment 16 PR 8 candidate is `bcff0fe5fc1d8e6cda61de2b835dacdc13e5fef8`. Actions run 36249641735 fails after comment publication because shell command substitution removes trailing newlines but persisted comments retain them. Run 36254880021 has 165 passing and one failing Bridge test: a Windows-only absolute executable path fixture is rejected on Ubuntu. These are closure blockers, not completed fixes.
+Increment 16 is accepted and integrated at `5a5ad734a5a5cbe0fffa02a628a505f0f108c363`, archived as `archive/increment-016`; PR #8 is merged. The newline and platform-fixture CI failures were fixed and Ubuntu 409/409 passed. See [closure](./INCREMENT_16_CLOSURE.md).
 
-The current checkout contains a pre-existing modification to `agent-guides/CODEX_DOCUMENTATION_AUTHORING.md`; retain it separately from implementation scope.
+Room API/React/CLI implementation was delivered by native Worker UI-01 and integrated with the controller-owned Tauri/CDP/Skill implementation. Actual interaction, desktop cold startup, renderer reload and fixes are recorded in [Room UI review](./ROOM_UI_REVIEW.md); [PR #9](https://github.com/Reminnd/coding-room/pull/9) carries the complete delivery. No browser fallback was needed for the verified Codex build.
+
+The pre-existing modification to `agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` remains outside this delivery.

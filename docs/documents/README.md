@@ -5,13 +5,13 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-09-10 |
+| 最后更新日期 | 2026-09-27 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
 ## 1. 结论与查看入口
 
-2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。当前开发为 [Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md)，[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。下文旧 Candidate 描述属于先前发布时的状态，由本条及 closure 覆盖。
+2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。[Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md) 已完成实现、Review 与桌面安装，[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。历史 Contract 中的 pre-bootstrap 描述由 closure 解释，不作为重新派发授权。
 
 本目录是所有人类可查看项目文档的唯一集合。按以下顺序可以快速建立完整上下文：
 
@@ -26,7 +26,7 @@
 
 Current repository-development control plane 已在 S02 集成：Local Bridge 以 fresh native Codex task thread 执行 Task，并在 generic Worker Result 后独立拥有 verification、Git candidate 与 delivery；实现 source authority 为 `c6f22fa110076a2784a39702c18a7c6ba99199db`。详细契约只见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 与 [Git/Parallel Guide](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。Increment 15 与 S03 T06 文档同步已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`；该 SHA 同时是 closure reconciliation exact base，不是 reconciliation 完成后的永久 current `main` HEAD。
 
-Increment 16仍是 Candidate overlay：T01/T02已集成到Stage，T03同步本文档体系；implementation Review、用户接受与`main`集成前不改变上述Current权威。实例入口见[Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/PLAN.md)、[Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)、[S01 Stage](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/STAGE.md)与[Router Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md)。
+Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史输入保留；当前终态与后续开发以本页 closure 和 Room UI 入口为准。
 
 ## 2. 文档目录、目的与依赖
 
@@ -39,6 +39,9 @@ Increment 16仍是 Candidate overlay：T01/T02已集成到Stage，T03同步本�
 | [MVP_PLAN.md](./MVP_PLAN.md) | Current | Codex | Increment 顺序、范围、验收与非目标 | Architecture、Protocol |
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | Current | Codex/Claude candidate | 当前阶段、已完成事实、验证与下一步 | Git、Review、Task Contract |
 | [OPERATIONS.md](./OPERATIONS.md) | Current | Codex | 人工接口、结构、命令、状态/制品与故障处置 | Accepted Git、Architecture、Protocol |
+| [ROOM_UI.md](./ROOM_UI.md) | Current | Codex | React 工作台、HTTP API 与 taskctl | Architecture、Protocol |
+| [ROOM_DESKTOP.md](./ROOM_DESKTOP.md) | Current | Codex | Tauri 安装、Codex CDP 面板与重连 | Room UI |
+| [ROOM_UI_REVIEW.md](./ROOM_UI_REVIEW.md) | Current | Codex | UI 交付验证、修复与限制 | Delivery Plan、Git、实际操作 |
 
 ### 2.2 Architecture Decision Records
 

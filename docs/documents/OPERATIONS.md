@@ -425,9 +425,9 @@ Cutover evidence：helper=`mode=migrated`；config URL unchanged；`.gitignore`�
 - `room:git`只有在持久化exact preview、用户Approval decision与单次host approval全部满足后才可execute；cutover未创建任何GitAction。
 - 未授权事项保持：push、Plugin reinstall、candidate worktree cleanup、旧database删除、cutover文档commit以及任何新的Plan/Task/Run/GitAction。
 
-## 10. Increment 16 Candidate lifecycle runbook
+## 10. Increment 16 lifecycle runbook
 
-> 状态：Candidate。以下命令与恢复语义来自已集成至Stage的T01/T02，尚未通过Increment 16 implementation Review、用户接受与`main`集成；不得当作Current operator capability。
+> 状态：Current implementation；已在 `5a5ad73` 整合。具体接受与归档见 [closure](./INCREMENT_16_CLOSURE.md)。以下 frozen typed grammar 不因本次用户委托而自动更名；委托 Local Codex 的手工 closure 不得伪造 fixed-Chat record。
 
 ### 10.1 四个公开 command
 
@@ -455,3 +455,9 @@ Fixed Chat记录`REQUEST_CHANGES`后必须先取得用户确认的exact solution
 - `main`为第三SHA或不可观察：不push，返回`needs_decision`。
 
 terminal response loss只允许在exact closure已观察后修补缺失`STAGE_CLOSED_V1`；不得自动创建Fix、Worker、acceptance、merge或第二次push。完整V01–V18 runbook Oracle见[Increment 16 Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)。
+
+## 11. Room UI 操作入口
+
+日常双击桌面 Room 快捷方式，在 Local Codex 侧栏选择 Room。工作台支持多项目绑定、Plan/DAG、执行、Questions、Reviews/Fix、Git、历史与设置；VS Code 按钮打开项目或 Run worktree。首次安装见 [ROOM_DESKTOP.md](./ROOM_DESKTOP.md)，API 和 taskctl 命令见 [ROOM_UI.md](./ROOM_UI.md)。
+
+UI、MCP 与 CDP 日志位于入口项目 `.agent-room/`。界面关闭不会取消 Run。断连时先检查这些日志并点击重新连接；不要新建或覆盖既有 SQLite 来消除连接错误。导出 archive JSON 不删除数据库。多个项目的 MCP binding 各自保留，桌面入口只自动启动其入口项目的 MCP。

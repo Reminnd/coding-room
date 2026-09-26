@@ -1,10 +1,18 @@
 # 开发日志
 
+## 2026-09-27 — Room UI Review approved；桌面已安装
+
+- API/React/taskctl 独立 Worker 结果由 Controller 验证并提交；Tauri launcher、CDP sidebar/iframe 与 room-ui Skill 已组合。PR #9 汇总完整交付。
+- 真实浏览器完成 Plan/revision/approval、DAG、错误提示、项目切换、主题、历史过滤和 VS Code 跳转。Windows 桌面 `Room.lnk` 实际冷启动成功，Codex renderer reload 与进程重启后面板恢复。
+- Ubuntu Actions 36261309547 为 415/415、typecheck、production build、diff check 全通过。Windows scoped HTTP/CLI 6/6；旧 scope allowlist 已按本次批准范围修正并通过。最终分支 CI 与整合状态见 PR #9。
+- Review=`approved`，无未解决 blocking finding；详细修复与边界见 [ROOM_UI_REVIEW.md](./ROOM_UI_REVIEW.md)。`documentation: updated`。
+- 测试项目只移除 registry binding，数据库和导出 artifact 保留；真实项目仍为 DISCUSSION、零 Run。既有非调试 Codex 实例与用户未提交文档保留。
+
 ## 2026-09-27 — Increment 16 accepted_and_integrated；Room UI 开始
 
 - Increment 16 已由 Local Codex 按用户持续交付授权完成 Review、CI 修复和 non-force fast-forward；terminal SHA=`5a5ad734a5a5cbe0fffa02a628a505f0f108c363`，PR #8 已 MERGED。完整证据与历史 Contract 状态解释见 [closure](./INCREMENT_16_CLOSURE.md)。
 - Ubuntu Router 17/17、Bridge 166/166、全套 409/409、typecheck、diff check 和 handoff publication 均通过。Windows CRLF packaging fixture 已修复，focused 20/20。
-- 当前工作为 [Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md)：React UI、taskctl、Codex Skill 共用 HTTP API，Tauri 一键入口，优先 CDP sidebar/panel 注入，不修改 Codex 源码/app.asar；不可行时使用 Codex 内置浏览器。前端尚未验收。
+- 当前工作为 [Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md)：React UI、taskctl、Codex Skill 共用 HTTP API，Tauri 一键入口，优先 CDP sidebar/panel 注入，不修改 Codex 源码/app.asar；不可行时使用 Codex 内置浏览器。后续 UI Review 与安装结果见本日志最新条目。
 - 本次授权取代此交付内 fixed-Chat-only Review 与逐轮确认；保留 Room 数据、历史证据及既有未提交文档修改。
 
 ## 2026-09-26 — Increment 16 T03 documentation implementation（Candidate）
@@ -38,11 +46,11 @@
 
 ## 当前状态
 
-- 日期：2026-09-10
-- 项目阶段：Increment 15=`accepted_and_integrated`；Active Stage=`none`，Active Task=`none`
+- 日期：2026-09-27
+- 项目阶段：Increment 16=`accepted_and_integrated`；当前交付为 Room UI（API/React/taskctl、CDP sidebar panel、Tauri launcher 与 Codex Skill），尚未整体验收
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Current repository-development control plane见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)
 - Increment状态：Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Increment 15=`accepted_and_integrated`，terminal accepted/integrated SHA=`97ae2d869c39730fe77fb14df2ac34f57c681eb8`
-- 业务代码：S02 native Worker/generic Result实现 source authority仍为`c6f22fa110076a2784a39702c18a7c6ba99199db`；S03仅同步治理文档，未改变Bridge source/tests、Room protocol、SQLite、product Runner或Claude Code行为
+- 业务代码：Increment 16 lifecycle 与 CI closure 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` 整合；S02 native Worker/generic Result 是沿用的基础设计。归档 tag=`archive/increment-016`，PR #8=`MERGED`
 - Active runtime：protocol `0.5-design`、`room-v0.5.sqlite`与Room `room-3f6e8b05-4c60-4114-a09a-0ab44f0ccca0`继续有效，未因Increment 15 closure改变
 - Git记录：`97ae2d869c39730fe77fb14df2ac34f57c681eb8`同时是本次manual non-Router closure reconciliation exact base；它不是reconciliation完成后的永久current `main` HEAD声明
 

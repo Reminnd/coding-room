@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前规划阶段：Increment 15=`accepted_and_integrated`且仍为Current，terminal SHA与manual reconciliation exact base为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`；Increment 16=`Candidate`，T01/T02已集成到Stage、T03处于documentation implementation；Increment 16在implementation Review、用户接受与`main`集成前不得提升为Current
+> 当前阶段：Increment 16=`accepted_and_integrated`，terminal SHA=`5a5ad734a5a5cbe0fffa02a628a505f0f108c363`；[closure](./docs/documents/INCREMENT_16_CLOSURE.md) 保存 Review、CI、main 与归档证据。当前开发为 [Room UI](./docs/documents/ROOM_UI_DELIVERY_PLAN.md)，本次用户委托 Local Codex 持续完成实现、Review、修复与 Git 交付，无需逐轮确认。
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -99,7 +99,7 @@ ChatGPT fixed Chat是正式Review Authority，GitHub Pull Request是正式Review
 
 S02 native Worker 与 task-generic Worker Result 已成为 Current implementation，accepted/integrated `main=c6f22fa110076a2784a39702c18a7c6ba99199db`。Native thread/UI history仅供观察；workflow recovery与交付继续以GitHub/Git事实为准。Room SQLite继续拥有Agent Room产品运行时Run/RunAttempt等事实，但不拥有项目开发Plan、Contract或Review authority；既有Room产品能力不删除。详细 Current 决定见[Stage 4 Local Parallel Amendment](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)。
 
-Increment 16是尚未进入`main`的 Candidate overlay。它采用唯一 Option A，以GitHub PR comments保存lifecycle facts，并保持decision、mechanical与handoff closed grammar互不替代。Fixed Chat独占Formal Review，用户独占acceptance与Git-write authorization，Actions只执行mechanical verification/projection且不启动Worker。公开lifecycle command恰为`record-review`、`prepare-fix`、`record-acceptance`、`close-stage`；selector只允许`canonical_stage_router`与`prepared_fix_router`，`needs_decision`是失败而非第三种mode。exact顺序、typed acceptance与failure/closure语义见[Increment 16 Execution Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)。
+Increment 16 实现已进入 `main`；下文为已接受的 frozen lifecycle grammar，当前任务授权及手工 closure 见本文入口。它采用唯一 Option A，以GitHub PR comments保存lifecycle facts，并保持decision、mechanical与handoff closed grammar互不替代。Fixed Chat独占Formal Review，用户独占acceptance与Git-write authorization，Actions只执行mechanical verification/projection且不启动Worker。公开lifecycle command恰为`record-review`、`prepare-fix`、`record-acceptance`、`close-stage`；selector只允许`canonical_stage_router`与`prepared_fix_router`，`needs_decision`是失败而非第三种mode。exact顺序、typed acceptance与failure/closure语义见[Increment 16 Execution Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)。
 
 ## 5. 状态所有权
 
@@ -281,13 +281,13 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | No-API-Key历史边界 | Codex | Historical evidence | Superseded |
 | [docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md](./docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | native Codex Worker、task-generic Result、Local Bridge与DAG/Ready Set控制面 | Codex | Current开发工作流 | Current at `main=c6f22fa110076a2784a39702c18a7c6ba99199db` |
 | [docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md](./docs/documents/INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | Increment 15 workflow foundation | Codex | Increment 15 immutable历史 | accepted_and_integrated at `97ae2d869c39730fe77fb14df2ac34f57c681eb8` |
-| [Increment 16 Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/PLAN.md) | Review/Fix/acceptance/closure目标与Option A authority | Codex | Increment 16 Candidate规划与Review | Candidate |
-| [Increment 16 Execution Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md) | `T01 → T02 → T03`、Frozen V01–V18及V17/V18 subcases | Codex/Local Bridge | Increment 16实现、验证与Review | Accepted Candidate Oracle |
-| [Increment 16 S01 Stage](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/STAGE.md) | Stage identity、依赖与交付边界 | Local Bridge | Increment 16 Stage调度与handoff | Candidate |
-| [Increment 16 Router Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md) | exact Task DAG、ownership与六项verification | Local Bridge | Increment 16 dispatch | Accepted Candidate Contract |
-| [Increment 16 T01 Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T01-review-fix-lifecycle-core/TASK_CONTRACT.md) | lifecycle records、CLI、gate与closure implementation | Local Bridge/Worker | T01实现与Review | Accepted / Stage-integrated Candidate |
-| [Increment 16 T02 Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T02-review-fix-actions-selector/TASK_CONTRACT.md) | Actions selector与prepared Fix projection | Local Bridge/Worker | T02实现与Review | Accepted / Stage-integrated Candidate |
-| [Increment 16 T03 Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T03-review-fix-documentation/TASK_CONTRACT.md) | 18-file documentation synchronization | Local Bridge/Worker | T03实现与Review | Accepted / Coding Candidate |
+| [Increment 16 Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/PLAN.md) | Review/Fix/acceptance/closure目标与Option A authority | Codex | Increment 16历史规划与Review | Archived input |
+| [Increment 16 Execution Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md) | `T01 → T02 → T03`、Frozen V01–V18及V17/V18 subcases | Codex/Local Bridge | Increment 16实现、验证与Review | Accepted / Archived Oracle |
+| [Increment 16 S01 Stage](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/STAGE.md) | Stage identity、依赖与交付边界 | Local Bridge | Increment 16历史调度与handoff | Archived input |
+| [Increment 16 Router Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md) | exact Task DAG、ownership与六项verification | Local Bridge | Increment 16 dispatch | Accepted / Archived Contract |
+| [Increment 16 T01 Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T01-review-fix-lifecycle-core/TASK_CONTRACT.md) | lifecycle records、CLI、gate与closure implementation | Local Bridge/Worker | T01实现与Review | Accepted / Archived input |
+| [Increment 16 T02 Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T02-review-fix-actions-selector/TASK_CONTRACT.md) | Actions selector与prepared Fix projection | Local Bridge/Worker | T02实现与Review | Accepted / Archived input |
+| [Increment 16 T03 Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T03-review-fix-documentation/TASK_CONTRACT.md) | 18-file documentation synchronization | Local Bridge/Worker | T03实现与Review | Accepted / Archived input |
 | [docs/work/README.md](./docs/work/README.md) | 具体Workflow实例与模板入口 | Codex | Workflow执行 | Current |
 | [docs/documents/ARCHITECTURE.md](./docs/documents/ARCHITECTURE.md) | 系统结构、模块边界、依赖和数据流 | Codex | 每个非简单项目任务 | Current |
 | [docs/documents/ROOM_PROTOCOL.md](./docs/documents/ROOM_PROTOCOL.md) | 状态机、实体、MCP 和 Runner 协议 | Codex | 协议、Runner、MCP、状态任务 | Current |
@@ -297,6 +297,9 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 | [docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md](./docs/documents/STAGE_3_DAG_CONTROL_PLANE_ARCHITECTURE_REVIEW.md) | Stage 3 immutable graph、Scheduler、scope conflict、acceptance policy与Git Controller Architecture Review | Codex | Stage 3架构、Contract与Review | Approved |
 | [docs/documents/INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md](./docs/documents/INCREMENT_13_GIT_CONTROLLER_ARCHITECTURE_REVIEW.md) | Increment 13 Git Controller transport、ff-only integration范围与pre-cutover Coding route评审 | Codex | Increment 13规划与Task Contract生成 | Approved |
 | [docs/documents/OPERATIONS.md](./docs/documents/OPERATIONS.md) | 人工运维接口、架构/结构、命令、状态/制品与恢复视图 | Codex | 人工运维；每次 Review 后维护 | Current |
+| [docs/documents/ROOM_UI.md](./docs/documents/ROOM_UI.md) | Room React UI、HTTP API、taskctl | Codex | UI/API/CLI 开发与操作 | Current |
+| [docs/documents/ROOM_DESKTOP.md](./docs/documents/ROOM_DESKTOP.md) | Tauri 安装、Codex sidebar iframe 与 CDP 重连 | Codex | 桌面安装与集成 | Current |
+| [docs/documents/ROOM_UI_REVIEW.md](./docs/documents/ROOM_UI_REVIEW.md) | 实际 UI 交互与交付证据 | Codex | Room UI 验收 | Current |
 | [docs/documents/INCREMENT_1_TASK_CONTRACT.md](./docs/documents/INCREMENT_1_TASK_CONTRACT.md) | Increment 1 已批准 Implementation Task Contract | Codex | Increment 1 Coding、Review 与 Fix 规划 | Accepted |
 | [docs/documents/INCREMENT_1_FIX_TASK_1.md](./docs/documents/INCREMENT_1_FIX_TASK_1.md) | Increment 1 Review 1 已确认的最小 Fix Task | Codex | Increment 1 Fix Coding 与再次 Review | Accepted |
 | [docs/documents/INCREMENT_1_FIX_TASK_2.md](./docs/documents/INCREMENT_1_FIX_TASK_2.md) | Increment 1 Review 2 已确认的最小 Fix Task | Codex | Increment 1 Fix 2 Coding 与再次 Review | Accepted |
@@ -455,6 +458,6 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-Increment 15保持`accepted_and_integrated` Current。Increment 16仍为Candidate：T01/T02已集成至S01 Stage，T03正在同步18个owned文档；下一门禁依次是T03 implementation Review、用户对exact reviewed Stage SHA的接受与获授权的non-force `main`集成。Stage集成不等于Current，也不产生acceptance或Git-write authority。
+Increment 15 与 Increment 16 均已 accepted_and_integrated。Increment 16 terminal SHA 为 `5a5ad73`，当前开发为 Room UI；closure 和用户本次委托见本文入口。
 
 Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15=`accepted_and_integrated`，其terminal时Active Stage=`none`、Active Task=`none`；S02 native Worker/generic Result 的实现 source authority 仍为`c6f22fa110076a2784a39702c18a7c6ba99199db`，S03 T06 十四份治理文档已完成 Review、用户接受与 main 集成。Increment 15 terminal accepted/integrated SHA 与本次 manual non-Router closure reconciliation exact base 均记录为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`；该历史终态/base记录不把它声明为 reconciliation 完成后的永久 current `main` HEAD。Room active v0.5 runtime继续存在且不因项目开发控制面改变。

@@ -2,7 +2,7 @@
 
 | 属性 | 内容 |
 |---|---|
-| 文档状态 | Candidate（UI-01 implementation） |
+| 文档状态 | Current；交付验收见 ROOM_UI_REVIEW.md |
 | Owner | Codex |
 | Reader | 本地 operator、Codex Skill/CLI consumer、维护者 |
 | 生效范围 | Windows 单用户、本地 loopback Room UI |
@@ -17,6 +17,8 @@ Room UI 是现有 Agent Room application commands 的本地 React 操作面。HT
 ## 2. 安装与启动
 
 要求 Node.js 与根 `package.json` 的 `engines` 一致。
+
+日常使用双击桌面 **Room** 快捷方式，在 Codex 侧栏点击 **Room**。安装、CDP 面板与重连机制见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
 
 ```powershell
 npm ci
@@ -66,9 +68,9 @@ npm run room:ui -- --port 4317 --config "D:\local-state\agent-room-ui.json"
 http://127.0.0.1:<port>/mcp/participants/p~<encoded-worker-participant-id>
 ```
 
-对应 MCP service 必须已经运行。UI 不在后台创建 service manager，不轮询 ready queue，也不自动启动下一 Run。cancel、retry 与 guidance 调用 `RoomService`；guidance 只在 attempt 间隙保存，不声明 live steer。
+对应 MCP service 必须已经运行；桌面 launcher 会启动入口项目 runtime binding 指定的 MCP service，直接运行 HTTP server 时需独立启动。UI 不轮询 ready queue，也不自动启动下一 Run。cancel、retry 与 guidance 调用 `RoomService`；guidance 只在 attempt 间隙保存，不声明 live steer。Runner 返回 failed/interrupted Attempt 时，launch display 同步显示失败与 failure message。
 
-“VS Code”通过 `code --reuse-window <target>` 的 argument array 打开 selected project 或 Run durable `worktree_path`，包含空格的路径仍是单个 argument。没有 worktree 的 Run 会被明确拒绝。Native Codex repository development 继续属于 Local Bridge；UI 不伪造 native panel 或 Codex adapter。
+“VS Code”通过 `--reuse-window <target>` argument array 打开 selected project 或 Run durable `worktree_path`；Windows 从 PATH 对应安装目录解析 `Code.exe`，其他系统调用 `code`，包含空格的路径仍是单个 argument。没有 worktree 的 Run 会被明确拒绝。Native Codex repository development 继续属于 Local Bridge；Room 产品 one-shot Runner 保持现有 Claude runtime。
 
 ## 6. HTTP API
 
@@ -153,6 +155,9 @@ npm run taskctl -- action project-a answer-question --file .\answer.json
 npm run taskctl -- events project-a --after 120 --type question_answered
 npm run taskctl -- export project-a --out .\room-archive.json
 npm run taskctl -- open project-a --run-id run-1
+npm run taskctl -- run project-a run-1
+npm run taskctl -- git project-a
+npm run taskctl -- create-room project-a --confirm
 ```
 
 默认 URL 为 `http://127.0.0.1:4317`；使用 `--url` 覆盖 UI port，使用 `--json` 输出 machine-readable result。`--data <json>` 与 `--file <path>` 互斥。
@@ -163,4 +168,4 @@ npm run taskctl -- open project-a --run-id run-1
 - in-process launch display 不作为 durable authority，server restart 后不恢复；Run/Attempt/Event 的 durable outcome继续从 snapshot读取。
 - archive 是当前 project binding + full snapshot 的 JSON artifact，不包含 SQLite file copy，不删除 history。
 - UI 不迁移 archived database、不自动启动 MCP service、不自动审批 revision/review/GitAction、不执行 arbitrary shell/Git command。
-- 本 Candidate 的实际 in-app browser screenshots 与交互验收由 Controller 执行；本文只声明代码与 focused HTTP/semantic verification 支持的行为。
+- 实际浏览器、原生面板和 HTTP/CLI 验证记录见 [交付 Review](./ROOM_UI_REVIEW.md)。

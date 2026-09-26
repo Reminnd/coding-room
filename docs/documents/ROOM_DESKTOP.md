@@ -1,6 +1,6 @@
 # Room desktop and Codex panel
 
-Status: implementation candidate. Windows, local single-user operation.
+Status: Current. Windows, local single-user operation. Delivery evidence: [Room UI review](./ROOM_UI_REVIEW.md).
 
 Room uses one HTTP API for the React workbench, taskctl and the `room-ui` Codex Skill. The Tauri executable is a small local launcher. Run `tools/room-desktop/install.ps1` once after installing Node 24, Rust MSVC and Visual Studio C++ Build Tools. It builds the UI and launcher, installs the Skill and creates a Desktop `Room` shortcut. Subsequent launches require no terminal.
 
@@ -13,6 +13,8 @@ The launcher connects to a loopback CDP endpoint on port 9223. When the current 
 The companion attaches only to the observed Codex `app://-/index.html` renderer. `Page.addScriptToEvaluateOnNewDocument` installs an isolated Room iframe panel and a clickable entry in the Codex sidebar. A DOM observer restores the entry after application rerenders; the local companion reconnects when the renderer is replaced. No Codex source or app.asar is modified. This is a locally injected native-looking panel, not an official native extension API. App updates may change the sidebar DOM; if attachment fails, the launcher reports it and the same UI remains usable in Codex's built-in browser.
 
 UI visibility is stored in the Codex renderer's local storage. The panel has reconnect and close controls. The current Room URL must be local HTTP. The companion logs connection changes in `.agent-room/cdp.log`; service output is in `ui.log` and `mcp.log`.
+
+This build's app frame-src policy blocks the loopback iframe. The companion uses the renderer-scoped CDP `Page.setBypassCSP` override and reloads that renderer once on first attachment; subsequent document-start injections restore the panel. The debugging endpoint stays on loopback. The override does not change files or the Room API's request validation.
 
 ## Implementation references
 

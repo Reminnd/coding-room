@@ -79,9 +79,9 @@ Local Bridge 必须在 conflict、path drift、verification failure、mechanical
 
 本控制面只约束 repository development。Agent Room 产品 runtime 继续由 Room SQLite、Room protocol、product Runner 与 Claude Code execution surface 管理；本 amendment 不修改 Room entity/state/Event/schema、MCP/CLI、SQLite、Claude session 或 product Runner 行为。
 
-## 7. Increment 16 Candidate lifecycle extension
+## 7. Increment 16 lifecycle extension
 
-本节只描述尚未进入`main`的 Candidate overlay；§1–6 的 Current S02 native Worker/generic Result 与 Increment 15 terminal authority不变。Increment 16 采用唯一的 Option A：GitHub PR comments保存 lifecycle facts，initial Router Contract与prepared Fix Router bundle保存于repository/GitHub lineage，不增加本地 database、Room entity或新 authority。
+本节实现已在 `5a5ad73` accepted_and_integrated；[closure](./INCREMENT_16_CLOSURE.md) 为终态证据，§1–6 的 S02 native Worker/generic Result 设计继续有效。Increment 16 采用唯一的 Option A：GitHub PR comments保存 lifecycle facts，initial Router Contract与prepared Fix Router bundle保存于repository/GitHub lineage，不增加本地 database、Room entity或新 authority。
 
 Authority严格分离：Fixed Chat独占 Formal Review；用户独占 Fix solution确认、Fix/Stage acceptance与 Git-write/closure authorization；GitHub Actions只执行 mechanical verification/projection，不作 Review、不接受、不授权 Git write，也不启动 Worker。三类 grammar互不替代：decision records仅有`FORMAL_REVIEW_V1`、`FIX_ROUND_OPENED_V1`、`FIX_BUNDLE_ACCEPTANCE_V1`、`STAGE_ACCEPTANCE_V1`、`STAGE_CLOSURE_AUTHORIZATION_V1`；mechanical records仅有`FIX_PREPARED_V1`、`STAGE_VERIFICATION_V1`、`STAGE_CLOSED_V1`；Review/Fix handoff使用各自独立 closed marker/schema。所有 caller-supplied `source_reference`必须是只含`source_kind`与非空`decision_reference`的 closed object：Formal Review使用`fixed_chat_assistant_decision`，四类用户决定使用`fixed_chat_user_decision`，不得从label、author、comment order或mechanical fact推断。
 

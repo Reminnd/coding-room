@@ -90,9 +90,9 @@ Worker native process 成功并返回 `implementation_ready` 后，Controller MU
 
 Recovery 只读取 current dispatch identity 的 durable GitHub comments，并重新验证 remote Task SHA、Stage commit existence/ancestry 与 current ownership；任何不一致为 `needs_decision`，不得自动 repair 或 replay。Native thread/UI history不参与恢复。
 
-## Increment 16 Candidate lifecycle gates
+## Increment 16 lifecycle gates
 
-本节是 Candidate overlay，不改变上述 Increment 15 Current路线。Actions仅发布 mechanical verification/projection，不作 Formal Review、acceptance、Git-write authorization或 Worker launch；selector仅允许`canonical_stage_router`与`prepared_fix_router`。canonical mode不得要求 Fix-only facts；prepared Fix必须依次满足 verification、exact PASS、Fix handoff、typed Fix acceptance。
+本节实现已在 `5a5ad73` 整合；当前 closure 见 [记录](../INCREMENT_16_CLOSURE.md)。Actions仅发布 mechanical verification/projection，不作 Formal Review、acceptance、Git-write authorization或 Worker launch；selector仅允许`canonical_stage_router`与`prepared_fix_router`。canonical mode不得要求 Fix-only facts；prepared Fix必须依次满足 verification、exact PASS、Fix handoff、typed Fix acceptance。
 
 Local Bridge在 scheduler读取、worktree/event/dispatch mutation与 Worker启动前执行 batch launch gate，并一次读取 exact accepted Contract bytes到当次 invocation cache。gate rejection为 command-level zero-event `PRE_MUTATION_FAILURE`，不消费预分配 dispatch；修复 authority后 fresh invocation继续使用原 immutable mapping。可能已经调用 comment/label/push/dispatch mutation后的不可确认结果为`POST_MUTATION_UNCERTAIN`：停止当前与依赖写入，不盲目 retry或rollback，fresh invocation先read-before-write并在事实歧义时返回`needs_decision`。
 

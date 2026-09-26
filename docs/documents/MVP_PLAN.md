@@ -338,9 +338,9 @@ S01建立GitHub/Git、Local Bridge、Stage/Task与fixed Chat基础控制面；S0
 
 S03 T06只同步十四份治理文档，不改变source、tests、Room protocol、SQLite、product Runner或Claude Code。该同步已完成Stage exact-head verification、fixed Chat Formal Review、用户exact-SHA接受与main集成；Increment 15 terminal accepted/integrated SHA为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`，Active Stage/Task均为空。该SHA也是manual non-Router closure reconciliation exact base，不是reconciliation完成后的永久current `main` HEAD。Current project-development路径与职责分离见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)。
 
-### 增量 16 — Review/Fix/Acceptance/Closure（Candidate）
+### 增量 16 — Review/Fix/Acceptance/Closure（accepted_and_integrated）
 
-目标：在Increment 15 Current基础上，以唯一 Option A补齐GitHub PR comment lifecycle、Fixed Chat Formal Review、用户acceptance/Git-write authorization、Actions mechanical projection、prepared Fix launch gate与exact non-force Stage closure。DAG和ownership冻结于[Router Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md)，顺序严格为`T01 → T02 → T03`；T01/T02已集成到Stage，T03负责18个owned文档，不改变source/tests。Increment 16在implementation Review、用户接受及`main`集成完成前始终是Candidate。
+目标：在Increment 15 Current基础上，以唯一 Option A补齐GitHub PR comment lifecycle、Fixed Chat Formal Review、用户acceptance/Git-write authorization、Actions mechanical projection、prepared Fix launch gate与exact non-force Stage closure。DAG和ownership冻结于[Router Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md)，顺序严格为`T01 → T02 → T03`；T01/T02/T03 与 CI closure 均已完成，terminal SHA=`5a5ad73`，实际证据见 [closure](./INCREMENT_16_CLOSURE.md)。
 
 Frozen Oracle的唯一权威是[Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)，原序与语义如下：
 
@@ -382,7 +382,7 @@ Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 
 
 ## 6. 当前下一步
 
-Increment 16 Candidate当前只完成T01/T02 Stage integration并进入T03 documentation implementation；T03完成后仍须implementation Review、用户接受exact reviewed Stage SHA与独立授权的non-force `main`集成。不得因Stage已有T01/T02而把Candidate能力写成Current。
+Increment 16 已 accepted_and_integrated；后续 [Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md) 使用用户本次委托授权，未改变历史 Frozen Oracle。
 
 Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成并集成；Increment 3A/3B 已完成 Coding、Review、Fix、用户接受与独立提交，commits 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c` 和 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。[Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 已获用户确认，具体化 central Runner、`CODING` startup/init lifecycle、terminal evidence、Git/artifact failure 与 fake-process matrix。
 

@@ -614,9 +614,9 @@ Repository development 位于 Agent Room 产品 runtime 之外：GitHub/Git 持�
 
 Native thread/turn 只是绑定 Task worktree 的 app-server execution surface，不拥有 workflow state、recovery、Review 或 merge。Worker Result 只是 task-generic semantic handoff；native、verification、ownership和candidate identity各自由 process/Router/Controller/Git事实拥有。完整 lifecycle、failure、prompt与Result boundary见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)，精确Git delivery顺序见 [Git 与并行工作流指南](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。本节不改变Room protocol、SQLite、product Runner或Claude Code行为。
 
-## 19. Increment 16 Candidate — Review/Fix/Acceptance/Closure
+## 19. Increment 16 — Review/Fix/Acceptance/Closure
 
-本节是尚未进入`main`的 Candidate architecture projection，不覆盖§18的Current Increment 15 authority。唯一 lifecycle storage model为 Option A：GitHub PR comments保存typed lifecycle facts，repository/GitHub lineage保存initial Router与prepared Fix Router bundle；不新增SQLite、Room entity、registry或ADR。
+本节实现已在 `5a5ad73` accepted_and_integrated；[closure](./INCREMENT_16_CLOSURE.md) 为当前交付事实，§18保留 Increment 15 历史 authority。唯一 lifecycle storage model为 Option A：GitHub PR comments保存typed lifecycle facts，repository/GitHub lineage保存initial Router与prepared Fix Router bundle；不新增SQLite、Room entity、registry或ADR。
 
 ### 19.1 Authority 与 record family
 
@@ -642,3 +642,9 @@ Controller在scheduler读取、worktree创建、event/dispatch mutation或Worker
 可能已调用external mutation后的失败属于`POST_MUTATION_UNCERTAIN`：停止当前和dependent mutation，不声明zero-write、不盲目retry/rollback；fresh invocation先重读durable authority。comment/label/dispatch/prepared push response loss均read-before-write，歧义即停止。
 
 Stage→`main`只允许三态：`main == accepted_stage_sha`时不push、只修补缺失terminal projection；`main == expected_baseline_sha`时经host approval执行exact `<accepted_stage_sha>:refs/heads/main`、`force=false`、fast-forward-only；第三或不可观察SHA不push并返回`needs_decision`。terminal response loss仅能在exact closure已观察后修补`STAGE_CLOSED_V1`，不得自动创建Fix、Worker、acceptance、merge或第二次push。完整Candidate Oracle见[Increment 16 Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)。
+
+## 20. Room UI and local desktop surface
+
+Room UI adds `src/ui` as an application adapter over existing RoomService, PlanScheduler, GitController and one-shot Runner boundaries. React, taskctl and the room-ui Skill consume one loopback HTTP API. The project registry contains bindings only; SQLite remains the workflow authority and Git remains code/worktree authority.
+
+The Tauri launcher starts the local API and the entry project's configured MCP service. A separate CDP companion injects the Room sidebar entry and iframe into the observed Codex renderer and restores them after reload. It does not modify Codex source, introduce a provider adapter, or change the Room protocol. Details and limitations belong to [Room UI](./ROOM_UI.md) and [desktop integration](./ROOM_DESKTOP.md).

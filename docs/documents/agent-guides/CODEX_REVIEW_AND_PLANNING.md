@@ -315,9 +315,9 @@ Race Oracle至少同时包含：独立connections、跨contender合计exact一�
 
 当Contract明确列出一个status集合的same-ID retry语义时，每个可达status都必须有对应direct evidence；不能用某个terminal status代表其它terminal status。每个case仍按既有规则断言stored result/`created=false`、零external invocation与完整public snapshot不变。
 
-## 19. Increment 16 Candidate Review/Fix/closure 方法
+## 19. Increment 16 Review/Fix/closure 方法
 
-Increment 16 在 implementation Review、用户接受与`main`集成完成前始终是 Candidate；T01/T02已进入 Stage不改变 Current authority。Formal Review只由 Fixed Chat产生`FORMAL_REVIEW_V1`。Review handoff、Formal Review、Stage acceptance、closure authorization是四个独立事实；`PASS`仅表示显式空 findings，不产生 acceptance 或 Git-write authority。`REQUEST_CHANGES`必须含非空、唯一 findings，用户确认 exact solution后才可打开一个 typed Fix round。
+Increment 16 已在 `5a5ad73` 整合；本次 Local Codex 委托及 manual non-Router closure 见 [closure](../INCREMENT_16_CLOSURE.md)。以下为历史已接受的 typed grammar。Formal Review只由 Fixed Chat产生`FORMAL_REVIEW_V1`。Review handoff、Formal Review、Stage acceptance、closure authorization是四个独立事实；`PASS`仅表示显式空 findings，不产生 acceptance 或 Git-write authority。`REQUEST_CHANGES`必须含非空、唯一 findings，用户确认 exact solution后才可打开一个 typed Fix round。
 
 Review时先验证 grammar family：decision、mechanical、handoff不得互相替代；caller-supplied `source_reference`必须是仅含`source_kind`和`decision_reference`的 closed object；`record-acceptance --record-type`必须显式指向`FIX_BUNDLE_ACCEPTANCE_V1`或`STAGE_ACCEPTANCE_V1`，并以`[record_type, acceptance_id]`判定 identity。随后验证顺序：prepared Fix必须先 verification，再 exact PASS，再 Fix handoff，最后由用户产生 typed acceptance；Actions到 handoff即停止且从不启动 Worker。
 
