@@ -24,6 +24,8 @@
 
 Current repository-development control plane 已在 S02 集成：Local Bridge 以 fresh native Codex task thread 执行 Task，并在 generic Worker Result 后独立拥有 verification、Git candidate 与 delivery；实现 source authority 为 `c6f22fa110076a2784a39702c18a7c6ba99199db`。详细契约只见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) 与 [Git/Parallel Guide](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。Increment 15 与 S03 T06 文档同步已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`；该 SHA 同时是 closure reconciliation exact base，不是 reconciliation 完成后的永久 current `main` HEAD。
 
+Increment 16仍是 Candidate overlay：T01/T02已集成到Stage，T03同步本文档体系；implementation Review、用户接受与`main`集成前不改变上述Current权威。实例入口见[Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/PLAN.md)、[Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)、[S01 Stage](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/STAGE.md)与[Router Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md)。
+
 ## 2. 文档目录、目的与依赖
 
 ### 2.1 核心权威文档
@@ -111,6 +113,13 @@ Current repository-development control plane 已在 S02 集成：Local Bridge �
 | [Stage 4 No-API-Key Amendment](./STAGE_4_NO_API_KEY_ARCHITECTURE_AMENDMENT.md) | Superseded | Codex | 历史 No-API-Key 边界 |
 | [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md) | Current at `main=c6f22fa110076a2784a39702c18a7c6ba99199db` | Codex | native Codex Worker、generic Result、Local Bridge与DAG/Ready Set |
 | [Increment 15 Revision 2](./INCREMENT_15_GITHUB_WORKFLOW_FOUNDATION_TASK_CONTRACT.md) | accepted_and_integrated (`97ae2d869c39730fe77fb14df2ac34f57c681eb8`) | Codex | GitHub/Git + Local Bridge + fixed Chat开发控制面 |
+| [Increment 16 Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/PLAN.md) | Candidate | Codex | Option A Review/Fix/acceptance/closure目标与authority |
+| [Increment 16 Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md) | Accepted Candidate Oracle | Codex/Local Bridge | `T01 → T02 → T03`、Frozen V01–V18与exact验证 |
+| [Increment 16 S01 Stage](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/STAGE.md) | Candidate | Local Bridge | Stage identity、Task lineage与handoff |
+| [Increment 16 Router Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md) | Accepted Candidate Contract | Local Bridge | DAG、ownership与六项verification |
+| [Increment 16 T01 Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T01-review-fix-lifecycle-core/TASK_CONTRACT.md) | Accepted / Stage-integrated Candidate | Local Bridge/Worker | lifecycle records、CLI、gate与closure |
+| [Increment 16 T02 Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T02-review-fix-actions-selector/TASK_CONTRACT.md) | Accepted / Stage-integrated Candidate | Local Bridge/Worker | Actions selector与prepared Fix projection |
+| [Increment 16 T03 Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/tasks/T03-review-fix-documentation/TASK_CONTRACT.md) | Accepted / Coding Candidate | Local Bridge/Worker | 18-file documentation synchronization |
 | [Chat/GitHub Review Guide](./agent-guides/CHAT_GITHUB_REVIEW.md) | Current | Codex | 正式PR Review与集成门禁 |
 | [Codex Supervisor Router Guide](./agent-guides/CODEX_SUPERVISOR_ROUTER.md) | Superseded | Codex | 历史 Cloud Router |
 | [Increment 14](./INCREMENT_14_TASK_CONTRACT.md) | accepted_and_integrated (`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`) | 收敛validation ownership、删除不可达内部分支并简化Attempt/GitAction事务 |
@@ -126,6 +135,7 @@ Current repository-development control plane 已在 S02 集成：Local Bridge �
 | [Codex Review 与规划](./agent-guides/CODEX_REVIEW_AND_PLANNING.md) | Codex | 需求、架构、Task、Review、Fix、经验回收 |
 | [Claude Coding 与 Fix](./agent-guides/CLAUDE_CODING_AND_FIX.md) | Claude Code | 任意 Implementation/Fix Task |
 | [Git 与并行工作流](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md) | Codex / Claude Code | Git、branch/worktree、并行、integration |
+| [Chat/GitHub Formal Review](./agent-guides/CHAT_GITHUB_REVIEW.md) | ChatGPT fixed Chat | PR handoff、Formal Review、Fix decision、acceptance与closure authority |
 
 ## 3. 权威与维护规则
 
@@ -136,6 +146,8 @@ Current repository-development control plane 已在 S02 集成：Local Bridge �
 - Deprecated 文档必须明确替代文档和停止生效日期，不得与 Current/Accepted 文档并列为有效。
 
 ## 4. 当前状态与未决行动
+
+- Increment 15保持`accepted_and_integrated` Current。Increment 16仍为Candidate：T01/T02已集成至S01 Stage，T03 documentation implementation进行中；下一步仍需T03 implementation Review、用户接受与non-force `main`集成，Stage集成本身不产生Current、acceptance或Git-write authority。
 
 - 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
 - Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，随后通过 Integration commit 集成。

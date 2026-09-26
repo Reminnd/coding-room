@@ -17,3 +17,11 @@
 ## 集成
 
 用户明确接受后，只允许将`main` non-force fast-forward到exact `accepted_head_sha`。不自动rebase、解冲突、force push或创建integration merge commit；真实失败立即停止。最终FF不重复Review，因为reviewed immutable SHA未改变。
+
+## Increment 16 Candidate lifecycle
+
+`CHAT_REVIEW_HANDOFF_V1`只把 exact PR/base/head、Stage/Router path与PASS verification交给 Fixed Chat，不是 Review decision。Fixed Chat以 caller-supplied closed `source_reference={source_kind, decision_reference}`记录`FORMAL_REVIEW_V1`；不得由Actions comment、label、author或comment order推断。`PASS`必须具有显式空 findings，`REQUEST_CHANGES`必须具有非空且唯一 findings。
+
+`REQUEST_CHANGES`后，只有用户确认 exact solution才能记录`FIX_ROUND_OPENED_V1`并执行`prepare-fix`。Fix顺序固定为 verification → exact `STAGE_VERIFICATION_V1` PASS → Fix handoff → 用户的 typed `FIX_BUNDLE_ACCEPTANCE_V1`；Actions在 handoff后停止且不启动 Worker。`record-acceptance --record-type`无默认值，只接受`FIX_BUNDLE_ACCEPTANCE_V1`与`STAGE_ACCEPTANCE_V1`，identity为`[record_type, acceptance_id]`，跨类型相同 scalar ID也不相等。
+
+Formal Review PASS、`STAGE_ACCEPTANCE_V1`与`STAGE_CLOSURE_AUTHORIZATION_V1`仍是三个独立决定；只有最后一项授权 exact expected-main/accepted-Stage non-force closure。Increment 16仍是 Candidate，直至 implementation Review、用户接受和`main`集成全部完成。

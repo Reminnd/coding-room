@@ -7,6 +7,8 @@
 
 Current repository-development Worker/generic Result 来自已接受并集成的 S02，source authority 为 `main=c6f22fa110076a2784a39702c18a7c6ba99199db`。Increment 15 已在 terminal accepted/integrated SHA `97ae2d869c39730fe77fb14df2ac34f57c681eb8` 收口为 `accepted_and_integrated`，S03 T06 对本文件的同步现为 Current；该 SHA 同时是 manual non-Router closure reconciliation 的 exact base，不表示 reconciliation 完成后的永久 current `main` HEAD。
 
+Increment 16仍是 Candidate：T01/T02已按`T01 → T02 → T03`进入 Stage，T03只同步文档；implementation Review、用户接受与`main`集成完成前不得覆盖上述 Current authority。其唯一 Option A lifecycle、Fixed Chat/user/Actions权限分离、两种 Router mode与exact Oracle由[Increment 16 Execution Plan](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)和[Router Contract](./docs/work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md)冻结。
+
 ## 1. 权威来源与指令边界
 
 - 当前用户明确要求决定本次目标和范围；本文件决定 Codex 的项目内职责与权限。
@@ -27,6 +29,7 @@ Current repository-development Worker/generic Result 来自已接受并集成的
 | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、`docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 与 `docs/documents/README.md` | 全项目文档编写、单一权威、目录与 Review 后维护门禁 |
 | 需求分析、架构、规划、Task Contract、Review、Fix 方案或 Fix 验收后经验回收 | `docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md` | 证据链、lifecycle Review、最小方案与可复用经验回收 |
 | GitHub Router、Local Bridge或正式PR Review | `docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md` 与 `docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md` | 当前项目开发控制面 |
+| Increment 16 Candidate lifecycle、Fix、acceptance或closure | `docs/work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md`、`docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md` 与 `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | exact V01–V18 Oracle、决策权与Git失败/恢复边界 |
 | branch、worktree、并行模块、integration、commit 或 baseline | `docs/documents/agent-guides/GIT_AND_PARALLEL_WORKFLOW.md` | Git 权限、dispatch metadata 与 dependency DAG |
 | 协议、Runner、MCP 或 Room 状态任务 | `docs/documents/ROOM_PROTOCOL.md` | entity、transition、actor 与失败语义 |
 | 生成或调整 Increment 计划 | `docs/documents/MVP_PLAN.md` | 增量依赖、验收与非目标 |

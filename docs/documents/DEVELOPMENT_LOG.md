@@ -1,5 +1,12 @@
 # 开发日志
 
+## 2026-09-26 — Increment 16 T03 documentation implementation（Candidate）
+
+- Increment 16仍是Candidate；Current仍为Increment 15。S01 Stage按`T01 → T02 → T03`推进：T01 lifecycle implementation与T02 Actions selector已集成到Stage，T02 source Task SHA=`6fa4c55aea7226550d23077560647da38e7ab15d`、Stage commit=`b135a4fc3fa06421b33eedbc58a92976634968f8`；T03从accepted dispatch base `bee4e37a25ec1cd5b607adae8dc3dfb7ed94d263`开始18-file documentation-only implementation。
+- T03 exact ownership为`AGENTS.md`、`PROJECT_RULES.md`、十份`docs/documents/`核心/指南文档及六份`docs/work/`入口/模板；不得修改source、tests、Actions、Room protocol或Accepted workflow Contracts。T03负责把Option A、authority separation、closed`source_reference`、四commands、typed acceptance、两Router modes、Fix ordering、launch/recovery/closure与generic Worker Result同步到对应文档职责。
+- Accepted verification顺序保持：`git diff --check`；`npm run typecheck`；`npm test`；`relative Markdown link and Documentation Map audit`；`decision/mechanical/handoff, Router-mode, four-command, lifecycle-order and failure-semantics audit`；`merge marker audit`。Frozen Oracle仍为[Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)的原序V01–V18，并保留V17.a–f与V18.a–g；本条不预写T03 verification结果。
+- 完成T03仍不产生Current、Formal Review、acceptance或Git-write authority；后续门禁为完整implementation Review、用户接受exact reviewed Stage SHA及另行授权的non-force`main`集成。
+
 ## 2026-09-10 — Increment 15 accepted_and_integrated 与 closure reconciliation
 
 - S02 native Worker与task-generic Worker Result已完成fixed Chat Formal Review、用户exact-SHA接受与non-force fast-forward，Current source authority为`main=c6f22fa110076a2784a39702c18a7c6ba99199db`。本次T06只同步十四份governance documents，不修改Bridge source/tests、Agent Room protocol、SQLite、product Runner或Claude Code行为。

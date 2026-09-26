@@ -314,3 +314,13 @@ Review 声称某个 validation 在 Run/process/artifact/Event 创建前拒绝时
 Race Oracle至少同时包含：独立connections、跨contender合计exact一个external mutation、一个success、stable loser error，以及由fresh connection读取的完整public durable snapshot。若行为存在合法非确定字段，应与同一seed和同一public operation的single-execution control比较，只归一化Contract允许变化的字段；不得删除其它durable字段或只比较selected entity/Event count。barrier timeout、Worker error/exit与cleanup只属于test harness，不为此增加production hook或并发framework。
 
 当Contract明确列出一个status集合的same-ID retry语义时，每个可达status都必须有对应direct evidence；不能用某个terminal status代表其它terminal status。每个case仍按既有规则断言stored result/`created=false`、零external invocation与完整public snapshot不变。
+
+## 19. Increment 16 Candidate Review/Fix/closure 方法
+
+Increment 16 在 implementation Review、用户接受与`main`集成完成前始终是 Candidate；T01/T02已进入 Stage不改变 Current authority。Formal Review只由 Fixed Chat产生`FORMAL_REVIEW_V1`。Review handoff、Formal Review、Stage acceptance、closure authorization是四个独立事实；`PASS`仅表示显式空 findings，不产生 acceptance 或 Git-write authority。`REQUEST_CHANGES`必须含非空、唯一 findings，用户确认 exact solution后才可打开一个 typed Fix round。
+
+Review时先验证 grammar family：decision、mechanical、handoff不得互相替代；caller-supplied `source_reference`必须是仅含`source_kind`和`decision_reference`的 closed object；`record-acceptance --record-type`必须显式指向`FIX_BUNDLE_ACCEPTANCE_V1`或`STAGE_ACCEPTANCE_V1`，并以`[record_type, acceptance_id]`判定 identity。随后验证顺序：prepared Fix必须先 verification，再 exact PASS，再 Fix handoff，最后由用户产生 typed acceptance；Actions到 handoff即停止且从不启动 Worker。
+
+失败分类必须以可能发生的 mutation为界：只有 external mutation调用前的拒绝可称`PRE_MUTATION_FAILURE`并证明零 event；可能写入后的失败一律是`POST_MUTATION_UNCERTAIN`，停止依赖 mutation并由 fresh invocation重读 authority。Stage closure再检查 exact三态：already-accepted只补 projection、expected baseline经 host approval non-force fast-forward、third/unobservable SHA不 push并`needs_decision`。
+
+完整 Oracle以[Increment 16 Execution Plan](../../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)中的原序 V01–V18为唯一 authority；Review必须保留 V17.a–f 与 V18.a–g named subcases，不建立重命名或重排后的第二套矩阵。
