@@ -85,7 +85,7 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
   if (targets.length && !await bridgeStatus(cdpPort)) {
     await background([join(root, 'tools/room-desktop/bridge.mjs'), '--port', String(cdpPort), '--url', url], join(local, 'cdp.log'));
   }
-  const connected = await waitFor(async () => { const status = await bridgeStatus(cdpPort); return status?.connected ? status : null; }, 6000);
+  const connected = await waitFor(async () => { const status = await bridgeStatus(cdpPort); return status?.connected ? status : null; }, 35000);
   return {
     url,
     panel: Boolean(connected),

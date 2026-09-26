@@ -56,6 +56,16 @@ export async function attachPanel(target, url) {
   try {
     const source = panelSource(url);
     await session.send('Page.enable');
+    // Reloading during Codex's initial load aborts its bootstrap promise.
+    // Wait for the actual application sidebar before the one-time CSP reload.
+    const deadline = Date.now() + 15000;
+    let ready = false;
+    while (Date.now() < deadline) {
+      const result = await session.send('Runtime.evaluate', { expression: "document.readyState === 'complete' && !!document.querySelector('aside nav')", returnByValue: true });
+      if (result.result.value) { ready = true; break; }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    if (!ready) throw new Error('等待 Codex sidebar 完成加载');
     const prepared = await session.send('Runtime.evaluate', { expression: 'window.__roomCdpReady === true', returnByValue: true });
     // Codex's app:// frame-src policy blocks loopback frames until a new document
     // is loaded under this CDP override. Apply it only to this Codex renderer.
@@ -65,7 +75,13 @@ export async function attachPanel(target, url) {
     const evaluated = await session.send('Runtime.evaluate', { expression: source, returnByValue: true });
     if (evaluated.exceptionDetails) throw new Error(evaluated.exceptionDetails.text);
     if (!prepared.result.value) await session.send('Page.reload');
-    return { session, registration: registration.identifier, status: evaluated.result.value };
+    const mountedDeadline = Date.now() + 10000;
+    while (Date.now() < mountedDeadline) {
+      const result = await session.send('Runtime.evaluate', { expression: 'window.__roomPanel?.status()', returnByValue: true });
+      if (result.result.value?.mounted) return { session, registration: registration.identifier, status: result.result.value };
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new Error('Room sidebar entry 未完成加载');
   } catch (error) {
     session.close();
     throw error;
