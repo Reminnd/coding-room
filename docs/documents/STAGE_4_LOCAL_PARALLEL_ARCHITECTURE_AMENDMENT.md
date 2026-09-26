@@ -78,3 +78,17 @@ Local Bridge 必须在 conflict、path drift、verification failure、mechanical
 ## 6. Agent Room product boundary
 
 本控制面只约束 repository development。Agent Room 产品 runtime 继续由 Room SQLite、Room protocol、product Runner 与 Claude Code execution surface 管理；本 amendment 不修改 Room entity/state/Event/schema、MCP/CLI、SQLite、Claude session 或 product Runner 行为。
+
+## 7. Increment 16 Candidate lifecycle extension
+
+本节只描述尚未进入`main`的 Candidate overlay；§1–6 的 Current S02 native Worker/generic Result 与 Increment 15 terminal authority不变。Increment 16 采用唯一的 Option A：GitHub PR comments保存 lifecycle facts，initial Router Contract与prepared Fix Router bundle保存于repository/GitHub lineage，不增加本地 database、Room entity或新 authority。
+
+Authority严格分离：Fixed Chat独占 Formal Review；用户独占 Fix solution确认、Fix/Stage acceptance与 Git-write/closure authorization；GitHub Actions只执行 mechanical verification/projection，不作 Review、不接受、不授权 Git write，也不启动 Worker。三类 grammar互不替代：decision records仅有`FORMAL_REVIEW_V1`、`FIX_ROUND_OPENED_V1`、`FIX_BUNDLE_ACCEPTANCE_V1`、`STAGE_ACCEPTANCE_V1`、`STAGE_CLOSURE_AUTHORIZATION_V1`；mechanical records仅有`FIX_PREPARED_V1`、`STAGE_VERIFICATION_V1`、`STAGE_CLOSED_V1`；Review/Fix handoff使用各自独立 closed marker/schema。所有 caller-supplied `source_reference`必须是只含`source_kind`与非空`decision_reference`的 closed object：Formal Review使用`fixed_chat_assistant_decision`，四类用户决定使用`fixed_chat_user_decision`，不得从label、author、comment order或mechanical fact推断。
+
+公开 lifecycle CLI 恰有四个 command：`record-review`、`prepare-fix`、`record-acceptance`、`close-stage`。`record-acceptance`强制显式`--record-type`，只接受`FIX_BUNDLE_ACCEPTANCE_V1`或`STAGE_ACCEPTANCE_V1`；identity为`[record_type, acceptance_id]`，相同 scalar ID 跨类型隔离且不可替代 downstream gate。
+
+Actions selector只有`canonical_stage_router`与`prepared_fix_router`两种 mode；`needs_decision`是失败。initial Router继续使用 Current reader兼容的`ROUTER_CONTRACT_V1` shape。canonical path不泄漏 Fix gate；prepared Fix严格按 verification → exact `STAGE_VERIFICATION_V1` PASS → Fix handoff → 独立 typed acceptance推进，Actions在 handoff 后停止。
+
+Controller在读取 scheduler、创建 worktree、发布 event、消费 dispatch或启动 Worker之前，必须一次性验证 batch内全部 launch authority、current exact SHA与known start state。拒绝属于 command-level zero-event `PRE_MUTATION_FAILURE`，不消费预分配 dispatch；补齐 authority 后 fresh invocation仍使用原 mapping。完整成功时，Worker使用该 invocation在 gate时缓存的 exact Accepted Contract bytes。任何可能已调用 external mutation后的不可确认结果属于`POST_MUTATION_UNCERTAIN`：停止当前及依赖 mutation，不盲目 retry/rollback；fresh invocation重读 durable GitHub/Git authority后再判定。
+
+`close-stage`只有三态：若`main`已等于 accepted Stage SHA，则不 push，只补缺失 terminal projection；若`main`等于 authorization冻结的 expected baseline，经独立 host approval执行 exact `<accepted_stage_sha>:refs/heads/main`、`force=false`、fast-forward-only；若为第三 SHA或不可观察，则不 push并返回`needs_decision`。terminal response loss只能在 exact closure已可观察时修补 projection，不得自动创建 Fix、Worker、acceptance或第二次 push。

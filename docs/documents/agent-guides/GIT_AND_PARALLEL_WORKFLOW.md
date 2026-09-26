@@ -89,3 +89,11 @@ Worker native process 成功并返回 `implementation_ready` 后，Controller MU
 9. 所有 Task 集成后发布 exact Stage `candidate_ready`；GitHub mechanical verification 后交 fixed Chat Formal Review。用户接受 exact reviewed SHA 后，另行授权 Stage→main non-force fast-forward。
 
 Recovery 只读取 current dispatch identity 的 durable GitHub comments，并重新验证 remote Task SHA、Stage commit existence/ancestry 与 current ownership；任何不一致为 `needs_decision`，不得自动 repair 或 replay。Native thread/UI history不参与恢复。
+
+## Increment 16 Candidate lifecycle gates
+
+本节是 Candidate overlay，不改变上述 Increment 15 Current路线。Actions仅发布 mechanical verification/projection，不作 Formal Review、acceptance、Git-write authorization或 Worker launch；selector仅允许`canonical_stage_router`与`prepared_fix_router`。canonical mode不得要求 Fix-only facts；prepared Fix必须依次满足 verification、exact PASS、Fix handoff、typed Fix acceptance。
+
+Local Bridge在 scheduler读取、worktree/event/dispatch mutation与 Worker启动前执行 batch launch gate，并一次读取 exact accepted Contract bytes到当次 invocation cache。gate rejection为 command-level zero-event `PRE_MUTATION_FAILURE`，不消费预分配 dispatch；修复 authority后 fresh invocation继续使用原 immutable mapping。可能已经调用 comment/label/push/dispatch mutation后的不可确认结果为`POST_MUTATION_UNCERTAIN`：停止当前与依赖写入，不盲目 retry或rollback，fresh invocation先read-before-write并在事实歧义时返回`needs_decision`。
+
+Stage→`main` closure只允许 exact non-force tri-state：`main == accepted_stage_sha`时不 push、仅修补缺失`STAGE_CLOSED_V1` projection；`main == expected_baseline_sha`时，经独立 host approval push exact `<accepted_stage_sha>:refs/heads/main`且`force=false`、fast-forward-only；第三 SHA或不可观察时不 push。禁止rebase、merge commit、force、第二次猜测性push或以terminal projection替代用户 closure authorization。

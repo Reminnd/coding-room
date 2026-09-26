@@ -338,6 +338,35 @@ S01建立GitHub/Git、Local Bridge、Stage/Task与fixed Chat基础控制面；S0
 
 S03 T06只同步十四份治理文档，不改变source、tests、Room protocol、SQLite、product Runner或Claude Code。该同步已完成Stage exact-head verification、fixed Chat Formal Review、用户exact-SHA接受与main集成；Increment 15 terminal accepted/integrated SHA为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`，Active Stage/Task均为空。该SHA也是manual non-Router closure reconciliation exact base，不是reconciliation完成后的永久current `main` HEAD。Current project-development路径与职责分离见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)。
 
+### 增量 16 — Review/Fix/Acceptance/Closure（Candidate）
+
+目标：在Increment 15 Current基础上，以唯一 Option A补齐GitHub PR comment lifecycle、Fixed Chat Formal Review、用户acceptance/Git-write authorization、Actions mechanical projection、prepared Fix launch gate与exact non-force Stage closure。DAG和ownership冻结于[Router Contract](../work/wf-increment-016-github-review-fix-acceptance-closure/stages/S01-review-fix-acceptance-closure/ROUTER_CONTRACT.md)，顺序严格为`T01 → T02 → T03`；T01/T02已集成到Stage，T03负责18个owned文档，不改变source/tests。Increment 16在implementation Review、用户接受及`main`集成完成前始终是Candidate。
+
+Frozen Oracle的唯一权威是[Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)，原序与语义如下：
+
+| ID | Scenario and direct Oracle | Failure decision |
+|---|---|---|
+| V01 | `FORMAL_REVIEW_V1 REQUEST_CHANGES` requires non-empty unique findings and cannot launch Fix. | Block lifecycle. |
+| V02 | PASS requires explicitly empty findings and creates no acceptance/Git authority. | Block Review recording. |
+| V03 | Exact confirmed solution creates one typed Fix round；unconfirmed/widened input writes nothing. | Block Fix preparation. |
+| V04 | Fix round、preparation and dispatch IDs are pairwise distinct；mapping immutable. | Block Fix bundle. |
+| V05 | Same typed identity/payload reuses without duplicate mutation. | Block idempotency. |
+| V06 | Same typed identity/different payload returns `needs_decision` without mutation. | Block lifecycle. |
+| V07 | Strict grammar rejects missing authority、implicit/default decisions、duplicate keys and unknown fields before mutation. | Block parser. |
+| V08 | Mechanical records、labels and authors cannot satisfy Review、acceptance or execution. | Block authority model. |
+| V09 | Prepared Fix verification/handoff precede acceptance；Actions never launches Worker. | Block Fix Actions flow. |
+| V10 | Launch requires exact accepted bundle/mapping/handoff/SHA、fresh invocation and known start state. | Block Worker launch. |
+| V11 | Review handoff、Formal Review、Stage acceptance and closure authorization remain four facts. | Block closure flow. |
+| V12 | Stale Review、handoff、verification、acceptance or Stage SHA cannot pass current gate. | Block transition. |
+| V13 | `PRE_MUTATION_FAILURE` proves all mutation spies zero and is never claimed after a possible write. | Block classification. |
+| V14 | Comment、label、dispatch and prepared-push response loss use read-before-write；ambiguity stops. | Block retry. |
+| V15 | Main-push loss uses exact three-way classification；third-SHA causes no push. | Block closure. |
+| V16 | Terminal response loss repairs only missing projection after exact closure；no auto Fix/Worker/merge. | Block terminal processing. |
+| V17 | Router selector subcases `a–f` pass through the public Actions selector. | Block T02/T03 dispatch. |
+| V18 | Typed acceptance subcases `a–g` pass through public CLI/downstream gates. | Block T01. |
+
+`V17.a–f`保持：a canonical/no-Fix；b T01 integrated后按依赖解锁；c T02 integrated后按依赖解锁；d one exact current Fix选择`prepared_fix_router`；e old-SHA preparation只作历史、current仍canonical；f conflict/malformed/ambiguous返回`needs_decision`并zero handoff。`V18.a–g`保持：a exact `FIX_BUNDLE_ACCEPTANCE_V1` target；b exact `STAGE_ACCEPTANCE_V1` target；c missing type；d unknown type；e CLI/payload type mismatch；f typed identity `[record_type, acceptance_id]`使相同scalar ID跨type隔离；g downstream Fix/Stage gate禁止cross-type substitution。
+
 ## 5. Task Contract 规则
 
 每个 increment 只有满足以下条件后，才能转换为独立 Task Contract：
@@ -352,6 +381,8 @@ S03 T06只同步十四份治理文档，不改变source、tests、Room protocol�
 Room MCP 在 Increment 4 才可用。用户已于 2026-08-23 批准：Increment 1–4 可以按 `PROJECT_RULES.md` 的受限 bootstrap 规则，通过本机 `claude -p` 接收完整已批准 Task Contract；该路径不建立平行 Room state，并在 Increment 4 被接受后终止。
 
 ## 6. 当前下一步
+
+Increment 16 Candidate当前只完成T01/T02 Stage integration并进入T03 documentation implementation；T03完成后仍须implementation Review、用户接受exact reviewed Stage SHA与独立授权的non-force `main`集成。不得因Stage已有T01/T02而把Candidate能力写成Current。
 
 Increment 1 与 Increment 2 已完成、通过 Review、获用户接受并提交。Increment 3 的串行 Scope Scaffold 已完成并集成；Increment 3A/3B 已完成 Coding、Review、Fix、用户接受与独立提交，commits 为 `86c77a7c68b953343d67da3857859b0dd6d6c09c` 和 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`。[Increment 3 Integration Task Contract](./INCREMENT_3_INTEGRATION_TASK_CONTRACT.md) 已获用户确认，具体化 central Runner、`CODING` startup/init lifecycle、terminal evidence、Git/artifact failure 与 fake-process matrix。
 

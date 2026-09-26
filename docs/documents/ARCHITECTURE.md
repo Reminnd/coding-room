@@ -613,3 +613,32 @@ Fix后权威语义：
 Repository development 位于 Agent Room 产品 runtime 之外：GitHub/Git 持久化 accepted Contract、dispatch、branch/commit、PR/Check 与 Review handoff；Local Bridge 计算 DAG/Ready Set、创建 Task worktree、启动 fresh ephemeral native Codex thread，并独立完成 verification、candidate Git facts、Supervisor Integration、Task push 与 controlled Stage cherry-pick；fixed Chat 对 Stage exact head 执行唯一 Formal Review。
 
 Native thread/turn 只是绑定 Task worktree 的 app-server execution surface，不拥有 workflow state、recovery、Review 或 merge。Worker Result 只是 task-generic semantic handoff；native、verification、ownership和candidate identity各自由 process/Router/Controller/Git事实拥有。完整 lifecycle、failure、prompt与Result boundary见 [Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)，精确Git delivery顺序见 [Git 与并行工作流指南](./agent-guides/GIT_AND_PARALLEL_WORKFLOW.md)。本节不改变Room protocol、SQLite、product Runner或Claude Code行为。
+
+## 19. Increment 16 Candidate — Review/Fix/Acceptance/Closure
+
+本节是尚未进入`main`的 Candidate architecture projection，不覆盖§18的Current Increment 15 authority。唯一 lifecycle storage model为 Option A：GitHub PR comments保存typed lifecycle facts，repository/GitHub lineage保存initial Router与prepared Fix Router bundle；不新增SQLite、Room entity、registry或ADR。
+
+### 19.1 Authority 与 record family
+
+| Fact | Sole authority |
+|---|---|
+| Formal Review | ChatGPT Fixed Chat |
+| Fix solution、Fix/Stage acceptance、Git-write/closure authorization | user |
+| mechanical verification/projection | GitHub Actions |
+| launch、Git candidate、integration/closure execution observations | Local Bridge Controller + Git/GitHub facts |
+
+Decision、mechanical、handoff三类grammar互不替代。decision records正好五种：`FORMAL_REVIEW_V1`、`FIX_ROUND_OPENED_V1`、`FIX_BUNDLE_ACCEPTANCE_V1`、`STAGE_ACCEPTANCE_V1`、`STAGE_CLOSURE_AUTHORIZATION_V1`；mechanical records正好三种：`FIX_PREPARED_V1`、`STAGE_VERIFICATION_V1`、`STAGE_CLOSED_V1`；Review/Fix handoff使用独立marker与closed schema。caller-supplied `source_reference`只允许`source_kind`和非空`decision_reference`：Formal Review使用`fixed_chat_assistant_decision`，其余四类decision使用`fixed_chat_user_decision`。label、author、comment order、handoff或mechanical record均不能推断decision。
+
+公开 lifecycle CLI正好四个command：`record-review`、`prepare-fix`、`record-acceptance`、`close-stage`。`record-acceptance --record-type`必填，只允许`FIX_BUNDLE_ACCEPTANCE_V1`和`STAGE_ACCEPTANCE_V1`；identity为`[record_type, acceptance_id]`，因此跨type相同scalar ID保持隔离，downstream gate不得互换。
+
+### 19.2 Router 与 Fix data flow
+
+initial Router继续保持Current reader可读的`ROUTER_CONTRACT_V1` shape。public Actions selector只返回`canonical_stage_router`或`prepared_fix_router`；`needs_decision`是失败，不是第三种mode。无current Fix时使用canonical Router；唯一exact-current preparation才选择prepared Router，old-SHA history不覆盖current，conflict/malformed/ambiguous facts zero-handoff拒绝。prepared Fix顺序固定为verification → exact`STAGE_VERIFICATION_V1` PASS → Fix handoff → 独立typed acceptance；Actions到handoff即停止，从不启动Worker，canonical path也不承担Fix-only gate。
+
+### 19.3 Launch、failure 与 closure
+
+Controller在scheduler读取、worktree创建、event/dispatch mutation或Worker launch之前先对batch内全部launch执行exact bundle/mapping/handoff/SHA、fresh invocation与known start state gate。拒绝是command-level zero-event`PRE_MUTATION_FAILURE`，不消费preallocated dispatch；补齐authority后的fresh invocation复用original immutable mapping。成功launch必须使用该invocation在gate时读取并缓存的exact Accepted Contract bytes。task-generic Worker Result只含`task_id`、`dispatch_id`、`reported_base_sha`、`deviations`、`unresolved`、`questions`、`status`，且仅`implementation_ready`增加non-empty`changed_files`；native、verification、ownership与candidate Git identity继续由Controller观察。
+
+可能已调用external mutation后的失败属于`POST_MUTATION_UNCERTAIN`：停止当前和dependent mutation，不声明zero-write、不盲目retry/rollback；fresh invocation先重读durable authority。comment/label/dispatch/prepared push response loss均read-before-write，歧义即停止。
+
+Stage→`main`只允许三态：`main == accepted_stage_sha`时不push、只修补缺失terminal projection；`main == expected_baseline_sha`时经host approval执行exact `<accepted_stage_sha>:refs/heads/main`、`force=false`、fast-forward-only；第三或不可观察SHA不push并返回`needs_decision`。terminal response loss仅能在exact closure已观察后修补`STAGE_CLOSED_V1`，不得自动创建Fix、Worker、acceptance、merge或第二次push。完整Candidate Oracle见[Increment 16 Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)。

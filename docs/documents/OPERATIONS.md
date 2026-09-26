@@ -424,3 +424,34 @@ Cutover evidence：helper=`mode=migrated`；config URL unchanged；`.gitignore`�
 - `room:run`按Run/Attempt one-shot command执行，不携带`--task-id`或`--baseline-head`；只有durable ready Run且获得单次host approval时才可调用。
 - `room:git`只有在持久化exact preview、用户Approval decision与单次host approval全部满足后才可execute；cutover未创建任何GitAction。
 - 未授权事项保持：push、Plugin reinstall、candidate worktree cleanup、旧database删除、cutover文档commit以及任何新的Plan/Task/Run/GitAction。
+
+## 10. Increment 16 Candidate lifecycle runbook
+
+> 状态：Candidate。以下命令与恢复语义来自已集成至Stage的T01/T02，尚未通过Increment 16 implementation Review、用户接受与`main`集成；不得当作Current operator capability。
+
+### 10.1 四个公开 command
+
+公开 lifecycle command恰为：
+
+1. `record-review`
+2. `prepare-fix`
+3. `record-acceptance`
+4. `close-stage`
+
+不存在第五个 lifecycle command。`record-acceptance`必须显式提供`--record-type`，只接受`FIX_BUNDLE_ACCEPTANCE_V1`或`STAGE_ACCEPTANCE_V1`，且payload `record_type`必须一致。identity为`[record_type, acceptance_id]`，相同scalar ID跨type隔离，Fix/Stage downstream gate不得互换。所有decision payload的caller-supplied `source_reference`必须是只含`source_kind`与`decision_reference`的closed object，无default、null、extra key或推断。
+
+### 10.2 Fix 与 launch 顺序
+
+Fixed Chat记录`REQUEST_CHANGES`后必须先取得用户确认的exact solution，才可`prepare-fix`。Actions只按 verification → exact`STAGE_VERIFICATION_V1` PASS → Fix handoff投影prepared bundle；它不记录acceptance、不启动Worker。Local Bridge随后在读取scheduler、创建worktree、发布event、消费dispatch或launch前，对batch中所有Task执行exact accepted bundle/mapping/handoff/SHA、fresh invocation与known start state gate。拒绝为command-level zero-event`PRE_MUTATION_FAILURE`，不消费preallocated dispatch；补齐authority后fresh invocation仍用original dispatch。成功launch使用该invocation gate时缓存的exact Accepted Contract bytes。
+
+### 10.3 失败与恢复
+
+只有external mutation调用前的失败能报告`PRE_MUTATION_FAILURE`和zero-event。若comment、label、prepared push、dispatch或其它external mutation可能已经调用，结果不可确认时必须报告`POST_MUTATION_UNCERTAIN`，停止当前及dependent mutation，不得声称zero-write、盲目retry或rollback。fresh invocation重读GitHub/Git durable facts，read-before-write；同identity同payload可复用，同identity不同payload或观察歧义返回`needs_decision`。
+
+### 10.4 `close-stage` 三态
+
+- `main == accepted_stage_sha`：不push，只补缺失的terminal projection。
+- `main == expected_baseline_sha`：取得独立host approval后，仅执行exact `<accepted_stage_sha>:refs/heads/main`、`force=false`、fast-forward-only。
+- `main`为第三SHA或不可观察：不push，返回`needs_decision`。
+
+terminal response loss只允许在exact closure已观察后修补缺失`STAGE_CLOSED_V1`；不得自动创建Fix、Worker、acceptance、merge或第二次push。完整V01–V18 runbook Oracle见[Increment 16 Execution Plan](../work/wf-increment-016-github-review-fix-acceptance-closure/EXECUTION_PLAN.md)。
