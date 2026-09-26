@@ -2,7 +2,7 @@
 
 > 状态：Current  
 > 生效日期：2026-08-23  
-> 当前阶段：Increment 16=`accepted_and_integrated`，terminal SHA=`5a5ad734a5a5cbe0fffa02a628a505f0f108c363`；[closure](./docs/documents/INCREMENT_16_CLOSURE.md) 保存 Review、CI、main 与归档证据。当前开发为 [Room UI](./docs/documents/ROOM_UI_DELIVERY_PLAN.md)，本次用户委托 Local Codex 持续完成实现、Review、修复与 Git 交付，无需逐轮确认。
+> 当前阶段：Increment 16=`accepted_and_integrated`，terminal SHA=`5a5ad734a5a5cbe0fffa02a628a505f0f108c363`；[closure](./docs/documents/INCREMENT_16_CLOSURE.md) 保存 Review、CI、main 与归档证据。Room UI 已在 `8bc2110` 整合并归档，见 [交付记录](./docs/documents/ROOM_UI_REVIEW.md)，本次用户委托 Local Codex 持续完成实现、Review、修复与 Git 交付，无需逐轮确认。
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
@@ -458,6 +458,6 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 ## 14. 当前阶段
 
-Increment 15 与 Increment 16 均已 accepted_and_integrated。Increment 16 terminal SHA 为 `5a5ad73`，当前开发为 Room UI；closure 和用户本次委托见本文入口。
+Increment 15 与 Increment 16 均已 accepted_and_integrated。Increment 16 terminal SHA 为 `5a5ad73`，Room UI 亦已在 `8bc2110` 整合，归档标签为 `archive/room-ui-v1`；closure 和用户本次委托见本文入口。
 
 Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`。Increment 15=`accepted_and_integrated`，其terminal时Active Stage=`none`、Active Task=`none`；S02 native Worker/generic Result 的实现 source authority 仍为`c6f22fa110076a2784a39702c18a7c6ba99199db`，S03 T06 十四份治理文档已完成 Review、用户接受与 main 集成。Increment 15 terminal accepted/integrated SHA 与本次 manual non-Router closure reconciliation exact base 均记录为`97ae2d869c39730fe77fb14df2ac34f57c681eb8`；该历史终态/base记录不把它声明为 reconciliation 完成后的永久 current `main` HEAD。Room active v0.5 runtime继续存在且不因项目开发控制面改变。

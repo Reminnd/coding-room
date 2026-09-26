@@ -14,6 +14,8 @@
 > Increment 14：`accepted_and_integrated` / final commit `d5827a052190d63fb2fbbd9fbd970ba9db92ed64`
 > Increment 15：`accepted_and_integrated`；Active Stage/Task均为空；terminal accepted/integrated SHA 与 closure reconciliation exact base 为 `97ae2d869c39730fe77fb14df2ac34f57c681eb8`，不作为 reconciliation 完成后的永久 current `main` HEAD声明
 
+> Room UI：`accepted_and_integrated`，source=`8bc2110`，archive=`archive/room-ui-v1`；[交付 Review](./ROOM_UI_REVIEW.md)。
+
 ## 1. 目标
 
 交付一个本地端到端工作流：已批准的 Codex Task Contract 由 Claude Code CLI 在共享 Git worktree 中执行，完成后交给 Codex Review；用户讨论并确认解决方案后可以继续 Fix，最终由用户明确接受。

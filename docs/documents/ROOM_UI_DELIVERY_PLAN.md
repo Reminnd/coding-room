@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted scope; implementation reviewed and installed |
+| Status | Accepted and integrated at 8bc2110; archived as archive/room-ui-v1 |
 | Owner | Local Codex |
 | Date | 2026-09-27 |
 | Authorization | User goal and explicit acceptance of recommendations 2–7 |

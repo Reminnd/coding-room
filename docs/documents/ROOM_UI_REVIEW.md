@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Approved implementation; Git integration recorded in DEVELOPMENT_LOG |
+| Status | Approved and integrated at 8bc2110; archive/room-ui-v1 |
 | Reviewer | Local Codex under the user's task-scoped continuous-delivery delegation |
 | Date | 2026-09-27 |
 | Scope | ROOM_UI_DELIVERY_PLAN.md and ROOM_UI_IMPLEMENTATION_TASK.md |
@@ -30,7 +30,7 @@ None within the accepted delivery scope. No paid API or additional account was i
 
 ## Verification
 
-- Ubuntu [Actions run 36261309547](https://github.com/Reminnd/coding-room/actions/runs/36261309547): 415/415 tests, TypeScript, production Vite build and diff check passed. Final branch checks remain visible on PR #9.
+- Ubuntu final [Actions run 36261848052](https://github.com/Reminnd/coding-room/actions/runs/36261848052): 415/415 tests, TypeScript, production Vite build and diff check passed. Final branch checks remain visible on PR #9.
 - Windows: full run had 414 passing tests and the obsolete scope allowlist failure; after the narrow correction, scope 2/2 passed. HTTP/CLI 6/6, TypeScript and production build passed. Existing tests cover lifecycle, retry, cancellation, GitController and persistence; no paid live Claude Run was started for UI QA.
 - Real browser: created Plan/revision, approved the revision, displayed its node and waiting reason, rejected malformed JSON visibly, switched projects/themes, filtered durable events and exported the QA archive. The scratch project registry entry was then removed; its database and archive were preserved. The real project stayed in DISCUSSION with zero Runs.
 - Installed Windows Tauri release executable, Desktop `Room.lnk` and personal `room-ui` Skill. Invoked the shortcut without a terminal; it started the Codex profile, connected the sidebar and loaded the real React UI. Reload restored the open panel; stopping/restarting the owned Codex instance produced a new renderer with the same working panel. The pre-existing non-debug Codex instance was preserved.

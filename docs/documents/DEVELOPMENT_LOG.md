@@ -1,5 +1,11 @@
 # 开发日志
 
+## 2026-09-27 — Room UI accepted_and_integrated
+
+- 最终候选 `8bc2110aaaba7724882bd2772cb94d529bcc2932` 经 Ubuntu Actions 36261848052 验证通过后，non-force fast-forward 至 `main`；PR #9 于 2026-09-26T18:15:52Z 自动标记 MERGED。
+- 归档标签 `archive/room-ui-v1` 指向该 exact source；后续文档 reconciliation 不改变此交付 source identity。桌面 Room 快捷方式、Codex 侧栏面板、共享 HTTP API/React/taskctl/Skill 与 VS Code 入口已安装可用。
+- 本次范围已完成，无未解决 blocking finding；数据库与原有未提交文档修改保留。
+
 ## 2026-09-27 — Room UI Review approved；桌面已安装
 
 - API/React/taskctl 独立 Worker 结果由 Controller 验证并提交；Tauri launcher、CDP sidebar/iframe 与 room-ui Skill 已组合。PR #9 汇总完整交付。

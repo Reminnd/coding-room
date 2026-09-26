@@ -11,7 +11,7 @@
 
 ## 1. 结论与查看入口
 
-2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。[Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md) 已完成实现、Review 与桌面安装，[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。历史 Contract 中的 pre-bootstrap 描述由 closure 解释，不作为重新派发授权。
+2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。[Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md) 已完成实现、Review、桌面安装与 main 整合（`8bc2110`，`archive/room-ui-v1`），[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。历史 Contract 中的 pre-bootstrap 描述由 closure 解释，不作为重新派发授权。
 
 本目录是所有人类可查看项目文档的唯一集合。按以下顺序可以快速建立完整上下文：
 
