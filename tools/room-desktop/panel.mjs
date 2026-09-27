@@ -1,6 +1,6 @@
 // Runs in the Codex renderer; the host owns navigation, geometry and theme.
 export function installRoomPanel({ url }) {
-  const version = 2;
+  const version = 4;
   if (window.__roomPanel?.status().version === version && window.__roomPanel.status().url === url) return window.__roomPanel.status();
   window.__roomPanel?.remove();
   if (!document.body) {
@@ -60,19 +60,27 @@ export function installRoomPanel({ url }) {
   let observedSurface;
   const mount = () => {
     if (!host.isConnected) document.body.append(host);
-    const nav = document.querySelector('aside nav');
-    const pullRequest = Array.from(nav?.querySelectorAll('button,a') ?? []).find((item) => /Pull Requests?/.test(item.textContent));
-    if (nav && pullRequest) {
+    const items = Array.from(document.querySelectorAll('aside nav button,aside nav a'));
+    const newChat = items.find((item) => /^(新对话|新聊天|New chat|New conversation)$/.test(item.textContent.trim()));
+    const nav = newChat?.closest('nav');
+    const pullRequest = Array.from(nav?.querySelectorAll('button,a') ?? []).find((item) => /^Pull Requests?$/.test(item.textContent.trim()));
+    if (pullRequest) {
       if (button.nextElementSibling !== pullRequest) pullRequest.parentElement.insertBefore(button, pullRequest);
       button.className = pullRequest.className;
-      button.style.width = '100%';
+    } else if (newChat) {
+      const row = newChat.closest('[data-codex-tab-conversation-drop-target]') ?? newChat.parentElement.closest('.sidebar-item') ?? newChat;
+      if (row.nextElementSibling !== button) row.after(button);
+      button.className = `${newChat.className} hover:bg-primary-ghost-hover`;
     }
+    button.style.width = '100%';
+    button.style.height = 'var(--nav-item-height,var(--height-token-row))';
+    button.style.flex = 'none';
     const surface = document.querySelector('main[class*="MainContentSurface"]');
     if (surface && surface !== observedSurface) { resize.disconnect(); resize.observe(surface); observedSurface = surface; }
     position();
   };
   const onNavigation = (event) => {
-    if (event.target.closest?.('aside button,aside a') && !button.contains(event.target)) setOpen(false);
+    if (event.target.closest?.('aside button,aside a,aside [role="button"],aside [role="link"]') && !button.contains(event.target)) setOpen(false);
   };
   const onMessage = (event) => { if (event.source === frame.contentWindow && event.origin === frameUrl.origin && event.data?.type === 'room:ready') syncTheme(); };
   document.addEventListener('click', onNavigation);

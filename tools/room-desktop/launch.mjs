@@ -74,7 +74,7 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
     await ensureMcp(JSON.parse(readFileSync(runtimePath, 'utf8')), local);
   }
   const prior = await bridgeStatus(cdpPort);
-  if (prior && (prior.version !== 2 || (prior.url !== new URL(url).href && prior.url !== url))) {
+  if (prior && (prior.version !== 4 || (prior.url !== new URL(url).href && prior.url !== url))) {
     await bridgeStatus(cdpPort, 'stop');
     await waitFor(async () => !await bridgeStatus(cdpPort), 3000);
   }
@@ -86,7 +86,7 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
     url,
     panel: Boolean(connected),
     status: connected ? 'connected' : 'connection_failed',
-    message: connected ? 'Room 已接入当前 Codex，入口位于新对话与 Pull Request 之间。' : 'Codex 已启动，Room 入口尚未就绪。请再次点击 Codex 快捷方式重试连接。',
+    message: connected ? 'Room 已接入当前 Codex，入口位于新对话（新聊天）下方。' : 'Codex 已启动，Room 入口尚未就绪。请再次点击 Codex 快捷方式重试连接。',
   };
 }
 

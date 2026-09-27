@@ -1,5 +1,11 @@
 # 开发日志
 
+## 2026-09-27 — Codex 原窗口入口 Review approved
+
+- 用户重启并继续后，实际 Codex 已升级至 `26.924.2738.0`，唯一主进程使用原 `%APPDATA%/Codex/web/Codex` profile 和 9223。已修正新版本双导航、移除 Pull Request 造成的入口定位失败，以及 task row `role="button"` 未被退出监听覆盖的问题。
+- 原窗口截图、八个 embedded 页签、host theme light/dark tokens、主内容区对齐、任务导航退出、renderer reload 保持唯一入口与打开状态均通过。桌面/开始菜单 shortcut 热启动复用原进程；真实窗口 taskbar AppUserModel.ID、relaunch command 与新版本 icon 已读取验证。安装后的 launcher 无独立 Tauri 窗口，Room 数据仍为 DISCUSSION、零 Run。
+- Review=`approved`，`documentation: updated`。验证范围与具体限制见 [ROOM_NATIVE_REVIEW.md](./ROOM_NATIVE_REVIEW.md)；最终 source、CI 与 integration 以 [PR #10](https://github.com/Reminnd/coding-room/pull/10) 为准。原有 documentation-authoring guide 修改保留且排除。
+
 ## 2026-09-27 — Codex 原窗口 Room 入口修改（Candidate）
 
 - 用户确认统一常用 Codex 启动入口、使用原 profile；Room 保留 Codex 单侧栏，内部使用顶部页签。该修改沿用 UI delivery 的持续实现、修复与 Git 授权。
@@ -61,7 +67,7 @@
 ## 当前状态
 
 - 日期：2026-09-27
-- 项目阶段：Increment 16 与 Room UI v1 已 accepted_and_integrated；当前修改为 Codex 原窗口自动入口与顶部页签（Candidate，原 profile 运行验收待完成）
+- 项目阶段：Increment 16 与 Room UI v1 已 accepted_and_integrated；Codex 原窗口自动入口与顶部页签已运行验收，Review approved，Git integration 见 PR #10
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Current repository-development control plane见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)
 - Increment状态：Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Increment 15=`accepted_and_integrated`，terminal accepted/integrated SHA=`97ae2d869c39730fe77fb14df2ac34f57c681eb8`
 - 业务代码：Increment 16 lifecycle 与 CI closure 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` 整合；S02 native Worker/generic Result 是沿用的基础设计。归档 tag=`archive/increment-016`，PR #8=`MERGED`

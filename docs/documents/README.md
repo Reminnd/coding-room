@@ -15,7 +15,7 @@
 
 本目录是所有人类可查看项目文档的唯一集合。按以下顺序可以快速建立完整上下文：
 
-当前后续修改为 Codex 原窗口自动入口与顶部页签；已安装但原 profile 运行验收仍待完成，状态以 [桌面入口](./ROOM_DESKTOP.md) 和 [开发日志](./DEVELOPMENT_LOG.md) 为准。UI v1 的历史 Review 不代表该后续修改已验收。
+Codex 原窗口自动入口与顶部页签已完成实际运行验收，见 [native integration review](./ROOM_NATIVE_REVIEW.md)。日常启动和版本适配见 [桌面入口](./ROOM_DESKTOP.md)，Git 整合事实见 [PR #10](https://github.com/Reminnd/coding-room/pull/10)。
 
 1. [项目共享规则](../../PROJECT_RULES.md)
 2. [系统架构](./ARCHITECTURE.md)
@@ -44,6 +44,7 @@ Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史�
 | [ROOM_UI.md](./ROOM_UI.md) | Current | Codex | React 工作台、HTTP API 与 taskctl | Architecture、Protocol |
 | [ROOM_DESKTOP.md](./ROOM_DESKTOP.md) | Current | Codex | Tauri 安装、Codex CDP 面板与重连 | Room UI |
 | [ROOM_UI_REVIEW.md](./ROOM_UI_REVIEW.md) | Current | Codex | UI 交付验证、修复与限制 | Delivery Plan、Git、实际操作 |
+| [ROOM_NATIVE_REVIEW.md](./ROOM_NATIVE_REVIEW.md) | Current | Codex | 原 profile 启动、原生入口与主题验收 | Room Desktop、实际 Codex renderer |
 
 ### 2.2 Architecture Decision Records
 

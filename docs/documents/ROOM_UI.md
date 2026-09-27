@@ -18,7 +18,7 @@ Room UI 是现有 Agent Room application commands 的本地 React 操作面。HT
 
 要求 Node.js 与根 `package.json` 的 `engines` 一致。
 
-当前修改将日常入口统一为桌面/开始菜单 **Codex** 快捷方式，在 Codex 侧栏“新对话”下方、“Pull Request”上方点击 **Room**。首次迁移需要退出未启用 CDP 的 Codex 后重开；原 profile 运行验收尚未完成。安装、面板与验证状态见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
+日常入口为桌面/开始菜单 **Codex** 快捷方式，在 Codex 侧栏“新对话”下方点击 **Room**。Codex 26.924 已将该行改名为“新聊天”并移除侧栏 Pull Request，Room 仍位于新聊天正下方。首次迁移需要退出未启用 CDP 的 Codex 后重开；原 profile 实际运行已验收。安装、面板与验证状态见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
 
 ```powershell
 npm ci
