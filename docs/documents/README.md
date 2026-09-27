@@ -15,6 +15,8 @@
 
 本目录是所有人类可查看项目文档的唯一集合。按以下顺序可以快速建立完整上下文：
 
+当前后续修改为 Codex 原窗口自动入口与顶部页签；已安装但原 profile 运行验收仍待完成，状态以 [桌面入口](./ROOM_DESKTOP.md) 和 [开发日志](./DEVELOPMENT_LOG.md) 为准。UI v1 的历史 Review 不代表该后续修改已验收。
+
 1. [项目共享规则](../../PROJECT_RULES.md)
 2. [系统架构](./ARCHITECTURE.md)
 3. [Room 协议](./ROOM_PROTOCOL.md)

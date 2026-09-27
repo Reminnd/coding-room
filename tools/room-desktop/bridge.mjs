@@ -19,7 +19,7 @@ export function bridgeStatus(port, command = 'status') {
 
 export async function runBridge({ port, url }) {
   const sessions = new Map();
-  let state = { connected: false, targets: 0, url, message: '等待 Codex 调试端口' };
+  let state = { version: 2, connected: false, targets: 0, url, message: '等待 Codex 调试端口' };
   let stopped = false;
   const server = createServer((socket) => socket.once('data', (data) => {
     socket.end(JSON.stringify(state));
@@ -33,7 +33,7 @@ export async function runBridge({ port, url }) {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(bridgePipe(port), resolve); });
   let lastMessage = '';
   const report = (next) => {
-    state = next;
+    state = { version: 2, ...next };
     if (next.message !== lastMessage) {
       console.log(`${new Date().toISOString()} ${next.message}`);
       lastMessage = next.message;

@@ -1,5 +1,13 @@
 # 开发日志
 
+## 2026-09-27 — Codex 原窗口 Room 入口修改（Candidate）
+
+- 用户确认统一常用 Codex 启动入口、使用原 profile；Room 保留 Codex 单侧栏，内部使用顶部页签。该修改沿用 UI delivery 的持续实现、修复与 Git 授权。
+- 已实现无窗口 `--codex` launcher、原 profile 选择、非 CDP 实例明确重启提示、原生行布局与主内容区 iframe、host theme 同步。桌面与开始菜单 Codex shortcut 已安装，target/arguments/AppUserModel.ID 已读取验证；旧独立 Codex 进程已关闭，profile 数据保留。
+- Windows 418/418 tests、TypeScript、Vite production build、Rust release build、八个页签导航通过。真实项目保持 DISCUSSION、零 Run。
+- 自动审批拒绝启动更新后的 CDP companion，返回 `blocked by policy`；未绕过。原 profile 冷/热启动、taskbar relaunch、embedded theme 和 reload/reconnect 尚未完成，不能标记交付 accepted/integrated。当前证据与恢复步骤见 [ROOM_DESKTOP.md](./ROOM_DESKTOP.md)。
+- Review decision=`needs_discussion`（运行验收待恢复），没有新增已证实的代码 blocking finding；`documentation: updated`。旧版 UI Review 保留其历史范围；既有 documentation-authoring guide 修改仍不纳入本次提交。
+
 ## 2026-09-27 — Room UI accepted_and_integrated
 
 - 最终候选 `8bc2110aaaba7724882bd2772cb94d529bcc2932` 经 Ubuntu Actions 36261848052 验证通过后，non-force fast-forward 至 `main`；PR #9 于 2026-09-26T18:15:52Z 自动标记 MERGED。
@@ -53,7 +61,7 @@
 ## 当前状态
 
 - 日期：2026-09-27
-- 项目阶段：Increment 16=`accepted_and_integrated`；当前交付为 Room UI（API/React/taskctl、CDP sidebar panel、Tauri launcher 与 Codex Skill），尚未整体验收
+- 项目阶段：Increment 16 与 Room UI v1 已 accepted_and_integrated；当前修改为 Codex 原窗口自动入口与顶部页签（Candidate，原 profile 运行验收待完成）
 - Architecture：[ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md)仍为`Proposed / Decisions confirmed`；[ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md)与[ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md)均为`Accepted`。Current repository-development control plane见[Stage 4 Local Parallel Amendment](./STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md)
 - Increment状态：Increment 14=`accepted_and_integrated`，final commit=`d5827a052190d63fb2fbbd9fbd970ba9db92ed64`；Increment 15=`accepted_and_integrated`，terminal accepted/integrated SHA=`97ae2d869c39730fe77fb14df2ac34f57c681eb8`
 - 业务代码：Increment 16 lifecycle 与 CI closure 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` 整合；S02 native Worker/generic Result 是沿用的基础设计。归档 tag=`archive/increment-016`，PR #8=`MERGED`

@@ -15,4 +15,4 @@ Use the same local HTTP API as the React UI and taskctl. Default base URL is `ht
 
 Useful reads: `/state`, `/events`, `/git`, `/launches`, `/export` under the project route. Starting an already-ready Run uses `POST /runs/start`; VS Code uses `POST /open-vscode`. Archive export preserves the database and is not deletion. Use the relevant worktree for review.
 
-If the API is offline, launch the installed Room desktop shortcut or report that the local service is unavailable. Do not fall back to direct database mutation or substitute a mock result. The CDP panel and browser page are views of this service; closing a view does not cancel a Run.
+If the API is offline, use the installed Codex shortcut, which starts the shared Room service and injects its sidebar entry. A pre-existing Codex instance without CDP requires one normal exit and reopen through that shortcut; never start a separate profile. Report unavailable service when startup cannot proceed. Do not fall back to direct database mutation or substitute a mock result. The CDP panel and browser page are views of this service; closing a view does not cancel a Run.

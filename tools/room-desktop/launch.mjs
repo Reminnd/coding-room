@@ -1,5 +1,4 @@
-import { spawn, execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { existsSync, mkdirSync, openSync, closeSync, readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -7,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bridgeStatus } from './bridge.mjs';
 import { codexTargets } from './cdp.mjs';
 
-const runFile = promisify(execFile);
+import { codexHost, selectCodexHost } from './codex-host.mjs';
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -32,16 +31,6 @@ async function waitFor(check, milliseconds) {
   return null;
 }
 
-async function codexExecutable() {
-  const command = "Get-Process ChatGPT -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Path";
-  const current = (await runFile('powershell.exe', ['-NoProfile', '-Command', command], { windowsHide: true })).stdout.trim();
-  if (current && existsSync(current)) return current;
-  const installed = (await runFile('powershell.exe', ['-NoProfile', '-Command', "Get-AppxPackage OpenAI.Codex | Select-Object -First 1 -ExpandProperty InstallLocation"], { windowsHide: true })).stdout.trim();
-  const path = join(installed, 'app', 'ChatGPT.exe');
-  if (installed && existsSync(path)) return path;
-  throw new Error('找不到 Codex 桌面应用，请先打开 Codex。');
-}
-
 async function ensureMcp(binding, logs) {
   if (!existsSync(binding.database_path)) throw new Error(`既有 Room 数据库不存在：${binding.database_path}`);
   const endpoint = `http://127.0.0.1:${binding.port}/mcp/participants/p~${encodeURIComponent(binding.control_participant_id)}`;
@@ -56,6 +45,18 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
   const local = join(projectPath, '.agent-room');
   mkdirSync(local, { recursive: true });
   const url = `http://127.0.0.1:${port}`;
+  const host = await codexHost();
+  const selection = selectCodexHost(host, cdpPort);
+  if (selection.state === 'restart_required') {
+    await codexHost('activate', selection.pid);
+    return { url, panel: false, status: 'restart_required', message: '当前 Codex 尚未启用 Room。请正常退出 Codex，再从已安装的 Codex 快捷方式打开；不会创建第二个窗口。' };
+  }
+  if (selection.state === 'port_in_use') throw new Error('Room 调试端口仍被旧的独立 Codex 窗口占用，请关闭旧窗口后重试。');
+  const processId = selection.state === 'running' ? selection.pid : await background(selection.args, join(local, 'codex-window.log'), selection.executable, true);
+  const targets = await waitFor(async () => { const entries = await codexTargets(cdpPort).catch(() => []); return entries.length ? entries : null; }, 45000);
+  await codexHost('activate', processId);
+  if (!targets) throw new Error('Codex 已启动，但调试端口尚未就绪。请从 Codex 快捷方式重试连接。');
+
   if (!existsSync(join(root, 'frontend/dist/index.html'))) throw new Error('Room 前端未构建；请运行安装脚本后重试。');
   if (!await healthy(url)) {
     await background([join(root, 'src/ui/serve.ts'), '--port', String(port), '--config', join(local, 'ui-projects.json')], join(local, 'ui.log'));
@@ -72,13 +73,8 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
     }
     await ensureMcp(JSON.parse(readFileSync(runtimePath, 'utf8')), local);
   }
-  let targets = await codexTargets(cdpPort).catch(() => []);
-  if (!targets.length) {
-    await background([`--user-data-dir=${join(local, 'codex-browser-profile')}`, `--remote-debugging-port=${cdpPort}`, '--remote-debugging-address=127.0.0.1', '--no-first-run'], join(local, 'codex-window.log'), await codexExecutable(), true);
-    targets = await waitFor(async () => { const entries = await codexTargets(cdpPort).catch(() => []); return entries.length ? entries : null; }, 15000) ?? [];
-  }
   const prior = await bridgeStatus(cdpPort);
-  if (prior && prior.url !== new URL(url).href && prior.url !== url) {
+  if (prior && (prior.version !== 2 || (prior.url !== new URL(url).href && prior.url !== url))) {
     await bridgeStatus(cdpPort, 'stop');
     await waitFor(async () => !await bridgeStatus(cdpPort), 3000);
   }
@@ -89,7 +85,8 @@ export async function launchRoom({ project, port = 4317, cdpPort = 9223 }) {
   return {
     url,
     panel: Boolean(connected),
-    message: connected ? '在 Codex 侧边栏点击 Room 打开工作台。服务在后台运行，关闭此启动窗口不会中断任务。' : `CDP 尚未连接。Room 服务已启动，可在 Codex 内置浏览器打开 ${url}；检查本地 cdp.log 后重试连接。`,
+    status: connected ? 'connected' : 'connection_failed',
+    message: connected ? 'Room 已接入当前 Codex，入口位于新对话与 Pull Request 之间。' : 'Codex 已启动，Room 入口尚未就绪。请再次点击 Codex 快捷方式重试连接。',
   };
 }
 

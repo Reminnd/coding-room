@@ -18,7 +18,7 @@ Room UI 是现有 Agent Room application commands 的本地 React 操作面。HT
 
 要求 Node.js 与根 `package.json` 的 `engines` 一致。
 
-日常使用双击桌面 **Room** 快捷方式，在 Codex 侧栏点击 **Room**。安装、CDP 面板与重连机制见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
+当前修改将日常入口统一为桌面/开始菜单 **Codex** 快捷方式，在 Codex 侧栏“新对话”下方、“Pull Request”上方点击 **Room**。首次迁移需要退出未启用 CDP 的 Codex 后重开；原 profile 运行验收尚未完成。安装、面板与验证状态见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
 
 ```powershell
 npm ci
@@ -48,6 +48,8 @@ npm run room:ui -- --port 4317 --config "D:\local-state\agent-room-ui.json"
 绑定不会创建、迁移或覆盖数据库。`database_path` 缺失时 UI 显示配置错误；只有 operator 点击“显式创建新 Room”并发送 `confirm_create=true` 后，server 才创建 fresh SQLite 并调用 existing `RoomService.createRoom`。wrong-version、corrupt 或不匹配的既有数据库继续由现有 protocol/version gate 拒绝。
 
 ## 4. 工作台
+
+Room 使用顶部页签，保留 Codex 单侧栏。embedded 页面从 Codex 获取字体、背景、文字和边框颜色并跟随主题；独立 HTTP 页面保留自己的主题设置。页面 header 提供项目切换、刷新和“在 VS Code 打开”。
 
 - 总览：从 snapshot 计算 Room/Run/Question/Review/GitAction 状态和待处理事项。
 - 计划 / Tasks：显示最新 revision 的 dependency edges、node/status/details；创建 Plan、immutable revision、明确 approval 和 one-shot reconcile。Implementation Task 只通过 approved graph revision materialize；direct task action 只接受 protocol-valid Fix Task。

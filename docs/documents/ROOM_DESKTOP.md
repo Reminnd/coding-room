@@ -1,25 +1,29 @@
 # Room desktop and Codex panel
 
-Status: Current. Windows, local single-user operation. Delivery evidence: [Room UI review](./ROOM_UI_REVIEW.md).
+Status: Candidate installed; original-profile runtime acceptance pending. Owner: Local Codex. Scope: Windows local single-user integration. Previous delivery evidence: [Room UI review](./ROOM_UI_REVIEW.md).
 
-Room uses one HTTP API for the React workbench, taskctl and the `room-ui` Codex Skill. The Tauri executable is a small local launcher. Run `tools/room-desktop/install.ps1` once after installing Node 24, Rust MSVC and Visual Studio C++ Build Tools. It builds the UI and launcher, installs the Skill and creates a Desktop `Room` shortcut. Subsequent launches require no terminal.
+Room uses one HTTP API for the React workbench, taskctl and the `room-ui` Codex Skill. Run `tools/room-desktop/install.ps1` after installing Node 24, Rust MSVC and Visual Studio C++ Build Tools. It builds the UI and launcher, installs the Skill and creates Desktop and Start menu **Codex** shortcuts. They invoke `Room.exe --codex` without a separate Tauri window and retain the installed Codex icon. Existing taskbar shortcuts targeting this Codex or launcher are updated; Codex++ is outside scope. Replaced shortcuts have `.room-backup` copies; the former project-owned Desktop Room shortcut moves to `.agent-room/desktop/Room.lnk.previous`.
 
 The launcher starts the API on `127.0.0.1:4317`, imports the selected project's existing `.agent-room/runtime.json`, and starts the configured MCP server if needed. It stores only UI registry/configuration and logs under `.agent-room/`; RoomService retains SQLite state ownership. Closing the launcher or panel does not terminate a Run or delete data.
 
 ## Codex integration
 
-The launcher connects to a loopback CDP endpoint on port 9223. When the current instance has no debugging endpoint, it starts the installed Codex executable with a dedicated browser profile and `--remote-debugging-port=9223 --remote-debugging-address=127.0.0.1`. This can create another Codex window; it does not restart or replace an active non-debug instance.
+The launcher uses the existing `%APPDATA%/Codex/web/Codex` profile with `--remote-debugging-port=9223 --remote-debugging-address=127.0.0.1`. A matching running debug instance is reused. A running non-debug instance returns `restart_required`: exit Codex normally, then reopen the installed Codex shortcut once. No independent profile is created. A foreign profile occupying 9223 is refused. The activated main window receives the same AppUserModel.ID as the shortcuts and a taskbar relaunch command pointing to this launcher. Direct original-executable launches and third-party shortcuts outside this installation are not covered.
 
-The companion attaches only to the observed Codex `app://-/index.html` renderer. `Page.addScriptToEvaluateOnNewDocument` installs an isolated Room iframe panel and a clickable entry in the Codex sidebar. A DOM observer restores the entry after application rerenders; the local companion reconnects when the renderer is replaced. No Codex source or app.asar is modified. This is a locally injected native-looking panel, not an official native extension API. App updates may change the sidebar DOM; if attachment fails, the launcher reports it and the same UI remains usable in Codex's built-in browser.
+The companion attaches only to the observed Codex `app://-/index.html` renderer. `Page.addScriptToEvaluateOnNewDocument` installs Room **below New conversation and above Pull Request**. Its iframe fills the native main content surface; clicking another native sidebar item closes Room. A DOM observer restores the entry after application rerenders; ResizeObserver aligns the content, and the companion reconnects when the renderer is replaced. No Codex source or app.asar is modified. This is a locally injected panel, not an official extension API; application updates may require selector changes.
 
-UI visibility is stored in the Codex renderer's local storage. The panel has reconnect and close controls. The current Room URL must be local HTTP. The companion logs connection changes in `.agent-room/cdp.log`; service output is in `ui.log` and `mcp.log`.
+UI visibility is stored in renderer local storage. Room uses top tabs with no second application sidebar or floating frame. Parent messages propagate actual Codex font, foreground, background and border tokens and light/dark theme; embedded Settings follows Codex, while standalone HTTP pages retain their own theme control. The Room URL must be local HTTP. Connection changes are logged in `.agent-room/cdp.log`; service output is in `ui.log` and `mcp.log`.
 
 This build's app frame-src policy blocks the loopback iframe. The companion uses the renderer-scoped CDP `Page.setBypassCSP` override and reloads that renderer once on first attachment; subsequent document-start injections restore the panel. The debugging endpoint stays on loopback. The override does not change files or the Room API's request validation.
 
 ## Implementation references
 
+Current verification: Windows release build, installed shortcut target/arguments/AppUserModel.ID, actual non-debug-instance `restart_required`, 418 tests, TypeScript, production frontend build and all eight page tabs passed. Original-profile cold/warm startup, taskbar relaunch, embedded theme and renderer reconnect remain pending. On 2026-09-27 automatic approval review rejected the updated companion startup tool call with `blocked by policy`; no alternative call bypassed it. A mounted entry alone does not establish a visible working iframe, and prior separate-profile success cannot prove this new startup contract.
+
 - [Electron debugging switch](https://www.electronjs.org/docs/latest/api/command-line-switches)
 - [CDP document-start API](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-addScriptToEvaluateOnNewDocument)
 - [Tauri Windows prerequisites](https://v2.tauri.app/start/prerequisites/)
+- [Windows taskbar relaunch command](https://learn.microsoft.com/en-us/windows/win32/properties/props-system-appusermodel-relaunchcommand)
+- [Windows window property store](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shgetpropertystoreforwindow)
 
 The installed Codex build was observed as Chromium 153 with an `app://` renderer; the implementation relies on the observed CDP surface rather than assuming a particular Electron package layout.

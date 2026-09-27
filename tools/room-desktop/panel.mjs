@@ -1,87 +1,99 @@
-// Runs inside the Codex renderer; no dependency on Codex internals or source edits.
+// Runs in the Codex renderer; the host owns navigation, geometry and theme.
 export function installRoomPanel({ url }) {
-  if (window.__roomPanel?.status().url === url) return window.__roomPanel.status();
+  const version = 2;
+  if (window.__roomPanel?.status().version === version && window.__roomPanel.status().url === url) return window.__roomPanel.status();
   window.__roomPanel?.remove();
-  if (!document.documentElement) {
+  if (!document.body) {
     document.addEventListener('DOMContentLoaded', () => installRoomPanel({ url }), { once: true });
     return { mounted: false, waitingForDocument: true };
   }
-  const id = 'agent-room-sidebar-entry';
   let open = localStorage.getItem('agent-room-panel-open') === 'true';
+  const frameUrl = new URL(url);
+  frameUrl.searchParams.set('embedded', 'codex');
   const host = document.createElement('div');
   host.id = 'agent-room-panel';
-  host.style.cssText = 'position:fixed;z-index:10000;right:8px;bottom:8px;top:54px;left:260px;display:none;';
-  const shadow = host.attachShadow({ mode: 'open' });
-  const style = document.createElement('style');
-  style.textContent = ':host{color-scheme:light dark}section{height:100%;display:flex;flex-direction:column;background:light-dark(#fff,#171717);border:1px solid light-dark(#dedede,#393939);border-radius:12px;overflow:hidden;box-shadow:0 12px 36px #0002}header{display:flex;align-items:center;gap:12px;padding:9px 14px;font:13px system-ui;color:light-dark(#222,#eee);border-bottom:1px solid light-dark(#eee,#333)}strong{flex:1}button{font:inherit;color:inherit;background:none;border:1px solid light-dark(#ddd,#555);border-radius:6px;padding:4px 10px;cursor:pointer}iframe{border:0;flex:1;width:100%;background:light-dark(#fafafa,#171717)}';
-  const section = document.createElement('section');
-  section.setAttribute('aria-label', 'Room 工作台');
-  const header = document.createElement('header');
-  const title = document.createElement('strong');
-  title.textContent = 'Room';
-  const reload = document.createElement('button');
-  reload.textContent = '重新连接';
-  const close = document.createElement('button');
-  close.textContent = '关闭面板';
+  host.style.cssText = 'position:fixed;z-index:20;display:none;overflow:hidden;';
   const frame = document.createElement('iframe');
-  frame.title = 'Room 工作台';
-  frame.src = url;
-  reload.addEventListener('click', () => { frame.src = url; });
-  header.append(title, reload, close);
-  section.append(header, frame);
-  shadow.append(style, section);
+  frame.title = 'Room';
+  frame.src = frameUrl.href;
+  frame.style.cssText = 'display:block;width:100%;height:100%;border:0;';
+  host.append(frame);
   const button = document.createElement('button');
-  button.id = id;
+  button.id = 'agent-room-sidebar-entry';
   button.type = 'button';
-  button.setAttribute('aria-label', '打开 Room 工作台');
-  button.style.cssText = 'display:flex;align-items:center;gap:10px;width:calc(100% - 20px);margin:2px 10px 8px;padding:9px 12px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;flex-shrink:0;';
-  button.textContent = '▦  Room';
+  button.setAttribute('aria-label', 'Room');
+  button.innerHTML = '<span class="flex min-w-0 items-center text-base gap-2 flex-1 text-default"><span class="flex icon-leading-slot min-w-[var(--icon-leading-size)] shrink-0 items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 10h16M10 10v10"/></svg></span><span>Room</span></span>';
+  const tokens = {
+    '--bg': '--color-token-main-surface-primary', '--surface': '--color-token-main-surface-primary',
+    '--surface-2': '--color-background-primary-soft-hover', '--line': '--color-border-primary-outline',
+    '--text': '--color-text-primary-surface', '--muted': '--color-text-secondary-solid',
+    '--accent': '--color-background-primary-solid', '--accent-text': '--color-text-primary-solid',
+    '--accent-2': '--color-background-primary-soft-hover', '--font-family': '--font-sans-default',
+  };
+  const syncTheme = () => {
+    const style = getComputedStyle(document.documentElement);
+    const values = Object.fromEntries(Object.entries(tokens).map(([name, source]) => [name, style.getPropertyValue(source).trim()]).filter(([, value]) => value));
+    frame.contentWindow?.postMessage({ type: 'room:host-theme', theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light', tokens: values }, frameUrl.origin);
+    host.style.background = values['--bg'] || style.backgroundColor;
+  };
   const position = () => {
-    const sidebar = document.querySelector('aside.app-shell-left-panel') ?? document.querySelector('aside');
-    const right = sidebar?.getBoundingClientRect().right ?? 0;
-    host.style.left = `${Math.max(8, right + 8)}px`;
+    const surface = document.querySelector('main[class*="MainContentSurface"]');
+    const rect = surface?.getBoundingClientRect();
+    if (!rect) return;
+    host.style.left = `${rect.left}px`;
+    host.style.top = `${rect.top}px`;
+    host.style.width = `${rect.width}px`;
+    host.style.height = `${rect.height}px`;
   };
   const setOpen = (value) => {
     open = value;
     host.style.display = open ? 'block' : 'none';
-    button.style.background = open ? 'color-mix(in srgb, currentColor 9%, transparent)' : 'transparent';
+    button.style.background = open ? 'var(--color-background-primary-soft-hover)' : '';
+    button.setAttribute('aria-current', open ? 'page' : 'false');
     button.setAttribute('aria-expanded', String(open));
     localStorage.setItem('agent-room-panel-open', String(open));
     position();
+    syncTheme();
   };
-  button.addEventListener('click', () => setOpen(!open));
-  close.addEventListener('click', () => setOpen(false));
+  button.addEventListener('click', () => setOpen(true));
+  const resize = new ResizeObserver(position);
+  let observedSurface;
   const mount = () => {
-    if (!document.body) return;
     if (!host.isConnected) document.body.append(host);
     const nav = document.querySelector('aside nav');
-    if (nav && !button.isConnected) nav.insertBefore(button, nav.children[1] ?? null);
+    const pullRequest = Array.from(nav?.querySelectorAll('button,a') ?? []).find((item) => /Pull Requests?/.test(item.textContent));
+    if (nav && pullRequest) {
+      if (button.nextElementSibling !== pullRequest) pullRequest.parentElement.insertBefore(button, pullRequest);
+      button.className = pullRequest.className;
+      button.style.width = '100%';
+    }
+    const surface = document.querySelector('main[class*="MainContentSurface"]');
+    if (surface && surface !== observedSurface) { resize.disconnect(); resize.observe(surface); observedSurface = surface; }
     position();
   };
   const onNavigation = (event) => {
-    if (event.target.closest?.('aside button, aside a') && !button.contains(event.target)) setOpen(false);
+    if (event.target.closest?.('aside button,aside a') && !button.contains(event.target)) setOpen(false);
   };
+  const onMessage = (event) => { if (event.source === frame.contentWindow && event.origin === frameUrl.origin && event.data?.type === 'room:ready') syncTheme(); };
   document.addEventListener('click', onNavigation);
+  window.addEventListener('message', onMessage);
   window.addEventListener('resize', position);
-  let pending = false;
-  const observer = new MutationObserver(() => {
-    if (pending) return;
-    pending = true;
-    queueMicrotask(() => { pending = false; mount(); });
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  frame.addEventListener('load', syncTheme);
+  const observer = new MutationObserver(mount);
+  observer.observe(document.body, { childList: true, subtree: true });
+  const themeObserver = new MutationObserver(syncTheme);
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
   mount();
   setOpen(open);
   window.__roomPanel = {
     open: () => setOpen(true),
-    status: () => ({ mounted: button.isConnected, open, url }),
+    status: () => ({ version, mounted: button.isConnected, open, url }),
     remove: () => {
-      observer.disconnect();
+      observer.disconnect(); themeObserver.disconnect(); resize.disconnect();
       document.removeEventListener('click', onNavigation);
+      window.removeEventListener('message', onMessage);
       window.removeEventListener('resize', position);
-      button.remove();
-      host.remove();
-      delete window.__roomPanel;
+      button.remove(); host.remove(); delete window.__roomPanel;
     },
   };
   return window.__roomPanel.status();
@@ -89,8 +101,6 @@ export function installRoomPanel({ url }) {
 
 export function panelSource(url) {
   const parsed = new URL(url);
-  if (!['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname) || parsed.protocol !== 'http:') {
-    throw new Error('Room panel URL must use local HTTP');
-  }
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname) || parsed.protocol !== 'http:') throw new Error('Room panel URL must use local HTTP');
   return `(${installRoomPanel.toString()})(${JSON.stringify({ url: parsed.href })})`;
 }

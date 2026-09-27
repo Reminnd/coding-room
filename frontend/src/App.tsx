@@ -10,10 +10,11 @@ import { GitPage } from './pages/GitPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ErrorNotice, Field, Panel } from './components/Primitives';
+import { useHostTheme } from './host-theme';
 
 const pages = [
-  ['overview', '总览', '⌂'], ['plans', '计划 / Tasks', '◇'], ['executions', '执行', '▶'], ['questions', 'Questions', '?'],
-  ['reviews', 'Reviews', '✓'], ['git', 'Git', '⑂'], ['history', '历史', '↺'], ['settings', '设置', '⚙'],
+  ['overview', '总览'], ['plans', '计划'], ['executions', '执行'], ['questions', 'Questions'],
+  ['reviews', 'Reviews'], ['git', 'Git'], ['history', '历史'], ['settings', '设置'],
 ] as const;
 type Page = typeof pages[number][0];
 
@@ -31,7 +32,7 @@ function Setup({ projects, onChanged }: { projects: Project[]; onChanged: (proje
       await onChanged(project);
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   }
-  return <main className="setup-shell"><div className="setup-card"><div className="brand large"><span>AR</span><div><strong>Agent Room</strong><small>本地协作工作台</small></div></div><h1>{projects.length ? '添加项目' : '连接第一个项目'}</h1><p>优先读取项目已有 `.agent-room/runtime.json`。绑定不会创建、迁移或覆盖数据库。</p><div className="segmented"><button className={mode === 'runtime' ? 'active' : ''} onClick={() => setMode('runtime')}>读取 runtime.json</button><button className={mode === 'manual' ? 'active' : ''} onClick={() => setMode('manual')}>手动绑定</button></div><ErrorNotice error={error} />
+  return <main className="setup-shell"><div className="setup-card"><div className="setup-title">Room</div><h1>{projects.length ? '添加项目' : '连接第一个项目'}</h1><p>优先读取项目已有 `.agent-room/runtime.json`。绑定不会创建、迁移或覆盖数据库。</p><div className="segmented"><button className={mode === 'runtime' ? 'active' : ''} onClick={() => setMode('runtime')}>读取 runtime.json</button><button className={mode === 'manual' ? 'active' : ''} onClick={() => setMode('manual')}>手动绑定</button></div><ErrorNotice error={error} />
       {mode === 'runtime' ? <div className="form-stack"><Field label="项目绝对路径"><input value={runtime.projectPath} onChange={(e) => setRuntime({ ...runtime, projectPath: e.target.value })} placeholder="D:\\work\\project" /></Field><Field label="显示名称（可选）"><input value={runtime.name} onChange={(e) => setRuntime({ ...runtime, name: e.target.value })} /></Field></div> : <div className="form-stack"><Field label="名称"><input value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} /></Field><Field label="项目绝对路径"><input value={manual.projectPath} onChange={(e) => setManual({ ...manual, projectPath: e.target.value })} /></Field><Field label="SQLite 绝对路径"><input value={manual.databasePath} onChange={(e) => setManual({ ...manual, databasePath: e.target.value })} /></Field><div className="form-grid"><Field label="Room ID"><input value={manual.roomId} onChange={(e) => setManual({ ...manual, roomId: e.target.value })} /></Field><Field label="Control participant"><input value={manual.control} onChange={(e) => setManual({ ...manual, control: e.target.value })} /></Field><Field label="MCP port（可选）"><input type="number" value={manual.port} onChange={(e) => setManual({ ...manual, port: e.target.value })} /></Field></div></div>}
       <button className="primary wide" onClick={() => void submit()}>保存项目绑定</button></div></main>;
 }
@@ -53,7 +54,7 @@ export function App() {
 
   const selected = projects.find((project) => project.project_id === projectId) ?? null;
   const setTheme = (value: string) => { setThemeState(value); localStorage.setItem('room-ui-theme', value); };
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useHostTheme(theme);
 
   const loadProjects = useCallback(async (preferred?: Project) => {
     try {
@@ -86,8 +87,12 @@ export function App() {
   if (!projectsLoaded) return <main className="setup-shell"><Panel title="连接 Room"><ErrorNotice error={lastError} /><p>正在读取项目配置…</p><button onClick={() => void loadProjects()}>重试连接</button></Panel></main>;
   if (projects.length === 0 || showSetup) return <><Setup projects={projects} onChanged={loadProjects} />{showSetup && <button className="setup-back" onClick={() => setShowSetup(false)}>返回工作台</button>}</>;
   return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><span>AR</span><div><strong>Agent Room</strong><small>local workbench</small></div></div><label className="project-picker"><span>项目</span><select value={projectId} onChange={(e) => { setProjectId(e.target.value); localStorage.setItem('room-ui-project', e.target.value); }} aria-label="选择项目">{projects.map((project) => <option value={project.project_id} key={project.project_id}>{project.name}</option>)}</select></label><nav>{pages.map(([id, label, icon]) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><span>{icon}</span>{label}{id === 'questions' && pending > 0 && <em>{pending}</em>}</button>)}</nav><div className="sidebar-foot"><button onClick={() => setShowSetup(true)}>＋ 添加项目</button><small>{selected?.project_path}</small></div></aside>
-    <div className="workspace"><header className="topbar"><div><div className="eyebrow">{selected?.name}</div><h1>{pages.find(([id]) => id === page)?.[1]}</h1></div><div className="header-actions"><span className={`connection ${connection}`}><i />{connection === 'connected' ? '已连接' : connection === 'connecting' ? '连接中' : '连接异常'}</span>{snapshot && <span className="room-chip">{snapshot.room.room_id} · {snapshot.room.state}</span>}<button onClick={() => void refresh()}>刷新</button><button onClick={() => void api.openVscode(projectId).catch((error) => setLastError(error.message))}>VS Code</button></div></header>
+    <div className="workspace">
+      <header className="topbar">
+        <div className="workspace-title"><h1>Room</h1><select value={projectId} onChange={(event) => { setProjectId(event.target.value); localStorage.setItem('room-ui-project', event.target.value); }} aria-label="选择项目" title={selected?.project_path}>{projects.map((project) => <option value={project.project_id} key={project.project_id}>{project.name}</option>)}</select><button className="icon-button" aria-label="添加项目" title="添加项目" onClick={() => setShowSetup(true)}>＋</button></div>
+        <div className="header-actions"><span className={`connection ${connection}`}><i />{connection === 'connected' ? '已连接' : connection === 'connecting' ? '连接中' : '连接异常'}</span><button className="icon-button" aria-label="刷新" title="刷新" onClick={() => void refresh()}>↻</button><button onClick={() => void api.openVscode(projectId).catch((error) => setLastError(error.message))}>在 VS Code 打开</button></div>
+      </header>
+      <nav className="page-tabs" aria-label="Room 页面">{pages.map(([id, label]) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => setPage(id)}>{label}{id === 'questions' && pending > 0 && <span className="tab-count">{pending}</span>}</button>)}</nav>
       {lastError && <div className="persistent-error" role="alert"><span>{lastError}</span><button onClick={() => setLastError(null)}>关闭</button></div>}
       {selected?.configuration_error && <div className="setup-warning"><div><strong>项目配置未就绪</strong><p>{selected.configuration_error}</p></div>{!selected.database_exists && <button className="primary" onClick={async () => { try { await api.createRoom(projectId); await loadProjects(); await refresh(); } catch (err) { setLastError(err instanceof Error ? err.message : String(err)); } }}>显式创建新 Room</button>}</div>}
       {snapshot && <div className="planning-bar"><span>Planning：<strong>{snapshot.room.state}</strong></span><button disabled={snapshot.room.state !== 'DISCUSSION'} title="仅 DISCUSSION 可进入" onClick={() => void planning('begin-architecture-review')}>开始 Architecture Review</button><button disabled={snapshot.room.state !== 'ARCHITECTURE_REVIEW'} title="仅 ARCHITECTURE_REVIEW 可进入" onClick={() => void planning('request-user-confirmation')}>请求用户确认</button></div>}
