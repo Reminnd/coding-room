@@ -6,6 +6,8 @@
 
 本文件是 Codex 与 Claude Code 共同遵循的项目规范入口。Codex 的专属职责见 [AGENTS.md](./AGENTS.md)，Claude Code 的专属职责见 [CLAUDE.md](./CLAUDE.md)。项目目标、架构、协议、计划和当前事实以本文件及 Documentation Map 中标记为 `Current` 或 `Accepted` 的文档为准。
 
+2026-10-11 新方向：用户已确认独立 Electron、任务中心，以及任务驱动与测试驱动并存。目标及技术建议见 [ADR-0007](./docs/documents/ADR/0007-electron-task-workbench.md)，首个 [DESKTOP-01 Contract](./docs/work/wf-electron-task-workbench/TASK_CONTRACT.md) 已获用户确认，状态 Accepted / PLAN_READY；用户已授权本地分支与方案/Skill 基线提交，不包含 push；派发须使用实际提交后的干净基线。原 Codex/Tauri 入口仍是现有实现。本文历史 UI delivery 授权不自动扩展到本次 Contract、dispatch 或 Git 操作。
+
 ## 1. 项目目标
 
 构建一个本地、单机、自用的 Agent Room，使以下工作流可持久化、可恢复、可审查：
@@ -266,6 +268,10 @@ Task Contract、Fix Task、Coding Result 和 Review 的必填信息以 [AGENTS.m
 
 | 文档 | 用途 | 维护者 | 读取时机 | 状态 |
 |---|---|---|---|---|
+| [ADR-0007](./docs/documents/ADR/0007-electron-task-workbench.md) | 独立 Electron、任务中心、SDD/任务模式与 TDD | Codex | 新桌面产品规划与实施 | 产品方向已确认 / 技术细化 Proposed |
+| [独立工作台产品与 UI 方案](./docs/documents/ROOM_WORKBENCH_PRODUCT.md) | 来源分类、TDD、页面按钮与完整用户流程 | Codex | 新工作台产品交互评审 | Draft |
+| [前端与 Electron Skill 工作流](./docs/documents/agent-guides/FRONTEND_DESKTOP_SKILLS.md) | 五项项目 Skill 调用、TDD 与原生验收边界 | Codex / 授权 Worker | 前端或 Electron UI 设计、实现、重构与验收时必读 | Current |
+| [DESKTOP-01](./docs/work/wf-electron-task-workbench/TASK_CONTRACT.md) | 首个独立桌面实施契约 | Codex / 独立 Worker | Contract 确认与派发 | Accepted |
 | [PROJECT_RULES.md](./PROJECT_RULES.md) | 共享规范入口与当前有效规则 | Codex | 每个非简单项目任务 | Current |
 | [AGENTS.md](./AGENTS.md) | Codex 专属角色与流程契约 | 用户/Codex | Codex 会话入口 | Protected |
 | [CLAUDE.md](./CLAUDE.md) | Claude Code 专属执行契约 | 用户/Codex Review | 每次 Claude Coding | Protected |

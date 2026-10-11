@@ -17,6 +17,7 @@ S02 native Worker/generic Result 实现已接受并集成于 `c6f22fa110076a2784
 
 | Reader | Trigger | Required guide |
 |---|---|---|
+| Codex / 授权 Implementation Worker | 前端或 Electron UI 设计、实现、重构与验收 | [FRONTEND_DESKTOP_SKILLS.md](./FRONTEND_DESKTOP_SKILLS.md) |
 | Codex | 架构、规划、Task Contract、Review、Fix finding、解决方案或 Fix 验收后经验回收 | [CODEX_REVIEW_AND_PLANNING.md](./CODEX_REVIEW_AND_PLANNING.md) |
 | Codex | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、[CODEX_DOCUMENTATION_AUTHORING.md](./CODEX_DOCUMENTATION_AUTHORING.md) 与 [文档中心](../README.md) |
 | Claude Code | 任意 Implementation Task 或 Fix Task | [CLAUDE_CODING_AND_FIX.md](./CLAUDE_CODING_AND_FIX.md) |

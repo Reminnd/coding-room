@@ -5,11 +5,15 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-09-27 |
+| 最后更新日期 | 2026-10-11 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
 ## 1. 结论与查看入口
+
+2026-10-11：用户已确认独立 Electron、任务中心，以及同时支持任务驱动和测试驱动。[ADR-0007](./ADR/0007-electron-task-workbench.md) 保存已确认方向、技术建议、SDD/TDD 与清理边界；[DESKTOP-01](../work/wf-electron-task-workbench/TASK_CONTRACT.md) 为首个 Accepted 实施契约。当前已安装能力仍见以下历史交付，新方向尚未实现。
+
+完整页面、按钮位置、流程去向、来源分类与 TDD 操作例子见[独立工作台产品与 UI 方案](./ROOM_WORKBENCH_PRODUCT.md)（Draft）。
 
 2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。[Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md) 已完成实现、Review、桌面安装与 main 整合（`8bc2110`，`archive/room-ui-v1`），[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。历史 Contract 中的 pre-bootstrap 描述由 closure 解释，不作为重新派发授权。
 
@@ -42,6 +46,8 @@ Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史�
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | Current | Codex/Claude candidate | 当前阶段、已完成事实、验证与下一步 | Git、Review、Task Contract |
 | [OPERATIONS.md](./OPERATIONS.md) | Current | Codex | 人工接口、结构、命令、状态/制品与故障处置 | Accepted Git、Architecture、Protocol |
 | [ROOM_UI.md](./ROOM_UI.md) | Current | Codex | React 工作台、HTTP API 与 taskctl | Architecture、Protocol |
+| [ROOM_WORKBENCH_PRODUCT.md](./ROOM_WORKBENCH_PRODUCT.md) | Draft | Codex | 独立工作台的页面、按钮、流程、资料分类与 TDD 讲解 | 用户确认方向、ADR-0007、现有 UI/API |
+| [FRONTEND_DESKTOP_SKILLS.md](./agent-guides/FRONTEND_DESKTOP_SKILLS.md) | Current | Codex | 五项项目 Skill 安装来源、调用顺序、TDD 和 Electron 验收 | 用户提供的 Skill 配置方案 |
 | [ROOM_DESKTOP.md](./ROOM_DESKTOP.md) | Current | Codex | Tauri 安装、Codex CDP 面板与重连 | Room UI |
 | [ROOM_UI_REVIEW.md](./ROOM_UI_REVIEW.md) | Current | Codex | UI 交付验证、修复与限制 | Delivery Plan、Git、实际操作 |
 | [ROOM_NATIVE_REVIEW.md](./ROOM_NATIVE_REVIEW.md) | Current | Codex | 原 profile 启动、原生入口与主题验收 | Room Desktop、实际 Codex renderer |
@@ -56,11 +62,13 @@ Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史�
 | [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md) | Proposed / decisions confirmed | Stage 2 Run/RunAttempt、atomic claim、worktree lease与0.4 cutover |
 | [ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md) | Accepted | 删除Git baseline hash contract并保留canonical worktree/live evidence |
 | [ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md) | Accepted | Stage 3 graph authority、ready scheduling、Git preview/approval与target cutover |
+| [ADR-0007](./ADR/0007-electron-task-workbench.md) | 产品方向已确认 / 技术细化 Proposed | 独立 Electron、任务中心、SDD/任务模式、测试驱动与旧入口清理 |
 
 ### 2.3 Increment 与 Fix Contracts
 
 | 文档 | 状态 | 目的 |
 |---|---|---|
+| [DESKTOP-01](../work/wf-electron-task-workbench/TASK_CONTRACT.md) | Accepted | Electron 独立安装、项目打开、真实任务浏览与生命周期；Owner 为独立 Local Codex Worker，依赖 ADR-0007 |
 | [Increment 1 Task](./INCREMENT_1_TASK_CONTRACT.md) | Accepted | Protocol 与 State Core |
 | [Increment 1 Fix 1](./INCREMENT_1_FIX_TASK_1.md) | Accepted | stale entity 与 protocol validation guards |
 | [Increment 1 Fix 2](./INCREMENT_1_FIX_TASK_2.md) | Accepted | current Run guard 与 `resumeRun` coverage |
@@ -155,7 +163,7 @@ Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史�
 
 ## 4. 当前状态与未决行动
 
-- Increment 15保持`accepted_and_integrated` Current。Increment 16仍为Candidate：T01/T02已集成至S01 Stage，T03 documentation implementation进行中；下一步仍需T03 implementation Review、用户接受与non-force `main`集成，Stage集成本身不产生Current、acceptance或Git-write authority。
+- Increment 15/16 均已 `accepted_and_integrated`，Increment 16 终态以 [closure](./INCREMENT_16_CLOSURE.md) 为准。当前规划为 ADR-0007 与 DESKTOP-01；历史 Stage/Task 描述保留为当时的输入，不作为当前待办。
 
 - 两个 leaf 的共同 `baseline_head` 已记录为 `97c47fed770fea675834538e2ca4550d37fdc548`，branch/worktree、首轮 Coding/Review、Fix 与 Review 2 均已完成。
 - Increment 3A/3B 已接受并分别形成 leaf commit `86c77a7c68b953343d67da3857859b0dd6d6c09c` 与 `1062a7500f8bb3e22c7c3818ddcac2e9eb625efa`，随后通过 Integration commit 集成。

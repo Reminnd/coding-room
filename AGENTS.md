@@ -26,6 +26,7 @@ Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_inte
 | 触发条件 | 必读文档 | 用途 |
 |---|---|---|
 | 每个非简单项目任务 | `PROJECT_RULES.md` 及其“会话必读”文档 | 当前规则、架构与开发状态 |
+| 前端或 Electron UI 设计、实现、重构与验收 | `docs/documents/agent-guides/FRONTEND_DESKTOP_SKILLS.md` | 项目五项 Skill 路由、TDD 与桌面验收边界 |
 | 编写、补全、迁移、Review 或维护任意项目文档；每次 Review 结束 | `backend-doc-authoring` skill、`docs/documents/agent-guides/CODEX_DOCUMENTATION_AUTHORING.md` 与 `docs/documents/README.md` | 全项目文档编写、单一权威、目录与 Review 后维护门禁 |
 | 需求分析、架构、规划、Task Contract、Review、Fix 方案或 Fix 验收后经验回收 | `docs/documents/agent-guides/CODEX_REVIEW_AND_PLANNING.md` | 证据链、lifecycle Review、最小方案与可复用经验回收 |
 | GitHub Router、Local Bridge或正式PR Review | `docs/documents/STAGE_4_LOCAL_PARALLEL_ARCHITECTURE_AMENDMENT.md` 与 `docs/documents/agent-guides/CHAT_GITHUB_REVIEW.md` | 当前项目开发控制面 |

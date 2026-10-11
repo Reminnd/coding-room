@@ -1,5 +1,52 @@
 # 开发日志
 
+## 2026-10-11 — 本地开发基线授权
+
+- 用户明确授权创建 `codex/electron-desktop-01`，仅提交本轮方案、五项 Skill 及相关入口文档；不包含 push。提交以暂存路径核对及 cached diff-check 为门禁，实际 commit 与工作区状态以 Git 为准。
+- 修正 PROJECT_RULES Documentation Map 中 DESKTOP-01 遗留的 Draft 标签，与 Accepted Contract 一致。未扩大实现或 Git 交付授权。
+
+## 2026-10-11 — DESKTOP-01 Contract Accepted
+
+- 用户确认完整开发 Contract；状态更新为 Accepted / PLAN_READY，相关入口同步。该确认不授予 Git 写权限。
+- 派发前观察：HEAD=`08f794ce61ecf75384a082a9f035665da0fd113f`，detached HEAD；工作区包含本轮方案、角色路由、索引与五项 Skill 的未提交修改。按 Git/Parallel guide，新 Implementation Task 必须通过 clean-worktree gate，当前不能启动 Worker。
+- 尚未执行 branch、commit、push、Worker launch 或业务代码修改。需先获得本次开发基线的 Git 操作授权；不自动清理或丢弃已有修改。
+
+## 2026-10-11 — 已确认 UI/UX 修正写入方案
+
+- 用户确认上一轮 Review 的修正方向。产品方案落实五项交互修正，统一执行按钮文案，并补齐字体、语义颜色、间距、控件、焦点和窗口断点规范；这些设计值尚未经过实际界面验收。
+- ADR-0007 链接同一产品规范；DESKTOP-01 增加已有任务浏览范围内的 A8–A10 验收，新任务草稿与讨论启动仍在后续任务闭环交付。未将本次修正确认扩大为完整 Contract 接受或业务实现派发。
+- 文档检查覆盖旧按钮名称残留、草稿与讨论校验的一致性、相关相对链接与补丁空白；未运行业务测试。本次为已确认方案修订，不新增独立 Fix 工作流或重复评审循环。
+
+## 2026-10-11 — 工作台完整方案 UI/UX Review
+
+- 使用项目 `ui-ux-pro-max` 审阅 ADR-0007（含开发 Skill 分工）、完整产品/UI 方案及 DESKTOP-01 的交付边界。本次为方案 Review，不是运行中的界面或实现验收。
+- Review Decision：`changes_requested`；进入 `REVIEW_DISCUSSION`。五项设计缺口：P2 顶栏项目分支与任务 worktree 上下文未区分；P2 多项目后台任务缺少跨项目待办提醒；P2 返回任务列表未规定筛选/滚动/焦点恢复；P2 草稿保存、标题生成与空白标题校验时机未统一；P3 新建入口多处同时显示与单一操作规则冲突。具体位置分别见产品方案 §3、§13、§4、§5/§10、§3/§4。
+- 最小建议：标明项目与任务工作目录；项目切换器标识其他项目待办；任务详情提供返回并恢复原列表上下文；草稿允许不完整输入，进入讨论前确定非空标题；统一新建任务入口。以上是待讨论建议，未改写产品方案或生成 Fix Contract。
+- 方向判断：独立 Electron、任务中心、SDD/任务模式共用 TDD、真实证据与单独原生验收的结构成立。视觉 tokens、窄窗口断点与关键页面原型仍需在实现前细化，不将缺少截图判作现有视觉缺陷。
+- Skill design-system 搜索返回营销 Hero/展示字体，不适合本产品，未采用；聚焦导航搜索只采用适用的 Web 键盘/焦点建议，未把 Mobile back 规则当作桌面规范；草稿搜索未命中对应规则，草稿结论来自方案内的操作契约比对。
+- Verification：完整用户路径与文档交叉审阅，未运行应用测试；`documentation: updated`，仅记录 Review 事实，ADR、产品方案和首个 Contract 保持原确认状态。
+
+## 2026-10-11 — 前端 Skill 安装与开发流程整合
+
+- 按用户附件安装五项项目 Skill：`ui-ux-pro-max`、`frontend-design`、`vercel-react-best-practices`、`vercel-composition-patterns`、`playwright-cli`；来源与固定版本见[工作流指南](./agent-guides/FRONTEND_DESKTOP_SKILLS.md)。UI/UX 官方安装器额外生成的六项 Skill 已移除，仅保留请求范围。
+- AGENTS 增加一条强制路由，PROJECT_RULES、指南索引、文档中心及 DESKTOP-01 Draft 同步；明确统一设计系统、按需组件规则、Red/Green/Refactor、React/Vite 适用范围和浏览器/原生验收分工。未改变角色、Room 协议或业务实现状态。
+- 安装环境：Node `24.15.0`、npm `11.12.1`、Python `3.14.4`。五项 SKILL.md 可读；UI/UX `keyboard focus modal --domain ux -n 1` 搜索返回对应焦点规则。
+- Playwright `@playwright/cli@0.1.22` 首次 `--version` 输出版本后遇到 libuv 退出断言；随后 `--help` 正常退出，独立 `room-skill-smoke` Edge 会话成功打开 `about:blank` 并关闭。记录为工具冒烟通过，不代表产品 UI 或 Electron 安装包验收。
+- 本次只安装开发工具、维护开发流程文档；未全局安装 CLI、修改应用依赖、派发业务实现或执行 Git 写操作。
+
+## 2026-10-11 — 来源用途澄清与完整产品交互方案
+
+- 用户明确：成熟 GitHub 仓库、模块代码、外部开发文档用于参考实现和模块组织；本项目开发文档确定需求、接口与约束。ADR-0007 已按此更正。
+- 新增 Draft [产品与前端交互方案](./ROOM_WORKBENCH_PRODUCT.md)，覆盖项目打开、任务列表、新建任务、来源分类、SDD/原生 Plan、执行、TDD、变更、Review、验收、Git 交付、待办、历史、设置与恢复；逐按钮说明位置、效果和流程去向。
+- TDD 用空白任务标题校验解释 Red/Green/Refactor，区分行为缺失、环境失败、历史 Red 与当前结果，并说明用户和 Agent 的分工。具体产品交互与实施契约仍待确认，本轮只维护文档。
+
+## 2026-10-11 — 独立 Electron 与任务工作台方向确认
+
+- 用户确认“独立 Electron＋以任务为中心。要任务驱动，也要测试驱动”。[ADR-0007](./ADR/0007-electron-task-workbench.md) 记录该方向：SDD 与任务模式为开发入口，测试驱动为共用执行方法；原生 Plan 不等于 TDD。
+- 新增完整 Draft [DESKTOP-01](../work/wf-electron-task-workbench/TASK_CONTRACT.md)，范围为独立安装、项目打开、真实任务浏览与生命周期。后续仍需完成任务/会话持久化、原生 Plan、SDD/TDD 和旧入口清理；本阶段不代表整体目标收口。
+- 目录审阅确认 Tauri/CDP 仍有实际引用，旧安装器曾改写 Codex 快捷方式；清理必须随替换和恢复入口一起进行。修正文档中心及 workflow 索引中过期的 Increment 16 Candidate 当前状态，保留原始历史 Contracts。
+- 未派发 Worker、修改业务代码、删除运行数据或执行 Git 写操作。完整 Contract 与独立 dispatch 等待用户确认。
+
 ## 2026-09-27 — Codex 原窗口入口 Review approved
 
 - 用户重启并继续后，实际 Codex 已升级至 `26.924.2738.0`，唯一主进程使用原 `%APPDATA%/Codex/web/Codex` profile 和 9223。已修正新版本双导航、移除 Pull Request 造成的入口定位失败，以及 task row `role="button"` 未被退出监听覆盖的问题。
