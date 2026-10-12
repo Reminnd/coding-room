@@ -1,6 +1,6 @@
 # 前端与 Electron Skill 工作流
 
-> 状态：Current（开发工具与调用规则）；产品方案与 DESKTOP-01 仍为 Draft。
+> 状态：Current（开发工具与调用规则）；DESKTOP-01 已 Accepted，完整本地开发授权与实际实施状态见 [LOCAL_EXECUTION](../../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。
 > 依据：用户 2026-10-11 提供的五项 Skill 配置方案；适用于 Codex 规划、授权 Worker 实现及 Review。
 
 本指南服务于开发当前软件的过程，具体阶段映射见[开发方案 §5.1](../ADR/0007-electron-task-workbench.md#51-本次重构使用的开发-skill)。这些 Skill 不是 Room 应用功能或运行时依赖，不增加产品 Skill 管理界面，不随 Electron 安装包交付。

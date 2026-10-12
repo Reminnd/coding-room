@@ -458,6 +458,6 @@ terminal response loss只允许在exact closure已观察后修补缺失`STAGE_CL
 
 ## 11. Room UI 操作入口
 
-日常启动统一到 Codex 快捷方式，Room 入口位于原生侧栏“新对话”（新版“新聊天”）下方；新版 Codex 移除 Pull Request 时不影响 Room 入口。工作台支持多项目绑定、Plan/DAG、执行、Questions、Reviews/Fix、Git、历史与设置；VS Code 按钮打开项目或 Run worktree。首次迁移、安装及实际验收状态见 [ROOM_DESKTOP.md](./ROOM_DESKTOP.md)，API 和 taskctl 命令见 [ROOM_UI.md](./ROOM_UI.md)。
+独立 Electron 开发入口使用 `npm run desktop:dev`，实际安装验收状态见 [ROOM_DESKTOP.md](./ROOM_DESKTOP.md)。用户从任务中心进入讨论、方案、执行、测试、变更和验收；项目资料与设置位于侧栏及顶栏。旧 Codex 快捷方式注入属于历史交付，不作为新工作台启动路径。API 和 taskctl 命令见 [ROOM_UI.md](./ROOM_UI.md)。
 
-UI、MCP 与 CDP 日志位于入口项目 `.agent-room/`。界面关闭不会取消 Run。断连时先检查这些日志并点击重新连接；不要新建或覆盖既有 SQLite 来消除连接错误。导出 archive JSON 不删除数据库。多个项目的 MCP binding 各自保留，桌面入口只自动启动其入口项目的 MCP。
+桌面服务日志从设置页打开；项目执行日志位于数据库旁的 artifacts 目录。关闭窗口隐藏到托盘；明确退出会停止本应用拥有的执行与手动验证并等待终态，外部执行不受影响。重启后的未知执行须先检查进程，再明确确认结算；不要新建或覆盖既有 SQLite 来消除连接错误。导出记录不删除数据库。

@@ -2,11 +2,13 @@
 
 | 属性 | 内容 |
 |---|---|
-| 文档状态 | Current；交付验收见 ROOM_UI_REVIEW.md |
+| 文档状态 | Current HTTP API；旧页面描述属于历史交付，独立工作台候选见 ROOM_DESKTOP.md |
 | Owner | Codex |
 | Reader | 本地 operator、Codex Skill/CLI consumer、维护者 |
 | 生效范围 | Windows 单用户、本地 loopback Room UI |
 | 权威依赖 | [系统架构](./ARCHITECTURE.md)、[Room 协议](./ROOM_PROTOCOL.md) |
+
+独立 Electron 候选的页面、安装和人工测试以 [ROOM_DESKTOP](./ROOM_DESKTOP.md) 为入口；新增数据与 API 语义见 [协议 §22](./ROOM_PROTOCOL.md#22-electron-workbench-candidate-extension)。下文保留既有 HTTP commands 与历史页面背景，不把旧菜单作为新工作台操作步骤。
 
 ## 1. 结论与边界
 
@@ -18,7 +20,7 @@ Room UI 是现有 Agent Room application commands 的本地 React 操作面。HT
 
 要求 Node.js 与根 `package.json` 的 `engines` 一致。
 
-日常入口为桌面/开始菜单 **Codex** 快捷方式，在 Codex 侧栏“新对话”下方点击 **Room**。Codex 26.924 已将该行改名为“新聊天”并移除侧栏 Pull Request，Room 仍位于新聊天正下方。首次迁移需要退出未启用 CDP 的 Codex 后重开；原 profile 实际运行已验收。安装、面板与验证状态见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
+历史交付入口为桌面/开始菜单 **Codex** 快捷方式，在 Codex 侧栏“新对话”下方点击 **Room**。Codex 26.924 已将该行改名为“新聊天”并移除侧栏 Pull Request，Room 仍位于新聊天正下方。首次迁移需要退出未启用 CDP 的 Codex 后重开；原 profile 实际运行已验收。安装、面板与验证状态见 [桌面入口](./ROOM_DESKTOP.md)。以下命令供开发和独立服务运行使用。
 
 ```powershell
 npm ci
@@ -36,7 +38,7 @@ npm run room:ui -- --port 4317 --config "D:\local-state\agent-room-ui.json"
 
 ## 3. 项目绑定与 setup
 
-推荐在 UI 的 setup 页输入项目绝对路径，并读取该项目既有 `.agent-room/runtime.json`。读取成功后 registry 保存：
+历史 UI 的 setup 页通过项目绝对路径导入；新工作台使用“打开项目文件夹”，并读取该项目既有 `.agent-room/runtime.json`。读取成功后 registry 保存：
 
 - `project_id` 与显示名称；
 - absolute `project_path`、`database_path`；

@@ -2,7 +2,7 @@
   "name": "agent-room",
   "version": "0.1.0",
   "private": true,
-  "description": "Local Agent Room — single-user MVP",
+  "description": "Local Agent Room \u2014 single-user MVP",
   "type": "module",
   "engines": {
     "node": ">=24.15.0 <25"
@@ -16,7 +16,9 @@
     "room:run": "node src/cli/run.ts",
     "room:git": "node src/cli/git.ts",
     "room:ui": "npm --prefix frontend run build && node src/ui/serve.ts",
-    "taskctl": "node tools/taskctl.mjs"
+    "taskctl": "node tools/taskctl.mjs",
+    "desktop:dev": "npm --prefix frontend run build && electron .",
+    "desktop:build": "npm --prefix frontend run build && node desktop/electron/build.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
@@ -25,6 +27,10 @@
   "devDependencies": {
     "@types/express": "5.0.6",
     "@types/node": "24.13.3",
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "playwright": "1.64.0",
     "typescript": "7.0.2"
-  }
+  },
+  "main": "desktop/electron/main.cjs"
 }

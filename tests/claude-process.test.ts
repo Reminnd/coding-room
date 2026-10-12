@@ -57,7 +57,7 @@ const FROZEN_BASE_ARGS = [
   '--strict-mcp-config',
   '--permission-mode', 'dontAsk',
   '--tools', 'Read,Edit,Write,Glob,Grep,Bash',
-  '--allowedTools', 'Read,Edit,Write,Glob,Grep,Bash,mcp__agent_room__room_ask_question',
+  '--allowedTools', 'Read,Edit,Write,Glob,Grep,Bash,mcp__agent_room__room_ask_question,mcp__agent_room__room_run_verification',
 ];
 
 function makeInput(overrides: Partial<ClaudeProcessInput> = {}): ClaudeProcessInput {

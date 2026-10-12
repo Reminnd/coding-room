@@ -649,3 +649,29 @@ Fix后exact语义：
 - final authoritative snapshot：Room state=`DISCUSSION`、`planning_waiting_actor=planner`、cursor=`1`；Plan、Revision、Approval、NodeDispatch、Task、Run、Attempt、Guidance、Review、Question与GitAction均为空。该snapshot而非helper stdout、service log或直接SQLite查询是workflow authority。
 - bootstrap assignments exact为`codex-app → planner/reviewer/orchestrator`、`claude-code-cli → worker`、`local-runner → executor/git_controller`。normal workflow从该Room开始仍受planning state、exact revision Approval、manual reconcile、one-shot Run与GitAction preview/decision/execution门禁约束。
 - cutover不创建Plan/Task/Run/GitAction，不启动Claude，不删除archive，不执行push或worktree cleanup；setup在验证`DISCUSSION`后停止。
+
+## 22. Electron workbench candidate extension
+
+> 状态：Candidate，属于已授权的 ELECTRON-FULL-LOCAL 本地实现，尚未最终接受或集成。历史 v0.5 Contract 保持原样。
+
+- `submitReview` 新建 Review 可以消费 `review_required` 或 `review_discussion` Run；后者表示对当前候选重新审阅，保留 `review_discussion` 状态。仍要求 current reviewer、同 Room/Run/Task lineage 和 latest succeeded attempt。same-ID retry 与 frozen reviewer 规则不变；accepted、running、failed 等状态仍拒绝新 Review。
+- 重新审阅追加现有 `review_submitted` Event，不添加状态或事件类型。`acceptReview` 仍只消费 latest Review；桌面入口进一步要求当前候选文件与测试证据对应被审快照，必需命令成功，TDD 有真实 Red → Green 记录。Review 负责判断失败原因及目标行为覆盖。
+- 桌面 Managed MCP 可注册 `room_run_verification`。调用必须来自当前 running attempt 的 worker，只能选择 Accepted Task 的 `verification` 命令索引；记录实际目录、输出、退出码和时间。既有独立 MCP 不自动增加此工具。
+- `execution_observation` 是桌面实时 read model，取值 `owned_active | unknown | inactive`，不写回 Run 状态。没有当前执行器观察的活动 Attempt 显示 unknown，不能推断停止或直接重复启动。
+
+- 桌面新任务使用单一 `kind=integration` 节点和 `acceptance_policy=integration_only`，复用既有接受、提交和 fast-forward 门禁。接受不自动提交；交付接口先创建 GitAction preview，再在人工确认后批准并执行。提交前再次比较已接受候选内容和当前必需验证结果；集成要求当前 HEAD 等于该任务已成功记录的 commit 且目录无后续改动。历史图结构不被改写。
+- 桌面手动验证由任务 frozen planner 发起，要求当前 Task 已有 Attempt 且没有活动 Attempt；只能运行现有批准命令索引。输出使用 `stage=verification` 并引用对应 Attempt，不新建业务需求或伪造新的 Agent Attempt。
+
+- Scope-changing Question 的桌面修订复用原协议的新 Implementation Run 路径，不改写已派发 graph node。用户任务元数据保留 Question basis 与 prior Run 引用；确认时指定源 commit 和实际文件改动，在新目录带入改动，旧目录及历史 Attempt 保留。源内容变化要求重新预览；目录准备未完成时保持待恢复，不启动 Worker。
+- 该修订首次启动保存并校验 `approved_initial_worktree`：目标 Run、canonical worktree、HEAD 及确认带入的全部文件字节。Runner 仅对此匹配快照允许 dirty first attempt；额外 staged/unstaged/untracked 改动或内容、HEAD、目录不符时在 claim/process 前拒绝。普通首次执行仍走 clean gate，后续同 Run Attempt 继续沿用原 continuation 规则；新 Run 不继承旧 Run 的 Agent session。快照是桌面内部配置，不增加 CLI 绕过参数。
+- SDD 产品方案保存 specification、technical_design 与有序 implementation tasks；执行前验证完整性及依赖，Task background 包含完整 SDD 内容。该产品元数据不替代 Room graph 或 Run authority。
+- 用户任务的归档、取消和来源任务引用属于同库 workbench 元数据，不改写 Room Run/Attempt 的历史终态。活动执行、准备、规划、Review 或未结束验证期间不能归档/取消；已接受任务只能归档。归档/取消后产品写操作被拒绝，恢复归档不恢复取消；新建后续任务只保留来源引用和开发偏好，独立讨论与确认。
+- 来源读取保存实际时间、解析位置、文本/目录预览或失败原因；预览最多 64 KiB、目录最多 100 项，截断明确显示。资料卡片的“预览已读取”不声称 Agent 已读取全部资料。移除资料只移除库引用，任务关联与方案版本中的来源记录仍保留。
+- 桌面进程归属记录保存服务 PID 与实际执行/验证子进程 PID，不替代 Attempt 状态。恢复入口读取 Windows 进程表；旧进程或其可观察子树仍存在、观察失败、缺少归属时均拒绝结算及重放。人工确认后，停止的 running Attempt 按 interrupted 结算，decision_requested 按 needs_decision 保留问题，cancel_requested 沿用 canceled 优先规则；使用实际 Git evidence 和已写日志，未知退出码保持 null。遗留验证只标记中断，不伪造通过。
+- Electron IPC 断开后服务停止其拥有的执行和验证并等待终态。正常退出提示包含手动验证；停止命令失败返回错误，不把仍存活的进程显示为已停止。
+- 项目默认开发入口、验证方式与 Codex 规划模型保存在同 Room 的 workbench settings；只影响新任务默认值及后续规划请求，不修改已批准 Task 或 Codex 全局配置。Agent 检测读取真实客户端、登录状态和模型目录；登录仅由用户单独点击发起。移除项目只删除 registry 绑定，再次打开同目录复用原 Room 与任务；活动执行、规划、Review 或验证期间拒绝移除。
+- 同一 Room 可保存多个独立 Plan，桌面每个用户任务使用自己的 Plan/Revision/Run。`idx_plans_room` 改为普通索引；已有唯一索引仅在授权 `createPlan` 写事务中转换，读取旧库不转换。各 Plan 的审批、revision lineage、dispatch 和 GitAction 继续按 `plan_id` 隔离，历史任务不被替换。桌面每项 Plan 的 concurrency_limit=1 仍受 Room 活动 Attempt 计数限制。
+- 同一批准验证命令可在方案中出现多项（例如 Red 与 Green 说明分列）；验收与提交按当前 Task 的确切命令检查最新结果，TDD 按确切命令匹配先 Red 后 Green。command_index 仍用于执行授权及记录来源，不把同一命令的不同索引误认成不同测试。独立 Review 仍需判断 Red 的实际失败原因。
+- 桌面 `ui-preferences.json` 仅保存界面定位、外观、筛选、滚动和未发送讨论草稿。它不拥有 Run/Attempt/Review 状态；界面启动前经受限 IPC 读取，不依赖随机服务端口的 localStorage 持久性。
+- 历史导出 `room-task-records-v1` 包含用户所选任务的方案、来源、运行结果、验证、Review 与日志引用，不是数据库或源码备份。既有协议任务从 snapshot 只读展示，不创建替代 Task/Run。
+- `POST /api/projects/:id/open-vscode` 支持可选 `file`，从所选项目或 `run_id` 的实际 worktree 解析存在的相对文件；不允许越出该目录，删除文件保留在 Diff 中阅读。

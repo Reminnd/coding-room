@@ -13,3 +13,15 @@ frontend/dist/
 
 .agent-room/room-v0.5.sqlite
 .agent-room/room-v0.5.sqlite-*
+
+desktop/runtime/
+desktop/release/
+desktop/release-chatgpt-fix/
+desktop/release-chatgpt-send-fix/
+desktop/release-chatgpt-text-fix/
+desktop/release-chatgpt-button-fix/
+desktop/release-chatgpt-discussion/
+desktop/release-chatgpt-confirm-fix/
+desktop/release-chatgpt-message-fix/
+desktop/release-chatgpt-diagnostic/
+.playwright-cli/

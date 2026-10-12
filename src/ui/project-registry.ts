@@ -126,6 +126,11 @@ export class ProjectRegistry {
     }
     this.write(projects.filter((project) => project.project_id !== projectId));
   }
+  rename(projectId: string, name: string): void {
+    this.get(projectId);
+    const parsed = z.string().trim().min(1).parse(name);
+    this.write(this.list().map((project) => project.project_id === projectId ? { ...project, name: parsed } : project));
+  }
 
   private write(projects: UiProject[]): void {
     mkdirSync(dirname(this.path), { recursive: true });

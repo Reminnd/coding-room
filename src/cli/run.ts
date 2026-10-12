@@ -8,6 +8,7 @@ import type { RoomRecord } from '../room/repository.ts';
 import { RoomService } from '../room/room-service.ts';
 import type { ClaudeProcessSpawn } from '../runner/claude-process.ts';
 import { runClaude } from '../runner/claude-runner.ts';
+import type { ApprovedInitialWorktree } from '../git/git-observer.ts';
 
 // one-shot room:run CLI（v0.4）：打开既有 file-backed Room database、连接 loopback worker
 // participant route（/mcp/participants/{worker}）并执行恰好一个 attempt，然后退出。
@@ -24,6 +25,9 @@ export interface RunCliConfig {
   runId: string;
   attemptId: string;
   mcpUrl: string;
+  artifactDirectory?: string;
+  // Internal desktop authorization; not exposed as a CLI flag.
+  approvedInitialWorktree?: ApprovedInitialWorktree;
 }
 
 export interface RunCliResult {
@@ -179,6 +183,8 @@ export async function runRoomRun(
       attemptId: config.attemptId,
       targetWorktree: config.project,
       mcpConfig,
+      ...(config.approvedInitialWorktree ? { approvedInitialWorktree: config.approvedInitialWorktree } : {}),
+      ...(config.artifactDirectory === undefined ? {} : { artifactDirectory: config.artifactDirectory }),
       ...(spawnProcess === undefined ? {} : { spawnProcess }),
       ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
     });

@@ -1,0 +1,105 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { RoomUiApplication } from '../src/ui/application.ts';
+import { ProjectRegistry } from '../src/ui/project-registry.ts';
+import { createRoomUiHttpServer } from '../src/ui/http-server.ts';
+
+test('desktop project opening requires creation confirmation and persists task/source through HTTP', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'room-workbench-api-'));
+  const folder = join(root, 'My project');
+  mkdirSync(folder);
+  const registry = new ProjectRegistry(join(root, 'registry.json'));
+  const openedFiles: string[] = [];
+  const server = createRoomUiHttpServer(new RoomUiApplication(registry, { openVscode: async (target) => { openedFiles.push(target); } }), root);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const request = async (path: string, body?: unknown) => {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/${path}`, body === undefined ? {} : {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    });
+    return { status: response.status, data: await response.json() as any };
+  };
+  try {
+    const inspection = await request('projects/open', { project_path: folder });
+    assert.equal(inspection.status, 200);
+    assert.equal(inspection.data.needs_creation, true);
+    assert.equal(existsSync(join(folder, '.agent-room')), false);
+    const opened = await request('projects/open', { project_path: folder, confirm_create: true });
+    assert.equal(opened.status, 200);
+    const project = opened.data.project;
+    const reopened = await request('projects/open', { project_path: folder });
+    assert.equal(reopened.data.project.project_id, project.project_id);
+    assert.equal(registry.list().length, 1);
+    const prefix = `projects/${project.project_id}/workbench`;
+    const defaults = await request(`${prefix}/settings`);
+    assert.equal(defaults.status, 200);
+    assert.equal(defaults.data.settings.default_verification, 'tdd');
+    const configured = await request(`${prefix}/settings`, { name: 'Configured project', default_mode: 'sdd', default_verification: 'standard', codex_model: null });
+    assert.equal(configured.status, 201);
+    assert.equal(registry.get(project.project_id).name, 'Configured project');
+    assert.equal((await request(`${prefix}/settings`)).data.settings.default_mode, 'sdd');
+    assert.equal(new ProjectRegistry(join(root, 'registry.json')).get(project.project_id).database_path, project.database_path);
+    const source = await request(`${prefix}/sources`, { label: 'Requirements', kind: 'document', ownership: 'project', location: 'docs/requirements.md' });
+    assert.equal(source.status, 201);
+    assert.equal(source.data.source.purpose, 'constraints');
+    const draft = await request(`${prefix}/tasks`, { title: '', goal: '', mode: 'sdd', verification: 'tdd', source_ids: [source.data.source.id] });
+    assert.equal(draft.status, 201);
+    const tasks = await request(`${prefix}/tasks`);
+    assert.equal(tasks.data.tasks[0].id, draft.data.task.id);
+    const invalid = await request(`${prefix}/tasks`, { ...draft.data.task, source_ids: ['missing'] });
+    assert.equal(invalid.status, 404);
+    const saved = await request(`${prefix}/tasks`);
+    assert.deepEqual(saved.data.tasks[0].source_ids, [source.data.source.id]);
+    const sourcePath = `${prefix}/sources/${source.data.source.id}`;
+    const missing = await request(`${sourcePath}/read`, {});
+    assert.equal(missing.status, 200);
+    assert.equal(missing.data.reading.status, 'failed');
+    assert.match(missing.data.reading.error, /ENOENT/);
+    mkdirSync(join(folder, 'docs'));
+    writeFileSync(join(folder, 'docs/requirements.md'), '# Requirements\nKeep the original files.');
+    const read = await request(`${sourcePath}/read`, {});
+    assert.equal(read.status, 200);
+    assert.equal(read.data.reading.status, 'readable');
+    assert.match(read.data.reading.preview, /Keep the original files/);
+    assert.equal(read.data.reading.resolved_location, join(folder, 'docs/requirements.md'));
+    assert.equal((await request(`${sourcePath}/open`, {})).status, 200);
+    assert.deepEqual(openedFiles, [join(folder, 'docs/requirements.md')]);
+    assert.equal((await request(`${prefix}/sources`)).data.sources[0].reading.status, 'readable');
+
+    const taskPath = `${prefix}/tasks/${draft.data.task.id}/manage`;
+    const renamed = await request(taskPath, { action: 'rename', title: 'Requirements task' });
+    assert.equal(renamed.status, 200);
+    assert.equal(renamed.data.task.title, 'Requirements task');
+    const archived = await request(taskPath, { action: 'archive' });
+    assert.equal(archived.data.task.archived, true);
+    assert.equal((await request(`${prefix}/tasks`, { ...renamed.data.task, goal: 'Overwrite history' })).status, 409);
+    const followup = await request(taskPath, { action: 'followup' });
+    assert.equal(followup.status, 200);
+    assert.notEqual(followup.data.task.id, draft.data.task.id);
+    assert.equal(followup.data.task.origin_task_id, draft.data.task.id);
+    assert.equal(followup.data.task.run_id, null);
+    assert.equal(followup.data.task.proposal_version, 0);
+    assert.equal(followup.data.task.goal, '');
+    const restored = await request(taskPath, { action: 'restore' });
+    assert.equal(restored.data.task.archived, false);
+    const cancelled = await request(taskPath, { action: 'cancel', confirmed_by_user: true });
+    assert.equal(cancelled.data.task.cancelled, true);
+    assert.equal((await request(`${prefix}/tasks/${draft.data.task.id}/discussion`, { text: 'Implement' })).status, 409);
+    assert.equal(existsSync(join(folder, 'docs/requirements.md')), true);
+    const removal = await fetch(`http://127.0.0.1:${address.port}/api/projects/${project.project_id}`, { method: 'DELETE' });
+    assert.equal(removal.status, 200);
+    assert.equal(existsSync(project.database_path), true);
+    const rebound = await request('projects/open', { project_path: folder });
+    assert.equal(rebound.data.needs_creation, false);
+    assert.equal(rebound.data.project.room_id, project.room_id);
+    const restoredTasks = await request(`projects/${rebound.data.project.project_id}/workbench/tasks`);
+    assert.ok(restoredTasks.data.tasks.some((task: any) => task.id === draft.data.task.id));
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(root, { recursive: true, force: true });
+  }
+});

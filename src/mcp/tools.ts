@@ -20,6 +20,7 @@ import {
   type EventActor,
 } from '../protocol/schema.ts';
 import { PlanScheduler } from '../scheduler/plan-scheduler.ts';
+import { verificationInputSchema, type VerificationInput } from '../runner/verification.ts';
 import type { RoomService } from '../room/room-service.ts';
 import {
   getRoomStateSnapshot,
@@ -38,6 +39,7 @@ import {
 export interface RoomMcpDependencies {
   service: RoomService;
   projectPath: string;
+  runVerification?: (participantId: string, input: VerificationInput) => Promise<unknown>;
 }
 
 // 成功结果同时返回 JSON text content 与 schema-backed structuredContent。
@@ -216,6 +218,12 @@ export function registerParticipantTools(
   const worker: EventActor = { participant_id: participantId, actor_role: 'worker' };
   const orchestrator: EventActor = { participant_id: participantId, actor_role: 'orchestrator' };
   const scheduler = new PlanScheduler(deps.service);
+  if (deps.runVerification) {
+    server.registerTool('room_run_verification', {
+      description: 'Run an exact command from the approved task verification plan in the active attempt worktree. The service records actual output and exit code. Use command_index (zero based) and stage red, green, refactor or verification; stage and behavior describe intent, not proof of test success.',
+      inputSchema: verificationInputSchema,
+    }, (input) => runTool(() => deps.runVerification!(participantId, input)));
+  }
 
   server.registerTool(
     'room_create',

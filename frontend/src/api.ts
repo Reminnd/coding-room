@@ -29,7 +29,7 @@ export const api = {
   startRun: async (id: string, body: unknown): Promise<unknown> => request(`/api/projects/${encodeURIComponent(id)}/runs/start`, { method: 'POST', body: JSON.stringify(body) }),
   launches: async (id: string): Promise<Entity[]> => (await request<{ launches: Entity[] }>(`/api/projects/${encodeURIComponent(id)}/launches`)).launches,
   git: async (id: string): Promise<GitState> => request(`/api/projects/${encodeURIComponent(id)}/git`),
-  openVscode: async (id: string, runId?: string): Promise<unknown> => request(`/api/projects/${encodeURIComponent(id)}/open-vscode`, { method: 'POST', body: JSON.stringify(runId ? { run_id: runId } : {}) }),
+  openVscode: async (id: string, runId?: string, file?: string): Promise<unknown> => request(`/api/projects/${encodeURIComponent(id)}/open-vscode`, { method: 'POST', body: JSON.stringify({ ...(runId ? { run_id: runId } : {}), ...(file ? { file } : {}) }) }),
   exportUrl: (id: string): string => `/api/projects/${encodeURIComponent(id)}/export`,
 };
 

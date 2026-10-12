@@ -174,7 +174,7 @@ export class RoomRepository {
         room_id TEXT NOT NULL,
         content_json TEXT NOT NULL
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_room ON plans(room_id);
+      CREATE INDEX IF NOT EXISTS idx_plans_room ON plans(room_id);
       CREATE TABLE IF NOT EXISTS task_graph_revisions (
         revision_id TEXT PRIMARY KEY,
         plan_id TEXT NOT NULL,
@@ -276,14 +276,13 @@ export class RoomRepository {
   // ---- Stage 3 graph authority ----
   getPlan(planId: string): Plan | null { return this.getEntity<Plan>('plans', 'plan_id', planId); }
   insertPlan(plan: Plan): { created: boolean } {
-    try {
-      return this.insertProjectedEntity('plans', 'plan_id', plan.plan_id, ['room_id'], [plan.room_id], plan);
-    } catch (err) {
-      if (isSqliteUniqueError(err) && err.message.includes('plans.room_id')) {
-        throw new ProtocolError('validation_failed', `room ${plan.room_id} already has a plan`);
-      }
-      throw err;
+    // Upgrade the former single-plan index only during an authorized Plan write.
+    // Read-only opens leave existing databases untouched; createPlan owns the transaction.
+    const index = this.db.prepare("PRAGMA index_list('plans')").all().find((item) => item.name === 'idx_plans_room');
+    if (index?.unique === 1) {
+      this.db.exec('DROP INDEX idx_plans_room; CREATE INDEX idx_plans_room ON plans(room_id)');
     }
+    return this.insertProjectedEntity('plans', 'plan_id', plan.plan_id, ['room_id'], [plan.room_id], plan);
   }
   listPlans(roomId: string): Plan[] { return this.listEntitiesByRoom<Plan>('plans', roomId); }
 

@@ -1237,10 +1237,10 @@ export class RoomService {
           `review ${review.review_id} references task/run from another room or lineage`,
         );
       }
-      if (run.status !== 'review_required') {
+      if (run.status !== 'review_required' && run.status !== 'review_discussion') {
         throw new ProtocolError(
           'validation_failed',
-          `review ${review.review_id} references run ${run.run_id} that is not review_required (status ${run.status})`,
+          `review ${review.review_id} references run ${run.run_id} that is not review_required or review_discussion (status ${run.status})`,
         );
       }
       // 只允许 latest succeeded attempt 进入 review：attempt_id 必须等于该 Run attempt_no
@@ -1259,7 +1259,7 @@ export class RoomService {
         );
       }
       const updated: Run = { ...run, status: 'review_discussion', updated_at: this.now() };
-      resolveRunTransition(run.status, updated.status, actor.actor_role);
+      if (run.status !== updated.status) resolveRunTransition(run.status, updated.status, actor.actor_role);
       this.repo.updateRun(updated);
       this.repo.appendEvent({
         room_id: review.room_id,

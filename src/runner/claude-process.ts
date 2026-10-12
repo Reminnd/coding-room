@@ -9,9 +9,9 @@ import { codingResultSchema } from '../protocol/schema.ts';
 // 冻结的 built-in tool list：只含实现 Contract 所需的最小只读与编辑工具。
 const BUILT_IN_TOOLS: readonly string[] = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash'];
 
-// allowed tool list = built-in tools + 唯一 MCP tool room_ask_question；不含 Agent/Task、
+// allowed tool list = built-in tools + Room Question/verification tools；不含 Agent/Task、
 // Web、browser、Git wrapper 或其它 MCP tool。两列表都以逗号分隔的单个 argument 传入。
-const ALLOWED_TOOLS: readonly string[] = [...BUILT_IN_TOOLS, 'mcp__agent_room__room_ask_question'];
+const ALLOWED_TOOLS: readonly string[] = [...BUILT_IN_TOOLS, 'mcp__agent_room__room_ask_question', 'mcp__agent_room__room_run_verification'];
 
 // Zod 4 toJSONSchema 生成的根 $schema 与 string minLength 已被本机真实 smoke 否证不被
 // Claude CLI structured-output schema 接受。此处只在 CLI serialization boundary 递归删除

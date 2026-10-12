@@ -5,21 +5,23 @@
 | 文档状态 | Current |
 | Owner | Codex（项目文档编写者及维护者） |
 | 主要读者 | 用户、Codex、Claude Code、人工 operator |
-| 最后更新日期 | 2026-10-11 |
+| 最后更新日期 | 2026-10-12 |
 | 生效范围 | 本仓库项目文档集 |
 | 编写规范 | [`backend-doc-authoring` 强制维护指南](./agent-guides/CODEX_DOCUMENTATION_AUTHORING.md) |
 
 ## 1. 结论与查看入口
 
-2026-10-11：用户已确认独立 Electron、任务中心，以及同时支持任务驱动和测试驱动。[ADR-0007](./ADR/0007-electron-task-workbench.md) 保存已确认方向、技术建议、SDD/TDD 与清理边界；[DESKTOP-01](../work/wf-electron-task-workbench/TASK_CONTRACT.md) 为首个 Accepted 实施契约。当前已安装能力仍见以下历史交付，新方向尚未实现。
+2026-10-11：用户已确认独立 Electron、任务中心，以及同时支持任务驱动和测试驱动。[ADR-0007](./ADR/0007-electron-task-workbench.md) 保存已确认方向、技术建议、SDD/TDD 与清理边界；[DESKTOP-01](../work/wf-electron-task-workbench/TASK_CONTRACT.md) 为首个 Accepted 实施契约。独立 Electron 候选现已实现并达到人工测试就绪，实际证据见 [LOCAL_EXECUTION](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)，安装与人工测试见 [ROOM_DESKTOP](./ROOM_DESKTOP.md)。历史已集成版本仍保留以下交付记录。
 
-完整页面、按钮位置、流程去向、来源分类与 TDD 操作例子见[独立工作台产品与 UI 方案](./ROOM_WORKBENCH_PRODUCT.md)（Draft）。
+完整页面、按钮位置、流程去向、来源分类与 TDD 操作例子见[独立工作台产品与 UI 方案](./ROOM_WORKBENCH_PRODUCT.md)（已确认目标；实现候选待人工接受）。
+
+2026-10-12 用户更正规划调用：普通规划使用 Chat，只有 Codex 原生 Plan 为例外。当前候选已增加 Room 自有讨论界面与官方 ChatGPT 网页的页面桥接，支持消息往返与选定回复采用；[ADR-0007 §3.3](./ADR/0007-electron-task-workbench.md#33-规划调用更正2026-10-12用户明确要求) 记录确认决策与验收边界。上面的人工测试就绪结论属于更正前的交付，不能证明新增 Chat 路径已完成。
 
 2026-09-27：Increment 16 已在 `5a5ad734a5a5cbe0fffa02a628a505f0f108c363` accepted_and_integrated；[closure 与归档证据](./INCREMENT_16_CLOSURE.md) 为当前状态入口。[Room UI delivery](./ROOM_UI_DELIVERY_PLAN.md) 已完成实现、Review、桌面安装与 main 整合（`8bc2110`，`archive/room-ui-v1`），[UI implementation task](./ROOM_UI_IMPLEMENTATION_TASK.md) 已获本次用户委托授权。历史 Contract 中的 pre-bootstrap 描述由 closure 解释，不作为重新派发授权。
 
 本目录是所有人类可查看项目文档的唯一集合。按以下顺序可以快速建立完整上下文：
 
-Codex 原窗口自动入口与顶部页签已完成实际运行验收，见 [native integration review](./ROOM_NATIVE_REVIEW.md)。日常启动和版本适配见 [桌面入口](./ROOM_DESKTOP.md)，Git 整合事实见 [PR #10](https://github.com/Reminnd/coding-room/pull/10)。
+以下为旧 Codex 原窗口入口的历史验收，见 [native integration review](./ROOM_NATIVE_REVIEW.md)。当前独立启动及旧入口迁移见 [桌面入口](./ROOM_DESKTOP.md)，Git 整合事实见 [PR #10](https://github.com/Reminnd/coding-room/pull/10)。
 
 1. [项目共享规则](../../PROJECT_RULES.md)
 2. [系统架构](./ARCHITECTURE.md)
@@ -46,9 +48,9 @@ Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史�
 | [DEVELOPMENT_LOG.md](./DEVELOPMENT_LOG.md) | Current | Codex/Claude candidate | 当前阶段、已完成事实、验证与下一步 | Git、Review、Task Contract |
 | [OPERATIONS.md](./OPERATIONS.md) | Current | Codex | 人工接口、结构、命令、状态/制品与故障处置 | Accepted Git、Architecture、Protocol |
 | [ROOM_UI.md](./ROOM_UI.md) | Current | Codex | React 工作台、HTTP API 与 taskctl | Architecture、Protocol |
-| [ROOM_WORKBENCH_PRODUCT.md](./ROOM_WORKBENCH_PRODUCT.md) | Draft | Codex | 独立工作台的页面、按钮、流程、资料分类与 TDD 讲解 | 用户确认方向、ADR-0007、现有 UI/API |
+| [ROOM_WORKBENCH_PRODUCT.md](./ROOM_WORKBENCH_PRODUCT.md) | Accepted target | Codex | 独立工作台的页面、按钮、流程、资料分类与 TDD 讲解 | 用户确认方向、ADR-0007、现有 UI/API |
 | [FRONTEND_DESKTOP_SKILLS.md](./agent-guides/FRONTEND_DESKTOP_SKILLS.md) | Current | Codex | 五项项目 Skill 安装来源、调用顺序、TDD 和 Electron 验收 | 用户提供的 Skill 配置方案 |
-| [ROOM_DESKTOP.md](./ROOM_DESKTOP.md) | Current | Codex | Tauri 安装、Codex CDP 面板与重连 | Room UI |
+| [ROOM_DESKTOP.md](./ROOM_DESKTOP.md) | Candidate / historical appendix | Codex | 独立 Electron 启动及旧 Tauri/CDP 迁移背景 | ADR-0007 |
 | [ROOM_UI_REVIEW.md](./ROOM_UI_REVIEW.md) | Current | Codex | UI 交付验证、修复与限制 | Delivery Plan、Git、实际操作 |
 | [ROOM_NATIVE_REVIEW.md](./ROOM_NATIVE_REVIEW.md) | Current | Codex | 原 profile 启动、原生入口与主题验收 | Room Desktop、实际 Codex renderer |
 
@@ -62,7 +64,7 @@ Increment 16 的 Accepted Plan、Stage、Router 和 Task Contracts 作为历史�
 | [ADR-0004](./ADR/0004-execution-core-run-attempt-and-concurrency.md) | Proposed / decisions confirmed | Stage 2 Run/RunAttempt、atomic claim、worktree lease与0.4 cutover |
 | [ADR-0005](./ADR/0005-remove-git-baseline-hash-validation.md) | Accepted | 删除Git baseline hash contract并保留canonical worktree/live evidence |
 | [ADR-0006](./ADR/0006-stage-3-dag-control-plane-and-git-controller.md) | Accepted | Stage 3 graph authority、ready scheduling、Git preview/approval与target cutover |
-| [ADR-0007](./ADR/0007-electron-task-workbench.md) | 产品方向已确认 / 技术细化 Proposed | 独立 Electron、任务中心、SDD/任务模式、测试驱动与旧入口清理 |
+| [ADR-0007](./ADR/0007-electron-task-workbench.md) | Accepted target / candidate implementation | 独立 Electron、任务中心、SDD/任务模式、测试驱动与旧入口清理 |
 
 ### 2.3 Increment 与 Fix Contracts
 

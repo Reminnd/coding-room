@@ -280,6 +280,13 @@ test('Git preview uses GitController and VS Code opens the selected run worktree
     const openRun = await request(base, '/api/projects/project/open-vscode', { method: 'POST', body: JSON.stringify({ run_id: 'run-open' }) });
     assert.equal(openRun.status, 202);
     assert.deepEqual(opened, [fixture.project]);
+    const selectedFile = join(fixture.project, 'selected.txt');
+    writeFileSync(selectedFile, 'Open this file, not the project folder');
+    const openFile = await request(base, '/api/projects/project/open-vscode', { method: 'POST', body: JSON.stringify({ run_id: 'run-open', file: 'selected.txt' }) });
+    assert.equal(openFile.status, 202);
+    assert.equal(opened.at(-1), selectedFile);
+    const outside = await request(base, '/api/projects/project/open-vscode', { method: 'POST', body: JSON.stringify({ run_id: 'run-open', file: '../outside.txt' }) });
+    assert.equal(outside.status, 400);
   } finally {
     await close(server);
     rmSync(fixture.root, { recursive: true, force: true });

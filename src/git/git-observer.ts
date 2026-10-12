@@ -1,5 +1,5 @@
-import { statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { statSync, existsSync, readFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 import { ProtocolError } from '../protocol/errors.ts';
 import { GIT_FATAL_EXIT_CODE, GitCommandError, runGit } from './git-process.ts';
 
@@ -10,6 +10,26 @@ export interface GitEvidence {
   staged: string[];
   unstaged: string[];
   untracked: string[];
+}
+
+export interface ApprovedInitialWorktree {
+  run_id: string;
+  worktree_path: string;
+  head: string;
+  files: Array<{ path: string; content: string | null }>;
+}
+
+// Only the exact, user-confirmed carry from a scope-changing Run may seed a dirty first attempt.
+export async function establishApprovedInitialWorktree(target: string, runId: string, approved: ApprovedInitialWorktree): Promise<CleanWorktree> {
+  const observation = await observeContinuation(target);
+  const head = (await runGit('rev-parse', ['HEAD'], observation.repositoryRoot)).toString('utf8').trim();
+  const paths = [...new Set([...observation.evidence.unstaged, ...observation.evidence.untracked])].sort();
+  const files = paths.map((path) => ({ path, content: existsSync(join(target, path)) ? readFileSync(join(target, path)).toString('base64') : null }));
+  if (approved.run_id !== runId || observation.repositoryRoot !== resolve(approved.worktree_path) || head !== approved.head ||
+    observation.evidence.staged.length || JSON.stringify(files) !== JSON.stringify(approved.files)) {
+    throw new ProtocolError('worktree_not_clean', '执行目录与已确认带入的改动不一致；请检查并恢复确认内容后重试');
+  }
+  return observation;
 }
 
 // clean-worktree operation 的返回值：canonical repository root 来自 Git CLI，三类

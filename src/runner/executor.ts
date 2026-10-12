@@ -7,6 +7,8 @@ import { RoomService } from '../room/room-service.ts';
 import {
   collectCompletionEvidence,
   establishCleanWorktree,
+  establishApprovedInitialWorktree,
+  type ApprovedInitialWorktree,
   observeContinuation,
   type GitEvidence,
 } from '../git/git-observer.ts';
@@ -37,6 +39,8 @@ export interface LocalExecutorInput {
   targetWorktree: string;
   // serialized Room MCP config，直接作为 --mcp-config 传入 process。
   mcpConfig: string;
+  artifactDirectory?: string;
+  approvedInitialWorktree?: ApprovedInitialWorktree;
   // process boundary 注入 seam：仅 fake-process 测试替换 spawn，不是通用 command runner。
   spawnProcess?: ClaudeProcessSpawn;
   // cancel poll boundary 的检查间隔；仅测试注入以加速取消观察。
@@ -76,13 +80,15 @@ export class LocalExecutor {
     const task = service.latestTaskForRun(run.run_id)!;
 
     // ---- claim 前 worktree gate ----
-    // 首 attempt：clean Git gate（任一变更 → worktree_not_clean）并解析 repository root；
+    // 首 attempt：clean Git gate；桌面范围修订只允许已确认的 exact carry snapshot。
     // 后续 attempt：允许 dirty evidence，但必须使用同一 canonical worktree。claim 只冻结/
     // 继承 worktree，不创建、切换、删除或清理 worktree。
     const priorAttempt = service.latestAttemptForRun(run.run_id);
     let repositoryRoot: string;
     if (priorAttempt === null) {
-      const observation = await establishCleanWorktree(this.input.targetWorktree);
+      const observation = this.input.approvedInitialWorktree
+        ? await establishApprovedInitialWorktree(this.input.targetWorktree, run.run_id, this.input.approvedInitialWorktree)
+        : await establishCleanWorktree(this.input.targetWorktree);
       repositoryRoot = observation.repositoryRoot;
     } else {
       const frozenWorktree = run.worktree_path!;
@@ -146,6 +152,7 @@ export class LocalExecutor {
     // decision resume 额外附上该 attempt 的完整 Question/answer context；Fix Task 本身已是
     // 完整 Fix Contract，无需额外拼接。
     let prompt = buildPrompt(task, continuationKind, this.input.targetWorktree, run);
+    prompt += `\n\nCurrent attempt_id: ${this.input.attemptId}`;
     if (continuationKind === 'decision' && priorAttempt !== null) {
       const question = service
         .listQuestions(run.room_id)
@@ -234,6 +241,7 @@ export class LocalExecutor {
         attempt.attempt_id,
         adapterOutcome.stdoutLines,
         adapterOutcome.stderrChunks,
+        this.input.artifactDirectory,
       );
     } catch (err) {
       artifactError = err;
@@ -584,12 +592,14 @@ function writeArtifacts(
   attemptId: string,
   stdoutLines: string[],
   stderrChunks: string[],
+  artifactDirectory?: string,
 ): string[] {
-  const dir = join(repositoryRoot, '.agent-room', 'artifacts', attemptId);
+  const dir = artifactDirectory ? join(artifactDirectory, attemptId) : join(repositoryRoot, '.agent-room', 'artifacts', attemptId);
   mkdirSync(dir, { recursive: true });
   const stdoutContent = stdoutLines.length > 0 ? `${stdoutLines.join('\n')}\n` : '';
   writeFileSync(join(dir, 'stdout.jsonl'), stdoutContent);
   writeFileSync(join(dir, 'stderr.log'), stderrChunks.join(''));
+  if (artifactDirectory) return [join(dir, 'stdout.jsonl'), join(dir, 'stderr.log')];
   return [
     ['.agent-room', 'artifacts', attemptId, 'stdout.jsonl'].join('/'),
     ['.agent-room', 'artifacts', attemptId, 'stderr.log'].join('/'),

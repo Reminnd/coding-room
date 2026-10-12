@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { RoomService } from '../room/room-service.ts';
-import { registerParticipantTools } from './tools.ts';
+import { registerParticipantTools, type RoomMcpDependencies } from './tools.ts';
 
 // 单一 local process / 单一 RoomService 上的 stateless Streamable HTTP participant route。
 // 每个 request 创建独立 MCP server/transport，durable state 只属于 SQLite；request 完成或
@@ -14,6 +14,7 @@ import { registerParticipantTools } from './tools.ts';
 export interface RoomMcpHttpDeps {
   service: RoomService;
   projectPath: string;
+  runVerification?: RoomMcpDependencies['runVerification'];
   // 测试 seam：每个 request-owned server/transport 完成 idempotent cleanup 后同步回调一次。
   // 只作为同步/补充信号，不作为实际 close boundary 的 Oracle；runtime entry 不设置。
   onRequestCleanedUp?: () => void;

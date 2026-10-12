@@ -130,9 +130,108 @@ export function createRoomUiHttpServer(application: RoomUiApplication, distDir: 
         json(res, 201, { project: application.importRuntime(await readBody(req)) });
         return;
       }
+      if (url.pathname === '/api/desktop/agents/login' && method === 'GET') {
+        json(res, 200, application.agents.loginStatus()); return;
+      }
+      if (url.pathname === '/api/desktop/agents/login' && method === 'POST') {
+        const body = await readBody(req) as { confirmed_by_user?: boolean; cancel?: boolean };
+        if (body.cancel) { await application.agents.cancelLogin(); json(res, 200, { cancelled: true }); return; }
+        if (body.confirmed_by_user !== true) throw new Error('请通过登录按钮明确启动登录');
+        json(res, 200, await application.agents.startLogin()); return;
+      }
+      if (/^\/api\/desktop\/agents\/(codex|claude)$/.test(url.pathname) && method === 'POST') {
+        json(res, 200, await application.agents.check(url.pathname.split('/').at(-1)!)); return;
+      }
+      if (url.pathname === '/api/desktop/stop' && method === 'POST') {
+        const body = await readBody(req) as { confirmed_by_user?: boolean };
+        if (body.confirmed_by_user !== true) throw new Error('请确认停止任务并退出');
+        await application.stopOwnedRuns();
+        json(res, 200, { stopped: true }); return;
+      }
+      if (url.pathname === '/api/desktop/activity' && method === 'GET') {
+        json(res, 200, await application.desktopActivity()); return;
+      }
+      if (url.pathname === '/api/projects/open' && method === 'POST') {
+        json(res, 200, application.openProject(await readBody(req)));
+        return;
+      }
       const route = projectRoute(url.pathname);
       if (route) {
         const [resource, subresource] = route.tail;
+        if (resource === 'workbench' && subresource === 'sources' && route.tail[2] && route.tail[3] && method === 'POST') {
+          json(res, 200, await application.sourceAction(route.projectId, route.tail[2], route.tail[3])); return;
+        }
+        if (resource === 'workbench' && subresource === 'tasks' && route.tail[2] && route.tail[3]) {
+          const taskId = route.tail[2];
+          const action = route.tail[3];
+          if ((action === 'chatgpt' && ['GET', 'POST'].includes(method)) || (['chatgpt-proposal', 'chatgpt-output'].includes(action) && method === 'POST')) {
+            json(res, 200, application.workbench(route.projectId, action, method, method === 'POST' ? await readBody(req) : undefined, taskId)); return;
+          }
+          if (action === 'recovery' && method === 'GET') {
+            json(res, 200, await application.recovery.inspect(route.projectId, taskId)); return;
+          }
+          if (action === 'recovery' && method === 'POST') {
+            json(res, 200, await application.recovery.recover(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'manage' && method === 'POST') {
+            json(res, 200, application.workbench(route.projectId, 'manage', method, await readBody(req), taskId)); return;
+          }
+          if (action === 'verify' && method === 'POST') {
+            json(res, 200, await application.runVerification(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'delivery' && method === 'POST') {
+            json(res, 200, await application.delivery.preview(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'delivery-execute' && method === 'POST') {
+            json(res, 200, await application.delivery.execute(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'review' && method === 'GET') {
+            json(res, 200, { review: application.review.status(route.projectId, taskId) }); return;
+          }
+          if (action === 'review' && method === 'POST') {
+            json(res, 202, { review: application.review.start(route.projectId, taskId) }); return;
+          }
+          if (action === 'accept' && method === 'POST') {
+            json(res, 200, await application.review.accept(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'runtime' && method === 'GET') {
+            json(res, 200, application.execution.read(route.projectId, taskId)); return;
+          }
+          if (action === 'changes' && method === 'GET') {
+            json(res, 200, await application.execution.changes(route.projectId, taskId, url.searchParams.get('file') ?? undefined)); return;
+          }
+          if (action === 'continue' && method === 'POST') {
+            json(res, 202, await application.execution.continue(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'check-execution' && method === 'POST') {
+            json(res, 200, await application.execution.preview(route.projectId, taskId)); return;
+          }
+          if (action === 'execute' && method === 'POST') {
+            json(res, 202, await application.execution.start(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'proposal' && (method === 'GET' || method === 'POST')) {
+            json(res, 200, application.workbench(route.projectId, 'proposal', method, method === 'POST' ? await readBody(req) : undefined, taskId)); return;
+          }
+          if (action === 'discussion' && method === 'GET') {
+            json(res, 200, await application.planning.read(route.projectId, taskId)); return;
+          }
+          if (action === 'discussion' && method === 'POST') {
+            json(res, 202, application.planning.start(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'answer' && method === 'POST') {
+            json(res, 200, application.planning.answer(route.projectId, taskId, await readBody(req))); return;
+          }
+          if (action === 'interrupt' && method === 'POST') {
+            await application.planning.interrupt(route.projectId, taskId);
+            json(res, 200, { interrupted: true }); return;
+          }
+          throw new Error('workbench action not found');
+        }
+        if (resource === 'workbench' && subresource) {
+          json(res, method === 'POST' ? 201 : 200, application.workbench(route.projectId, subresource, method,
+            method === 'POST' ? await readBody(req) : undefined, route.tail[2]));
+          return;
+        }
         if (!resource && method === 'DELETE') {
           application.removeProject(route.projectId);
           json(res, 200, { removed: true });

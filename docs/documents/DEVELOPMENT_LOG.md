@@ -1,5 +1,75 @@
 # 开发日志
 
+## 2026-10-12 — 按实际页面结构修复消息读取
+
+- 用户再次报告回复完成后不同步。读取真实超时诊断（21:22:59）：已进入 `/c/` 会话，输入框可识别、生成按钮为“停止”，但 `messageNodes=[]`。因此既有专用消息属性及 article 选择器未覆盖实际页面；此前替身测试不能证明该实际症状已修复。
+- 用户保存的新诊断（21:31:56）确认消息使用 `MarkdownRoot-*`，用户消息带 `rich-text-user-turn`；代码块使用 `CodeBlock-*`，包含有 PRE 和无 PRE 两种结构，均无语言标签。新增真实结构回归先得到 `0 !== 2`，修复后通过；有效 JSON 代码恢复 json fence，避免方案及澄清数据丢失。
+- 源码完整链路回归通过（`room-chatgpt-bridge-Fn9oKD`），覆盖发送确认、澄清、自动保存与晚到回复。修复包为 `desktop/release-chatgpt-message-fix`；真实账号复测仍待用户完成。documentation: updated。
+
+## 2026-10-12 — 网页已回复但发送确认未解除的修复候选
+
+- 回归将网页用户消息渲染为段落，完整复现“尚未确认网页发送结果”与持续发送状态：`textContent` 丢失换行，全文比较失败，继而阻断完成回复的自动保存。
+- 用户消息改为结构化文本读取。发送前记录已有消息 ID；仅本次新增用户回显或输入框清空后的新增非空回复可确认接收，历史回复不作为证据。晚到确认会解除 pending、清除旧超时提示，仅清空与本次提交一致的草稿。
+- 超时后显示继续同步状态，并保存无正文的消息结构诊断；不自动重发。源码 Electron 回归覆盖段落、折叠回显、旧回复排除及 10 秒延迟确认，通过。类型检查和前端构建通过；打包证据见 [本地实施记录](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。documentation: updated。
+
+## 2026-10-12 — 普通 Chat 方案自动保存、澄清弹窗与反馈候选
+
+- 用户确认普通 Chat 按 Skill 方法澄清、Room 展示选择框。本轮增加结构化问题交接、选择/自定义答案弹窗、回复结束后自动保存结构化方案及顶部状态反馈；grilling 方法进入提示，不宣称实际调用网页插件。
+- 服务端新增 `chatgpt-output`，保持已有版本校验和执行门禁；任务记录最近已自动保存的网页回复 ID，重复观察不生成版本、不覆盖人工编辑。主动停止的部分回复不自动保存。
+- 聚焦测试先因缺少输出处理失败，完成后 5 项测试、类型检查和前端构建通过；源码 Electron 回归覆盖完整问题回答及自动保存流程。后续打包和全量证据见 [本地实施记录](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。documentation: updated。
+
+## 2026-10-12 — 实际中文发送按钮识别修复候选
+
+- 用户保存的 `Room/chatgpt-page-diagnostic.json`（20:20:06）显示发送按钮为 `aria-label="发送"`、无 `data-testid`、可见且未禁用。旧选择器遗漏该标签，错误返回发送按钮不可用。
+- 补充精确中文标签；最小 DOM 回归先返回 `false`（Red），修复后通过，完整 Room 桥接回归也通过。实际页面控件属性作为测试输入；未向真实账号发送测试消息。
+- 新产物及证据见 [本地实施记录](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)，documentation: updated。
+
+## 2026-10-12 — 富文本完整内容被误判的修复候选
+
+- 用户报告内容已完整写入，但 Room 报“网页输入内容未完整写入”。Electron 段落编辑器回归复现同一症状：`innerText` 把 `<p>` 之间的视觉间距变成额外换行，导致逐字符校验失败；尚未取得用户实际登录页面的 DOM。
+- 输入读取改为按文本节点、段落和换行读取，忽略编辑器占位换行；保留实际空段落及缩进，不通过删除所有空白放宽校验。该读取同时用于旧草稿识别、复用与发送检查。
+- 最小真实 DOM 测试和完整 Room 桥接回归通过。新候选目录为 `desktop/release-chatgpt-text-fix`，具体打包证据见 [本地实施记录](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。documentation: updated。
+
+## 2026-10-12 — Room 发送被残留草稿阻断的修复候选
+
+- 用户点击发送遇到“网页中有未发送内容”。回归在网页发送按钮暂不可用后直接从 Room 重试，复现同一报错：旧实现无条件拒绝所有非空输入，包含桥接自身上次写入的内容。
+- 发送准备现在复用相同 Room 草稿，或通过 Chromium 编辑选区替换旧 Room 草稿；保留网页手动草稿，消息回显确认后才清空 Room 输入。发送按钮不可用时明确提示可在 Room 重试。
+- 源码桌面回归通过，覆盖失败后重试只发送一次、任务上下文不重复、富文本旧草稿替换和确认后清空。独立修复包及验证证据见 [本地实施记录](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。documentation: updated。
+
+## 2026-10-12 — ChatGPT 独立窗口与输入识别修复候选
+
+- 用户实测已登录，但 Room 报告找不到输入框；同时 ChatGPT 与 Room 最小化联动。源码确认网页窗口配置了 `parent` 和 `modal: true`，且适配器仅匹配两个固定 ID。
+- 回归先得到 `independent=false / modal=true / ready=false`（Red），修复后窗口无父子绑定，双向最小化互不影响；输入框按发送按钮所属表单、已知控件和唯一可编辑区域识别，覆盖 textarea 与 contenteditable，并排除同页搜索框干扰。
+- 富文本测试实际出现 Chromium 将连续空格转换为 NBSP，导致发送内容比较失败；发送和回显确认统一空格表示后通过。同轮增加显式“保存页面诊断”，只保存页面路径与控件属性，便于真实账号页面仍不兼容时取证；脚本异常返回具体原因。
+- 源码桌面回归和类型检查通过。用户当前 Room 没有调试端口，未取得其已登录页面 DOM，因此第二项实际账号症状仍需修复版复测。候选打包至独立 `desktop/release-chatgpt-fix`，不覆盖正在运行的旧版本。documentation: updated。
+
+## 2026-10-12 — Room 讨论 UI 与网页桥接候选
+
+- 用户确认讨论窗口保持为 Room 自有界面，插件／页面桥接只负责网页内容搬运。本轮替换手动复制，接通发送、网页消息确认、回复同步、停止生成和选定回复采用。任务分别绑定网页会话，登录与文件上传仍在 Electron 内完成。
+- 真实 Electron 的 DOM 替身测试先失败于缺少输入框，再通过完整流程；新增双任务隔离、刷新不重发和正常退出证据，打包候选亦通过。类型检查、4 项规划/解析回归与既有桌面 smoke 通过。实际账号登录、推理、登录后网页适配及重启恢复待人工测试。详细证据见 [LOCAL_EXECUTION](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。
+- 文档同步 ADR-0007 §3.3、产品方案 §7、桌面操作路径与入口；documentation: updated。用户日常账号、快捷方式及 Git 提交未改动。
+
+## 2026-10-12 — 规划调用更正（进行中）
+
+- 用户进一步确认全部讨论必须在 Electron 内完成；外部 ChatGPT → MCP 方案未采用。现已实现任务内嵌官方 ChatGPT 网页、持久化独立 session、规划资料复制与方案草稿导入；SDD 服务端拒绝原生 Plan 调用。任务模式原生 Plan 保留。
+- 实际桌面测试发现并修复异步 `clipboard.readText()` 未等待，以及关闭窗口后释放 WebContentsView 导致进程退出的问题。源码与新打包 Room.exe 的隔离、导入、不自动执行和返回 Room 测试通过；账号登录与真实聊天仍待人工验证。当前细节见 [LOCAL_EXECUTION](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。documentation: updated。
+- 用户已回答：使用现有账号的 ChatGPT 普通聊天。此前账号/API 类型阻塞已解除；未选择 API 聊天模型。
+- 较早的方案阶段曾补充 Proposed 的普通 Chat → 规划 MCP → Room 方案回传流程；该建议已被上述 Electron 内讨论决定替代。
+
+- 用户要求普通规划调用 Chat，只有真正 Codex 原生 Plan 为例外；Work/Codex 的其余前期调用属于确认后的执行。已同步 ADR-0007 §3.3、产品交互方案及文档入口。
+- 实际检查发现 `WorkbenchPlanning.start()` 对 SDD 与任务模式均无条件调用 `startPlanTurn()`；讨论页统一显示原生 Plan。普通 Chat 连接尚不存在，因此更正前双模式验证与安装包不能证明本次目标完成。
+- 已询问 Chat 是 ChatGPT 普通聊天还是 API 聊天模型，以确定真实连接方式。此轮只更新目标、缺口与候选状态，未修改产品调用或创建会话；原生 Goal 保持进行中。documentation: updated。
+
+## 2026-10-12 — Electron 候选实现与旧入口清理
+
+- 最终候选已达到人工测试就绪：438/438 回归、类型检查、真实 Electron 交互、两种模式的有效行为 Red/Green 与独立 Review 通过。最终安装包完成安装/重装/卸载和数据保留验证；实际状态以 [最终交付检查](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md#最终本地交付检查2026-10-12) 为准。
+- 完成偏好/滚动/讨论草稿持久化、跨项目待办、旧记录读取、Diff 行意见、历史导出及窄窗口抽屉。`0x80000003` 尚未复现，已加仅本地诊断。用户人工测试入口见 [ROOM_DESKTOP](./ROOM_DESKTOP.md#当前候选的人工测试)。
+
+- 独立 Worker 持续实现完整目标；任务模式与 SDD 已在同一临时项目通过真实原生 Plan、Claude、Red/Green、独立 Review 与验收。详细事实见 [LOCAL_EXECUTION](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)，整体仍未达到人工测试就绪。
+- “切换为 SDD”沿用资料、讨论及方案历史，不自动执行。已通过存储回归和实际 Electron 操作。
+- 新入口已移除旧样式依赖，删除 31 个与 HEAD 一致、可恢复的旧 Tauri/CDP、旧页面及对应测试文件；保留未跟踪文件和目录。批量递归删除最初被自动审批拒绝，核实 Git 基线并改为仅删除已跟踪未修改文件后获准执行。
+- 同步桌面说明、运维与文档索引；历史交付记录保留。未修改用户日常快捷方式、profile 或真实 Room 数据库，未执行本仓库 Git 写操作。
+
 ## 2026-10-11 — 本地开发基线授权
 
 - 用户明确授权创建 `codex/electron-desktop-01`，仅提交本轮方案、五项 Skill 及相关入口文档；不包含 push。提交以暂存路径核对及 cached diff-check 为门禁，实际 commit 与工作区状态以 Git 为准。

@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import test from 'node:test';
+import { RoomService } from '../src/room/room-service.ts';
+import { ProjectRegistry } from '../src/ui/project-registry.ts';
+import { WorkbenchStore } from '../src/ui/workbench-store.ts';
+import { RoomUiApplication } from '../src/ui/application.ts';
+import { runRoomRun, type RunCliResult } from '../src/cli/run.ts';
+import { FakeClaudeProcess, makeSpawner } from './runner-fixtures/claude-process-fake.ts';
+import { EXECUTOR, PLANNER, WORKER, makeTask, makeAttemptSettle, makeCodingResult, makeQuestion } from './fixtures.ts';
+
+test('scope-changing answer creates a revised Run and carries confirmed changes while preserving the old directory', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'room-amendment-'));
+  const folder = join(root, 'project'); mkdirSync(folder);
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: folder, stdio: 'pipe' });
+  git('init', '-b', 'main'); git('config', 'user.name', 'Test'); git('config', 'user.email', 'test@example.invalid');
+  writeFileSync(join(folder, 'example.txt'), 'base'); git('add', '.'); git('commit', '-m', 'test: seed');
+  const dbPath = join(root, 'room.sqlite'); const db = new DatabaseSync(dbPath);
+  const registry = new ProjectRegistry(join(root, 'registry.json'));
+  registry.add({ project_id: 'project', name: 'Project', project_path: folder, database_path: dbPath, room_id: 'room-1', control_participant_id: 'codex-app', port: null });
+  const service = new RoomService(db); service.createRoom('room-1', PLANNER);
+  service.transitionToArchitectureReview('room-1', PLANNER); service.transitionToWaitingForUserConfirmation('room-1', PLANNER);
+  service.submitTask(makeTask({ verification: [] }), PLANNER);
+  service.claimRunAttempt({ room_id: 'room-1', run_id: 'run-1', attempt_id: 'attempt-1', worktree_path: folder }, EXECUTOR);
+  service.askQuestion(makeQuestion({ question: 'Expand scope?' }), WORKER);
+  service.settleRunAttempt(makeAttemptSettle({ status: 'needs_decision', result: makeCodingResult({ status: 'needs_decision' }) }), EXECUTOR);
+  service.answerQuestion('question-1', 'Include the new behavior', true, PLANNER);
+  writeFileSync(join(folder, 'example.txt'), 'existing partial implementation');
+  const store = new WorkbenchStore(db, 'room-1');
+  const task = store.save({ title: 'Expanded behavior', goal: 'Implement expanded behavior', mode: 'task', verification: 'standard', source_ids: [] });
+  store.update(task.id, { run_id: 'run-1', task_id: 'task-1' });
+  store.saveProposal(task.id, { text: 'Complete revised proposal', expected_version: 0, details: { requirements: ['Expanded behavior'], non_goals: [], architecture_decisions: [], scope: ['example.txt'], constraints: [], acceptance_criteria: ['Expanded behavior works'], verification: [], documentation_updates: [], question_policy: 'Ask before scope changes' } });
+  let launchedRun = '';
+  let completion: Promise<RunCliResult> | undefined;
+  const application = new RoomUiApplication(registry, { checkRunner: async () => {}, runOneShot: async (config) => {
+    launchedRun = config.runId;
+    const child = new FakeClaudeProcess();
+    const { spawner } = makeSpawner(child);
+    completion = (async () => {
+      const noSpawn = () => { assert.fail('Rejected carry must not launch a process'); };
+      await assert.rejects(runRoomRun({ ...config, approvedInitialWorktree: undefined }, noSpawn), /worktree has/);
+      writeFileSync(join(config.project, 'example.txt'), 'unconfirmed edit');
+      await assert.rejects(runRoomRun(config, noSpawn), /已确认带入/);
+      assert.equal(service.listAttemptsByRun(config.runId).length, 0);
+      writeFileSync(join(config.project, 'example.txt'), 'new external edit');
+      return runRoomRun(config, (...args) => {
+      assert.equal(readFileSync(join(config.project, 'example.txt'), 'utf8'), 'new external edit');
+      const process = spawner(...args);
+      setImmediate(() => {
+        child.emit('spawn');
+        child.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'revised-session', tools: ['mcp__agent_room__room_ask_question'], mcp_servers: [{ name: 'agent_room' }] }) + '\n');
+        child.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, session_id: 'revised-session', structured_output: makeCodingResult({ task_id: service.latestTaskForRun(config.runId)!.task_id }) }) + '\n');
+        child.emit('close', 0, null);
+      });
+      return process;
+      });
+    })();
+    return completion;
+  } });
+  const execution = application.execution;
+  try {
+    const preview = await execution.preview('project', task.id);
+    assert.notEqual(preview.worktree_path, folder);
+    assert.deepEqual(preview.carried_changes, ['example.txt']);
+    writeFileSync(join(folder, 'example.txt'), 'new external edit');
+    await assert.rejects(execution.start('project', task.id, { preview_id: preview.preview_id, confirmed_by_user: true }), /改动/);
+    assert.equal(launchedRun, '');
+    const fresh = await execution.preview('project', task.id);
+    mkdirSync(fresh.worktree_path, { recursive: true });
+    writeFileSync(join(fresh.worktree_path, 'occupied.txt'), 'Existing directory');
+    await assert.rejects(execution.start('project', task.id, { preview_id: fresh.preview_id, confirmed_by_user: true }));
+    assert.equal(store.get(task.id).carry_from_run_id, 'run-1');
+    assert.equal(launchedRun, '');
+    rmSync(fresh.worktree_path, { recursive: true });
+    const recovery = await execution.preview('project', task.id);
+    await execution.start('project', task.id, { preview_id: recovery.preview_id, confirmed_by_user: true });
+    const result = await completion!;
+    assert.equal(result.attempt.status, 'succeeded', JSON.stringify(result.attempt.failure));
+    assert.notEqual(launchedRun, 'run-1');
+    assert.equal(readFileSync(join(fresh.worktree_path, 'example.txt'), 'utf8'), 'new external edit');
+    assert.equal(readFileSync(join(folder, 'example.txt'), 'utf8'), 'new external edit');
+    assert.deepEqual(store.get(task.id).prior_run_ids, ['run-1']);
+    assert.equal(service.getRun('run-1')?.status, 'needs_decision');
+    assert.equal(service.listAttemptsByRun('run-1').length, 1);
+  } finally { await application.close(); db.close(); rmSync(root, { recursive: true, force: true }); }
+});

@@ -8,7 +8,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 测试侧 literal 声明已冻结的 Scope boundary，避免与 future implementation 同源。
 const allowedTopLevelModules = new Set(['git', 'protocol', 'room', 'runner', 'mcp', 'cli', 'scheduler', 'ui']);
-const allowedUiFiles = new Set(['application.ts', 'project-registry.ts', 'http-server.ts', 'serve.ts']);
+const allowedUiFiles = new Set(['application.ts', 'project-registry.ts', 'http-server.ts', 'serve.ts',
+  'agent-connections.ts', 'codex-client.ts', 'desktop-processes.ts', 'desktop-service.ts', 'managed-mcp.ts',
+  'proposal.ts', 'source-reading.ts', 'workbench-delivery.ts', 'workbench-execution.ts', 'workbench-planning.ts',
+  'workbench-recovery.ts', 'workbench-review.ts', 'workbench-store.ts']);
 const allowedSchedulerFiles = new Set(['plan-scheduler.ts']);
 // v0.4：runner 边界新增 Executor/WorkerAdapter seam 两个文件；Stage 2 只允许这两个新模块。
 const allowedRunnerFiles = new Set([
@@ -17,6 +20,7 @@ const allowedRunnerFiles = new Set([
   'claude-runner.ts',
   'executor.ts',
   'worker-adapter.ts',
+  'verification.ts',
 ]);
 const allowedMcpFiles = new Set(['http.ts', 'tools.ts', 'serve.ts']);
 const allowedCliFiles = new Set(['status.ts', 'run.ts', 'git.ts']);
@@ -28,7 +32,8 @@ const allowedRoomFiles = new Set([
   'state-snapshot.ts',
 ]);
 const allowedPluginEntries = new Set(['agent-room']);
-const allowedAgentsEntries = new Set(['plugins']);
+const allowedAgentsEntries = new Set(['plugins', 'skills']);
+const allowedDevelopmentSkills = new Set(['frontend-design', 'playwright-cli', 'ui-ux-pro-max', 'vercel-composition-patterns', 'vercel-react-best-practices']);
 const allowedMarketplaceEntries = new Set(['marketplace.json']);
 // Increment 8：plugin 树恰好是 manifest + 唯一 Skill authority + setup reference + Skill-owned
 // deterministic setup helper（无 package manifest、无第二 Skill、无运行时生成物）。
@@ -87,6 +92,7 @@ test('approved Git Controller and Room UI boundaries reject extra modules, plugi
   // Skill-owned setup helper），内部措辞细节由 plugin-packaging.test.ts 锁定。
   assertDirEntries(join(root, 'plugins'), allowedPluginEntries);
   assertDirEntries(join(root, '.agents'), allowedAgentsEntries);
+  assertDirEntries(join(root, '.agents', 'skills'), allowedDevelopmentSkills);
   assertDirEntries(join(root, '.agents', 'plugins'), allowedMarketplaceEntries);
   assert.deepEqual(
     collectRelativeFiles(join(root, 'plugins', 'agent-room')),
@@ -99,7 +105,7 @@ test('approved Git Controller and Room UI boundaries reject extra modules, plugi
     devDependencies: Record<string, string>;
   };
   assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['@modelcontextprotocol/sdk', 'zod']);
-  assert.deepEqual(Object.keys(pkg.devDependencies).sort(), ['@types/express', '@types/node', 'typescript']);
+  assert.deepEqual(Object.keys(pkg.devDependencies).sort(), ['@types/express', '@types/node', 'electron', 'electron-builder', 'playwright', 'typescript']);
 });
 
 test('Git mutation grammar stays inside Git Controller and excludes banned operations', () => {

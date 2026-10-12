@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { delimiter, dirname, join } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { runRoomRun } from '../cli/run.ts';
 import { GitController, previewGitActionInputSchema } from '../git/git-controller.ts';
@@ -22,6 +22,17 @@ import { RoomService } from '../room/room-service.ts';
 import { getRoomStateSnapshot } from '../room/state-snapshot.ts';
 import { PlanScheduler } from '../scheduler/plan-scheduler.ts';
 import { ProjectRegistry, type UiProject } from './project-registry.ts';
+import { WorkbenchStore, workbenchSettingsSchema } from './workbench-store.ts';
+import { WorkbenchPlanning } from './workbench-planning.ts';
+import { ManagedMcp } from './managed-mcp.ts';
+import { WorkbenchExecution } from './workbench-execution.ts';
+import { WorkbenchReview } from './workbench-review.ts';
+import { WorkbenchDelivery } from './workbench-delivery.ts';
+import { readSource, sourceLocation } from './source-reading.ts';
+import { VerificationRunner } from '../runner/verification.ts';
+import { DesktopProcesses, type ProcessEntry } from './desktop-processes.ts';
+import { WorkbenchRecovery } from './workbench-recovery.ts';
+import { AgentConnections } from './agent-connections.ts';
 
 const id = z.string().min(1);
 const timestamp = z.string().datetime({ offset: true });
@@ -75,7 +86,7 @@ const roleAssignmentInput = z.object({
   assignment_id: id, scope_type: roleAssignmentScopeSchema, scope_id: id.nullable(), role: roleSchema,
   participant_id: id, created_at: timestamp.optional(),
 }).strict();
-const openVscodeInput = z.object({ run_id: id.optional() }).strict();
+const openVscodeInput = z.object({ run_id: id.optional(), file: id.optional() }).strict();
 
 export interface LaunchState {
   project_id: string;
@@ -90,6 +101,8 @@ export interface LaunchState {
 export interface RoomUiApplicationDeps {
   runOneShot?: typeof runRoomRun;
   openVscode?: (target: string) => Promise<void>;
+  checkRunner?: () => Promise<void>;
+  readProcesses?: () => Promise<ProcessEntry[]>;
 }
 
 function now(): string {
@@ -130,18 +143,135 @@ function parseWorktrees(output: string): Array<{ path: string; head: string | nu
 
 export class RoomUiApplication {
   readonly registry: ProjectRegistry;
+  readonly planning: WorkbenchPlanning;
+  readonly execution: WorkbenchExecution;
+  readonly review: WorkbenchReview;
+  readonly delivery: WorkbenchDelivery;
+  readonly recovery: WorkbenchRecovery;
+  readonly agents = new AgentConnections();
+  private readonly managedMcp = new ManagedMcp();
   private readonly runOneShot: typeof runRoomRun;
   private readonly openVscodeProcess: (target: string) => Promise<void>;
   private readonly launches = new Map<string, LaunchState>();
+  private readonly pendingLaunches = new Map<string, Promise<void>>();
 
   constructor(registry: ProjectRegistry, deps: RoomUiApplicationDeps = {}) {
     this.registry = registry;
+    this.planning = new WorkbenchPlanning(registry);
+    this.review = new WorkbenchReview(registry);
+    this.delivery = new WorkbenchDelivery(registry);
+    this.recovery = new WorkbenchRecovery(registry, deps.readProcesses);
+    this.execution = new WorkbenchExecution(registry, {
+      launch: (projectId, runId) => this.launchWorkbenchRun(projectId, runId),
+      assertPlanningIdle: (projectId, taskId) => this.planning.assertIdle(projectId, taskId),
+      isLaunchActive: (projectId, runId) => this.listLaunches(projectId).some((launch) => launch.run_id === runId && ['starting', 'running'].includes(launch.status)),
+      checkRunner: deps.checkRunner,
+    });
     this.runOneShot = deps.runOneShot ?? runRoomRun;
     this.openVscodeProcess = deps.openVscode ?? openVscodeDefault;
   }
 
   listProjects(): ReturnType<ProjectRegistry['diagnostics']> {
     return this.registry.diagnostics();
+  }
+
+  openProject(input: unknown): { needs_creation: boolean; project: UiProject | null } {
+    const parsed = z.object({ project_path: z.string().min(1), confirm_create: z.literal(true).optional() }).strict().parse(input);
+    if (!isAbsolute(parsed.project_path) || !statSync(parsed.project_path).isDirectory()) throw new Error('请选择有效的项目目录');
+    const path = resolve(parsed.project_path);
+    const existing = this.registry.list().find((project) => resolve(project.project_path).toLowerCase() === path.toLowerCase());
+    if (existing) return { needs_creation: false, project: existing };
+    if (existsSync(join(path, '.agent-room', 'runtime.json'))) return { needs_creation: false, project: this.registry.importRuntime(path) };
+    const databasePath = join(path, '.agent-room', 'room.sqlite');
+    if (existsSync(databasePath)) {
+      const db = new DatabaseSync(databasePath, { readOnly: true });
+      try {
+        const rooms = db.prepare('SELECT room_id FROM rooms').all();
+        if (rooms.length !== 1) throw new Error('此数据库包含多个或没有 Room，请使用明确的项目绑定');
+        return { needs_creation: false, project: this.registry.add({ name: basename(path), project_path: path, database_path: databasePath,
+          room_id: String(rooms[0].room_id), control_participant_id: 'codex-app', port: null }) };
+      } finally { db.close(); }
+    }
+    if (!parsed.confirm_create) return { needs_creation: true, project: null };
+    const project = this.registry.add({ name: basename(path), project_path: path,
+      database_path: join(path, '.agent-room', 'room.sqlite'), room_id: `room-${randomUUID()}`,
+      control_participant_id: 'codex-app', port: null });
+    try {
+      this.createRoom(project.project_id, { confirm_create: true });
+    } catch (error) {
+      this.registry.remove(project.project_id);
+      throw error;
+    }
+    return { needs_creation: false, project };
+  }
+
+  workbench(projectId: string, resource: string, method: string, body?: unknown, entityId?: string): unknown {
+    const project = this.registry.get(projectId);
+    if (!existsSync(project.database_path)) throw new Error(`database does not exist: ${project.database_path}`);
+    const db = new DatabaseSync(project.database_path);
+    try {
+      new RoomService(db).assertRoomParticipant(project.room_id, project.control_participant_id);
+      const store = new WorkbenchStore(db, project.room_id);
+      if (resource === 'chatgpt' && entityId && method === 'GET') return store.chatgptContext(entityId);
+      if (resource === 'chatgpt' && entityId && method === 'POST') {
+        const input = z.object({ url: z.string() }).strict().parse(body);
+        store.saveChatgptUrl(entityId, input.url); return { saved: true };
+      }
+       if (resource === 'chatgpt-proposal' && entityId && method === 'POST') return { task: store.importChatgptProposal(entityId, body) };
+       if (resource === 'chatgpt-output' && entityId && method === 'POST') return store.consumeChatgptOutput(entityId, body);
+      if (resource === 'settings' && method === 'GET') return { settings: store.settings() };
+      if (resource === 'settings' && method === 'POST') {
+        const input = workbenchSettingsSchema.extend({ name: z.string().trim().min(1) }).parse(body);
+        const { name, ...settings } = input;
+        store.saveSettings(settings);
+        this.registry.rename(projectId, name);
+        return { settings };
+      }
+      if (resource === 'manage' && entityId && method === 'POST') {
+        this.planning.assertIdle(projectId, entityId);
+        this.execution.assertIdle(projectId, entityId);
+        const task = store.get(entityId);
+        if (task.run_id && new VerificationRunner(db, new RoomService(db)).list(project.room_id, task.run_id).some((item) => !item.completed_at)) throw new Error('验证尚未结束，请先等待验证完成');
+        if (task.run_id && this.listLaunches(projectId).some((launch) => launch.run_id === task.run_id && ['starting', 'running'].includes(launch.status))) throw new Error('请先停止活动执行');
+        if (this.review.status(projectId, entityId)?.status === 'running') throw new Error('请等待当前审阅完成');
+        return { task: store.manage(entityId, body) };
+      }
+      if (resource === 'proposal' && entityId && method === 'GET') return { versions: store.proposalHistory(entityId) };
+      if (resource === 'proposal' && entityId && method === 'POST') return { task: store.saveProposal(entityId, body) };
+      if (resource === 'tasks' && method === 'GET') return { tasks: store.list() };
+      if (resource === 'tasks' && method === 'POST') return { task: store.save(body) };
+      if (resource === 'sources' && method === 'GET') return { sources: store.sources() };
+      if (resource === 'sources' && method === 'POST') return { source: store.saveSource(body) };
+      if (resource === 'sources' && method === 'DELETE' && entityId) {
+        store.removeSource(entityId);
+        return { removed: true };
+      }
+      throw new Error('workbench route not found');
+    } finally { db.close(); }
+  }
+
+  async sourceAction(projectId: string, sourceId: string, action: string): Promise<unknown> {
+    const project = this.registry.get(projectId);
+    if (!existsSync(project.database_path)) throw new Error('项目数据库不存在');
+    const db = new DatabaseSync(project.database_path);
+    try {
+      new RoomService(db).assertRoomParticipant(project.room_id, project.control_participant_id);
+      const store = new WorkbenchStore(db, project.room_id);
+      const source = store.source(sourceId);
+      if (action === 'read') {
+        const reading = await readSource(project.project_path, source.location);
+        store.recordSourceReading(sourceId, source.location, reading);
+        return { reading };
+      }
+      if (action === 'open') {
+        const target = sourceLocation(project.project_path, source.location);
+        if (/^https?:\/\//i.test(target)) return { url: target };
+        if (!existsSync(target)) throw new Error('来源文件不存在，请更正位置');
+        await this.openVscodeProcess(target);
+        return { opened: true };
+      }
+      throw new Error('source action not found');
+    } finally { db.close(); }
   }
 
   addProject(input: unknown): UiProject {
@@ -158,6 +288,23 @@ export class RoomUiApplication {
   }
 
   removeProject(projectId: string): void {
+    const project = this.registry.get(projectId);
+    if (this.listLaunches(projectId).some((launch) => ['starting', 'running'].includes(launch.status))) throw new Error('请先停止该项目的执行，再移除绑定');
+    if (existsSync(project.database_path)) {
+      const db = new DatabaseSync(project.database_path);
+      try {
+        const service = new RoomService(db);
+        const store = new WorkbenchStore(db, project.room_id);
+        for (const task of store.list()) {
+          this.planning.assertIdle(projectId, task.id); this.execution.assertIdle(projectId, task.id);
+          if (this.review.status(projectId, task.id)?.status === 'running') throw new Error('请等待项目审阅完成');
+        }
+        const verifier = new VerificationRunner(db, service);
+        for (const run of service.listRuns(project.room_id)) {
+          if (service.activeAttemptForRun(run.run_id) || verifier.list(project.room_id, run.run_id).some((item) => !item.completed_at)) throw new Error('项目有活动或待恢复执行，请先处理再移除绑定');
+        }
+      } finally { db.close(); }
+    }
     this.registry.remove(projectId);
   }
 
@@ -220,10 +367,11 @@ export class RoomUiApplication {
     };
   }
 
-  startRun(projectId: string, input: unknown): LaunchState {
+  startRun(projectId: string, input: unknown, managedPort?: number): LaunchState {
     const project = this.registry.get(projectId);
     const parsed = z.object({ run_id: id, attempt_id: id.optional() }).strict().parse(input);
-    if (project.port === null) throw new Error('project port is required to launch the existing MCP-bound runner');
+    const port = managedPort ?? project.port;
+    if (port === null) throw new Error('project port is required to launch the existing MCP-bound runner');
     const run = this.withService(projectId, (_selected, service) => {
       const candidate = service.getRun(parsed.run_id);
       if (!candidate) throw new ProtocolError('entity_not_found', `run ${parsed.run_id} not found`);
@@ -247,14 +395,42 @@ export class RoomUiApplication {
       error: null,
     };
     this.launches.set(key, launch);
-    const mcpUrl = `http://127.0.0.1:${project.port}/mcp/participants/p~${encodeURIComponent(run.worker_participant_id)}`;
+    const mcpUrl = `http://127.0.0.1:${port}/mcp/participants/p~${encodeURIComponent(run.worker_participant_id)}`;
+    const recordProcess = (pid: number | null) => {
+      const db = new DatabaseSync(project.database_path);
+      try { new DesktopProcesses(db).record(`attempt:${launch.attempt_id}`, project.room_id, run.run_id, pid); }
+      finally { db.close(); }
+    };
+    recordProcess(null);
+    const carryDb = new DatabaseSync(project.database_path);
+    let approvedInitialWorktree;
+    try {
+      approvedInitialWorktree = new WorkbenchStore(carryDb, project.room_id).list()
+        .find((task) => task.run_id === run.run_id)?.approved_initial_worktree;
+    } finally { carryDb.close(); }
     launch.status = 'running';
-    void this.runOneShot({
+    const pending = this.runOneShot({
       db: project.database_path,
       project: run.worktree_path ?? project.project_path,
       runId: run.run_id,
       attemptId: launch.attempt_id,
       mcpUrl,
+      ...(approvedInitialWorktree ? { approvedInitialWorktree } : {}),
+      ...(managedPort === undefined ? {} : { artifactDirectory: join(dirname(project.database_path), 'artifacts') }),
+    }, (command, args, options) => {
+      const child = spawn(command, [...args], { ...options, windowsHide: true });
+      recordProcess(child.pid ?? null);
+      if (managedPort !== undefined) {
+        const directory = join(dirname(project.database_path), 'artifacts', launch.attempt_id);
+        mkdirSync(directory, { recursive: true });
+        for (const [stream, name] of [[child.stdout, 'stdout.jsonl'], [child.stderr, 'stderr.log']] as const) {
+          stream?.on('data', (chunk) => {
+            try { appendFileSync(join(directory, name), chunk); }
+            catch (error) { console.error('Cannot preserve desktop execution log:', error); child.kill(); }
+          });
+        }
+      }
+      return child;
     }).then((result) => {
       launch.status = result.attempt.status === 'failed' || result.attempt.status === 'interrupted' ? 'failed' : 'completed';
       launch.error = result.attempt.failure?.message ?? null;
@@ -263,13 +439,65 @@ export class RoomUiApplication {
       launch.status = 'failed';
       launch.completed_at = now();
       launch.error = error instanceof Error ? error.message : String(error);
-    });
+    }).finally(() => { this.pendingLaunches.delete(key); });
+    this.pendingLaunches.set(key, pending);
     return launch;
   }
 
   listLaunches(projectId: string): LaunchState[] {
     this.registry.get(projectId);
     return [...this.launches.values()].filter((launch) => launch.project_id === projectId);
+  }
+
+  async launchWorkbenchRun(projectId: string, runId: string): Promise<LaunchState> {
+    const project = this.registry.get(projectId);
+    const verifier = await this.managedMcp.verifier(project);
+    if (verifier.isActive(runId)) throw new Error('请等待本任务的验证命令结束后再执行');
+    const port = await this.managedMcp.port(project);
+    return this.startRun(projectId, { run_id: runId }, port);
+  }
+
+  async runVerification(projectId: string, taskId: string, raw: unknown): Promise<unknown> {
+    const input = z.object({ command_index: z.number().int().nonnegative() }).strict().parse(raw);
+    const project = this.registry.get(projectId);
+    const task = this.withService(projectId, (_project, service) => {
+      service.assertRoomParticipant(project.room_id, project.control_participant_id);
+      const db = new DatabaseSync(project.database_path);
+      try { const store = new WorkbenchStore(db, project.room_id); const task = store.get(taskId); store.assertEditable(task); return task; } finally { db.close(); }
+    });
+    if (!task.run_id) throw new Error('任务尚未执行');
+    if (this.listLaunches(projectId).some((launch) => launch.run_id === task.run_id && ['starting', 'running'].includes(launch.status))) throw new Error('执行器正在运行，请等待停止后再手动验证');
+    const verifier = await this.managedMcp.verifier(project);
+    return verifier.runManual(project.control_participant_id, { room_id: project.room_id, run_id: task.run_id, command_index: input.command_index });
+  }
+
+  async close(): Promise<void> {
+    this.agents.close();
+    this.planning.close();
+    this.review.close();
+    await this.managedMcp.close();
+  }
+
+  async stopOwnedRuns(): Promise<void> {
+    for (const launch of this.launches.values()) {
+      if (launch.status !== 'starting' && launch.status !== 'running') continue;
+      // Launch preflight precedes the Attempt claim; wait for that owned operation before cancellation.
+      while (['starting', 'running'].includes(launch.status) && !this.withService(launch.project_id, (_project, service) => service.activeAttemptForRun(launch.run_id))) {
+        await Promise.race([this.pendingLaunches.get(`${launch.project_id}:${launch.run_id}`)!, new Promise((resolve) => setTimeout(resolve, 25))]);
+      }
+      if (!['starting', 'running'].includes(launch.status)) continue;
+      this.withService(launch.project_id, (project, service) => {
+        const run = service.getRun(launch.run_id);
+        if (!run || !['ready', 'running', 'needs_decision'].includes(run.status)) return;
+        service.cancelRun({ room_id: project.room_id, run_id: run.run_id, reason: '用户选择停止任务并退出 Room', confirmed_by_user: true },
+          this.actor(service, project, 'planner'));
+      });
+    }
+    await this.managedMcp.stopVerifications();
+    await Promise.all(this.pendingLaunches.values());
+  }
+  async desktopActivity(): Promise<unknown> {
+    return { launches: [...this.launches.values()].filter((launch) => ['starting', 'running'].includes(launch.status)), verifications: await this.managedMcp.activeVerifications() };
   }
 
   async openVscode(projectId: string, input: unknown): Promise<{ target: string }> {
@@ -284,6 +512,13 @@ export class RoomUiApplication {
         if (!run.worktree_path) throw new ProtocolError('validation_failed', `run ${parsed.run_id} has no worktree`);
         return run.worktree_path;
       });
+    }
+    if (parsed.file) {
+      const selected = resolve(target, parsed.file);
+      const path = relative(target, selected);
+      if (isAbsolute(parsed.file) || path === '..' || path.startsWith(`..${sep}`) || isAbsolute(path)) throw new Error('文件必须位于所选工作目录内');
+      if (!existsSync(selected)) throw new Error('文件已删除或不存在，请在变更页查看其 Diff');
+      target = selected;
     }
     await this.openVscodeProcess(target);
     return { target };
