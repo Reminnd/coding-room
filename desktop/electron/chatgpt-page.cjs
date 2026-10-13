@@ -106,7 +106,8 @@ function chatgptPage(action, expectedText) {
     const owner = element.closest('[data-message-author-role], [data-turn="user"], [data-turn="assistant"]');
     const role = owner?.getAttribute('data-message-author-role') ?? owner?.getAttribute('data-turn') ?? (element.classList.contains('rich-text-user-turn') ? 'user' : 'assistant');
     const content = element.querySelector('.markdown') ?? element;
-    const raw = role === 'user' ? editorText(element.querySelector('.whitespace-pre-wrap') ?? element) : markdown(content).trim();
+    const userContent = element.matches('[class*="MarkdownRoot-"]') ? element : element.querySelector('div.whitespace-pre-wrap') ?? element;
+    const raw = role === 'user' ? editorText(userContent) : markdown(content).trim();
     const marker = '\n[Room user message]\n';
     const text = role === 'user' && raw.startsWith('[Room task context]\n') && raw.includes(marker) ? raw.slice(raw.lastIndexOf(marker) + marker.length) : raw;
     return { id: (owner ?? element).getAttribute('data-message-id') ?? ((owner ?? element).id || `${role}-${index}`), role, text, raw };

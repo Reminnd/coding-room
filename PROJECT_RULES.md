@@ -1,5 +1,7 @@
 # Agent Room 项目共享规范
 
+2026-10-13 当前交付：用户已指定现有 Electron 工作台及 ChatGPT 同步修复为 **v1.0.0 完成版**；状态和安装入口见 [Room desktop](./docs/documents/ROOM_DESKTOP.md)。下文此前的候选与等待接受描述属于历史阶段；本次版本标记不表示已合并 main。
+
 > 状态：Current  
 > 生效日期：2026-08-23  
 > 当前阶段：Increment 16=`accepted_and_integrated`，terminal SHA=`5a5ad734a5a5cbe0fffa02a628a505f0f108c363`；[closure](./docs/documents/INCREMENT_16_CLOSURE.md) 保存 Review、CI、main 与归档证据。Room UI 已在 `8bc2110` 整合并归档，见 [交付记录](./docs/documents/ROOM_UI_REVIEW.md)，本次用户委托 Local Codex 持续完成实现、Review、修复与 Git 交付，无需逐轮确认。

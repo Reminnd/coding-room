@@ -21,6 +21,7 @@ send.onclick=()=>{
  main.append(user);if(input.tagName==='TEXTAREA')input.value='';else input.textContent='';send.disabled=true;
  const stop=document.createElement('button');stop.setAttribute('aria-label','停止');stop.textContent='Stop';document.body.append(stop);
  const reply=document.createElement('div');reply.className='MarkdownRoot-rZKhxa';main.append(reply);
+ if(delayed)setTimeout(()=>main.querySelectorAll('[data-history]').forEach(node=>node.remove()),9000);
  const stream=setTimeout(()=>{reply.innerHTML='<div class="markdown"><p>正在整理规格…</p></div>';},delayed?10000:900);
  const timer=setTimeout(()=>{
  reply.innerHTML='<div class="markdown"><h2>Bridge proposal</h2><p>Keep execution behind confirmation.</p><div class="CodeBlock-zu1QM3"><div class="InlineCodePane-EYx4bd"><code class="CodeContent-ybJ8Tl"></code></div></div></div>';
@@ -31,9 +32,10 @@ send.onclick=()=>{
 };</script></body></html>`;
 const root=mkdtempSync(join(tmpdir(),'room-chatgpt-bridge-'));
 const project=join(root,'project');mkdirSync(project);
-let instance;
+let instance, processHandle;
 try {
  instance=await electron.launch({...(process.env.ROOM_TEST_EXECUTABLE?{executablePath:process.env.ROOM_TEST_EXECUTABLE,args:[]}:{args:['.']}),env:{...process.env,ROOM_USER_DATA:join(root,'profile')},timeout:60000});
+ processHandle=instance.process();
  const page=await instance.firstWindow();page.setDefaultTimeout(15000);
  await page.getByRole('heading',{name:'从一个项目开始'}).waitFor();
  await instance.evaluate(({dialog,session},{project,fixture})=>{
@@ -138,7 +140,8 @@ try {
     send.removeAttribute('data-testid');send.setAttribute('aria-label','发送');
     input.innerText='[Room task context]\\nOld context\\n[Room user message]\\nOld Room draft';
     input.dataset.paragraphs='true';
-    const oldReply=document.createElement('div');oldReply.dataset.turn='assistant';oldReply.dataset.messageId='old-reply';oldReply.textContent='此前的回复';main.append(oldReply);
+    const oldUser=document.createElement('div');oldUser.className='MarkdownRoot-rZKhxa rich-text-user-turn';oldUser.dataset.history='true';oldUser.textContent='此前的问题';main.append(oldUser);
+    const oldReply=document.createElement('div');oldReply.dataset.turn='assistant';oldReply.dataset.history='true';oldReply.textContent='此前的回复';main.append(oldReply);
     let paragraphTimer;
     input.addEventListener('input',()=>{
       clearTimeout(paragraphTimer);
@@ -152,7 +155,7 @@ try {
  await page.getByRole('button',{name:'发送',exact:true}).click();
  await page.getByText(/尚未确认网页发送结果/).waitFor();
  const sendDiagnostic=JSON.parse(readFileSync(join(root,'profile','chatgpt-send-diagnostic.json'),'utf8'));
- assert.ok(sendDiagnostic.messageNodes.some(node=>node.id==='old-reply'));
+ assert.ok(sendDiagnostic.messageNodes.some(node=>node.turn==='assistant'));
  assert.ok(sendDiagnostic.messageNodes.every(node=>!('text' in node)&&!('raw' in node)));
  assert.equal(await page.getByRole('textbox',{name:'讨论内容',exact:true}).inputValue(),'第二个任务的消息','Old replies must not confirm a new send');
  await page.waitForFunction(()=>document.querySelector('textarea[aria-label="讨论内容"]')?.value==='');
@@ -169,10 +172,10 @@ try {
  await page.getByRole('button',{name:'对话',exact:true}).click();
  await page.getByText('请形成规格与方案',{exact:true}).waitFor();
  assert.equal(await page.getByText('第二个任务的消息',{exact:true}).count(),0);
- const exited=new Promise(resolve=>instance.process().once('exit',(code)=>resolve(code)));
+ const exited=new Promise(resolve=>processHandle.once('exit',(code)=>resolve(code)));
  await page.evaluate(()=>{void window.roomDesktop.quit();});
  assert.equal(await Promise.race([exited,new Promise((_,reject)=>setTimeout(()=>reject(new Error('App quit timed out')),10000))]),0);
  writeFileSync(join(root,'report.json'),JSON.stringify({bridge_passed:true,native_composer:true,independent_windows:true,independent_minimize:true,semantic_composer:true,contenteditable_composer:true,structured_import:true,task_isolation:true,stop_generation:true,normal_exit:true,no_execution:true,authenticated_chat_tested:false},null,2));
  console.log('PASS: Room composer, webpage send, streamed reply, structured import, login recovery and reload. Evidence:',root);
 }catch(error){console.error('Bridge failed:',error,root);if(instance){console.error(await(await instance.firstWindow()).locator('body').innerText().catch(()=>''));console.error(await instance.evaluate(async({webContents})=>Promise.all(webContents.getAllWebContents().filter(w=>w.getURL().startsWith('https://chatgpt.com')).map(w=>w.executeJavaScript('Array.from(document.querySelectorAll("[contenteditable]")).map(e=>({start:e.innerText.slice(0,180),end:e.innerText.slice(-100),html:e.innerHTML.slice(0,300)}))')))).catch(()=>[]));}throw error;}
-finally{if(instance&&instance.process().exitCode===null){await instance.evaluate(({app})=>app.exit()).catch(()=>{});await instance.close();}}
+finally{if(instance&&processHandle?.exitCode===null){await instance.evaluate(({app})=>app.exit()).catch(()=>{});await instance.close();}}

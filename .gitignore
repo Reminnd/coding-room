@@ -23,5 +23,7 @@ desktop/release-chatgpt-button-fix/
 desktop/release-chatgpt-discussion/
 desktop/release-chatgpt-confirm-fix/
 desktop/release-chatgpt-message-fix/
+desktop/release-chatgpt-turn-fix/
+desktop/release-v1.0.0/
 desktop/release-chatgpt-diagnostic/
 .playwright-cli/

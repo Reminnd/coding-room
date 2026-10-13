@@ -47,7 +47,7 @@ function installChatgpt(parent, origin) {
     const view = new WebContentsView({ webPreferences: { partition: 'persist:room-chatgpt', sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     const entry = { window: win, view, path, version: context.expected_version, pendingText: null, sending: false, error: null,
       stopped: false, candidate: null, processed: null, output: null, saving: false, outputError: null,
-      pendingIds: [], pendingValue: null, confirmedText: null };
+      pendingMessages: [], pendingValue: null, confirmedText: null };
     toolbars.set(win.webContents.id, entry);
     const resize = () => { const [width, height] = win.getContentSize(); view.setBounds({ x: 0, y: 112, width, height: Math.max(0, height - 112) }); };
     win.contentView.addChildView(view); win.on('resize', resize);
@@ -87,7 +87,10 @@ function installChatgpt(parent, origin) {
     const state = await page(entry, 'read');
     const normalize = text => text.replace(/\r\n/g, '\n').replace(/\u00a0/g, ' ').trim();
     if (entry.pendingText) {
-      const fresh = state.messages.filter(message => !entry.pendingIds.includes(message.id));
+      // Position-based DOM IDs can be reused when the webpage drops older turns.
+      // Compare the rendered content against the pre-send snapshot instead.
+      const fresh = state.messages.filter(message => !entry.pendingMessages.some(previous =>
+        previous.role === message.role && previous.raw === message.raw));
       const echoed = fresh.some(message => message.role === 'user' && normalize(message.raw) === normalize(entry.pendingText));
       // A newly rendered reply after our click, with the composer cleared, also
       // confirms receipt when the website abbreviates or reformats the user echo.
@@ -132,7 +135,7 @@ function installChatgpt(parent, origin) {
         entry.stopped = false; entry.output = null; entry.outputError = null;
         entry.version = context.expected_version;
         if (prepared !== 'reuse') await entry.view.webContents.insertText(text);
-        entry.pendingIds = (await page(entry, 'read')).messages.map(message => message.id);
+        entry.pendingMessages = (await page(entry, 'read')).messages;
         entry.pendingValue = value.trim(); entry.confirmedText = null;
         let clicked = false;
         for (let attempt = 0; attempt < 20 && !clicked; attempt++) {

@@ -18,6 +18,9 @@ try {
   assert.equal(modern.messages[0].text,'用户消息');
   assert.match(modern.messages[1].text,/```json\n\{"room_task"/);
   assert.match(modern.messages[1].text,/```json\n\{"room_questions"/);
+  await page.setContent('<main><div class="MarkdownRoot-rZKhxa rich-text-user-turn"><p>[Room task context]\nContext</p><span class="block whitespace-pre-wrap">\n</span><p>[Room user message]\nA、A、A</p></div></main>');
+  const answer = await page.evaluate(source=>(0,eval)('('+source+')')('read'),adapter.chatgptPage.toString());
+  assert.equal(answer.messages[0].text,'A、A、A','Read the entire user message, not its blank whitespace span');
   const expected = '[Room task context]\nContext\n\n[Room user message]\n代码：\n  first()\n\n  second()';
   for (const tag of ['p', 'div']) {
     await page.setContent('<div role="textbox" aria-label="询问 ChatGPT" contenteditable="true" style="white-space:pre-wrap"></div><button aria-label="发送">Send</button>');

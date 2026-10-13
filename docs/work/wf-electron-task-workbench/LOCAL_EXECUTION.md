@@ -1,5 +1,19 @@
 # ELECTRON-FULL-LOCAL：持续交付至人工测试
 
+## 2026-10-13 — v1.0.0 用户接受
+
+用户明确指定当前版本为 v1 完成版。交付状态为用户已接受的 `v1.0.0`，包括最近的回答空白与发送确认修复；安装包输出 `desktop/release-v1.0.0`。以下内容为开发及修复历史，不再代表当前等待接受。既有验证事实保持不变；本次不执行 Git 提交、tag、push 或 main 合并。
+
+`node desktop/electron/build.mjs desktop/release-v1.0.0` 构建成功；安装包为 `Room Setup 1.0.0.exe`，包内版本 `1.0.0`，Windows 可执行文件版本为对应四段格式 `1.0.0.0`。本次仅调整版本元数据，沿用上次行为回归证据。
+
+## 2026-10-12 — 回答空白与消息编号复用修复
+
+真实诊断中 rich-text-user-turn 的独立 whitespace-pre-wrap span 只有换行。`node tests/desktop-chatgpt-page-smoke.mjs` 新增对应结构用例，Red 为 `\n !== A、A、A`；改为读取整个 MarkdownRoot 后 Green。
+
+`node tests/desktop-chatgpt-bridge-smoke.mjs` 新增移除旧消息、位置编号复用场景，Red 证据 `room-chatgpt-bridge-AqmXxp`：网页已有完整回复但草稿未清空、Room 仍 unconfirmed。发送前记录消息角色和正文快照替代编号集合后 Green，证据 `room-chatgpt-bridge-Jghlkl`。旧回复仍不能确认新发送，晚到回复解除错误提示，保留澄清及自动保存回归。真实账号的裁剪机制尚未直接观测，本轮结论限于已复现路径。
+
+候选包 `desktop/release-chatgpt-turn-fix`。打包回归第一次功能断言通过，但脚本在应用退出后调用 Playwright process() 导致清理异常；缓存启动时的进程句柄后重跑，证据 `room-chatgpt-bridge-XXXOvu`。用户从托盘退出旧版后回原任务查看已有消息，不重新发送。documentation: updated。
+
 ## 2026-10-12 — 实际消息 DOM 修复候选
 
 用户复测 `confirm-fix` 后仍未同步。真实 `chatgpt-send-diagnostic.json`（21:22:59）有正常会话地址、可编辑输入与停止按钮，但 `messageNodes=[]`；用户消息与回复均未被已有选择器捕获。此前段落与新回复确认测试只证明替身路径，不能代表当前真实页面通过。

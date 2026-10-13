@@ -1,8 +1,6 @@
 # Room desktop
 
-2026-10-12 最新修复候选位于 `desktop/release-chatgpt-message-fix`，本轮按真实诊断修复 MarkdownRoot 消息识别及无语言标签的 JSON 代码块读取，解决网页已有回复而 Room 持续等待的问题；此前自动保存、澄清弹窗及状态反馈保留。真实账号需使用新包复测，不要重发已经完成的消息。边界见 [ADR-0007 §3.3](./ADR/0007-electron-task-workbench.md#33-规划调用更正2026-10-12用户明确要求)。以下安装/重装/卸载证据对应早前候选。
-
-当前候选为独立 Electron 工作台，已于 2026-10-12 达到人工测试就绪，见 [ADR-0007](./ADR/0007-electron-task-workbench.md) 和 [本地实施证据](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md#最终本地交付检查2026-10-12)。源码开发使用 Node 24，运行 `npm run desktop:dev`；`npm run desktop:build` 生成 Windows NSIS 安装包。最终包已通过临时安装、独立启动、重装保留数据和卸载验证；等待用户人工测试与最终接受。
+2026-10-13：用户已将当前版本指定为 **v1.0.0 完成版**，包含独立 Electron 任务工作台、ChatGPT 普通聊天讨论、方案保存、澄清交互，以及回答显示和多轮同步修复。版本状态与历史验证见 [本地实施记录](../work/wf-electron-task-workbench/LOCAL_EXECUTION.md)。源码开发使用 Node 24，运行 `npm run desktop:dev`。
 
 Electron 自行启动本地服务，使用任务中心、原生 Plan、SDD 与实际验证证据；不需要 CDP、Codex 窗口注入、Rust 或 Tauri。关闭窗口隐藏到托盘，明确退出会提示并停止本应用拥有的执行与验证。通过“设置 → 关于与诊断 → 打开日志目录”定位桌面服务日志。
 
@@ -10,15 +8,15 @@ Electron 自行启动本地服务，使用任务中心、原生 Plan、SDD 与�
 
 旧安装器曾替换 Codex 快捷方式；本次开发未修改用户现有快捷方式。迁移时应先检查旧快捷方式目标和 `.room-backup`，由用户选择恢复原 Codex 入口；不可盲目删除 profile 或 Room 数据库。
 
-## 当前候选的人工测试
+## v1.0.0 安装与使用
 
-本轮修复产物：`desktop/release-chatgpt-message-fix/Room Setup 0.1.0.exe`；免安装可运行 `desktop/release-chatgpt-message-fix/win-unpacked/Room.exe`。先从托盘明确退出旧 Room，再打开修复版，避免单实例锁把请求交给旧进程。使用同一用户数据位置，不删除或复制登录凭据。常规构建仍默认输出 `desktop/release`；独立输出命令为 `node desktop/electron/build.mjs desktop/release-chatgpt-message-fix`。已内置 Node 24，运行安装版不要求另装 Node。Git、Codex CLI 和 Claude Code CLI 使用本机现有安装与登录；开发 Skill 不随安装包交付。
+完成版产物：`desktop/release-v1.0.0/Room Setup 1.0.0.exe`；免安装可运行 `desktop/release-v1.0.0/win-unpacked/Room.exe`。先从托盘明确退出旧 Room，再打开 v1.0.0，避免单实例锁把请求交给旧进程。使用同一用户数据位置，不删除或复制登录凭据。常规构建仍默认输出 `desktop/release`；独立输出命令为 `node desktop/electron/build.mjs desktop/release-v1.0.0`。已内置 Node 24，运行安装版不要求另装 Node。Git、Codex CLI 和 Claude Code CLI 使用本机现有安装与登录；开发 Skill 不随安装包交付。
 
 发送确认超时会继续同步，并自动保存 `chatgpt-send-diagnostic.json`（消息容器角色、ID、长度及控件属性，不含正文）。晚到的新回复可自动解除等待；先回到原任务观察，不重复发送。
 
 若已登录仍找不到输入框：打开 ChatGPT 网页窗口，点击“保存页面诊断”。报告保存在应用数据目录的 `chatgpt-page-diagnostic.json`，工具栏显示具体路径。报告只包含页面路径及控件结构，不含输入值、聊天正文或 cookies。
 
-本地候选未签名。安装器不创建或替换桌面、开始菜单和 Codex 日常快捷方式；直接运行 `Room.exe`，需要时由用户创建自己的快捷方式。旧 Codex 入口恢复见上文迁移说明。
+本地安装包未签名。安装器不创建或替换桌面、开始菜单和 Codex 日常快捷方式；直接运行 `Room.exe`，需要时由用户创建自己的快捷方式。旧 Codex 入口恢复见上文迁移说明。
 
 使用独立测试 Git 项目，先完成一个基线 commit，再打开项目文件夹。已有 Room 自动复用绑定；无 Room 时明确点击“为此项目创建 Room”。
 
